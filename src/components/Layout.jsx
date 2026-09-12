@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Home, Store, UserRound, PlusCircle, LogOut, Briefcase } from 'lucide-react'
+import { Home, Store, UserRound, PlusCircle, LogOut, Briefcase, ClipboardList, CalendarCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useEffect, useState } from 'react'
 
@@ -34,6 +34,8 @@ export default function Layout({ children }) {
             <NavItem to="/" icon={Home} label="Feed" />
             <NavItem to="/showroom" icon={Store} label="Showroom" />
             <NavItem to="/my-hats" icon={Briefcase} label="My Hats" />
+            <NavItem to="/my-applications" icon={ClipboardList} label="Applications" />
+            <NavItem to="/my-bookings" icon={CalendarCheck} label="Bookings" />
             <NavItem to="/create" icon={PlusCircle} label="Create" />
             <NavItem to="/profile" icon={UserRound} label="Profile" />
           </nav>
@@ -79,7 +81,9 @@ export default function Layout({ children }) {
         <div className="bg-white rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] border-[1.5px] border-black/5 px-2 h-14 flex items-center justify-around">
           <NavItem to="/" icon={Home} label="Feed" mobile />
           <NavItem to="/showroom" icon={Store} label="Show" mobile />
+          <NavItem to="/my-applications" icon={ClipboardList} label="Apps" mobile />
           <NavItem to="/create" icon={PlusCircle} label="+" mobile accent />
+          <NavItem to="/my-bookings" icon={CalendarCheck} label="Book" mobile />
           <NavItem to="/my-hats" icon={Briefcase} label="Hats" mobile />
           <NavItem to="/profile" icon={UserRound} label="You" mobile />
         </div>

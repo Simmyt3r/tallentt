@@ -29,6 +29,36 @@ export default async function handler(req, res) {
       const url = new URL(req.url, `http://${req.headers.host}`)
       const role = url.searchParams.get('role')
 
+      // GET /api/hats?applied=1 — "My Applications": every hat the
+      // signed-in user has applied to, with their application status.
+      // Folded into this same function (Vercel Hobby's 12-function cap)
+      // rather than a dedicated /api/applications endpoint.
+      if (url.searchParams.get('applied') === '1') {
+        const session = getSessionUser(req)
+        if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
+        try {
+          const { rows } = await query(
+            `SELECT a.id as application_id, a.status, a.message, a.created_at as applied_at,
+                    h.id as hat_id, h.hat_title, h.category, h.role as hat_role,
+                    h.price_type, h.rate, h.price_min, h.price_max, h.currency,
+                    h.rate_unit, h.rate_unit_custom,
+                    u.id as owner_id, u.username as owner_username,
+                    u.full_name as owner_full_name, u.avatar_url as owner_avatar,
+                    (SELECT m.url FROM hat_media m WHERE m.hat_id = h.id ORDER BY m.created_at LIMIT 1) as hat_thumbnail
+             FROM applications a
+             JOIN hats h ON h.id = a.hat_id
+             LEFT JOIN users u ON u.id = h.user_id
+             WHERE a.applicant_id = $1
+             ORDER BY a.created_at DESC`,
+            [session.sub],
+          )
+          return json(res, 200, { applications: rows })
+        } catch (appErr) {
+          console.error('my applications lookup failed (has patch-applications.sql been run?):', appErr)
+          return json(res, 200, { applications: [] })
+        }
+      }
+
       // Seeking-field typeahead: GET /api/hats?suggest=1&role=talent&q=henna
       // Reuses this endpoint instead of a dedicated function (Hobby plan's
       // 12-function cap) — returns distinct hat_title values from the

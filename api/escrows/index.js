@@ -3,6 +3,41 @@ import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 
 export default async function handler(req, res) {
+  // GET /api/escrows?mine=1 — "My Bookings": escrows the signed-in user
+  // created as a client, joined with the hat + its owner. Folded into
+  // this same function (Vercel Hobby's 12-function cap) rather than a
+  // dedicated /api/bookings endpoint.
+  if (req.method === 'GET') {
+    try {
+      const session = getSessionUser(req)
+      if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
+
+      const url = new URL(req.url, `http://${req.headers.host}`)
+      if (url.searchParams.get('mine') !== '1') {
+        return methodNotAllowed(res, ['POST'])
+      }
+
+      const { rows } = await query(
+        `SELECT e.id, e.hat_id, e.client_id, e.talent_id, e.amount, e.status,
+                e.contacts_unlocked, e.created_at, e.released_at,
+                h.hat_title, h.category, h.role as hat_role, h.currency,
+                u.id as talent_user_id, u.username as talent_username,
+                u.full_name as talent_full_name, u.avatar_url as talent_avatar,
+                (SELECT m.url FROM hat_media m WHERE m.hat_id = h.id ORDER BY m.created_at LIMIT 1) as hat_thumbnail
+         FROM escrows e
+         JOIN hats h ON h.id = e.hat_id
+         LEFT JOIN users u ON u.id = e.talent_id
+         WHERE e.client_id = $1
+         ORDER BY e.created_at DESC`,
+        [session.sub],
+      )
+      return json(res, 200, { bookings: rows })
+    } catch (err) {
+      console.error(err)
+      return json(res, 500, { error: 'Failed to fetch bookings' })
+    }
+  }
+
   if (req.method !== 'POST') return methodNotAllowed(res, ['POST'])
 
   try {

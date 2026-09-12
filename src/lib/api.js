@@ -64,6 +64,12 @@ export const api = {
       body: JSON.stringify({ action: 'respond_application', application_id: applicationId, status }),
     }),
   getHatApplicants: (id) => request(`/api/hats/${id}?include=applications`),
+
+  // My Applications / My Bookings — reuse the existing hats/escrows
+  // endpoints with a query param rather than dedicated ones (see
+  // api/hats/index.js and api/escrows/index.js for the 12-function-cap note).
+  getMyApplications: () => request('/api/hats?applied=1'),
+  getMyBookings: () => request('/api/escrows?mine=1'),
 }
 
 export async function uploadToCloudinary(file) {

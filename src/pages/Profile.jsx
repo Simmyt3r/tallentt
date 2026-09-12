@@ -282,12 +282,26 @@ export default function Profile() {
         </div>
       </dl>
 
-      <Link
-        to="/my-hats"
-        className="inline-flex h-11 px-5 rounded-full bg-[#0A13E6] text-white text-[13px] font-semibold border-[1.5px] border-black items-center shadow-[0_4px_12px_rgba(10,19,230,0.25)] hover:bg-black transition"
-      >
-        Manage my hats →
-      </Link>
+      <div className="flex flex-wrap gap-3">
+        <Link
+          to="/my-hats"
+          className="inline-flex h-11 px-5 rounded-full bg-[#0A13E6] text-white text-[13px] font-semibold border-[1.5px] border-black items-center shadow-[0_4px_12px_rgba(10,19,230,0.25)] hover:bg-black transition"
+        >
+          Manage my hats →
+        </Link>
+        <Link
+          to="/my-applications"
+          className="inline-flex h-11 px-5 rounded-full bg-white text-black text-[13px] font-semibold border-[1.5px] border-black items-center hover:bg-black hover:text-white transition"
+        >
+          My applications →
+        </Link>
+        <Link
+          to="/my-bookings"
+          className="inline-flex h-11 px-5 rounded-full bg-white text-black text-[13px] font-semibold border-[1.5px] border-black items-center hover:bg-black hover:text-white transition"
+        >
+          My bookings →
+        </Link>
+      </div>
     </div>
   )
 }

@@ -9,6 +9,8 @@ import MyHats from './components/MyHats.jsx'
 import HatForm from './components/HatForm.jsx'
 import Profile from './pages/Profile.jsx'
 import TalentProfile from './pages/TalentProfile.jsx'
+import MyApplications from './pages/MyApplications.jsx'
+import MyBookings from './pages/MyBookings.jsx'
 
 function FullPageSpinner() {
   return (
@@ -82,6 +84,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-applications"
+        element={
+          <ProtectedRoute>
+            <MyApplications />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-bookings"
+        element={
+          <ProtectedRoute>
+            <MyBookings />
           </ProtectedRoute>
         }
       />
