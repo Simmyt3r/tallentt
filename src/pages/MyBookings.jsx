@@ -1,7 +1,9 @@
+// Path: src/pages/MyBookings.jsx
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Clock } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, payWithPaystack } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
 
 // Co-located per the codebase's existing pattern (see BentoCard.jsx,
 // TalentProfile.jsx) rather than pulled into a shared helper.
@@ -33,6 +35,7 @@ const STATUS_LABEL = {
 // api/hats/[id].js's has_booked comment). Reads from
 // GET /api/escrows?mine=1 (see api/escrows/index.js).
 export default function MyBookings() {
+  const { user } = useAuth()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,12 +61,15 @@ export default function MyBookings() {
 
   async function handleFund(b) {
     setBusyId(b.id)
-    const prev = bookings
-    setBookings((list) => list.map((x) => (x.id === b.id ? { ...x, status: 'secured', contacts_unlocked: true } : x)))
     try {
-      await api.fundEscrow(b.id)
+      const reference = await payWithPaystack({
+        email: user.email,
+        amountNaira: b.amount,
+        metadata: { escrow_id: b.id, hat_id: b.hat_id },
+      })
+      const { escrow } = await api.fundEscrow(b.id, reference)
+      setBookings((list) => list.map((x) => (x.id === b.id ? { ...x, ...escrow } : x)))
     } catch (e) {
-      setBookings(prev)
       alert(e.message)
     } finally {
       setBusyId(null)

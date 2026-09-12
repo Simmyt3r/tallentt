@@ -1,3 +1,4 @@
+// Path: src/lib/api.js
 const base = ''
 
 async function request(path, options = {}) {
@@ -49,7 +50,8 @@ export const api = {
   getSeekingSuggestions: (role, q) =>
     request(`/api/hats?suggest=1&role=${encodeURIComponent(role)}&q=${encodeURIComponent(q || '')}`),
   createEscrow: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
-  fundEscrow: (id) => request(`/api/escrows/${id}/fund`, { method: 'POST' }),
+  fundEscrow: (id, reference) =>
+    request(`/api/escrows/${id}/fund`, { method: 'POST', body: JSON.stringify({ reference }) }),
   releaseEscrow: (id) => request(`/api/escrows/${id}/release`, { method: 'POST' }),
 
   // Applications — same PATCH-action pattern as toggleLike/recordView
@@ -94,6 +96,36 @@ export async function uploadToCloudinary(file) {
     public_id: data.public_id,
     type: data.resource_type || 'image',
   }
+}
+
+// Opens the Paystack Inline popup and resolves with the transaction
+// reference once the user completes payment. That reference is only ever
+// a claim at this point — api.fundEscrow() sends it to the server, which
+// re-verifies it directly against Paystack (see api/_lib/paystack.js)
+// before an escrow is ever marked as funded. Never trust this resolved
+// value on its own to unlock anything client-side.
+export function payWithPaystack({ email, amountNaira, reference, metadata }) {
+  return new Promise((resolve, reject) => {
+    const key = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY
+    if (!key) return reject(new Error('Paystack is not configured (VITE_PAYSTACK_PUBLIC_KEY missing).'))
+    if (!window.PaystackPop) {
+      return reject(new Error('Paystack failed to load. Check your connection and try again.'))
+    }
+    if (!email) return reject(new Error('An email address is required to pay.'))
+    if (!amountNaira || amountNaira <= 0) return reject(new Error('Invalid payment amount.'))
+
+    const handler = window.PaystackPop.setup({
+      key,
+      email,
+      amount: Math.round(amountNaira * 100), // Paystack takes kobo, not naira
+      currency: 'NGN',
+      ref: reference || `chombutar_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
+      metadata: metadata || {},
+      callback: (response) => resolve(response.reference),
+      onClose: () => reject(new Error('Payment window closed before completing.')),
+    })
+    handler.openIframe()
+  })
 }
 
 export function maskLeaks(text) {

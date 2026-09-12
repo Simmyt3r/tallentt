@@ -1,10 +1,13 @@
+// Path: src/pages/Feed.jsx
 import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, payWithPaystack } from '../lib/api'
 import BentoCard from '../components/BentoCard'
 import { useBrowseRole } from '../components/Layout'
+import { useAuth } from '../context/AuthContext'
 
 export default function Feed() {
+  const { user } = useAuth()
   const browseRole = useBrowseRole()
   const hatRole = browseRole === 'talent' ? 'client' : 'talent'
   const [hats, setHats] = useState([])
@@ -32,10 +35,14 @@ export default function Feed() {
   async function handleBook(hat) {
     try {
       const { escrow } = await api.createEscrow({ hat_id: hat.id, talent_id: hat.user_id })
-      if (confirm(`Escrow created for ₦${escrow.amount.toLocaleString()}. Fund now to unlock contacts?`)) {
-        await api.fundEscrow(escrow.id)
-        alert('Escrow secured! Contacts unlocked.')
-      }
+      if (!confirm(`Pay ₦${escrow.amount.toLocaleString()} to secure this booking and unlock contacts?`)) return
+      const reference = await payWithPaystack({
+        email: user.email,
+        amountNaira: escrow.amount,
+        metadata: { escrow_id: escrow.id, hat_id: hat.id },
+      })
+      await api.fundEscrow(escrow.id, reference)
+      alert('Payment verified — escrow secured! Contacts unlocked.')
     } catch (e) {
       alert(e.message)
     }

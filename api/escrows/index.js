@@ -1,3 +1,4 @@
+// Path: api/escrows/index.js
 import { query } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'

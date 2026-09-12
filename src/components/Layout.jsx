@@ -1,3 +1,4 @@
+// Path: src/components/Layout.jsx
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { Home, Store, UserRound, PlusCircle, LogOut, Briefcase, ClipboardList, CalendarCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'

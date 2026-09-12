@@ -1,3 +1,4 @@
+// Path: src/pages/Profile.jsx
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Camera, ShieldCheck } from 'lucide-react'
