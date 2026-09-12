@@ -51,6 +51,19 @@ export const api = {
   createEscrow: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
   fundEscrow: (id) => request(`/api/escrows/${id}/fund`, { method: 'POST' }),
   releaseEscrow: (id) => request(`/api/escrows/${id}/release`, { method: 'POST' }),
+
+  // Applications — same PATCH-action pattern as toggleLike/recordView
+  // above, on the same /api/hats/:id endpoint (see api/hats/[id].js).
+  applyToHat: (id, message) =>
+    request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'apply', message }) }),
+  withdrawApplication: (id) =>
+    request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'withdraw' }) }),
+  respondToApplication: (id, applicationId, status) =>
+    request(`/api/hats/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'respond_application', application_id: applicationId, status }),
+    }),
+  getHatApplicants: (id) => request(`/api/hats/${id}?include=applications`),
 }
 
 export async function uploadToCloudinary(file) {

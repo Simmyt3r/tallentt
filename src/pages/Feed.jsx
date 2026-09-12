@@ -42,7 +42,17 @@ export default function Feed() {
   }
 
   async function handleApply(hat) {
-    alert(`Application sent for “${hat.hat_title}”. (Wire messaging next.)`)
+    try {
+      const { application, already_applied } = await api.applyToHat(hat.id)
+      handleHatChange({ id: hat.id, my_application: application })
+      alert(
+        already_applied
+          ? `You already applied for “${hat.hat_title}”.`
+          : `Application sent for “${hat.hat_title}”.`,
+      )
+    } catch (e) {
+      alert(e.message)
+    }
   }
 
   // Patches a single card in the feed list in place — used so a like/view

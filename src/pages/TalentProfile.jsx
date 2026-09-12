@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Clock, Eye, Heart, MapPin, Star } from 'lucide-react'
+import { ArrowLeft, BookOpen, Clock, Eye, Heart, MapPin, Send, Star } from 'lucide-react'
 import { api } from '../lib/api'
 import AvailabilityBadge from '../components/AvailabilityBadge'
 
@@ -54,6 +54,8 @@ export default function TalentProfile() {
   const [error, setError] = useState('')
   const [activeMedia, setActiveMedia] = useState(0)
   const [booking, setBooking] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const [appliedStatus, setAppliedStatus] = useState(null)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [liking, setLiking] = useState(false)
@@ -69,6 +71,7 @@ export default function TalentProfile() {
         if (!cancelled) {
           setHat(data.hat)
           setActiveMedia(0)
+          setAppliedStatus(data.hat.my_application?.status || null)
           setLiked(!!data.hat.liked_by_me)
           setLikeCount(data.hat.likes || 0)
           setViewCount((data.hat.views || 0) + 1)
@@ -114,6 +117,20 @@ export default function TalentProfile() {
       alert(e.message)
     } finally {
       setBooking(false)
+    }
+  }
+
+  async function handleApply() {
+    if (!hat) return
+    setApplying(true)
+    try {
+      const { application, already_applied } = await api.applyToHat(hat.id)
+      setAppliedStatus(application?.status || 'pending')
+      alert(already_applied ? 'You already applied to this hat.' : 'Application sent!')
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setApplying(false)
     }
   }
 
@@ -251,7 +268,7 @@ export default function TalentProfile() {
             </div>
           )}
 
-          {hat.role === 'talent' && (
+          {hat.role === 'talent' ? (
             <button
               type="button"
               disabled={booking}
@@ -259,6 +276,22 @@ export default function TalentProfile() {
               className="tw-btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60"
             >
               <BookOpen size={16} /> {booking ? 'Booking…' : 'Book Talent'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={applying || appliedStatus === 'pending' || appliedStatus === 'accepted'}
+              onClick={handleApply}
+              className="tw-btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              <Send size={16} />
+              {applying
+                ? 'Applying…'
+                : appliedStatus === 'accepted'
+                ? 'Application accepted'
+                : appliedStatus === 'pending'
+                ? 'Applied'
+                : 'Apply'}
             </button>
           )}
         </div>

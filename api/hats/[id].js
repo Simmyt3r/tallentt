@@ -37,7 +37,30 @@ async function getHat(id, viewerId) {
       console.error('liked_by_me lookup failed (has patch-views-likes.sql been run?):', likeErr)
     }
   }
-  return { ...rows[0], media, confidence: rows[0].orbit_score, liked_by_me: likedByMe }
+  // The viewer's own application against this hat, if any — { id, status }
+  // or null. Powers has_applied below and lets TalentProfile/the detail
+  // modal show "Applied" instead of a raw Apply button.
+  let myApplication = null
+  if (viewerId) {
+    try {
+      const { rows: appRows } = await query(
+        `SELECT id, status FROM applications WHERE hat_id = $1 AND applicant_id = $2`,
+        [id, viewerId],
+      )
+      myApplication = appRows[0] || null
+    } catch (appErr) {
+      // applications may not exist yet if db/patch-applications.sql hasn't
+      // been run — don't let that break fetching the hat itself.
+      console.error('my_application lookup failed (has patch-applications.sql been run?):', appErr)
+    }
+  }
+  return {
+    ...rows[0],
+    media,
+    confidence: rows[0].orbit_score,
+    liked_by_me: likedByMe,
+    my_application: myApplication,
+  }
 }
 
 // Builds the normalized card-detail shape BentoCardDetailModal needs. This
@@ -68,6 +91,10 @@ async function buildCardDetail(hat, viewerId) {
       console.error('has_booked lookup failed:', err)
     }
   }
+
+  // A pending or accepted row in `applications` (see getHat's my_application)
+  // means the viewer has an active application on this hat.
+  const hasApplied = Boolean(hat.my_application && ['pending', 'accepted'].includes(hat.my_application.status))
 
   return {
     id: hat.id,
@@ -107,8 +134,7 @@ async function buildCardDetail(hat, viewerId) {
       location: ownerLocation,
       bio_short: bioShort,
     },
-    // No applications system exists yet — safe default, not a new one.
-    has_applied: false,
+    has_applied: hasApplied,
     has_booked: hasBooked,
   }
 }
@@ -136,6 +162,31 @@ export default async function handler(req, res) {
       if (include.includes('owner')) {
         const card = await buildCardDetail(hat, session?.sub)
         return json(res, 200, card)
+      }
+
+      // GET /api/hats/:id?include=applications — owner-only list of who
+      // applied to this hat, for MyHats. Reuses this same endpoint/function
+      // rather than a dedicated one (see the [action] merge in
+      // api/escrows for why — Vercel Hobby's 12-function cap).
+      if (include.includes('applications')) {
+        if (!session?.sub || hat.user_id !== session.sub) {
+          return json(res, 403, { error: 'Forbidden' })
+        }
+        try {
+          const { rows: applications } = await query(
+            `SELECT a.id, a.status, a.message, a.created_at,
+                    u.id as applicant_id, u.username, u.full_name, u.avatar_url
+             FROM applications a
+             JOIN users u ON u.id = a.applicant_id
+             WHERE a.hat_id = $1
+             ORDER BY a.created_at DESC`,
+            [id],
+          )
+          return json(res, 200, { hat, applications })
+        } catch (appErr) {
+          console.error('applications list failed (has patch-applications.sql been run?):', appErr)
+          return json(res, 200, { hat, applications: [] })
+        }
       }
 
       return json(res, 200, { hat })
@@ -291,6 +342,9 @@ export default async function handler(req, res) {
       if (!existing) return json(res, 404, { error: 'Hat not found' })
 
       const body = await readBody(req)
+      let application = null
+      let alreadyApplied = false
+
       if (body.action === 'view') {
         await query(`UPDATE hats SET views = views + 1 WHERE id = $1`, [id])
       } else if (body.action === 'like') {
@@ -308,12 +362,64 @@ export default async function handler(req, res) {
           )
           await query(`UPDATE hats SET likes = likes + 1 WHERE id = $1`, [id])
         }
+      } else if (body.action === 'apply') {
+        // Applying to your own hat makes no sense.
+        if (existing.user_id === session.sub) {
+          return json(res, 400, { error: "You can't apply to your own hat." })
+        }
+        const message = typeof body.message === 'string' ? body.message.slice(0, 500) : null
+        const { rows: existingApp } = await query(
+          `SELECT id, status FROM applications WHERE hat_id = $1 AND applicant_id = $2`,
+          [id, session.sub],
+        )
+        if (existingApp[0] && ['pending', 'accepted'].includes(existingApp[0].status)) {
+          // Already have a live application — idempotent, not an error.
+          application = existingApp[0]
+          alreadyApplied = true
+        } else if (existingApp[0]) {
+          // Re-applying after a withdrawal/rejection — reuse the row (the
+          // hat_id+applicant_id unique constraint means we can't insert
+          // a second one) instead of erroring.
+          const { rows } = await query(
+            `UPDATE applications SET status = 'pending', message = COALESCE($1, message), created_at = NOW()
+             WHERE id = $2 RETURNING *`,
+            [message, existingApp[0].id],
+          )
+          application = rows[0]
+        } else {
+          const { rows } = await query(
+            `INSERT INTO applications (hat_id, applicant_id, message) VALUES ($1,$2,$3) RETURNING *`,
+            [id, session.sub, message],
+          )
+          application = rows[0]
+        }
+      } else if (body.action === 'withdraw') {
+        const { rows } = await query(
+          `UPDATE applications SET status = 'withdrawn'
+           WHERE hat_id = $1 AND applicant_id = $2 AND status IN ('pending','accepted')
+           RETURNING *`,
+          [id, session.sub],
+        )
+        application = rows[0] || null
+      } else if (body.action === 'respond_application') {
+        // Hat owner accepting/rejecting one of their applicants.
+        if (existing.user_id !== session.sub) return json(res, 403, { error: 'Forbidden' })
+        const { application_id, status } = body
+        if (!application_id || !['accepted', 'rejected'].includes(status)) {
+          return json(res, 400, { error: 'application_id and a valid status (accepted/rejected) are required.' })
+        }
+        const { rows } = await query(
+          `UPDATE applications SET status = $1 WHERE id = $2 AND hat_id = $3 RETURNING *`,
+          [status, application_id, id],
+        )
+        if (!rows[0]) return json(res, 404, { error: 'Application not found' })
+        application = rows[0]
       } else {
         return json(res, 400, { error: 'Unknown action' })
       }
 
       const hat = await getHat(id, session.sub)
-      return json(res, 200, { hat })
+      return json(res, 200, { hat, application, already_applied: alreadyApplied })
     } catch (err) {
       console.error(err)
       return json(res, 500, { error: 'Failed to update engagement' })

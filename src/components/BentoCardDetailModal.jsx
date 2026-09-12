@@ -160,10 +160,17 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const [liking, setLiking] = useState(false)
   const viewedRef = useRef(null)
 
+  // Applying — onApply is owned by the parent (Feed/Showroom), so this is
+  // just an optimistic local flag set once that call settles, plus
+  // whatever the detail fetch already knows (has_applied) once loaded.
+  const [applying, setApplying] = useState(false)
+  const [justApplied, setJustApplied] = useState(false)
+
   useEffect(() => {
     setLiked(!!hat?.liked_by_me)
     setLikeCount(hat?.likes || 0)
     setViewCount(hat?.views || 0)
+    setJustApplied(false)
   }, [cardId, hat?.liked_by_me, hat?.likes, hat?.views])
 
   // Record one view per card per time the modal is open — same
@@ -291,6 +298,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const availabilityWindow = formatAvailabilityWindow(hat)
   const priceDisplay = loaded ? formatBudget(detail.budget) : formatPrice(hat, currency)
   const publishedLabel = formatDate(loaded ? detail.created_at : hat.created_at)
+  const applied = (loaded && Boolean(detail.has_applied)) || justApplied
 
   return (
     <div
@@ -528,13 +536,27 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
-                className={`flex-1 h-12 rounded-full text-white font-semibold text-[14px] border-[1.5px] border-black flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(10,19,230,0.25)] hover:bg-black transition ${
+                disabled={!isTalent && (applying || applied)}
+                className={`flex-1 h-12 rounded-full text-white font-semibold text-[14px] border-[1.5px] border-black flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(10,19,230,0.25)] hover:bg-black transition disabled:opacity-60 ${
                   isTalent ? 'bg-[#0A13E6]' : 'bg-black'
                 }`}
-                onClick={() => (isTalent ? onBook?.(hat) : onApply?.(hat))}
+                onClick={async () => {
+                  if (isTalent) {
+                    onBook?.(hat)
+                    return
+                  }
+                  if (applied || applying) return
+                  setApplying(true)
+                  try {
+                    await onApply?.(hat)
+                    setJustApplied(true)
+                  } finally {
+                    setApplying(false)
+                  }
+                }}
               >
                 {isTalent ? <BookOpen size={16} /> : <Send size={16} />}
-                {isTalent ? 'Book Talent' : 'Apply'}
+                {isTalent ? 'Book Talent' : applying ? 'Applying…' : applied ? 'Applied' : 'Apply'}
               </button>
             </div>
           </div>
