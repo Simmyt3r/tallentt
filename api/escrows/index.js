@@ -1,7 +1,9 @@
 // Path: api/escrows/index.js
 import { query } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
-import { json, methodNotAllowed, readBody } from '../_lib/http.js'
+import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
+import { verifyPaystackWebhookSignature, verifyPaystackTransaction } from '../_lib/paystack.js'
+import { applyVerifiedPayment } from '../_lib/escrowPayments.js'
 
 export default async function handler(req, res) {
   // GET /api/escrows?mine=1 — "My Bookings": escrows the signed-in user
@@ -42,6 +44,16 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return methodNotAllowed(res, ['POST'])
 
+  // Paystack webhook — point Paystack's dashboard at this same URL
+  // (https://chombutar.vercel.app/api/escrows). Distinguished from the
+  // app's own "create escrow" POST purely by the signature header, which
+  // only Paystack sends. Folded in here rather than a dedicated
+  // /api/webhooks/paystack endpoint (Vercel Hobby's 12-function cap).
+  const signature = req.headers['x-paystack-signature']
+  if (signature) {
+    return handlePaystackWebhook(req, res, signature)
+  }
+
   try {
     const session = getSessionUser(req)
     if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
@@ -72,4 +84,53 @@ export default async function handler(req, res) {
     console.error(err)
     return json(res, 500, { error: err.message || 'Failed to create escrow' })
   }
+}
+
+// Handles Paystack's charge.success event as a fallback to the client-side
+// callback in payWithPaystack() — if the user closes the tab right after
+// paying, this is what still confirms the payment and secures the escrow.
+// Shares applyVerifiedPayment() with fund() (api/escrows/[id]/[action].js)
+// so a payment only ever gets applied once, whichever path sees it first.
+async function handlePaystackWebhook(req, res, signature) {
+  const rawBody = await readRawBody(req)
+
+  if (!verifyPaystackWebhookSignature(rawBody, signature)) {
+    console.error('Paystack webhook: signature mismatch — rejecting')
+    return json(res, 401, { error: 'Invalid signature' })
+  }
+
+  let event
+  try {
+    event = JSON.parse(rawBody.toString('utf8'))
+  } catch {
+    return json(res, 400, { error: 'Invalid payload' })
+  }
+
+  // Acknowledge everything we don't act on with 200 — Paystack retries
+  // non-2xx responses, and neither "wrong event type" nor a downstream
+  // business-logic mismatch is something a retry would fix.
+  if (event?.event !== 'charge.success') {
+    return json(res, 200, { received: true })
+  }
+
+  const data = event.data || {}
+  const escrowId = data.metadata?.escrow_id
+  if (!escrowId) {
+    console.error('Paystack webhook: charge.success with no escrow_id in metadata, reference:', data.reference)
+    return json(res, 200, { received: true })
+  }
+
+  try {
+    // Re-verify against Paystack's API rather than trusting the webhook
+    // payload's amount/status directly — belt-and-suspenders even though
+    // the signature already authenticates the sender.
+    const txn = await verifyPaystackTransaction(data.reference)
+    await applyVerifiedPayment({ escrowId, reference: data.reference, txn })
+  } catch (err) {
+    // Logged for manual reconciliation, not retried — a payload that
+    // fails validation now (amount mismatch, wrong currency, etc.) will
+    // fail identically on every retry.
+    console.error('Paystack webhook: failed to apply payment', { escrowId, reference: data.reference }, err)
+  }
+  return json(res, 200, { received: true })
 }

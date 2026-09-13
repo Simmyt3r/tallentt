@@ -1,4 +1,6 @@
 // Path: api/_lib/paystack.js
+import crypto from 'node:crypto'
+
 const PAYSTACK_BASE = 'https://api.paystack.co'
 
 function getSecretKey() {
@@ -100,4 +102,18 @@ export async function initiateTransfer({ amountNaira, recipientCode, reference, 
     throw new Error(data?.message || 'Could not initiate the payout.')
   }
   return data.data // { transfer_code, status: 'success' | 'otp' | 'pending', reference, ... }
+}
+
+// Confirms a webhook POST actually came from Paystack. Paystack signs
+// every webhook with HMAC-SHA512 of the *raw* request body using your
+// secret key — must be computed over the exact bytes received, before
+// any JSON.parse, or the signature won't match.
+export function verifyPaystackWebhookSignature(rawBody, signature) {
+  if (!signature) return false
+  const expected = crypto.createHmac('sha512', getSecretKey()).update(rawBody).digest('hex')
+  // Constant-time compare — a signature check that leaks timing info via
+  // early-exit string comparison defeats the point of having one.
+  const a = Buffer.from(expected, 'utf8')
+  const b = Buffer.from(String(signature), 'utf8')
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
 }

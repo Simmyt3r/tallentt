@@ -9,6 +9,15 @@ export function methodNotAllowed(res, allowed = []) {
   json(res, 405, { error: 'Method not allowed' })
 }
 
+export async function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    req.on('data', (c) => chunks.push(c))
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+}
+
 export async function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = []

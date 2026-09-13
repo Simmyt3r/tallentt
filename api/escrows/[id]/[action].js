@@ -3,6 +3,7 @@ import { query } from '../../_lib/db.js'
 import { getSessionUser } from '../../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../../_lib/http.js'
 import { verifyPaystackTransaction, initiateTransfer } from '../../_lib/paystack.js'
+import { applyVerifiedPayment } from '../../_lib/escrowPayments.js'
 
 // Handles both:
 //   POST /api/escrows/:id/fund
@@ -31,20 +32,11 @@ async function fund(req, res, id) {
     const reference = typeof body?.reference === 'string' ? body.reference.trim() : ''
     if (!reference) return json(res, 400, { error: 'Payment reference is required.' })
 
-    const { rows: existingRows } = await query(
-      `SELECT * FROM escrows WHERE id = $1 AND client_id = $2 AND status = 'not_funded'`,
-      [id, session.sub],
-    )
-    const escrow = existingRows[0]
-    if (!escrow) return json(res, 404, { error: 'Escrow not found or already funded' })
-
-    // A Paystack reference can only ever fund one escrow — blocks replaying
-    // the same successful transaction against a second booking.
-    const { rows: dupeRows } = await query(
-      `SELECT id FROM escrows WHERE payment_reference = $1`,
-      [reference],
-    )
-    if (dupeRows[0]) return json(res, 409, { error: 'This payment reference has already been used.' })
+    const { rows: ownedRows } = await query(`SELECT id FROM escrows WHERE id = $1 AND client_id = $2`, [
+      id,
+      session.sub,
+    ])
+    if (!ownedRows[0]) return json(res, 404, { error: 'Escrow not found.' })
 
     let txn
     try {
@@ -54,25 +46,17 @@ async function fund(req, res, id) {
       return json(res, 402, { error: err.message || 'Could not verify payment.' })
     }
 
-    if (txn.status !== 'success') {
-      return json(res, 402, { error: `Payment was not successful (status: ${txn.status}).` })
+    // Shared with the Paystack webhook (api/escrows/index.js) — whichever
+    // of the two notices this payment first wins; if the webhook already
+    // beat this request to it (e.g. the user closed the tab right after
+    // paying and this callback is only firing now on a retry), this just
+    // returns the already-secured escrow instead of erroring.
+    try {
+      const { escrow } = await applyVerifiedPayment({ escrowId: id, reference, txn })
+      return json(res, 200, { escrow })
+    } catch (err) {
+      return json(res, err.status || 402, { error: err.message })
     }
-    if ((txn.currency || 'NGN') !== 'NGN') {
-      return json(res, 402, { error: 'Unexpected payment currency.' })
-    }
-    // Paystack reports amount in kobo; escrows.amount is stored in naira.
-    if (Math.round(txn.amount / 100) !== Number(escrow.amount)) {
-      console.error(`Paystack amount mismatch: paid ${txn.amount / 100}, expected ${escrow.amount}`)
-      return json(res, 402, { error: 'Paid amount does not match the escrow amount.' })
-    }
-
-    const { rows } = await query(
-      `UPDATE escrows SET status = 'secured', contacts_unlocked = true,
-              payment_reference = $1, funded_at = NOW()
-       WHERE id = $2 RETURNING *`,
-      [reference, id],
-    )
-    return json(res, 200, { escrow: rows[0] })
   } catch (err) {
     console.error(err)
     return json(res, 500, { error: 'Failed to fund escrow' })
