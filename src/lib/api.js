@@ -25,6 +25,11 @@ export const api = {
   logout: () => request('/api/auth/logout', { method: 'POST' }),
   usernameCheck: (u) => request(`/api/auth/username-check?u=${encodeURIComponent(u)}`),
   updateProfile: (body) => request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(body) }),
+  getBanks: () => request('/api/auth/profile?action=banks'),
+  resolveBankAccount: (accountNumber, bankCode) =>
+    request(
+      `/api/auth/profile?action=resolve-account&account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
+    ),
 
   // Hats
   getHats: (params = {}) => {

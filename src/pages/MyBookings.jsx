@@ -142,6 +142,9 @@ export default function MyBookings() {
               >
                 {STATUS_LABEL[b.status] || b.status}
               </span>
+              {b.status === 'released' && b.payout_status === 'pending' && (
+                <span className="text-[10px] text-black/40 font-medium shrink-0">Payout processing</span>
+              )}
               {b.status === 'not_funded' && (
                 <button
                   type="button"

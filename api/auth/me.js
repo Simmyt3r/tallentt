@@ -1,3 +1,4 @@
+// Path: api/auth/me.js
 import { query } from '../_lib/db.js'
 import { getSessionUser, toPublicUser } from '../_lib/auth.js'
 
@@ -13,7 +14,8 @@ export default async function handler(req, res) {
   try {
     const result = await query(
       `SELECT id, full_name, username, email, role, country, lga,
-              avatar_url, bio, location, phone, nin_hash, nin_last4
+              avatar_url, bio, location, phone, nin_hash, nin_last4,
+              bank_name, account_number, account_name, paystack_recipient_code
        FROM users WHERE id = $1`,
       [session.sub],
     )

@@ -1,7 +1,7 @@
 // Path: src/pages/Profile.jsx
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Camera, ShieldCheck } from 'lucide-react'
+import { Camera, ShieldCheck, Landmark, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { api, uploadToCloudinary } from '../lib/api'
 
@@ -23,6 +23,16 @@ export default function Profile() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const usernameDebounce = useRef(null)
+
+  // Payout details
+  const [banks, setBanks] = useState([])
+  const [banksLoading, setBanksLoading] = useState(false)
+  const [bankCode, setBankCode] = useState('')
+  const [accountNumber, setAccountNumber] = useState('')
+  const [resolvedName, setResolvedName] = useState('')
+  const [resolving, setResolving] = useState(false)
+  const [payoutError, setPayoutError] = useState('')
+  const resolveDebounce = useRef(null)
 
   useEffect(() => {
     const u = username.trim().replace(/^@/, '')
@@ -48,6 +58,26 @@ export default function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username, editing])
 
+  useEffect(() => {
+    setResolvedName('')
+    setPayoutError('')
+    if (!editing || !bankCode || !/^\d{10}$/.test(accountNumber)) return
+    setResolving(true)
+    clearTimeout(resolveDebounce.current)
+    resolveDebounce.current = setTimeout(async () => {
+      try {
+        const data = await api.resolveBankAccount(accountNumber, bankCode)
+        setResolvedName(data.accountName)
+      } catch (err) {
+        setPayoutError(err.message)
+      } finally {
+        setResolving(false)
+      }
+    }, 500)
+    return () => clearTimeout(resolveDebounce.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankCode, accountNumber, editing])
+
   if (!user) return null
 
   const initials = (user.fullName || user.username || '?')
@@ -68,8 +98,20 @@ export default function Profile() {
     setLga(user.lga || '')
     setNin('')
     setAvatarUrl(user.avatarUrl || '')
+    setBankCode('')
+    setAccountNumber('')
+    setResolvedName('')
+    setPayoutError('')
     setError('')
     setEditing(true)
+    if (banks.length === 0) {
+      setBanksLoading(true)
+      api
+        .getBanks()
+        .then((data) => setBanks(data.banks || []))
+        .catch(() => setPayoutError('Could not load the bank list. Try again shortly.'))
+        .finally(() => setBanksLoading(false))
+    }
   }
 
   async function onAvatarFile(e) {
@@ -104,8 +146,21 @@ export default function Profile() {
       setError('NIN must be exactly 11 digits.')
       return
     }
+    if (accountNumber && !bankCode) {
+      setError('Choose a bank for your account number.')
+      return
+    }
+    if (bankCode && !/^\d{10}$/.test(accountNumber)) {
+      setError('Account number must be exactly 10 digits.')
+      return
+    }
+    if (bankCode && accountNumber && !resolvedName) {
+      setError(resolving ? 'Still verifying that account — wait a moment and try again.' : payoutError || 'Could not verify that account number.')
+      return
+    }
     setSaving(true)
     try {
+      const selectedBank = banks.find((b) => b.code === bankCode)
       await updateProfile({
         username: u,
         phone: phone.trim() || undefined,
@@ -115,6 +170,9 @@ export default function Profile() {
         lga: lga.trim() || undefined,
         avatarUrl: avatarUrl || undefined,
         nin: nin.trim() || undefined,
+        bankCode: bankCode || undefined,
+        bankName: selectedBank?.name || undefined,
+        accountNumber: accountNumber || undefined,
       })
       setNin('')
       setEditing(false)
@@ -216,6 +274,57 @@ export default function Profile() {
           </p>
         </Field>
 
+        <div className="rounded-[16px] border-[1.5px] border-black/10 p-4 space-y-3">
+          <p className="tw-label flex items-center gap-1.5">
+            <Landmark size={13} /> Payout bank account
+          </p>
+          {user.payoutReady && !bankCode && (
+            <p className="text-[12px] text-black/60 font-medium flex items-center gap-1.5">
+              <CheckCircle2 size={13} className="text-green-600" />
+              On file: {user.bankName} ···· {user.accountNumber?.slice(-4)} ({user.accountName})
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-1.5">
+              <span className="text-[11px] text-black/50 font-medium">Bank</span>
+              <select
+                className="tw-input"
+                value={bankCode}
+                onChange={(e) => setBankCode(e.target.value)}
+                disabled={banksLoading}
+              >
+                <option value="">{banksLoading ? 'Loading banks…' : 'Select bank'}</option>
+                {banks.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-[11px] text-black/50 font-medium">Account number</span>
+              <input
+                className="tw-input"
+                inputMode="numeric"
+                maxLength={10}
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+                placeholder="10-digit NUBAN"
+              />
+            </label>
+          </div>
+          {resolving && <p className="text-[11px] text-black/40 font-medium">Verifying account…</p>}
+          {resolvedName && (
+            <p className="text-[12px] text-green-700 font-semibold flex items-center gap-1.5">
+              <CheckCircle2 size={13} /> {resolvedName}
+            </p>
+          )}
+          {!resolving && payoutError && <p className="text-[11px] text-red-600 font-medium">{payoutError}</p>}
+          <p className="text-[10px] text-black/40 font-medium">
+            This is where escrow payments get released to once a client marks a booking complete. Leave blank to keep what's on file.
+          </p>
+        </div>
+
         {error && (
           <div className="rounded-[12px] border-[1.5px] border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-medium text-red-700">
             {error}
@@ -279,6 +388,16 @@ export default function Profile() {
           </dt>
           <dd className="font-semibold text-[13px] mt-0.5">
             {user.ninVerified ? `Verified · ending in ${user.ninLast4}` : 'Not added yet'}
+          </dd>
+        </div>
+        <div className="rounded-[14px] bg-[#F5F3EF] border border-black/5 p-3 col-span-2">
+          <dt className="text-[10px] font-bold tracking-widest uppercase text-black/40 flex items-center gap-1">
+            <Landmark size={11} /> Payout account
+          </dt>
+          <dd className="font-semibold text-[13px] mt-0.5">
+            {user.payoutReady
+              ? `${user.bankName} ···· ${user.accountNumber?.slice(-4)} (${user.accountName})`
+              : 'Not added yet — required before you can be paid out'}
           </dd>
         </div>
       </dl>

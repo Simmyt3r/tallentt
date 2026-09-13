@@ -1,3 +1,4 @@
+// Path: api/_lib/auth.js
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
@@ -114,5 +115,11 @@ export function toPublicUser(row) {
     phone: row.phone ?? null,
     ninVerified: Boolean(row.nin_hash),
     ninLast4: row.nin_last4 ?? null,
+    bankName: row.bank_name ?? null,
+    accountNumber: row.account_number ?? null,
+    accountName: row.account_name ?? null,
+    // Whether Paystack has a registered Transfer Recipient for this user —
+    // release() on a booking's escrow requires this to be true.
+    payoutReady: Boolean(row.paystack_recipient_code),
   }
 }

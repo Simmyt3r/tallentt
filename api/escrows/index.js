@@ -21,6 +21,7 @@ export default async function handler(req, res) {
       const { rows } = await query(
         `SELECT e.id, e.hat_id, e.client_id, e.talent_id, e.amount, e.status,
                 e.contacts_unlocked, e.created_at, e.released_at,
+                e.payout_status,
                 h.hat_title, h.category, h.role as hat_role, h.currency,
                 u.id as talent_user_id, u.username as talent_username,
                 u.full_name as talent_full_name, u.avatar_url as talent_avatar,
