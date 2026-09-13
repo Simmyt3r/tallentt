@@ -57,7 +57,17 @@ export const api = {
   createEscrow: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
   fundEscrow: (id, reference) =>
     request(`/api/escrows/${id}/fund`, { method: 'POST', body: JSON.stringify({ reference }) }),
+  fundEscrowWithWallet: (id) => request(`/api/escrows/${id}/fund-wallet`, { method: 'POST' }),
   releaseEscrow: (id) => request(`/api/escrows/${id}/release`, { method: 'POST' }),
+
+  // Wallet — reuses the /api/escrows endpoint with a query param / action
+  // field rather than a dedicated /api/wallet one (see api/escrows/index.js
+  // and the 12-function-cap note next to getMyApplications below).
+  getWallet: () => request('/api/escrows?wallet=1'),
+  topupWallet: (reference) =>
+    request('/api/escrows', { method: 'POST', body: JSON.stringify({ action: 'topup', reference }) }),
+  withdrawWallet: (amount) =>
+    request('/api/escrows', { method: 'POST', body: JSON.stringify({ action: 'withdraw', amount }) }),
 
   // Applications — same PATCH-action pattern as toggleLike/recordView
   // above, on the same /api/hats/:id endpoint (see api/hats/[id].js).

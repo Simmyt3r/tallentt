@@ -421,6 +421,12 @@ export default function Profile() {
         >
           My bookings →
         </Link>
+        <Link
+          to="/wallet"
+          className="inline-flex h-11 px-5 rounded-full bg-white text-black text-[13px] font-semibold border-[1.5px] border-black items-center hover:bg-black hover:text-white transition"
+        >
+          My wallet →
+        </Link>
       </div>
     </div>
   )

@@ -38,8 +38,21 @@ export function AuthProvider({ children }) {
     return data.user
   }, [])
 
+  // Re-fetches the signed-in user — used after wallet actions (top-up,
+  // withdraw, funding an escrow from the wallet) so user.walletBalance
+  // reflects the new balance without a full page reload.
+  const refreshUser = useCallback(async () => {
+    try {
+      const data = await api.me()
+      setUser(data.user)
+      return data.user
+    } catch {
+      return null
+    }
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, loading, register, login, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, loading, register, login, logout, updateProfile, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

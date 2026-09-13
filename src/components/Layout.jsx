@@ -1,8 +1,29 @@
 // Path: src/components/Layout.jsx
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Home, Store, UserRound, PlusCircle, LogOut, Briefcase, ClipboardList, CalendarCheck } from 'lucide-react'
+import {
+  Home,
+  Store,
+  UserRound,
+  PlusCircle,
+  LogOut,
+  Briefcase,
+  ClipboardList,
+  CalendarCheck,
+  Wallet as WalletIcon,
+} from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useEffect, useState } from 'react'
+
+// Co-located per the codebase's existing pattern (see MyBookings.jsx,
+// TalentProfile.jsx) rather than pulled into a shared helper.
+function fmtMoney(n) {
+  if (n == null) return '₦0'
+  try {
+    return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n)
+  } catch {
+    return `₦${Number(n).toLocaleString()}`
+  }
+}
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
@@ -37,11 +58,20 @@ export default function Layout({ children }) {
             <NavItem to="/my-hats" icon={Briefcase} label="My Hats" />
             <NavItem to="/my-applications" icon={ClipboardList} label="Applications" />
             <NavItem to="/my-bookings" icon={CalendarCheck} label="Bookings" />
+            <NavItem to="/wallet" icon={WalletIcon} label="Wallet" />
             <NavItem to="/create" icon={PlusCircle} label="Create" />
             <NavItem to="/profile" icon={UserRound} label="Profile" />
           </nav>
 
           <div className="flex items-center gap-2">
+            <Link
+              to="/wallet"
+              title="Wallet"
+              className="flex items-center gap-1.5 h-9 px-3 rounded-full bg-white border-[1.5px] border-black text-[12px] font-semibold hover:bg-black hover:text-white transition shrink-0"
+            >
+              <WalletIcon size={14} />
+              <span className="hidden sm:inline">{fmtMoney(user?.walletBalance)}</span>
+            </Link>
             <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-semibold">
               <button
                 type="button"

@@ -12,6 +12,7 @@ import Profile from './pages/Profile.jsx'
 import TalentProfile from './pages/TalentProfile.jsx'
 import MyApplications from './pages/MyApplications.jsx'
 import MyBookings from './pages/MyBookings.jsx'
+import Wallet from './pages/Wallet.jsx'
 
 function FullPageSpinner() {
   return (
@@ -101,6 +102,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <MyBookings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/wallet"
+        element={
+          <ProtectedRoute>
+            <Wallet />
           </ProtectedRoute>
         }
       />

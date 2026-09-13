@@ -119,7 +119,11 @@ export function toPublicUser(row) {
     accountNumber: row.account_number ?? null,
     accountName: row.account_name ?? null,
     // Whether Paystack has a registered Transfer Recipient for this user —
-    // release() on a booking's escrow requires this to be true.
+    // required before a wallet withdrawal (POST /api/escrows {action:
+    // 'withdraw'}) can go through.
     payoutReady: Boolean(row.paystack_recipient_code),
+    // Only present when the query selecting this row joined it in (see
+    // api/auth/me.js, login.js, profile.js) — defaults to 0 otherwise.
+    walletBalance: row.wallet_balance != null ? Number(row.wallet_balance) : 0,
   }
 }
