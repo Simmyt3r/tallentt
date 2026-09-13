@@ -109,16 +109,40 @@ export async function uploadToCloudinary(file) {
 // re-verifies it directly against Paystack (see api/_lib/paystack.js)
 // before an escrow is ever marked as funded. Never trust this resolved
 // value on its own to unlock anything client-side.
-export function payWithPaystack({ email, amountNaira, reference, metadata }) {
+// Polls for window.PaystackPop for a few seconds before giving up. The
+// script tag in index.html loads synchronously before our own bundle runs,
+// so this is normally instant — but on a slow connection (a real
+// consideration for Nigerian mobile networks) it can genuinely still be in
+// flight when someone taps "Pay" a beat after the page paints.
+function waitForPaystack(timeoutMs = 8000, intervalMs = 200) {
   return new Promise((resolve, reject) => {
-    const key = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY
-    if (!key) return reject(new Error('Paystack is not configured (VITE_PAYSTACK_PUBLIC_KEY missing).'))
-    if (!window.PaystackPop) {
-      return reject(new Error('Paystack failed to load. Check your connection and try again.'))
-    }
-    if (!email) return reject(new Error('An email address is required to pay.'))
-    if (!amountNaira || amountNaira <= 0) return reject(new Error('Invalid payment amount.'))
+    if (window.PaystackPop) return resolve()
+    const start = Date.now()
+    const timer = setInterval(() => {
+      if (window.PaystackPop) {
+        clearInterval(timer)
+        resolve()
+      } else if (Date.now() - start > timeoutMs) {
+        clearInterval(timer)
+        reject(
+          new Error(
+            'Paystack failed to load. Check your connection, disable any ad blocker, and try again.',
+          ),
+        )
+      }
+    }, intervalMs)
+  })
+}
 
+export async function payWithPaystack({ email, amountNaira, reference, metadata }) {
+  const key = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY
+  if (!key) throw new Error('Paystack is not configured (VITE_PAYSTACK_PUBLIC_KEY missing).')
+  if (!email) throw new Error('An email address is required to pay.')
+  if (!amountNaira || amountNaira <= 0) throw new Error('Invalid payment amount.')
+
+  await waitForPaystack()
+
+  return new Promise((resolve, reject) => {
     const handler = window.PaystackPop.setup({
       key,
       email,
