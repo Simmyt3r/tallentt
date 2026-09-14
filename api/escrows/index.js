@@ -78,25 +78,44 @@ export default async function handler(req, res) {
     if (body.action === 'topup') return handleTopup(res, session, body)
     if (body.action === 'withdraw') return handleWithdraw(res, session, body)
 
-    const { hat_id, talent_id } = body
+    const { hat_id } = body
     if (!hat_id) return json(res, 400, { error: 'hat_id required' })
 
     const { rows: hatRows } = await query(
-      `SELECT id, user_id, price_type, rate, price_min FROM hats WHERE id = $1`,
+      `SELECT id, user_id, role, active, price_type, rate, price_min FROM hats WHERE id = $1`,
       [hat_id],
     )
     if (!hatRows[0]) return json(res, 404, { error: 'Hat not found' })
     const hat = hatRows[0]
+    if (!hat.active) return json(res, 400, { error: 'This hat is no longer active.' })
+    if (hat.role !== 'talent') {
+      return json(res, 400, { error: 'Client hats accept applications. Only talent hats can be booked.' })
+    }
+    if (hat.user_id === session.sub) {
+      return json(res, 400, { error: "You can't book your own hat." })
+    }
+
     // Fixed pricing escrows the flat rate; range pricing escrows the floor
-    // of the range (the client can always fund more once agreed).
-    const amount = hat.price_type === 'range' ? hat.price_min : hat.rate
-    if (!amount) return json(res, 400, { error: 'This hat has no price set yet.' })
-    const talent = talent_id || hat.user_id
+    // of the range. The payee is always the hat owner, never client input.
+    const amount = Number(hat.price_type === 'range' ? hat.price_min : hat.rate)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return json(res, 400, { error: 'This hat has no price set yet.' })
+    }
+
+    const { rows: existingRows } = await query(
+      `SELECT * FROM escrows
+       WHERE hat_id = $1 AND client_id = $2 AND status IN ('not_funded','secured')
+       ORDER BY created_at DESC LIMIT 1`,
+      [hat_id, session.sub],
+    )
+    if (existingRows[0]) {
+      return json(res, 200, { escrow: existingRows[0], already_exists: true })
+    }
 
     const { rows } = await query(
       `INSERT INTO escrows (hat_id, client_id, talent_id, amount, status, contacts_unlocked)
        VALUES ($1, $2, $3, $4, 'not_funded', false) RETURNING *`,
-      [hat_id, session.sub, talent, amount],
+      [hat_id, session.sub, hat.user_id, amount],
     )
     return json(res, 201, { escrow: rows[0] })
   } catch (err) {
@@ -121,7 +140,7 @@ async function handleTopup(res, session, body) {
   }
 
   try {
-    const { balance, amount, alreadyProcessed, serviceFee, platformFee, vat, grossAmount } = await applyVerifiedTopup({
+    const { balance, amount, alreadyProcessed, serviceFee = 0, platformFee = 0, vat = 0, grossAmount } = await applyVerifiedTopup({
       userId: session.sub,
       reference,
       txn,
@@ -168,7 +187,7 @@ async function handleWithdraw(res, session, body) {
       amountNaira: amount,
       recipientCode,
       reference,
-      reason: 'Tallentt wallet withdrawal',
+      reason: 'ChombuTar wallet withdrawal',
     })
   } catch (err) {
     console.error('Wallet withdrawal transfer failed:', err)
@@ -235,7 +254,7 @@ async function handlePaystackWebhook(req, res, signature) {
 
   const data = event.data || {}
   const escrowId = data.metadata?.escrow_id
-  const isWalletTopup = data.metadata?.wallet_topup === true
+  const isWalletTopup = data.metadata?.wallet_topup === true || data.metadata?.wallet_topup === 'true'
   const walletUserId = data.metadata?.user_id
 
   if (!escrowId && !(isWalletTopup && walletUserId)) {
