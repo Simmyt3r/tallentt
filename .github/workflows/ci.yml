@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      VITE_APP_NAME: ChombuTar
+      VITE_APP_URL: https://example.com
+      VITE_CLOUDINARY_CLOUD_NAME: demo
+      VITE_CLOUDINARY_UPLOAD_PRESET: demo
+      VITE_CLOUDINARY_FOLDER: chombutar_hats
+      VITE_PAYSTACK_PUBLIC_KEY: pk_test_dummy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify serverless syntax
+        run: npm run check:api
+
+      - name: Build PWA
+        run: npm run build

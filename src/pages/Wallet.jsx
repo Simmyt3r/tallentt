@@ -24,22 +24,6 @@ const TYPE_LABEL = {
   refund: 'Withdrawal refund',
 }
 
-// Mirrors PLATFORM_FEE_RATE / VAT_RATE in api/_lib/wallet.js. Duplicated
-// here (rather than shared) per the codebase's existing co-location
-// convention — but the two must be kept in sync, since this only drives
-// the live preview text; the real deduction always happens server-side.
-const PLATFORM_FEE_RATE = 0.01 // 1% platform fee
-const VAT_RATE = 0.015 // 1.5% VAT
-
-// Same platform-fee-then-VAT, rounded-separately math as
-// applyVerifiedTopup() server-side, so the modal's preview always
-// matches the credited amount to the naira.
-function estimateTopupCredit(amount) {
-  const platformFee = Math.round(amount * PLATFORM_FEE_RATE)
-  const vat = Math.round(amount * VAT_RATE)
-  return amount - (platformFee + vat)
-}
-
 const STATUS_STYLE = {
   success: 'bg-[#E8FFE6] text-[#0A7A00]',
   pending: 'bg-[#FFF6DB] text-[#8A6D00]',
@@ -113,11 +97,7 @@ export default function Wallet() {
       })
       const result = await api.topupWallet(reference)
       await reload()
-      alert(
-        result.serviceFee
-          ? `₦${result.amount.toLocaleString()} added to your wallet (₦${result.serviceFee.toLocaleString()} service fee on your ₦${result.grossAmount.toLocaleString()} top-up).`
-          : 'Wallet topped up!',
-      )
+      alert(`${fmtMoney(result.amount || amount)} added to your wallet.`)
     } catch (e) {
       alert(e.message)
     } finally {
@@ -271,8 +251,8 @@ export default function Wallet() {
 
             <p className="mt-2 text-[12px] text-black/50 font-medium">
               {Number(topupInput) > 0
-                ? `You'll receive ${fmtMoney(estimateTopupCredit(Number(topupInput)))} after the 2.5% service fee (1% platform + 1.5% VAT).`
-                : 'A 2.5% service fee (1% platform + 1.5% VAT) applies to every top-up.'}
+                ? `You'll receive ${fmtMoney(Number(topupInput))}. ChombuTar deducts no platform fee.`
+                : 'ChombuTar deducts no platform fee from wallet top-ups.'}
             </p>
 
             <div className="flex gap-3 mt-5">

@@ -21,6 +21,15 @@ export async function applyVerifiedPayment({ escrowId, reference, txn }) {
     })
   }
 
+  const { rows: walletRefRows } = await query(`SELECT id FROM wallet_transactions WHERE reference = $1`, [reference])
+  if (walletRefRows[0]) {
+    throw Object.assign(new Error('This payment reference is already linked to a wallet top-up.'), { status: 409 })
+  }
+  const metadataEscrowId = txn.metadata?.escrow_id ? String(txn.metadata.escrow_id) : null
+  if (metadataEscrowId && metadataEscrowId !== String(escrowId)) {
+    throw Object.assign(new Error('This payment reference belongs to another booking.'), { status: 409 })
+  }
+
   const { rows: existingRows } = await query(`SELECT * FROM escrows WHERE id = $1 AND status = 'not_funded'`, [
     escrowId,
   ])

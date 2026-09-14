@@ -367,6 +367,9 @@ export default async function handler(req, res) {
         if (existing.user_id === session.sub) {
           return json(res, 400, { error: "You can't apply to your own hat." })
         }
+        if (existing.role !== 'client') {
+          return json(res, 400, { error: 'Talent hats are booked, not applied to.' })
+        }
         const message = typeof body.message === 'string' ? body.message.slice(0, 500) : null
         const { rows: existingApp } = await query(
           `SELECT id, status FROM applications WHERE hat_id = $1 AND applicant_id = $2`,
@@ -381,7 +384,7 @@ export default async function handler(req, res) {
           // hat_id+applicant_id unique constraint means we can't insert
           // a second one) instead of erroring.
           const { rows } = await query(
-            `UPDATE applications SET status = 'pending', message = COALESCE($1, message), created_at = NOW()
+            `UPDATE applications SET status = 'pending', message = COALESCE($1, message), created_at = NOW(), updated_at = NOW()
              WHERE id = $2 RETURNING *`,
             [message, existingApp[0].id],
           )
@@ -395,7 +398,7 @@ export default async function handler(req, res) {
         }
       } else if (body.action === 'withdraw') {
         const { rows } = await query(
-          `UPDATE applications SET status = 'withdrawn'
+          `UPDATE applications SET status = 'withdrawn', updated_at = NOW()
            WHERE hat_id = $1 AND applicant_id = $2 AND status IN ('pending','accepted')
            RETURNING *`,
           [id, session.sub],
@@ -409,7 +412,7 @@ export default async function handler(req, res) {
           return json(res, 400, { error: 'application_id and a valid status (accepted/rejected) are required.' })
         }
         const { rows } = await query(
-          `UPDATE applications SET status = $1 WHERE id = $2 AND hat_id = $3 RETURNING *`,
+          `UPDATE applications SET status = $1, updated_at = NOW() WHERE id = $2 AND hat_id = $3 RETURNING *`,
           [status, application_id, id],
         )
         if (!rows[0]) return json(res, 404, { error: 'Application not found' })

@@ -89,7 +89,18 @@ export const api = {
   getMyBookings: () => request('/api/escrows?mine=1'),
 }
 
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+const ALLOWED_UPLOAD_PREFIXES = ['image/', 'video/', 'audio/']
+
 export async function uploadToCloudinary(file) {
+  if (!file) throw new Error('Choose a file to upload.')
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new Error('File is too large. Upload a file of 20MB or less.')
+  }
+  if (!ALLOWED_UPLOAD_PREFIXES.some((prefix) => file.type?.startsWith(prefix))) {
+    throw new Error('Only image, video, and audio uploads are supported.')
+  }
+
   const cloud = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
   const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
   const folder = import.meta.env.VITE_CLOUDINARY_FOLDER || 'chombutar_hats'
@@ -104,7 +115,7 @@ export async function uploadToCloudinary(file) {
     method: 'POST',
     body: fd,
   })
-  const data = await res.json()
+  const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error?.message || 'Upload failed')
   return {
     url: data.secure_url,
