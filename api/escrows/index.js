@@ -254,7 +254,7 @@ async function handlePaystackWebhook(req, res, signature) {
 
   const data = event.data || {}
   const escrowId = data.metadata?.escrow_id
-  const isWalletTopup = data.metadata?.wallet_topup === true
+  const isWalletTopup = data.metadata?.wallet_topup === true || data.metadata?.wallet_topup === 'true'
   const walletUserId = data.metadata?.user_id
 
   if (!escrowId && !(isWalletTopup && walletUserId)) {
