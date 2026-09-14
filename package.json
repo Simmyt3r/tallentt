@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "db:migrate": "node db/migrate.js",
-    "check:api": "find api db -name '*.js' -print0 | xargs -0 -n1 node --check",
+    "check:api": "node scripts/check-api.mjs",
     "verify": "npm run check:api && npm run build"
   },
   "dependencies": {

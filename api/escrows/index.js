@@ -187,7 +187,7 @@ async function handleWithdraw(res, session, body) {
       amountNaira: amount,
       recipientCode,
       reference,
-      reason: 'Tallentt wallet withdrawal',
+      reason: 'ChombuTar wallet withdrawal',
     })
   } catch (err) {
     console.error('Wallet withdrawal transfer failed:', err)

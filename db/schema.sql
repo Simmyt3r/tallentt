@@ -187,6 +187,7 @@ ALTER TABLE applications DROP CONSTRAINT IF EXISTS applications_status_check;
 ALTER TABLE applications ADD CONSTRAINT applications_status_check CHECK (status IN ('pending','accepted','rejected','withdrawn'));
 CREATE INDEX IF NOT EXISTS idx_applications_applicant ON applications (applicant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_applications_hat ON applications (hat_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_hat_applicant ON applications (hat_id, applicant_id);
 
 CREATE TABLE IF NOT EXISTS escrows (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

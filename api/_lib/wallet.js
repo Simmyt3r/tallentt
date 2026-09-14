@@ -18,7 +18,7 @@ export async function getWalletBalance(userId) {
 export async function creditWallet(client, { userId, amount, type, reference = null, escrowId = null, status = 'success' }) {
   await client.query(`INSERT INTO wallets (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, [userId])
   const { rows } = await client.query(
-    `UPDATE wallets SET balance = balance + $1 WHERE user_id = $2 RETURNING balance`,
+    `UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2 RETURNING balance`,
     [amount, userId],
   )
   const balance = rows[0].balance
@@ -37,7 +37,7 @@ export async function creditWallet(client, { userId, amount, type, reference = n
 export async function debitWallet(client, { userId, amount, type, reference = null, escrowId = null, status = 'success' }) {
   await client.query(`INSERT INTO wallets (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, [userId])
   const { rows } = await client.query(
-    `UPDATE wallets SET balance = balance - $1 WHERE user_id = $2 AND balance >= $1 RETURNING balance`,
+    `UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2 AND balance >= $1 RETURNING balance`,
     [amount, userId],
   )
   if (!rows[0]) {
@@ -91,7 +91,7 @@ export async function applyVerifiedTopup({ userId, reference, txn }) {
   // what the customer pays to cover Paystack's own transaction fee —
   // there's no way to deduct a fee from an inbound transfer after the
   // fact, so the customer is quoted more than the requested amount
-  // instead. That extra is a payment-rail cost, not Tallentt's revenue,
+  // instead. That extra is a payment-rail cost, not ChombuTar's revenue,
   // so it's ignored below in favor of the amount the client actually
   // entered (sent to Paystack as metadata.intended_amount at checkout,
   // see payWithPaystack() in Wallet.jsx). We only require that they paid
