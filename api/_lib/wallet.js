@@ -52,6 +52,11 @@ export async function debitWallet(client, { userId, amount, type, reference = nu
   return balance
 }
 
+// Tallentt keeps 1% of every wallet top-up as a service fee, deducted
+// from the amount the client entered — funding ₦100 charges the client
+// ₦100 and credits ₦99 to their wallet, never ₦101 charged to net ₦100.
+const WALLET_TOPUP_FEE_RATE = 0.01
+
 // Applies an already-verified Paystack transaction as a wallet top-up.
 // Same shape as applyVerifiedPayment() in escrowPayments.js: a reference
 // can only ever be applied once — whichever of the client's callback or
@@ -68,14 +73,42 @@ export async function applyVerifiedTopup({ userId, reference, txn }) {
   if ((txn.currency || 'NGN') !== 'NGN') {
     throw Object.assign(new Error('Unexpected payment currency.'), { status: 402 })
   }
-  const amount = Math.round(txn.amount / 100) // Paystack reports kobo; wallets.balance is naira.
+
+  // Paystack reports amount in kobo. Card payments land exactly on the
+  // amount we asked for, but bank transfer and USSD checkouts gross up
+  // what the customer pays to cover Paystack's own transaction fee —
+  // there's no way to deduct a fee from an inbound transfer after the
+  // fact, so the customer is quoted more than the requested amount
+  // instead. That extra is a payment-rail cost, not Tallentt's revenue,
+  // so it's ignored below in favor of the amount the client actually
+  // entered (sent to Paystack as metadata.intended_amount at checkout,
+  // see payWithPaystack() in Wallet.jsx). We only require that they paid
+  // at least that much — paying less throws, paying more (the Paystack
+  // fee case) is simply not credited, so nobody can ever be credited
+  // more than they paid.
+  const paidNaira = Math.round(txn.amount / 100)
+  const requestedRaw = Number(txn.metadata?.intended_amount)
+  const grossAmount = Number.isFinite(requestedRaw) && requestedRaw > 0 ? Math.round(requestedRaw) : paidNaira
+
+  if (paidNaira < grossAmount) {
+    throw Object.assign(
+      new Error(
+        `Payment of ₦${paidNaira.toLocaleString()} is less than the requested top-up of ₦${grossAmount.toLocaleString()}.`,
+      ),
+      { status: 402 },
+    )
+  }
+
+  // Tallentt's 1% service fee comes out of the entered amount itself.
+  const serviceFee = Math.round(grossAmount * WALLET_TOPUP_FEE_RATE)
+  const amount = grossAmount - serviceFee
 
   const client = await getClient()
   try {
     await client.query('BEGIN')
     const balance = await creditWallet(client, { userId, amount, type: 'topup', reference })
     await client.query('COMMIT')
-    return { alreadyProcessed: false, balance, amount }
+    return { alreadyProcessed: false, balance, amount, serviceFee, grossAmount, paidNaira }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     // Lost a race against a concurrent call with the same reference —

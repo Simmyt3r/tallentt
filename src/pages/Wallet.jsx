@@ -83,11 +83,18 @@ export default function Wallet() {
       const reference = await payWithPaystack({
         email: user.email,
         amountNaira: amount,
-        metadata: { wallet_topup: true, user_id: user.id },
+        // intended_amount travels with the transaction to Paystack and
+        // back — the server credits this, not whatever the charge ends
+        // up being after Paystack's own fees (see wallet.js).
+        metadata: { wallet_topup: true, user_id: user.id, intended_amount: amount },
       })
-      await api.topupWallet(reference)
+      const result = await api.topupWallet(reference)
       await reload()
-      alert('Wallet topped up!')
+      alert(
+        result.serviceFee
+          ? `₦${result.amount.toLocaleString()} added to your wallet (₦${result.serviceFee.toLocaleString()} service fee on your ₦${result.grossAmount.toLocaleString()} top-up).`
+          : 'Wallet topped up!',
+      )
     } catch (e) {
       alert(e.message)
     } finally {

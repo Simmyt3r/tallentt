@@ -41,7 +41,13 @@ export async function applyVerifiedPayment({ escrowId, reference, txn }) {
     throw Object.assign(new Error('Unexpected payment currency.'), { status: 402 })
   }
   // Paystack reports amount in kobo; escrows.amount is stored in naira.
-  if (Math.round(txn.amount / 100) !== Number(escrow.amount)) {
+  // Card payments land exactly on escrow.amount, but bank transfer and
+  // USSD checkouts gross up what the customer pays to cover Paystack's
+  // own fee (same reasoning as applyVerifiedTopup in wallet.js) — so a
+  // transfer payer can legitimately pay a little *more*. Only reject if
+  // they paid less; the escrow itself is always secured for its own
+  // fixed amount, never the inflated one.
+  if (Math.round(txn.amount / 100) < Number(escrow.amount)) {
     throw Object.assign(new Error('Paid amount does not match the escrow amount.'), { status: 402 })
   }
 
