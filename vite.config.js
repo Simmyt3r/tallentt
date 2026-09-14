@@ -26,9 +26,23 @@ export default defineConfig({
       workbox: {
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/res\.cloudinary\.com\/.*/,
+            // Cloudinary images — photos, avatars, and the video "poster"
+            // stills requested via cldVideoPoster() in src/lib/cloudinary.js
+            // (a /video/upload/ URL that ends in .jpg, not an actual video
+            // file). Deliberately excludes real video/audio: Workbox's plain
+            // CacheFirst here has no HTTP Range support, so caching a whole
+            // video file can break seeking/scrubbing and just fills up the
+            // client's storage quota for no benefit — the browser's native
+            // HTTP cache and Cloudinary's own CDN already handle range
+            // requests correctly, so video is left to them.
+            urlPattern: ({ url }) =>
+              url.hostname === 'res.cloudinary.com' && !/\.(mp4|webm|mov|m3u8|ts)(\?.*)?$/i.test(url.pathname),
             handler: 'CacheFirst',
-            options: { cacheName: 'cloudinary', expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 } },
+            options: {
+              cacheName: 'cloudinary-images',
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
           },
           {
             urlPattern: /^https:\/\/images\.unsplash\.com\/.*/,

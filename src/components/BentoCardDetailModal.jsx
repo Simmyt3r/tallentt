@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { MapPin, Clock, X, BookOpen, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Heart, Eye } from 'lucide-react'
 import { api } from '../lib/api'
 import { Avatar, fmtMoney, formatAvailabilityWindow, formatPrice } from './bentoCardShared'
+import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 
 // Same pricing logic, adapted for the normalized `budget` object the
 // detail API returns (api/hats/[id].js buildCardDetail): { type, currency,
@@ -330,8 +331,10 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
                   activeMedia.type === 'video' ? (
                     <video
                       key={activeMedia.url}
-                      src={activeMedia.url}
+                      src={cldVideo(activeMedia.url, { w: 1080 })}
+                      poster={cldVideoPoster(activeMedia.url, { w: 1080, crop: 'limit' })}
                       controls
+                      preload="metadata"
                       className="w-full h-full object-contain max-h-[70vh]"
                       aria-label={activeMedia.caption || `${displayName || 'Portfolio'} video`}
                       onError={() => markMediaBroken(safeMediaIndex)}
@@ -339,7 +342,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
                   ) : (
                     <img
                       key={activeMedia.url}
-                      src={activeMedia.url}
+                      src={cldImage(activeMedia.url, { w: 1080, crop: 'limit' })}
                       alt={activeMedia.caption || (displayName ? `${displayName}'s work` : 'Portfolio media')}
                       className="w-full h-full object-contain max-h-[70vh]"
                       onError={() => markMediaBroken(safeMediaIndex)}
@@ -378,19 +381,18 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
                           </div>
                         ) : m.type === 'video' ? (
                           <div className="relative w-full h-full bg-black">
-                            <video
-                              src={m.url}
+                            <img
+                              src={cldVideoPoster(m.url, { w: 112, h: 112 })}
+                              alt=""
+                              loading="lazy"
                               className="w-full h-full object-cover opacity-70"
-                              muted
-                              playsInline
-                              preload="metadata"
                               onError={() => markMediaBroken(idx)}
                             />
                             <Play size={12} className="absolute inset-0 m-auto text-white" fill="white" />
                           </div>
                         ) : (
                           <img
-                            src={m.url}
+                            src={cldImage(m.url, { w: 112, h: 112 })}
                             alt=""
                             loading="lazy"
                             className="w-full h-full object-cover"

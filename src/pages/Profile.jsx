@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { Camera, ShieldCheck, Landmark, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { api, uploadToCloudinary } from '../lib/api'
+import { compressImageFile } from '../lib/media'
+import { cldImage } from '../lib/cloudinary'
 
 const MAX_BIO = 280
 
@@ -120,7 +122,8 @@ export default function Profile() {
     setUploadingAvatar(true)
     setError('')
     try {
-      const uploaded = await uploadToCloudinary(file)
+      const toUpload = await compressImageFile(file)
+      const uploaded = await uploadToCloudinary(toUpload)
       setAvatarUrl(uploaded.url)
     } catch (err) {
       setError(err.message)
@@ -195,7 +198,7 @@ export default function Profile() {
           <div className="relative w-16 h-16 shrink-0">
             <div className="w-16 h-16 rounded-full border-[1.5px] border-black bg-black text-white flex items-center justify-center text-[18px] font-bold overflow-hidden">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                <img src={cldImage(avatarUrl, { w: 128, h: 128 })} alt="" className="w-full h-full object-cover" />
               ) : (
                 initials
               )}
@@ -355,7 +358,7 @@ export default function Profile() {
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 rounded-full border-[1.5px] border-black bg-black text-white flex items-center justify-center text-[18px] font-bold shrink-0 overflow-hidden">
           {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+            <img src={cldImage(user.avatarUrl, { w: 128, h: 128 })} alt="" className="w-full h-full object-cover" />
           ) : (
             initials
           )}

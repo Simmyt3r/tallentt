@@ -4,6 +4,7 @@ import { X, Heart, Eye, MapPin, Play } from 'lucide-react'
 import { api } from '../lib/api'
 import { Avatar } from './bentoCardShared'
 import AvailabilityBadge from './AvailabilityBadge'
+import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 
 // YouTube-style "expanded" popup for a Showroom video. The active video
 // plays large up top with native controls (same pattern as
@@ -147,7 +148,8 @@ export default function ShowroomVideoModal({
               <video
                 key={media.url}
                 ref={videoRef}
-                src={media.url}
+                src={cldVideo(media.url, { w: 1080 })}
+                poster={cldVideoPoster(media.url, { w: 1080, crop: 'limit' })}
                 controls
                 loop
                 playsInline
@@ -155,7 +157,12 @@ export default function ShowroomVideoModal({
                 className="w-full max-h-[70vh] object-contain"
               />
             ) : (
-              <img key={media.url} src={media.url} alt="" className="w-full max-h-[70vh] object-contain" />
+              <img
+                key={media.url}
+                src={cldImage(media.url, { w: 1080, crop: 'limit' })}
+                alt=""
+                className="w-full max-h-[70vh] object-contain"
+              />
             )
           ) : (
             <div className="w-full h-64 flex items-center justify-center text-white/30 text-[13px] font-medium">
@@ -231,15 +238,19 @@ export default function ShowroomVideoModal({
                     >
                       {m?.url ? (
                         vid ? (
-                          <video
-                            src={m.url}
-                            muted
-                            preload="metadata"
-                            playsInline
+                          <img
+                            src={cldVideoPoster(m.url, { w: 236, h: 392 })}
+                            alt=""
+                            loading="lazy"
                             className="absolute inset-0 w-full h-full object-cover"
                           />
                         ) : (
-                          <img src={m.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                          <img
+                            src={cldImage(m.url, { w: 236, h: 392 })}
+                            alt=""
+                            loading="lazy"
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
                         )
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-white/25 text-[10px] font-medium">

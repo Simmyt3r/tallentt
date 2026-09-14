@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import AvailabilityBadge from './AvailabilityBadge'
 import AddShowroomMedia from './AddShowroomMedia'
 import ShowroomVideoModal from './ShowroomVideoModal'
+import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
@@ -174,7 +175,8 @@ function ReelSlide({ hat, active, muted, onSetMuted, onExpand }) {
         isVideo ? (
           <video
             ref={videoRef}
-            src={media.url}
+            src={cldVideo(media.url, { w: 720 })}
+            poster={cldVideoPoster(media.url, { w: 480 })}
             className={`absolute inset-0 w-full h-full ${isFullscreen ? 'object-contain' : 'object-cover'}`}
             loop
             playsInline
@@ -182,7 +184,11 @@ function ReelSlide({ hat, active, muted, onSetMuted, onExpand }) {
             onClick={togglePlay}
           />
         ) : (
-          <img src={media.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <img
+            src={cldImage(media.url, { w: 720 })}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
         )
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-white/30 text-[13px] font-medium">

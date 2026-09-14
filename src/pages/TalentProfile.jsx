@@ -5,6 +5,7 @@ import { ArrowLeft, BookOpen, Clock, Eye, Heart, MapPin, Send, Star } from 'luci
 import { api, payWithPaystack } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import AvailabilityBadge from '../components/AvailabilityBadge'
+import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 
 const fmtMoney = (n, currency = 'NGN') => {
   if (n == null) return null
@@ -185,9 +186,15 @@ export default function TalentProfile() {
         <div className="relative aspect-[4/3] sm:aspect-[16/9] bg-[#F5F3EF]">
           {current?.url ? (
             current.type === 'video' ? (
-              <video src={current.url} controls className="w-full h-full object-cover" />
+              <video
+                src={cldVideo(current.url, { w: 1080 })}
+                poster={cldVideoPoster(current.url, { w: 1080, h: 810 })}
+                controls
+                preload="metadata"
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <img src={current.url} alt="" className="w-full h-full object-cover" />
+              <img src={cldImage(current.url, { w: 1080, h: 810 })} alt="" className="w-full h-full object-cover" />
             )
           ) : (
             <div className="w-full h-full flex items-center justify-center text-black/30 text-[13px] font-medium">
@@ -216,9 +223,19 @@ export default function TalentProfile() {
                 }`}
               >
                 {m.type === 'video' ? (
-                  <video src={m.url} className="w-full h-full object-cover" muted />
+                  <img
+                    src={cldVideoPoster(m.url, { w: 64, h: 64 })}
+                    alt=""
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  <img src={m.url} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={cldImage(m.url, { w: 64, h: 64 })}
+                    alt=""
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
                 )}
               </button>
             ))}

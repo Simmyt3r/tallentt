@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Heart, MapPin, Star, Clock } from 'lucide-react'
 import BentoCardDetailModal from './BentoCardDetailModal'
 import { Avatar, formatAvailabilityWindow, formatPrice } from './bentoCardShared'
+import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 
 export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = true, onHatChange }) {
   const [open, setOpen] = useState(false)
@@ -23,7 +24,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
   return (
     <>
       <article
-        className="bg-white rounded-[20px] border-[1.5px] border-black shadow-sm overflow-hidden flex flex-col w-full cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-shadow"
+        className="bg-white rounded-[20px] border-[1.5px] border-black shadow-sm overflow-hidden flex flex-col max-w-[300px] w-full cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-shadow"
         onClick={() => setOpen(true)}
       >
         {/* Media */}
@@ -31,9 +32,25 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
           <div className="relative aspect-[4/3] bg-[#F5F3EF]">
             {media?.url ? (
               media.type === 'video' ? (
-                <video src={media.url} className="w-full h-full object-cover" muted playsInline />
+                // This tile is never played — tapping the card opens the
+                // real player in BentoCardDetailModal below — so it only
+                // ever needs a still frame. A muted <video> here would
+                // still cost the browser a full video download just to
+                // paint one frame; a Cloudinary-generated poster JPG
+                // costs none.
+                <img
+                  src={cldVideoPoster(media.url, { w: 600, h: 450 })}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
               ) : (
-                <img src={media.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                <img
+                  src={cldImage(media.url, { w: 600, h: 450 })}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
               )
             ) : (
               <div className="w-full h-full flex items-center justify-center text-black/30 text-[12px] font-medium">
@@ -54,11 +71,8 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
           </div>
         )}
 
-        {/* Body — one consistent gap-2.5 (10px) rhythm between every row
-            instead of the previous mixed p-3.5/gap-2/pt-1/mt-1.5 values,
-            so the vertical spacing reads as one deliberate unit rather
-            than several slightly different ones. */}
-        <div className="p-4 flex-1 flex flex-col gap-2.5">
+        {/* Body */}
+        <div className="p-3.5 flex-1 flex flex-col gap-2">
           <div className="flex items-center gap-2.5">
             <Avatar src={hat.owner_avatar || hat.avatar_url} name={hat.username} className="w-11 h-11" />
             <div className="min-w-0 flex-1">
@@ -99,18 +113,18 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
               </span>
             )}
             {hat.category && (
-              <span className="truncate px-2.5 py-1 rounded-full bg-[#F5F3EF] border border-black/10">
+              <span className="truncate px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10">
                 {hat.category}
               </span>
             )}
             {hat.delivery_mode && (
-              <span className="truncate px-2.5 py-1 rounded-full bg-[#F5F3EF] border border-black/10">
+              <span className="truncate px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10">
                 {hat.delivery_mode}
               </span>
             )}
           </div>
 
-          <div className="mt-auto flex items-center justify-between">
+          <div className="mt-auto flex items-center justify-between pt-1">
             <span className="font-bold text-[14px]">{formatPrice(hat, currency)}</span>
             <div className="flex items-center gap-2.5 text-[11px] text-black/50">
               <span className="flex items-center gap-0.5">
@@ -129,7 +143,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
 
           <button
             type="button"
-            className={`w-full h-10 rounded-full text-[13px] font-semibold border-[1.5px] border-black text-white transition hover:brightness-110 active:scale-[0.98] ${
+            className={`mt-1.5 w-full h-10 rounded-full text-[13px] font-semibold border-[1.5px] border-black text-white transition hover:brightness-110 active:scale-[0.98] ${
               isTalent ? 'bg-[#0A13E6]' : 'bg-black'
             }`}
             onClick={(e) => {

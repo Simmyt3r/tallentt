@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { cldImage } from '../lib/cloudinary'
 
 // Shared by BentoCard.jsx and BentoCardDetailModal.jsx — both render the
 // same underlying hat data (money, time, availability) and the same
@@ -82,7 +83,7 @@ export function Avatar({ src, name, className = 'w-12 h-12' }) {
   }
   return (
     <img
-      src={src}
+      src={cldImage(src, { w: 96, h: 96 })}
       alt={name}
       className={`${className} rounded-full object-cover border-[1.5px] border-black shrink-0`}
       onError={() => setErr(true)}

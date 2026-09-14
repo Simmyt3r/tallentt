@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import BentoCard from './BentoCard'
 import { Link } from 'react-router-dom'
+import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 
 // Inline panel for a single hat's applicants — fetched lazily (only when
 // expanded) via GET /api/hats/:id?include=applications, so MyHats doesn't
@@ -62,7 +63,7 @@ function ApplicantsPanel({ hatId }) {
       {applications.map((a) => (
         <li key={a.id} className="flex items-center gap-3 px-3.5 py-2.5">
           <div className="w-8 h-8 rounded-full bg-[#F5F3EF] overflow-hidden shrink-0 border border-black/10">
-            {a.avatar_url && <img src={a.avatar_url} alt="" className="w-full h-full object-cover" />}
+            {a.avatar_url && <img src={cldImage(a.avatar_url, { w: 64, h: 64 })} alt="" className="w-full h-full object-cover" />}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[13px] font-semibold truncate">{a.full_name || a.username}</p>
@@ -148,14 +149,6 @@ export default function MyHats() {
     }
   }
 
-  // Same purpose as Feed.jsx's handleHatChange: patches a single hat in
-  // place so a like/view recorded inside the BentoCardDetailModal (opened
-  // from the grid view below) is reflected immediately, without needing
-  // to refetch "My Hats".
-  function handleHatChange(patch) {
-    setHats((prev) => prev.map((h) => (h.id === patch.id ? { ...h, ...patch } : h)))
-  }
-
   if (loading) {
     return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your hats…</p>
   }
@@ -212,7 +205,7 @@ export default function MyHats() {
           {hats.map((h) => (
             <div key={h.id} className="relative group space-y-2">
               <div className="relative">
-                <BentoCard hat={h} onHatChange={handleHatChange} />
+                <BentoCard hat={h} />
                 <div className="absolute top-3 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition">
                   <Link
                     to={`/create?edit=${h.id}`}
@@ -263,7 +256,12 @@ export default function MyHats() {
             <li key={h.id} className="hover:bg-[#F5F3EF]/50 transition">
               <div className="flex items-center gap-4 p-4">
                 <div className="w-12 h-12 rounded-[12px] bg-[#F5F3EF] overflow-hidden shrink-0 border-[1.5px] border-black/10">
-                  {h.media?.[0]?.url && <img src={h.media[0].url} alt="" className="w-full h-full object-cover" />}
+                  {h.media?.[0]?.url &&
+                    (h.media[0].type === 'video' ? (
+                      <img src={cldVideoPoster(h.media[0].url, { w: 96, h: 96 })} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <img src={cldImage(h.media[0].url, { w: 96, h: 96 })} alt="" className="w-full h-full object-cover" />
+                    ))}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[14px] truncate">{h.hat_title}</p>

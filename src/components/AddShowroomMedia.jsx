@@ -3,6 +3,8 @@ import { ArrowLeft, Check, Upload, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api, uploadToCloudinary } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import { compressImageFile } from '../lib/media'
+import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 
 const MAX_CAPTION = 200
 
@@ -68,7 +70,8 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
     setUploading(true)
     setError('')
     try {
-      const uploaded = await uploadToCloudinary(file)
+      const toUpload = await compressImageFile(file)
+      const uploaded = await uploadToCloudinary(toUpload)
       setPendingMedia(uploaded)
       setStep(3)
     } catch (err) {
@@ -152,9 +155,12 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
                     className="w-full flex items-center gap-3 p-2.5 rounded-[14px] border-[1.5px] border-black/10 hover:border-black transition text-left"
                   >
                     <div className="w-12 h-12 rounded-[10px] bg-[#F5F3EF] overflow-hidden shrink-0 border border-black/10">
-                      {h.media?.[0]?.url && (
-                        <img src={h.media[0].url} alt="" className="w-full h-full object-cover" />
-                      )}
+                      {h.media?.[0]?.url &&
+                        (h.media[0].type === 'video' ? (
+                          <img src={cldVideoPoster(h.media[0].url, { w: 96, h: 96 })} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <img src={cldImage(h.media[0].url, { w: 96, h: 96 })} alt="" className="w-full h-full object-cover" />
+                        ))}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-[13px] truncate">{h.hat_title}</p>
@@ -213,9 +219,9 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
               </button>
               <div className="w-full aspect-[4/3] rounded-[14px] overflow-hidden bg-[#F5F3EF] border-[1.5px] border-black/10">
                 {pendingMedia.type === 'video' ? (
-                  <video src={pendingMedia.url} className="w-full h-full object-cover" muted controls />
+                  <video src={cldVideo(pendingMedia.url, { w: 640 })} className="w-full h-full object-cover" muted controls />
                 ) : (
-                  <img src={pendingMedia.url} alt="" className="w-full h-full object-cover" />
+                  <img src={cldImage(pendingMedia.url, { w: 640, h: 480 })} alt="" className="w-full h-full object-cover" />
                 )}
               </div>
               <label className="block space-y-1.5">

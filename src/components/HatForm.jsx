@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Upload, X, Sparkles } from 'lucide-react'
 import { api, uploadToCloudinary } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import { compressImageFile } from '../lib/media'
+import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 
 const COUNTRIES = [
   { name: 'Nigeria', flag: '🇳🇬', currency: 'NGN' },
@@ -173,7 +175,8 @@ export default function HatForm() {
     try {
       const uploaded = []
       for (const f of files) {
-        const m = await uploadToCloudinary(f)
+        const toUpload = await compressImageFile(f)
+        const m = await uploadToCloudinary(toUpload)
         uploaded.push(m)
       }
       setMedia((prev) => [...prev, ...uploaded])
@@ -615,7 +618,9 @@ export default function HatForm() {
               {media.map((m, i) => (
                 <div key={m.public_id || i} className="relative w-20 h-20 rounded-[12px] overflow-hidden bg-white border-[1.5px] border-black/10">
                   {m.type === 'image' || !m.type ? (
-                    <img src={m.url} alt="" className="w-full h-full object-cover" />
+                    <img src={cldImage(m.url, { w: 160, h: 160 })} alt="" className="w-full h-full object-cover" />
+                  ) : m.type === 'video' ? (
+                    <img src={cldVideoPoster(m.url, { w: 160, h: 160 })} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-[10px] font-bold uppercase text-black/40">{m.type}</div>
                   )}
