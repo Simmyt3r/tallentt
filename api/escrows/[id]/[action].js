@@ -1,16 +1,17 @@
 // Path: api/escrows/[id]/[action].js
-import { query } from '../../_lib/db.js'
+import { query, getClient } from '../../_lib/db.js'
 import { getSessionUser } from '../../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../../_lib/http.js'
-import { verifyPaystackTransaction, initiateTransfer } from '../../_lib/paystack.js'
+import { verifyPaystackTransaction } from '../../_lib/paystack.js'
 import { applyVerifiedPayment } from '../../_lib/escrowPayments.js'
+import { debitWallet, creditWallet } from '../../_lib/wallet.js'
 
-// Handles both:
-//   POST /api/escrows/:id/fund
-//   POST /api/escrows/:id/release
+// Handles:
+//   POST /api/escrows/:id/fund         — pay with card (Paystack)
+//   POST /api/escrows/:id/fund-wallet  — pay from wallet balance
+//   POST /api/escrows/:id/release      — move funds into the talent's wallet
 // Merged into one function (via the [action] dynamic segment) to stay
-// under Vercel's serverless function limit. Same behavior as the
-// original fund.js / release.js files, just dispatched by req.query.action.
+// under Vercel's serverless function limit.
 export default async function handler(req, res) {
   if (req.method !== 'POST') return methodNotAllowed(res, ['POST'])
 
@@ -19,6 +20,7 @@ export default async function handler(req, res) {
   if (!id) return json(res, 400, { error: 'Missing id' })
 
   if (action === 'fund') return fund(req, res, id)
+  if (action === 'fund-wallet') return fundWithWallet(req, res, id)
   if (action === 'release') return release(req, res, id)
   return json(res, 404, { error: 'Unknown escrow action' })
 }
@@ -63,56 +65,99 @@ async function fund(req, res, id) {
   }
 }
 
+// Pays for a booking straight out of the client's wallet balance instead
+// of a Paystack popup — pure DB transaction, no external call, no
+// verification step needed since the money already sits in the wallet.
+async function fundWithWallet(req, res, id) {
+  try {
+    const session = getSessionUser(req)
+    if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
+
+    const { rows: ownedRows } = await query(
+      `SELECT * FROM escrows WHERE id = $1 AND client_id = $2 AND status = 'not_funded'`,
+      [id, session.sub],
+    )
+    const escrow = ownedRows[0]
+    if (!escrow) return json(res, 404, { error: 'Escrow not found or already funded.' })
+
+    const client = await getClient()
+    try {
+      await client.query('BEGIN')
+      await debitWallet(client, {
+        userId: session.sub,
+        amount: escrow.amount,
+        type: 'escrow_fund',
+        escrowId: escrow.id,
+      })
+      const { rows } = await client.query(
+        `UPDATE escrows SET status = 'secured', contacts_unlocked = true
+         WHERE id = $1 AND status = 'not_funded' RETURNING *`,
+        [id],
+      )
+      if (!rows[0]) {
+        await client.query('ROLLBACK')
+        return json(res, 409, { error: 'This booking was already funded.' })
+      }
+      await client.query('COMMIT')
+      return json(res, 200, { escrow: rows[0] })
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {})
+      throw err
+    } finally {
+      client.release()
+    }
+  } catch (err) {
+    console.error(err)
+    return json(res, err.status || 500, { error: err.message || 'Failed to fund escrow from wallet' })
+  }
+}
+
+// Moves a secured escrow's funds into the talent's wallet balance. This
+// used to call Paystack's Transfer API directly (requiring the talent to
+// have payout bank details on file *before* a client could ever release
+// a booking, and leaving payouts stuck in an 'otp'/'pending' limbo when
+// OTP was enabled). Now release just credits the wallet — instant, no
+// bank details required yet — and the talent withdraws to their bank
+// whenever they want (POST /api/escrows { action: 'withdraw' }), which is
+// where that OTP caveat now lives instead.
 async function release(req, res, id) {
   try {
     const session = getSessionUser(req)
     if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
     const { rows: existingRows } = await query(
-      `SELECT e.*, u.paystack_recipient_code
-       FROM escrows e
-       JOIN users u ON u.id = e.talent_id
-       WHERE e.id = $1 AND e.client_id = $2 AND e.status = 'secured'`,
+      `SELECT * FROM escrows WHERE id = $1 AND client_id = $2 AND status = 'secured'`,
       [id, session.sub],
     )
     const escrow = existingRows[0]
     if (!escrow) return json(res, 404, { error: 'Escrow not found or not secured' })
 
-    if (!escrow.paystack_recipient_code) {
-      return json(res, 409, {
-        error: "This talent hasn't added their payout bank details yet — ask them to add it in their profile, then try releasing again.",
-      })
-    }
-
-    const reference = `payout_${escrow.id}_${Date.now()}`
-    let transfer
+    const client = await getClient()
     try {
-      transfer = await initiateTransfer({
-        amountNaira: escrow.amount,
-        recipientCode: escrow.paystack_recipient_code,
-        reference,
-        reason: 'Tallentt booking payout',
+      await client.query('BEGIN')
+      await creditWallet(client, {
+        userId: escrow.talent_id,
+        amount: escrow.amount,
+        type: 'escrow_release',
+        escrowId: escrow.id,
       })
+      const { rows } = await client.query(
+        `UPDATE escrows SET status = 'released', released_at = NOW()
+         WHERE id = $1 AND status = 'secured' RETURNING *`,
+        [id],
+      )
+      if (!rows[0]) {
+        await client.query('ROLLBACK')
+        return json(res, 409, { error: 'This booking was already released.' })
+      }
+      await client.query('COMMIT')
+      return json(res, 200, { escrow: rows[0] })
     } catch (err) {
-      console.error('Paystack transfer failed:', err)
-      return json(res, 502, { error: err.message || 'Could not initiate the payout. Please try again.' })
+      await client.query('ROLLBACK').catch(() => {})
+      throw err
+    } finally {
+      client.release()
     }
-
-    // 'success' means Paystack completed the transfer immediately — only
-    // happens when OTP is disabled for API transfers on the business
-    // account (Dashboard → Settings → Preferences). Any other status
-    // ('otp', 'pending') means it needs manual finalization in the
-    // Paystack dashboard before the talent actually receives the money.
-    const payoutStatus = transfer.status === 'success' ? 'success' : 'pending'
-
-    const { rows } = await query(
-      `UPDATE escrows SET status = 'released', released_at = NOW(),
-              payout_reference = $1, payout_status = $2,
-              paid_out_at = CASE WHEN $2 = 'success' THEN NOW() ELSE NULL END
-       WHERE id = $3 RETURNING *`,
-      [reference, payoutStatus, id],
-    )
-    return json(res, 200, { escrow: rows[0], payoutStatus })
   } catch (err) {
     console.error(err)
     return json(res, 500, { error: 'Failed to release escrow' })

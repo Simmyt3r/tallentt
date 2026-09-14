@@ -1,3 +1,4 @@
+// Path: api/auth/login.js
 import { query } from '../_lib/db.js'
 import { verifyPassword, signSession, setSessionCookie, toPublicUser } from '../_lib/auth.js'
 

@@ -1,3 +1,4 @@
+// Path: src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { api } from '../lib/api.js'
 

@@ -1,21 +1,33 @@
 // Path: api/escrows/index.js
-import { query } from '../_lib/db.js'
+import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
-import { verifyPaystackWebhookSignature, verifyPaystackTransaction } from '../_lib/paystack.js'
+import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTransfer } from '../_lib/paystack.js'
 import { applyVerifiedPayment } from '../_lib/escrowPayments.js'
+import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from '../_lib/wallet.js'
 
 export default async function handler(req, res) {
-  // GET /api/escrows?mine=1 — "My Bookings": escrows the signed-in user
-  // created as a client, joined with the hat + its owner. Folded into
-  // this same function (Vercel Hobby's 12-function cap) rather than a
-  // dedicated /api/bookings endpoint.
+  // GET /api/escrows?mine=1 — "My Bookings" (escrows created as a client).
+  // GET /api/escrows?wallet=1 — wallet balance + transaction history.
+  // Both folded into this same function (Vercel Hobby's 12-function cap)
+  // rather than dedicated /api/bookings or /api/wallet endpoints.
   if (req.method === 'GET') {
     try {
       const session = getSessionUser(req)
       if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
       const url = new URL(req.url, `http://${req.headers.host}`)
+
+      if (url.searchParams.get('wallet') === '1') {
+        const balance = await getWalletBalance(session.sub)
+        const { rows: transactions } = await query(
+          `SELECT id, type, amount, balance_after, status, reference, escrow_id, created_at
+           FROM wallet_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
+          [session.sub],
+        )
+        return json(res, 200, { wallet: { balance, transactions } })
+      }
+
       if (url.searchParams.get('mine') !== '1') {
         return methodNotAllowed(res, ['POST'])
       }
@@ -23,7 +35,6 @@ export default async function handler(req, res) {
       const { rows } = await query(
         `SELECT e.id, e.hat_id, e.client_id, e.talent_id, e.amount, e.status,
                 e.contacts_unlocked, e.created_at, e.released_at,
-                e.payout_status,
                 h.hat_title, h.category, h.role as hat_role, h.currency,
                 u.id as talent_user_id, u.username as talent_username,
                 u.full_name as talent_full_name, u.avatar_url as talent_avatar,
@@ -46,9 +57,9 @@ export default async function handler(req, res) {
 
   // Paystack webhook — point Paystack's dashboard at this same URL
   // (https://chombutar.vercel.app/api/escrows). Distinguished from the
-  // app's own "create escrow" POST purely by the signature header, which
-  // only Paystack sends. Folded in here rather than a dedicated
-  // /api/webhooks/paystack endpoint (Vercel Hobby's 12-function cap).
+  // app's own POSTs purely by the signature header, which only Paystack
+  // sends. Folded in here rather than a dedicated /api/webhooks/paystack
+  // endpoint (Vercel Hobby's 12-function cap).
   const signature = req.headers['x-paystack-signature']
   if (signature) {
     return handlePaystackWebhook(req, res, signature)
@@ -59,6 +70,14 @@ export default async function handler(req, res) {
     if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
     const body = await readBody(req)
+
+    // Wallet actions — dispatched by body.action, same pattern as the
+    // fund/release split in api/escrows/[id]/[action].js, kept in this
+    // file rather than a dedicated /api/wallet endpoint for the same
+    // function-cap reason as the webhook above.
+    if (body.action === 'topup') return handleTopup(res, session, body)
+    if (body.action === 'withdraw') return handleWithdraw(res, session, body)
+
     const { hat_id, talent_id } = body
     if (!hat_id) return json(res, 400, { error: 'hat_id required' })
 
@@ -86,11 +105,108 @@ export default async function handler(req, res) {
   }
 }
 
-// Handles Paystack's charge.success event as a fallback to the client-side
-// callback in payWithPaystack() — if the user closes the tab right after
-// paying, this is what still confirms the payment and secures the escrow.
-// Shares applyVerifiedPayment() with fund() (api/escrows/[id]/[action].js)
-// so a payment only ever gets applied once, whichever path sees it first.
+// POST /api/escrows { action: 'topup', reference } — client already ran
+// the Paystack popup (see payWithPaystack in src/lib/api.js) and is
+// handing us the resulting reference to verify and credit.
+async function handleTopup(res, session, body) {
+  const reference = typeof body?.reference === 'string' ? body.reference.trim() : ''
+  if (!reference) return json(res, 400, { error: 'Payment reference is required.' })
+
+  let txn
+  try {
+    txn = await verifyPaystackTransaction(reference)
+  } catch (err) {
+    console.error('Paystack verification failed (topup):', err)
+    return json(res, 402, { error: err.message || 'Could not verify payment.' })
+  }
+
+  try {
+    const { balance, amount, alreadyProcessed } = await applyVerifiedTopup({ userId: session.sub, reference, txn })
+    return json(res, 200, { balance, amount, alreadyProcessed })
+  } catch (err) {
+    return json(res, err.status || 402, { error: err.message })
+  }
+}
+
+// POST /api/escrows { action: 'withdraw', amount } — moves money out of
+// the wallet to the talent's bank account. Debits the wallet first, in
+// its own committed transaction, then calls Paystack; if the transfer
+// call itself fails, the debit is refunded rather than left in limbo.
+async function handleWithdraw(res, session, body) {
+  const amount = Number(body?.amount)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return json(res, 400, { error: 'Enter a valid amount to withdraw.' })
+  }
+
+  const { rows: userRows } = await query(`SELECT paystack_recipient_code FROM users WHERE id = $1`, [session.sub])
+  const recipientCode = userRows[0]?.paystack_recipient_code
+  if (!recipientCode) {
+    return json(res, 409, { error: 'Add your payout bank account in your profile before withdrawing.' })
+  }
+
+  const reference = `withdrawal_${session.sub}_${Date.now()}`
+
+  const client = await getClient()
+  try {
+    await client.query('BEGIN')
+    await debitWallet(client, { userId: session.sub, amount, type: 'withdrawal', reference, status: 'pending' })
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    return json(res, err.status || 500, { error: err.message || 'Could not start withdrawal.' })
+  } finally {
+    client.release()
+  }
+
+  let transfer
+  try {
+    transfer = await initiateTransfer({
+      amountNaira: amount,
+      recipientCode,
+      reference,
+      reason: 'Tallentt wallet withdrawal',
+    })
+  } catch (err) {
+    console.error('Wallet withdrawal transfer failed:', err)
+    await refundFailedWithdrawal(session.sub, reference, amount)
+    return json(res, 502, {
+      error: `${err.message || 'Could not initiate the withdrawal.'} Your balance has been refunded.`,
+    })
+  }
+
+  // Same OTP caveat as the old escrow release used to have: 'success'
+  // only happens with OTP disabled for API transfers on the Paystack
+  // business account. Anything else needs manual finalization in the
+  // Paystack dashboard before the talent actually receives the money.
+  const payoutStatus = transfer.status === 'success' ? 'success' : 'pending'
+  await query(`UPDATE wallet_transactions SET status = $1 WHERE reference = $2`, [payoutStatus, reference])
+  const balance = await getWalletBalance(session.sub)
+  return json(res, 200, { balance, payoutStatus })
+}
+
+async function refundFailedWithdrawal(userId, reference, amount) {
+  const client = await getClient()
+  try {
+    await client.query('BEGIN')
+    await creditWallet(client, { userId, amount, type: 'refund', reference: `${reference}_refund` })
+    await client.query(`UPDATE wallet_transactions SET status = 'failed' WHERE reference = $1`, [reference])
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    // If even the refund fails, the debit above already committed — the
+    // money isn't lost, just stuck. Needs manual reconciliation.
+    console.error('Wallet withdrawal refund failed — needs manual reconciliation:', { userId, reference, amount }, err)
+  } finally {
+    client.release()
+  }
+}
+
+// Handles Paystack's charge.success event as a fallback to the
+// client-side callback — for escrow funding (see payWithPaystack() in
+// api.js and fund() in api/escrows/[id]/[action].js) and for wallet
+// top-ups (handleTopup above). Whichever path sees a given reference
+// first wins; the other is a no-op (see applyVerifiedPayment /
+// applyVerifiedTopup).
 async function handlePaystackWebhook(req, res, signature) {
   const rawBody = await readRawBody(req)
 
@@ -115,8 +231,11 @@ async function handlePaystackWebhook(req, res, signature) {
 
   const data = event.data || {}
   const escrowId = data.metadata?.escrow_id
-  if (!escrowId) {
-    console.error('Paystack webhook: charge.success with no escrow_id in metadata, reference:', data.reference)
+  const isWalletTopup = data.metadata?.wallet_topup === true
+  const walletUserId = data.metadata?.user_id
+
+  if (!escrowId && !(isWalletTopup && walletUserId)) {
+    console.error('Paystack webhook: charge.success with no escrow_id/wallet metadata, reference:', data.reference)
     return json(res, 200, { received: true })
   }
 
@@ -125,12 +244,16 @@ async function handlePaystackWebhook(req, res, signature) {
     // payload's amount/status directly — belt-and-suspenders even though
     // the signature already authenticates the sender.
     const txn = await verifyPaystackTransaction(data.reference)
-    await applyVerifiedPayment({ escrowId, reference: data.reference, txn })
+    if (isWalletTopup) {
+      await applyVerifiedTopup({ userId: walletUserId, reference: data.reference, txn })
+    } else {
+      await applyVerifiedPayment({ escrowId, reference: data.reference, txn })
+    }
   } catch (err) {
     // Logged for manual reconciliation, not retried — a payload that
     // fails validation now (amount mismatch, wrong currency, etc.) will
     // fail identically on every retry.
-    console.error('Paystack webhook: failed to apply payment', { escrowId, reference: data.reference }, err)
+    console.error('Paystack webhook: failed to apply payment', { escrowId, walletUserId, reference: data.reference }, err)
   }
   return json(res, 200, { received: true })
 }

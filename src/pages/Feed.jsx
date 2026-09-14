@@ -7,7 +7,7 @@ import { useBrowseRole } from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 
 export default function Feed() {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const browseRole = useBrowseRole()
   const hatRole = browseRole === 'talent' ? 'client' : 'talent'
   const [hats, setHats] = useState([])
@@ -35,13 +35,22 @@ export default function Feed() {
   async function handleBook(hat) {
     try {
       const { escrow } = await api.createEscrow({ hat_id: hat.id, talent_id: hat.user_id })
-      if (!confirm(`Pay ₦${escrow.amount.toLocaleString()} to secure this booking and unlock contacts?`)) return
-      const reference = await payWithPaystack({
-        email: user.email,
-        amountNaira: escrow.amount,
-        metadata: { escrow_id: escrow.id, hat_id: hat.id },
-      })
-      await api.fundEscrow(escrow.id, reference)
+      const canUseWallet = (user.walletBalance || 0) >= escrow.amount
+      const msg = canUseWallet
+        ? `Pay ₦${escrow.amount.toLocaleString()} from your wallet (balance ₦${user.walletBalance.toLocaleString()}) to secure this booking and unlock contacts?`
+        : `Pay ₦${escrow.amount.toLocaleString()} to secure this booking and unlock contacts?`
+      if (!confirm(msg)) return
+      if (canUseWallet) {
+        await api.fundEscrowWithWallet(escrow.id)
+      } else {
+        const reference = await payWithPaystack({
+          email: user.email,
+          amountNaira: escrow.amount,
+          metadata: { escrow_id: escrow.id, hat_id: hat.id },
+        })
+        await api.fundEscrow(escrow.id, reference)
+      }
+      await refreshUser()
       alert('Payment verified — escrow secured! Contacts unlocked.')
     } catch (e) {
       alert(e.message)
