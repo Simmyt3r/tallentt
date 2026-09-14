@@ -38,21 +38,17 @@ body.modal-open {
 img, video { max-width: 100%; }
 
 /* Card grid — DECISION #7
-   Track width is capped directly via minmax's upper bound (300px)
-   instead of a separate `> * { max-width }` rule, so every card in a row
-   fills its track edge-to-edge and rows stay visually even — the old
-   per-item cap left cards narrower than their (wider) track, producing
-   uneven, hard-to-notice gaps inside each cell. `justify-content: center`
-   balances the grid as a whole on rows/viewports where the tracks don't
-   fill the full width (e.g. a trailing row, or a tablet width that fits
-   two 300px cards with room left over), instead of always leaving that
-   leftover space on the right. Gap matches the page's own vertical
-   rhythm (Feed's `space-y-5`), so "space between cards" and "space below
-   the page header" read as the same unit. */
+   `auto-fit` (not `auto-fill`) + a `1fr` upper bound means the columns
+   that actually exist stretch to divide up 100% of the row's width
+   between them — a full row runs edge-to-edge with no leftover margin,
+   instead of stopping at a fixed per-card cap and leaving empty space
+   on the side. `minmax(260px, 1fr)` keeps a card from ever getting
+   uncomfortably narrow while still letting it grow. Gap matches the
+   page's own vertical rhythm (Feed's `space-y-5`), so "space between
+   cards" and "space below the page header" read as the same unit. */
 .hats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 300px));
-  justify-content: center;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 20px;
 }
 

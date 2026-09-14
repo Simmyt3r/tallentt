@@ -23,7 +23,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
   return (
     <>
       <article
-        className="bg-white rounded-[20px] border-[1.5px] border-black shadow-sm overflow-hidden flex flex-col max-w-[300px] w-full cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-shadow"
+        className="bg-white rounded-[20px] border-[1.5px] border-black shadow-sm overflow-hidden flex flex-col w-full cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-shadow"
         onClick={() => setOpen(true)}
       >
         {/* Media */}
