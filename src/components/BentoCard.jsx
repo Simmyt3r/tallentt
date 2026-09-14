@@ -54,8 +54,11 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
           </div>
         )}
 
-        {/* Body */}
-        <div className="p-3.5 flex-1 flex flex-col gap-2">
+        {/* Body — one consistent gap-2.5 (10px) rhythm between every row
+            instead of the previous mixed p-3.5/gap-2/pt-1/mt-1.5 values,
+            so the vertical spacing reads as one deliberate unit rather
+            than several slightly different ones. */}
+        <div className="p-4 flex-1 flex flex-col gap-2.5">
           <div className="flex items-center gap-2.5">
             <Avatar src={hat.owner_avatar || hat.avatar_url} name={hat.username} className="w-11 h-11" />
             <div className="min-w-0 flex-1">
@@ -96,18 +99,18 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
               </span>
             )}
             {hat.category && (
-              <span className="truncate px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10">
+              <span className="truncate px-2.5 py-1 rounded-full bg-[#F5F3EF] border border-black/10">
                 {hat.category}
               </span>
             )}
             {hat.delivery_mode && (
-              <span className="truncate px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10">
+              <span className="truncate px-2.5 py-1 rounded-full bg-[#F5F3EF] border border-black/10">
                 {hat.delivery_mode}
               </span>
             )}
           </div>
 
-          <div className="mt-auto flex items-center justify-between pt-1">
+          <div className="mt-auto flex items-center justify-between">
             <span className="font-bold text-[14px]">{formatPrice(hat, currency)}</span>
             <div className="flex items-center gap-2.5 text-[11px] text-black/50">
               <span className="flex items-center gap-0.5">
@@ -126,7 +129,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
 
           <button
             type="button"
-            className={`mt-1.5 w-full h-10 rounded-full text-[13px] font-semibold border-[1.5px] border-black text-white transition hover:brightness-110 active:scale-[0.98] ${
+            className={`w-full h-10 rounded-full text-[13px] font-semibold border-[1.5px] border-black text-white transition hover:brightness-110 active:scale-[0.98] ${
               isTalent ? 'bg-[#0A13E6]' : 'bg-black'
             }`}
             onClick={(e) => {
