@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Search, Heart, MapPin, Eye, Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react'
+import { Plus, Search, Heart, MapPin, Eye, Play, Pause, Volume2, VolumeX, Maximize2, LayoutGrid } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import AvailabilityBadge from './AvailabilityBadge'
 import AddShowroomMedia from './AddShowroomMedia'
+import ShowroomVideoModal from './ShowroomVideoModal'
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
@@ -19,7 +20,7 @@ function formatTime(seconds) {
 //
 // `muted` / `onSetMuted` are lifted to the parent so the mute preference
 // carries across slides as the user scrolls, matching typical reel UX.
-function ReelSlide({ hat, active, muted, onSetMuted }) {
+function ReelSlide({ hat, active, muted, onSetMuted, onExpand }) {
   const videoRef = useRef(null)
   const slideRef = useRef(null)
   const progressRef = useRef(null)
@@ -217,6 +218,15 @@ function ReelSlide({ hat, active, muted, onSetMuted }) {
             >
               <Maximize2 size={12} />
             </button>
+            <button
+              type="button"
+              onClick={() => onExpand?.(hat.id)}
+              aria-label="Open with more videos"
+              title="Open with more videos"
+              className="w-7 h-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center border border-white/20"
+            >
+              <LayoutGrid size={12} />
+            </button>
           </div>
         )}
       </div>
@@ -299,6 +309,11 @@ export default function Showroom() {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
+  // Id of the hat currently open in the YouTube-style popup (ShowroomVideoModal),
+  // or null when the popup is closed. Kept separate from `activeIndex` — the
+  // popup can flip through several hats via its own "more videos" rail
+  // without touching which reel slide is snapped into view underneath.
+  const [expandedId, setExpandedId] = useState(null)
   // Shared mute preference across all slides — defaults to unmuted so
   // videos play with their original audio; the ReelSlide autoplay effect
   // falls back to muted (and flips this) only if the browser blocks
@@ -311,6 +326,30 @@ export default function Showroom() {
   // spacer of the same height can reserve its space in normal flow
   // (the bar itself is `position: fixed` and so takes up no flow space).
   const [filterBarHeight, setFilterBarHeight] = useState(0)
+
+  // Patches a single hat in place — used so a like/view recorded inside
+  // ShowroomVideoModal (see its `onHatChange`) is reflected the moment the
+  // popup closes, without refetching. Same pattern as Feed.jsx's
+  // handleHatChange for BentoCardDetailModal.
+  function handleHatChange(patch) {
+    setHats((prev) => prev.map((h) => (h.id === patch.id ? { ...h, ...patch } : h)))
+  }
+
+  // Closing the popup snaps the reel behind it to whichever hat was last
+  // shown there — so if the popup's own "more videos" rail was used to
+  // browse elsewhere, the reel picks up where the popup left off instead
+  // of silently staying on whatever slide was active before it opened.
+  function closeExpanded() {
+    const id = expandedId
+    setExpandedId(null)
+    if (!id) return
+    const idx = filtered.findIndex((h) => h.id === id)
+    if (idx === -1) return
+    setActiveIndex(idx)
+    containerRef.current
+      ?.querySelector(`[data-hat-id="${id}"]`)
+      ?.scrollIntoView({ block: 'start' })
+  }
 
   async function loadShowroom() {
     try {
@@ -465,9 +504,10 @@ export default function Showroom() {
             <ReelSlide
               key={h.id}
               hat={h}
-              active={i === activeIndex}
+              active={i === activeIndex && !expandedId}
               muted={muted}
               onSetMuted={setMuted}
+              onExpand={setExpandedId}
             />
           ))}
         </div>
@@ -487,6 +527,18 @@ export default function Showroom() {
       </button>
 
       <AddShowroomMedia open={showAdd} onClose={() => setShowAdd(false)} onAdded={loadShowroom} />
+
+      {expandedId && (
+        <ShowroomVideoModal
+          hats={filtered}
+          activeId={expandedId}
+          onSelect={setExpandedId}
+          onClose={closeExpanded}
+          muted={muted}
+          onSetMuted={setMuted}
+          onHatChange={handleHatChange}
+        />
+      )}
     </div>
   )
 }
