@@ -24,6 +24,22 @@ const TYPE_LABEL = {
   refund: 'Withdrawal refund',
 }
 
+// Mirrors PLATFORM_FEE_RATE / VAT_RATE in api/_lib/wallet.js. Duplicated
+// here (rather than shared) per the codebase's existing co-location
+// convention — but the two must be kept in sync, since this only drives
+// the live preview text; the real deduction always happens server-side.
+const PLATFORM_FEE_RATE = 0.01 // 1% platform fee
+const VAT_RATE = 0.015 // 1.5% VAT
+
+// Same platform-fee-then-VAT, rounded-separately math as
+// applyVerifiedTopup() server-side, so the modal's preview always
+// matches the credited amount to the naira.
+function estimateTopupCredit(amount) {
+  const platformFee = Math.round(amount * PLATFORM_FEE_RATE)
+  const vat = Math.round(amount * VAT_RATE)
+  return amount - (platformFee + vat)
+}
+
 const STATUS_STYLE = {
   success: 'bg-[#E8FFE6] text-[#0A7A00]',
   pending: 'bg-[#FFF6DB] text-[#8A6D00]',
@@ -42,6 +58,8 @@ export default function Wallet() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [topupOpen, setTopupOpen] = useState(false)
+  const [topupInput, setTopupInput] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -70,14 +88,19 @@ export default function Wallet() {
     await refreshUser()
   }
 
-  async function handleTopup() {
-    const input = prompt('How much would you like to add to your wallet (₦)?')
-    if (!input) return
-    const amount = Number(input)
+  function openTopup() {
+    setTopupInput('')
+    setTopupOpen(true)
+  }
+
+  async function handleConfirmTopup(e) {
+    e.preventDefault()
+    const amount = Number(topupInput)
     if (!Number.isFinite(amount) || amount <= 0) {
       alert('Enter a valid amount.')
       return
     }
+    setTopupOpen(false)
     setBusy(true)
     try {
       const reference = await payWithPaystack({
@@ -160,7 +183,7 @@ export default function Wallet() {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={handleTopup}
+            onClick={openTopup}
             disabled={busy}
             className="flex-1 h-11 rounded-full bg-[#0A13E6] text-white text-[13px] font-semibold border-[1.5px] border-black flex items-center justify-center gap-1.5 disabled:opacity-50"
           >
@@ -216,6 +239,61 @@ export default function Wallet() {
           </ul>
         )}
       </div>
+
+      {topupOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/45 flex items-center justify-center p-5"
+          onClick={() => setTopupOpen(false)}
+        >
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleConfirmTopup}
+            className="bg-white rounded-[24px] border-[1.5px] border-black p-6 w-full max-w-[380px] shadow-[0_24px_60px_rgba(0,0,0,0.2)]"
+          >
+            <h2 className="text-[16px] font-bold tracking-tight mb-1">Top up your wallet</h2>
+            <p className="text-[12px] text-black/50 font-medium mb-4">Funded via Paystack — card, transfer, or USSD.</p>
+
+            <label htmlFor="topup-amount" className="text-[11px] font-bold tracking-widest uppercase text-black/50">
+              Amount (₦)
+            </label>
+            <input
+              id="topup-amount"
+              type="number"
+              inputMode="decimal"
+              min="1"
+              step="1"
+              autoFocus
+              value={topupInput}
+              onChange={(e) => setTopupInput(e.target.value)}
+              placeholder="10000"
+              className="mt-1.5 w-full h-11 rounded-[12px] border-[1.5px] border-black px-3.5 text-[15px] font-semibold outline-none focus:ring-2 focus:ring-[#0A13E6]/30"
+            />
+
+            <p className="mt-2 text-[12px] text-black/50 font-medium">
+              {Number(topupInput) > 0
+                ? `You'll receive ${fmtMoney(estimateTopupCredit(Number(topupInput)))} after the 2.5% service fee (1% platform + 1.5% VAT).`
+                : 'A 2.5% service fee (1% platform + 1.5% VAT) applies to every top-up.'}
+            </p>
+
+            <div className="flex gap-3 mt-5">
+              <button
+                type="button"
+                onClick={() => setTopupOpen(false)}
+                className="flex-1 h-11 rounded-full bg-white text-black text-[13px] font-semibold border-[1.5px] border-black"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!topupInput}
+                className="flex-1 h-11 rounded-full bg-[#0A13E6] text-white text-[13px] font-semibold border-[1.5px] border-black disabled:opacity-50"
+              >
+                Continue to pay
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

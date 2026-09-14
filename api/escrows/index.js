@@ -121,12 +121,12 @@ async function handleTopup(res, session, body) {
   }
 
   try {
-    const { balance, amount, alreadyProcessed, serviceFee, grossAmount } = await applyVerifiedTopup({
+    const { balance, amount, alreadyProcessed, serviceFee, platformFee, vat, grossAmount } = await applyVerifiedTopup({
       userId: session.sub,
       reference,
       txn,
     })
-    return json(res, 200, { balance, amount, alreadyProcessed, serviceFee, grossAmount })
+    return json(res, 200, { balance, amount, alreadyProcessed, serviceFee, platformFee, vat, grossAmount })
   } catch (err) {
     return json(res, err.status || 402, { error: err.message })
   }
