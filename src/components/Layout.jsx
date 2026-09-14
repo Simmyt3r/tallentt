@@ -47,7 +47,7 @@ export default function Layout({ children }) {
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F3EB] text-black antialiased">
       <header className="sticky top-0 z-40 bg-[#F7F3EB]/90 backdrop-blur-xl border-b-[1.5px] border-black">
-        <div className="mx-auto max-w-[1000px] px-4 md:px-6 h-16 flex items-center justify-between gap-3">
+        <div className="w-full px-4 md:px-6 lg:px-10 h-16 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <img src="/logo.png" alt="ChombuTar" className="w-11 h-11 object-contain" />
           </Link>
@@ -105,7 +105,7 @@ export default function Layout({ children }) {
         <p className="text-center text-[11px] text-black/50 pb-2.5 px-4 font-medium">{helper}</p>
       </header>
 
-      <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 md:px-6 py-6">{children}</main>
+      <main className="flex-1 w-full px-4 md:px-6 lg:px-10 py-6">{children}</main>
 
       {/* Mobile bottom nav — matches reference */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 p-3">
