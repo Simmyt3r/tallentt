@@ -148,6 +148,14 @@ export default function MyHats() {
     }
   }
 
+  // Same purpose as Feed.jsx's handleHatChange: patches a single hat in
+  // place so a like/view recorded inside the BentoCardDetailModal (opened
+  // from the grid view below) is reflected immediately, without needing
+  // to refetch "My Hats".
+  function handleHatChange(patch) {
+    setHats((prev) => prev.map((h) => (h.id === patch.id ? { ...h, ...patch } : h)))
+  }
+
   if (loading) {
     return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your hats…</p>
   }
@@ -204,7 +212,7 @@ export default function MyHats() {
           {hats.map((h) => (
             <div key={h.id} className="relative group space-y-2">
               <div className="relative">
-                <BentoCard hat={h} />
+                <BentoCard hat={h} onHatChange={handleHatChange} />
                 <div className="absolute top-3 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition">
                   <Link
                     to={`/create?edit=${h.id}`}
