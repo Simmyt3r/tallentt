@@ -10,9 +10,11 @@ import {
   ClipboardList,
   CalendarCheck,
   Wallet as WalletIcon,
+  ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useEffect, useState } from 'react'
+import NotificationsMenu from './NotificationsMenu.jsx'
 
 // Co-located per the codebase's existing pattern (see MyBookings.jsx,
 // TalentProfile.jsx) rather than pulled into a shared helper.
@@ -64,6 +66,7 @@ export default function Layout({ children }) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <NotificationsMenu />
             <Link
               to="/wallet"
               title="Wallet"
@@ -72,6 +75,16 @@ export default function Layout({ children }) {
               <WalletIcon size={14} />
               <span className="hidden sm:inline">{fmtMoney(user?.walletBalance)}</span>
             </Link>
+            {user?.isAdmin && (
+              <Link
+                to="/admin"
+                title="Admin"
+                className="flex items-center gap-1.5 h-9 px-3 rounded-full bg-white border-[1.5px] border-black text-[12px] font-semibold hover:bg-[#0A13E6] hover:text-white transition shrink-0"
+              >
+                <ShieldCheck size={14} />
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+            )}
             <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-semibold">
               <button
                 type="button"

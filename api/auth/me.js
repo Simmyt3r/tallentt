@@ -13,7 +13,7 @@ export default async function handler(req, res) {
 
   try {
     const result = await query(
-      `SELECT id, full_name, username, email, role, country, lga,
+      `SELECT id, full_name, username, email, role, is_admin, country, lga,
               avatar_url, bio, location, phone, nin_hash, nin_last4,
               bank_name, account_number, account_name, paystack_recipient_code,
               (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance

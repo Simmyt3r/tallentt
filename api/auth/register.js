@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     const result = await query(
       `INSERT INTO users (full_name, username, email, password_hash, role, country, lga)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, full_name, username, email, role, country, lga`,
+       RETURNING id, full_name, username, email, role, is_admin, country, lga`,
       [fullName.trim(), cleanUsername, String(email).trim().toLowerCase(), passwordHash, role, country, lga.trim()],
     )
 

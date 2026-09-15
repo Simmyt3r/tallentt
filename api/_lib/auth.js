@@ -107,6 +107,7 @@ export function toPublicUser(row) {
     username: row.username,
     email: row.email,
     role: row.role,
+    isAdmin: Boolean(row.is_admin),
     country: row.country,
     lga: row.lga,
     avatarUrl: row.avatar_url ?? null,

@@ -25,6 +25,17 @@ export const api = {
   logout: () => request('/api/auth/logout', { method: 'POST' }),
   usernameCheck: (u) => request(`/api/auth/username-check?u=${encodeURIComponent(u)}`),
   updateProfile: (body) => request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(body) }),
+  getNotifications: () => request('/api/auth/profile?action=notifications'),
+  markNotificationRead: (notificationId) =>
+    request('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ action: 'mark_notification_read', notificationId }),
+    }),
+  markAllNotificationsRead: () =>
+    request('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ action: 'mark_all_notifications_read' }),
+    }),
   getBanks: () => request('/api/auth/profile?action=banks'),
   resolveBankAccount: (accountNumber, bankCode) =>
     request(
@@ -50,8 +61,9 @@ export const api = {
   toggleLike: (id) =>
   request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'like' }) }),
   getShowroom: () => request('/api/showroom'),
-  getCategories: () => request('/api/categories'),
-  createCategory: (name) => request('/api/categories', { method: 'POST', body: JSON.stringify({ name }) }),
+  getCategories: () => request('/api/hats?categories=1'),
+  createCategory: (name) =>
+    request('/api/hats', { method: 'POST', body: JSON.stringify({ action: 'create_category', name }) }),
   getSeekingSuggestions: (role, q) =>
     request(`/api/hats?suggest=1&role=${encodeURIComponent(role)}&q=${encodeURIComponent(q || '')}`),
   createEscrow: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
@@ -87,6 +99,11 @@ export const api = {
   // api/hats/index.js and api/escrows/index.js for the 12-function-cap note).
   getMyApplications: () => request('/api/hats?applied=1'),
   getMyBookings: () => request('/api/escrows?mine=1'),
+
+  // Admin — one consolidated endpoint to stay within Vercel Hobby's
+  // function cap while still giving operations a real control panel.
+  getAdminDashboard: () => request('/api/admin'),
+  adminAction: (body) => request('/api/admin', { method: 'POST', body: JSON.stringify(body) }),
 }
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024

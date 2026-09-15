@@ -3,6 +3,7 @@ import { getClient } from '../_lib/db.js'
 import { getSessionUser, hashNin, toPublicUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { listBanks, resolveBankAccount, createTransferRecipient } from '../_lib/paystack.js'
+import { getNotificationInbox, markAllNotificationsRead, markNotificationRead } from '../_lib/notifications.js'
 
 const MAX_BIO = 280
 const USERNAME_RE = /^[A-Za-z0-9._-]{3,30}$/
@@ -14,15 +15,25 @@ const RESERVED_USERNAMES = new Set([
 export default async function handler(req, res) {
   // GET /api/auth/profile?action=banks — bank picker for the payout form.
   // GET /api/auth/profile?action=resolve-account&account_number=&bank_code=
+  // GET /api/auth/profile?action=notifications — signed-in user's inbox.
   //   — confirms an account before it's saved. Folded into this same
   //   function (Vercel Hobby's 12-function cap) rather than dedicated
-  //   /api/banks or /api/payouts endpoints.
+  //   /api/banks, /api/payouts, or /api/notifications endpoints.
   if (req.method === 'GET') {
     const session = getSessionUser(req)
     if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
 
     const url = new URL(req.url, `http://${req.headers.host}`)
     const action = url.searchParams.get('action')
+
+    if (action === 'notifications') {
+      try {
+        return json(res, 200, await getNotificationInbox(session.sub))
+      } catch (err) {
+        console.error('notification inbox error:', err)
+        return json(res, 500, { error: 'Failed to load notifications.' })
+      }
+    }
 
     if (action === 'banks') {
       try {
@@ -60,6 +71,31 @@ export default async function handler(req, res) {
     body = await readBody(req)
   } catch {
     return json(res, 400, { error: 'Invalid request body' })
+  }
+
+  if (body?.action === 'mark_notification_read') {
+    const notificationId = String(body.notificationId || '').trim()
+    if (!notificationId) return json(res, 400, { error: 'notificationId is required.' })
+
+    try {
+      const notification = await markNotificationRead(session.sub, notificationId)
+      if (!notification) return json(res, 404, { error: 'Notification not found.' })
+      const inbox = await getNotificationInbox(session.sub)
+      return json(res, 200, { notification, unreadCount: inbox.unreadCount })
+    } catch (err) {
+      console.error('notification read update error:', err)
+      return json(res, 500, { error: 'Failed to update notification.' })
+    }
+  }
+
+  if (body?.action === 'mark_all_notifications_read') {
+    try {
+      const updated = await markAllNotificationsRead(session.sub)
+      return json(res, 200, { updated, unreadCount: 0 })
+    } catch (err) {
+      console.error('notification bulk read update error:', err)
+      return json(res, 500, { error: 'Failed to update notifications.' })
+    }
   }
 
   const { fullName, username, bio, location, phone, country, lga, avatarUrl, nin, bankCode, bankName, accountNumber } =
@@ -162,7 +198,7 @@ export default async function handler(req, res) {
          account_name   = COALESCE($14, account_name),
          paystack_recipient_code = COALESCE($15, paystack_recipient_code)
        WHERE id = $16
-       RETURNING id, full_name, username, email, role, country, lga,
+       RETURNING id, full_name, username, email, role, is_admin, country, lga,
                  avatar_url, bio, location, phone, nin_hash, nin_last4,
                  bank_name, account_number, account_name, paystack_recipient_code,
                  (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance`,

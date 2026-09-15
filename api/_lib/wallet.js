@@ -1,5 +1,6 @@
 // Path: api/_lib/wallet.js
 import { query, getClient } from './db.js'
+import { notifyWalletTopup } from './notifications.js'
 
 // Wallets are created lazily on first touch (INSERT ... ON CONFLICT DO
 // NOTHING) rather than at registration — keeps api/auth/register.js
@@ -122,6 +123,7 @@ export async function applyVerifiedTopup({ userId, reference, txn }) {
     await client.query('BEGIN')
     const balance = await creditWallet(client, { userId, amount, type: 'topup', reference })
     await client.query('COMMIT')
+    await notifyWalletTopup({ userId, amount, balance })
     return { alreadyProcessed: false, balance, amount, serviceFee, platformFee, vat, grossAmount, paidNaira }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
