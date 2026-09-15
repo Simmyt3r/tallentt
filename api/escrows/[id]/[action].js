@@ -5,6 +5,7 @@ import { json, methodNotAllowed, readBody } from '../../_lib/http.js'
 import { verifyPaystackTransaction } from '../../_lib/paystack.js'
 import { applyVerifiedPayment } from '../../_lib/escrowPayments.js'
 import { debitWallet, creditWallet } from '../../_lib/wallet.js'
+import { notifyEscrowReleased, notifyEscrowSecured } from '../../_lib/notifications.js'
 
 // Handles:
 //   POST /api/escrows/:id/fund         — pay with card (Paystack)
@@ -98,8 +99,10 @@ async function fundWithWallet(req, res, id) {
         await client.query('ROLLBACK')
         return json(res, 409, { error: 'This booking was already funded.' })
       }
+      const securedEscrow = rows[0]
       await client.query('COMMIT')
-      return json(res, 200, { escrow: rows[0] })
+      await notifyEscrowSecured(securedEscrow.id)
+      return json(res, 200, { escrow: securedEscrow })
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {})
       throw err
@@ -150,8 +153,10 @@ async function release(req, res, id) {
         await client.query('ROLLBACK')
         return json(res, 409, { error: 'This booking was already released.' })
       }
+      const releasedEscrow = rows[0]
       await client.query('COMMIT')
-      return json(res, 200, { escrow: rows[0] })
+      await notifyEscrowReleased(releasedEscrow.id)
+      return json(res, 200, { escrow: releasedEscrow })
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {})
       throw err

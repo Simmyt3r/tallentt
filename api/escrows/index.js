@@ -5,6 +5,7 @@ import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
 import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTransfer } from '../_lib/paystack.js'
 import { applyVerifiedPayment } from '../_lib/escrowPayments.js'
 import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from '../_lib/wallet.js'
+import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notifications.js'
 
 export default async function handler(req, res) {
   // GET /api/escrows?mine=1 — "My Bookings" (escrows created as a client).
@@ -191,9 +192,12 @@ async function handleWithdraw(res, session, body) {
     })
   } catch (err) {
     console.error('Wallet withdrawal transfer failed:', err)
-    await refundFailedWithdrawal(session.sub, reference, amount)
+    const refunded = await refundFailedWithdrawal(session.sub, reference, amount)
+    if (refunded) await notifyWithdrawalFailed({ userId: session.sub, amount })
     return json(res, 502, {
-      error: `${err.message || 'Could not initiate the withdrawal.'} Your balance has been refunded.`,
+      error: refunded
+        ? `${err.message || 'Could not initiate the withdrawal.'} Your balance has been refunded.`
+        : `${err.message || 'Could not initiate the withdrawal.'} Your refund needs manual reconciliation.`,
     })
   }
 
@@ -204,6 +208,7 @@ async function handleWithdraw(res, session, body) {
   const payoutStatus = transfer.status === 'success' ? 'success' : 'pending'
   await query(`UPDATE wallet_transactions SET status = $1 WHERE reference = $2`, [payoutStatus, reference])
   const balance = await getWalletBalance(session.sub)
+  await notifyWithdrawalStarted({ userId: session.sub, amount, payoutStatus })
   return json(res, 200, { balance, payoutStatus })
 }
 
@@ -214,11 +219,13 @@ async function refundFailedWithdrawal(userId, reference, amount) {
     await creditWallet(client, { userId, amount, type: 'refund', reference: `${reference}_refund` })
     await client.query(`UPDATE wallet_transactions SET status = 'failed' WHERE reference = $1`, [reference])
     await client.query('COMMIT')
+    return true
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     // If even the refund fails, the debit above already committed — the
     // money isn't lost, just stuck. Needs manual reconciliation.
     console.error('Wallet withdrawal refund failed — needs manual reconciliation:', { userId, reference, amount }, err)
+    return false
   } finally {
     client.release()
   }

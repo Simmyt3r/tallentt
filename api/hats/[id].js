@@ -3,6 +3,7 @@ import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
 import { HAT_TYPES, DELIVERY_MODES, normalizePricing } from '../_lib/hatFields.js'
+import { notifyApplicationReceived, notifyApplicationStatus } from '../_lib/notifications.js'
 
 async function getHat(id, viewerId) {
   const { rows } = await query(
@@ -396,6 +397,20 @@ export default async function handler(req, res) {
           )
           application = rows[0]
         }
+        if (application && !alreadyApplied) {
+          try {
+            const { rows: applicantRows } = await query(`SELECT username FROM users WHERE id = $1`, [session.sub])
+            await notifyApplicationReceived({
+              ownerId: existing.user_id,
+              hatId: existing.id,
+              hatTitle: existing.hat_title,
+              applicationId: application.id,
+              applicantUsername: applicantRows[0]?.username,
+            })
+          } catch (notifyErr) {
+            console.error('application received notification failed:', notifyErr)
+          }
+        }
       } else if (body.action === 'withdraw') {
         const { rows } = await query(
           `UPDATE applications SET status = 'withdrawn', updated_at = NOW()
@@ -417,6 +432,7 @@ export default async function handler(req, res) {
         )
         if (!rows[0]) return json(res, 404, { error: 'Application not found' })
         application = rows[0]
+        await notifyApplicationStatus({ applicationId: application.id, status })
       } else {
         return json(res, 400, { error: 'Unknown action' })
       }

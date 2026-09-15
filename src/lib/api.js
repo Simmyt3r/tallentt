@@ -25,6 +25,17 @@ export const api = {
   logout: () => request('/api/auth/logout', { method: 'POST' }),
   usernameCheck: (u) => request(`/api/auth/username-check?u=${encodeURIComponent(u)}`),
   updateProfile: (body) => request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(body) }),
+  getNotifications: () => request('/api/auth/profile?action=notifications'),
+  markNotificationRead: (notificationId) =>
+    request('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ action: 'mark_notification_read', notificationId }),
+    }),
+  markAllNotificationsRead: () =>
+    request('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ action: 'mark_all_notifications_read' }),
+    }),
   getBanks: () => request('/api/auth/profile?action=banks'),
   resolveBankAccount: (accountNumber, bankCode) =>
     request(

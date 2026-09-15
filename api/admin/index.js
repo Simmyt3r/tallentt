@@ -2,6 +2,12 @@
 import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
+import {
+  notifyApplicationStatus,
+  notifyEscrowCancelled,
+  notifyHatModeration,
+  notifyWithdrawalStatusByTransaction,
+} from '../_lib/notifications.js'
 
 const DASHBOARD_LIMIT = 50
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -197,13 +203,15 @@ async function handleAdminAction(admin, body) {
     try {
       await client.query('BEGIN')
       const { rows } = await client.query(
-        `UPDATE hats SET active = $1 WHERE id = $2 RETURNING id, hat_title, active`,
+        `UPDATE hats SET active = $1 WHERE id = $2 RETURNING id, user_id, hat_title, active`,
         [active, hatId],
       )
       if (!rows[0]) throw httpError(404, 'Hat not found.')
       await logAdminAction(client, admin.id, action, 'hat', hatId, { active })
+      const hat = rows[0]
       await client.query('COMMIT')
-      return { ok: true, hat: rows[0] }
+      await notifyHatModeration({ userId: hat.user_id, hatId: hat.id, hatTitle: hat.hat_title, active: hat.active })
+      return { ok: true, hat }
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {})
       throw err
@@ -225,8 +233,10 @@ async function handleAdminAction(admin, body) {
       )
       if (!rows[0]) throw httpError(404, 'Application not found.')
       await logAdminAction(client, admin.id, action, 'application', applicationId, { status })
+      const application = rows[0]
       await client.query('COMMIT')
-      return { ok: true, application: rows[0] }
+      await notifyApplicationStatus({ applicationId: application.id, status, actor: 'admin' })
+      return { ok: true, application }
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {})
       throw err
@@ -248,8 +258,10 @@ async function handleAdminAction(admin, body) {
       )
       if (!rows[0]) throw httpError(409, 'Only unfunded escrows can be cancelled from admin.')
       await logAdminAction(client, admin.id, action, 'escrow', escrowId, {})
+      const escrow = rows[0]
       await client.query('COMMIT')
-      return { ok: true, escrow: rows[0] }
+      await notifyEscrowCancelled(escrow.id)
+      return { ok: true, escrow }
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {})
       throw err
@@ -273,8 +285,10 @@ async function handleAdminAction(admin, body) {
       )
       if (!rows[0]) throw httpError(404, 'Withdrawal transaction not found.')
       await logAdminAction(client, admin.id, action, 'wallet_transaction', transactionId, { status })
+      const transaction = rows[0]
       await client.query('COMMIT')
-      return { ok: true, transaction: rows[0] }
+      await notifyWithdrawalStatusByTransaction({ transactionId: transaction.id, status })
+      return { ok: true, transaction }
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {})
       throw err
