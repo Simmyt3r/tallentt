@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useEffect, useState } from 'react'
+import NotificationsMenu from './NotificationsMenu.jsx'
 
 // Co-located per the codebase's existing pattern (see MyBookings.jsx,
 // TalentProfile.jsx) rather than pulled into a shared helper.
@@ -65,6 +66,7 @@ export default function Layout({ children }) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <NotificationsMenu />
             <Link
               to="/wallet"
               title="Wallet"

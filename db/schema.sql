@@ -246,6 +246,42 @@ CREATE INDEX IF NOT EXISTS idx_wallet_transactions_user ON wallet_transactions (
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_escrow ON wallet_transactions (escrow_id) WHERE escrow_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_transactions_reference ON wallet_transactions (reference) WHERE reference IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL CHECK (char_length(title) <= 120),
+  body TEXT CHECK (body IS NULL OR char_length(body) <= 500),
+  link_url TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type TEXT;
+UPDATE notifications SET type = 'system' WHERE type IS NULL;
+ALTER TABLE notifications ALTER COLUMN type SET NOT NULL;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title TEXT;
+UPDATE notifications SET title = 'Notification' WHERE title IS NULL;
+ALTER TABLE notifications ALTER COLUMN title SET NOT NULL;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS body TEXT;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link_url TEXT;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+UPDATE notifications SET metadata = '{}'::jsonb WHERE metadata IS NULL;
+ALTER TABLE notifications ALTER COLUMN metadata SET DEFAULT '{}'::jsonb;
+ALTER TABLE notifications ALTER COLUMN metadata SET NOT NULL;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+UPDATE notifications SET created_at = NOW() WHERE created_at IS NULL;
+ALTER TABLE notifications ALTER COLUMN created_at SET DEFAULT NOW();
+ALTER TABLE notifications ALTER COLUMN created_at SET NOT NULL;
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_title_length_check;
+ALTER TABLE notifications ADD CONSTRAINT notifications_title_length_check CHECK (char_length(title) <= 120);
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_body_length_check;
+ALTER TABLE notifications ADD CONSTRAINT notifications_body_length_check CHECK (body IS NULL OR char_length(body) <= 500);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id, created_at DESC) WHERE read_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS admin_audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   admin_id UUID REFERENCES users(id) ON DELETE SET NULL,

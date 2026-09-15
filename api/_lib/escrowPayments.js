@@ -1,5 +1,6 @@
 // Path: api/_lib/escrowPayments.js
 import { query } from './db.js'
+import { notifyEscrowSecured } from './notifications.js'
 
 // Applies an already-verified Paystack transaction to a not_funded escrow.
 // Called from two places that can race each other for the same payment:
@@ -71,5 +72,6 @@ export async function applyVerifiedPayment({ escrowId, reference, txn }) {
     const { rows: currentRows } = await query(`SELECT * FROM escrows WHERE id = $1`, [escrowId])
     return { escrow: currentRows[0] || null, alreadyProcessed: true }
   }
+  await notifyEscrowSecured(rows[0].id)
   return { escrow: rows[0], alreadyProcessed: false }
 }

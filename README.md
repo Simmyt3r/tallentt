@@ -32,7 +32,7 @@ export DATABASE_URL="postgresql://..."
 npm run db:migrate
 ```
 
-This creates `users`, `categories`, `hats`, `hat_media`, `applications`, `escrows`, `wallets`, `wallet_transactions`, `admin_audit_logs`, `leak_attempts`, and seeds default categories.
+This creates `users`, `categories`, `hats`, `hat_media`, `applications`, `escrows`, `wallets`, `wallet_transactions`, `notifications`, `admin_audit_logs`, `leak_attempts`, and seeds default categories.
 
 ## 3. Environment variables
 
@@ -72,7 +72,19 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 
 Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
 
-## 5. Local development
+## 5. Notifications
+
+Signed-in users get an in-app header inbox for important marketplace events:
+
+- New applications on client hats
+- Accepted or rejected application decisions
+- Secured and released booking escrows
+- Wallet top-ups and withdrawal status changes
+- Admin moderation and reconciliation updates
+
+The inbox intentionally ships as in-app notifications first. Email, SMS, and push notifications should wait until messaging, abuse controls, and user notification preferences are stable.
+
+## 6. Local development
 
 ```bash
 npm install
@@ -80,7 +92,7 @@ npm run db:migrate
 npx vercel dev
 ```
 
-## 6. Deploy
+## 7. Deploy
 
 ```bash
 npx vercel --prod
@@ -88,7 +100,7 @@ npx vercel --prod
 
 Build: `npm run build` → `dist`. SPA rewrites in `vercel.json`.
 
-## 7. Locked product rules
+## 8. Locked product rules
 
 1. Open custom categories  
 2. Dual toggle Creator ↔ Employer (`chombutar_role`)  
@@ -99,7 +111,7 @@ Build: `npm run build` → `dist`. SPA rewrites in `vercel.json`.
 7. Cards: minmax(260px,1fr), gap 18px, max 300px  
 8. No platform fees (v4.0)
 
-## 8. API
+## 9. API
 
 - `GET/POST /api/hats` — list (filters) / create  
 - `GET /api/hats?categories=1` and `POST /api/hats { action: "create_category" }` — categories  
@@ -107,6 +119,8 @@ Build: `npm run build` → `dist`. SPA rewrites in `vercel.json`.
 - `GET /api/showroom`  
 - `POST /api/escrows` · `/api/escrows/:id/fund` · `/api/escrows/:id/release`  
 - `GET/POST /api/admin` — admin dashboard/actions  
+- `GET /api/auth/profile?action=notifications` — signed-in user's notification inbox
+- `PUT /api/auth/profile { action: "mark_notification_read" | "mark_all_notifications_read" }`
 - Auth: `/api/auth/register|login|logout|me`
 
 ## Flow
