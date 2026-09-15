@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('talent', 'client', 'dual')) DEFAULT 'dual',
+  is_admin BOOLEAN NOT NULL DEFAULT false,
   country TEXT,
   lga TEXT,
   avatar_url TEXT,
@@ -36,12 +37,17 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS account_number TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS account_name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS paystack_recipient_code TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
+UPDATE users SET is_admin = false WHERE is_admin IS NULL;
+ALTER TABLE users ALTER COLUMN is_admin SET DEFAULT false;
+ALTER TABLE users ALTER COLUMN is_admin SET NOT NULL;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('talent', 'client', 'dual'));
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nin_hash ON users (nin_hash) WHERE nin_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_is_admin ON users (is_admin) WHERE is_admin = true;
 
 CREATE TABLE IF NOT EXISTS categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -239,6 +245,19 @@ ALTER TABLE wallet_transactions ADD CONSTRAINT wallet_transactions_status_check 
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_user ON wallet_transactions (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_escrow ON wallet_transactions (escrow_id) WHERE escrow_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_transactions_reference ON wallet_transactions (reference) WHERE reference IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  target_type TEXT,
+  target_id UUID,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_admin ON admin_audit_logs (admin_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_target ON admin_audit_logs (target_type, target_id);
 
 CREATE TABLE IF NOT EXISTS leak_attempts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

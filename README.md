@@ -32,7 +32,7 @@ export DATABASE_URL="postgresql://..."
 npm run db:migrate
 ```
 
-This creates `users`, `orbits`, `hats`, `hat_media`, `escrows`, `leak_attempts` and seeds default orbits.
+This creates `users`, `categories`, `hats`, `hat_media`, `applications`, `escrows`, `wallets`, `wallet_transactions`, `admin_audit_logs`, `leak_attempts`, and seeds default categories.
 
 ## 3. Environment variables
 
@@ -62,7 +62,17 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Add the **same keys** in **Vercel → Project → Settings → Environment Variables** (Production + Preview).
 
-## 4. Local development
+## 4. Admin access
+
+Run the migration first, then promote the first operator directly in Neon:
+
+```sql
+UPDATE users SET is_admin = true WHERE email = 'you@example.com';
+```
+
+Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
+
+## 5. Local development
 
 ```bash
 npm install
@@ -70,7 +80,7 @@ npm run db:migrate
 npx vercel dev
 ```
 
-## 5. Deploy
+## 6. Deploy
 
 ```bash
 npx vercel --prod
@@ -78,9 +88,9 @@ npx vercel --prod
 
 Build: `npm run build` → `dist`. SPA rewrites in `vercel.json`.
 
-## 6. Locked product rules
+## 7. Locked product rules
 
-1. Open custom orbits  
+1. Open custom categories  
 2. Dual toggle Creator ↔ Employer (`chombutar_role`)  
 3. Portfolio required for Talent; optional for Client  
 4. Verified if name ends Ltd/Plc/Corp/Inc/LLC  
@@ -89,13 +99,14 @@ Build: `npm run build` → `dist`. SPA rewrites in `vercel.json`.
 7. Cards: minmax(260px,1fr), gap 18px, max 300px  
 8. No platform fees (v4.0)
 
-## 7. API
+## 8. API
 
 - `GET/POST /api/hats` — list (filters) / create  
+- `GET /api/hats?categories=1` and `POST /api/hats { action: "create_category" }` — categories  
 - `GET/PUT/DELETE /api/hats/:id`  
 - `GET /api/showroom`  
-- `GET/POST /api/orbits`  
 - `POST /api/escrows` · `/api/escrows/:id/fund` · `/api/escrows/:id/release`  
+- `GET/POST /api/admin` — admin dashboard/actions  
 - Auth: `/api/auth/register|login|logout|me`
 
 ## Flow

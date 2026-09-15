@@ -50,8 +50,9 @@ export const api = {
   toggleLike: (id) =>
   request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'like' }) }),
   getShowroom: () => request('/api/showroom'),
-  getCategories: () => request('/api/categories'),
-  createCategory: (name) => request('/api/categories', { method: 'POST', body: JSON.stringify({ name }) }),
+  getCategories: () => request('/api/hats?categories=1'),
+  createCategory: (name) =>
+    request('/api/hats', { method: 'POST', body: JSON.stringify({ action: 'create_category', name }) }),
   getSeekingSuggestions: (role, q) =>
     request(`/api/hats?suggest=1&role=${encodeURIComponent(role)}&q=${encodeURIComponent(q || '')}`),
   createEscrow: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
@@ -87,6 +88,11 @@ export const api = {
   // api/hats/index.js and api/escrows/index.js for the 12-function-cap note).
   getMyApplications: () => request('/api/hats?applied=1'),
   getMyBookings: () => request('/api/escrows?mine=1'),
+
+  // Admin — one consolidated endpoint to stay within Vercel Hobby's
+  // function cap while still giving operations a real control panel.
+  getAdminDashboard: () => request('/api/admin'),
+  adminAction: (body) => request('/api/admin', { method: 'POST', body: JSON.stringify(body) }),
 }
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
