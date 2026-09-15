@@ -13,6 +13,7 @@ import TalentProfile from './pages/TalentProfile.jsx'
 import MyApplications from './pages/MyApplications.jsx'
 import MyBookings from './pages/MyBookings.jsx'
 import Wallet from './pages/Wallet.jsx'
+import Admin from './pages/Admin.jsx'
 
 function FullPageSpinner() {
   return (
@@ -32,6 +33,14 @@ function PublicOnlyRoute({ children }) {
   if (loading) return <FullPageSpinner />
   if (user) return <Navigate to="/" replace />
   return children
+}
+
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <FullPageSpinner />
+  if (!user) return <Navigate to="/auth" replace />
+  if (!user.isAdmin) return <Navigate to="/" replace />
+  return <Layout>{children}</Layout>
 }
 
 function HomeRoute() {
@@ -111,6 +120,14 @@ export default function App() {
           <ProtectedRoute>
             <Wallet />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <Admin />
+          </AdminRoute>
         }
       />
       <Route

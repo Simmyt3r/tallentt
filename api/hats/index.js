@@ -30,6 +30,14 @@ export default async function handler(req, res) {
       const url = new URL(req.url, `http://${req.headers.host}`)
       const role = url.searchParams.get('role')
 
+      // GET /api/hats?categories=1 — open category taxonomy. Kept here
+      // instead of /api/categories so the app stays under Vercel Hobby's
+      // serverless function cap after adding /api/admin.
+      if (url.searchParams.get('categories') === '1') {
+        const { rows } = await query(`SELECT id, name, created_by, created_at FROM categories ORDER BY name`)
+        return json(res, 200, { categories: rows })
+      }
+
       // GET /api/hats?applied=1 — "My Applications": every hat the
       // signed-in user has applied to, with their application status.
       // Folded into this same function (Vercel Hobby's 12-function cap)
@@ -139,6 +147,21 @@ export default async function handler(req, res) {
       const session = getSessionUser(req)
       if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
+      const body = await readBody(req)
+      if (body.action === 'create_category') {
+        const name = (body.name || '').trim()
+        if (!name || name.length < 2) {
+          return json(res, 400, { error: 'Category name required (min 2 chars)' })
+        }
+        const { rows } = await query(
+          `INSERT INTO categories (name, created_by) VALUES ($1, $2)
+           ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+           RETURNING *`,
+          [name, session.sub],
+        )
+        return json(res, 201, { category: rows[0] })
+      }
+
       // Username always comes from the signed-in account — never re-asked on hat create
       const { rows: userRows } = await query(
         `SELECT id, username, full_name FROM users WHERE id = $1`,
@@ -147,7 +170,6 @@ export default async function handler(req, res) {
       if (!userRows[0]) return json(res, 401, { error: 'User not found' })
       const accountUsername = userRows[0].username
 
-      const body = await readBody(req)
       const {
         hat_title,
         verified_name,

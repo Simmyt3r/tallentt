@@ -162,7 +162,7 @@ export default async function handler(req, res) {
          account_name   = COALESCE($14, account_name),
          paystack_recipient_code = COALESCE($15, paystack_recipient_code)
        WHERE id = $16
-       RETURNING id, full_name, username, email, role, country, lga,
+       RETURNING id, full_name, username, email, role, is_admin, country, lga,
                  avatar_url, bio, location, phone, nin_hash, nin_last4,
                  bank_name, account_number, account_name, paystack_recipient_code,
                  (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance`,

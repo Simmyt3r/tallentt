@@ -28,7 +28,7 @@ const RATE_UNITS = [
 
 // 14 MECE Hats Categories — open-ended (custom entries also allowed, and
 // get saved so they show up as options for future hats too). This is a
-// fallback shown before /api/categories responds; NOT the Orbit score,
+// fallback shown before /api/hats?categories=1 responds; NOT the Orbit score,
 // which is a separately computed confidence metric shown on the card.
 const DEFAULT_CATEGORIES = [
   'Beauty & Grooming',
