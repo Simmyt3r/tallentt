@@ -9,7 +9,20 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
       VITE_APP_NAME: ChombuTar
       VITE_APP_URL: https://example.com
       VITE_CLOUDINARY_CLOUD_NAME: demo
@@ -32,5 +45,22 @@ jobs:
       - name: Verify serverless syntax
         run: npm run check:api
 
+      - name: Test booking rules and PostgreSQL transactions
+        run: npm test
+
       - name: Build PWA
         run: npm run build
+
+      - name: Install test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Test messaging UI on desktop and mobile
+        run: npm run test:ui
+
+      - name: Upload messaging screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: messaging-screenshots
+          path: test-results/*.png
+          if-no-files-found: ignore

@@ -2,8 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Clock, Eye, Heart, MapPin, Send, Star } from 'lucide-react'
-import { api, payWithPaystack } from '../lib/api'
-import { useAuth } from '../context/AuthContext'
+import { api } from '../lib/api'
 import AvailabilityBadge from '../components/AvailabilityBadge'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 
@@ -52,7 +51,6 @@ function formatAvailabilityWindow(hat) {
 export default function TalentProfile() {
   const { hatId } = useParams()
   const navigate = useNavigate()
-  const { user, refreshUser } = useAuth()
   const [hat, setHat] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -112,24 +110,8 @@ export default function TalentProfile() {
     if (!hat) return
     setBooking(true)
     try {
-      const { escrow } = await api.createEscrow({ hat_id: hat.id, talent_id: hat.user_id })
-      const canUseWallet = (user.walletBalance || 0) >= escrow.amount
-      const msg = canUseWallet
-        ? `Pay ₦${escrow.amount.toLocaleString()} from your wallet (balance ₦${user.walletBalance.toLocaleString()}) to secure this booking and unlock contacts?`
-        : `Pay ₦${escrow.amount.toLocaleString()} to secure this booking and unlock contacts?`
-      if (!confirm(msg)) return
-      if (canUseWallet) {
-        await api.fundEscrowWithWallet(escrow.id)
-      } else {
-        const reference = await payWithPaystack({
-          email: user.email,
-          amountNaira: escrow.amount,
-          metadata: { escrow_id: escrow.id, hat_id: hat.id },
-        })
-        await api.fundEscrow(escrow.id, reference)
-      }
-      await refreshUser()
-      alert('Payment verified — escrow secured! Contacts unlocked.')
+      const { escrow } = await api.createEscrow({ hat_id: hat.id })
+      navigate(`/messages?escrow=${escrow.id}`)
     } catch (e) {
       alert(e.message)
     } finally {

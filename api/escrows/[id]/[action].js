@@ -4,8 +4,9 @@ import { getSessionUser } from '../../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../../_lib/http.js'
 import { verifyPaystackTransaction } from '../../_lib/paystack.js'
 import { applyVerifiedPayment } from '../../_lib/escrowPayments.js'
-import { debitWallet, creditWallet } from '../../_lib/wallet.js'
-import { notifyEscrowReleased, notifyEscrowSecured } from '../../_lib/notifications.js'
+import { creditWallet } from '../../_lib/wallet.js'
+import { notifyEscrowReleased } from '../../_lib/notifications.js'
+import { prepareCheckout, payBookingWithWallet } from '../../_lib/bookingCheckout.js'
 
 // Handles:
 //   POST /api/escrows/:id/fund         — pay with card (Paystack)
@@ -20,8 +21,21 @@ export default async function handler(req, res) {
   const action = req.query?.action
   if (!id) return json(res, 400, { error: 'Missing id' })
 
+  if (action === 'prepare-checkout' || action === 'fund-wallet') {
+    res.setHeader('Cache-Control', 'private, no-store')
+    try {
+      const session = getSessionUser(req)
+      if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
+      const body = await readBody(req)
+      const operation = action === 'prepare-checkout' ? prepareCheckout : payBookingWithWallet
+      return json(res, 200, await operation(session.sub, id, body?.expected_amount))
+    } catch (err) {
+      if (!err.status) console.error('Booking checkout failed:', err)
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Could not fund this booking.' })
+    }
+  }
+
   if (action === 'fund') return fund(req, res, id)
-  if (action === 'fund-wallet') return fundWithWallet(req, res, id)
   if (action === 'release') return release(req, res, id)
   return json(res, 404, { error: 'Unknown escrow action' })
 }
@@ -66,55 +80,6 @@ async function fund(req, res, id) {
   }
 }
 
-// Pays for a booking straight out of the client's wallet balance instead
-// of a Paystack popup — pure DB transaction, no external call, no
-// verification step needed since the money already sits in the wallet.
-async function fundWithWallet(req, res, id) {
-  try {
-    const session = getSessionUser(req)
-    if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
-
-    const { rows: ownedRows } = await query(
-      `SELECT * FROM escrows WHERE id = $1 AND client_id = $2 AND status = 'not_funded'`,
-      [id, session.sub],
-    )
-    const escrow = ownedRows[0]
-    if (!escrow) return json(res, 404, { error: 'Escrow not found or already funded.' })
-
-    const client = await getClient()
-    try {
-      await client.query('BEGIN')
-      await debitWallet(client, {
-        userId: session.sub,
-        amount: escrow.amount,
-        type: 'escrow_fund',
-        escrowId: escrow.id,
-      })
-      const { rows } = await client.query(
-        `UPDATE escrows SET status = 'secured', contacts_unlocked = true
-         WHERE id = $1 AND status = 'not_funded' RETURNING *`,
-        [id],
-      )
-      if (!rows[0]) {
-        await client.query('ROLLBACK')
-        return json(res, 409, { error: 'This booking was already funded.' })
-      }
-      const securedEscrow = rows[0]
-      await client.query('COMMIT')
-      await notifyEscrowSecured(securedEscrow.id)
-      return json(res, 200, { escrow: securedEscrow })
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {})
-      throw err
-    } finally {
-      client.release()
-    }
-  } catch (err) {
-    console.error(err)
-    return json(res, err.status || 500, { error: err.message || 'Failed to fund escrow from wallet' })
-  }
-}
-
 // Moves a secured escrow's funds into the talent's wallet balance. This
 // used to call Paystack's Transfer API directly (requiring the talent to
 // have payout bank details on file *before* a client could ever release
@@ -136,6 +101,7 @@ async function release(req, res, id) {
     if (!escrow) return json(res, 404, { error: 'Escrow not found or not secured' })
 
     const client = await getClient()
+    let releasedEscrow
     try {
       await client.query('BEGIN')
       await creditWallet(client, {
@@ -153,16 +119,16 @@ async function release(req, res, id) {
         await client.query('ROLLBACK')
         return json(res, 409, { error: 'This booking was already released.' })
       }
-      const releasedEscrow = rows[0]
+      releasedEscrow = rows[0]
       await client.query('COMMIT')
-      await notifyEscrowReleased(releasedEscrow.id)
-      return json(res, 200, { escrow: releasedEscrow })
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {})
       throw err
     } finally {
       client.release()
     }
+    await notifyEscrowReleased(releasedEscrow.id)
+    return json(res, 200, { escrow: releasedEscrow })
   } catch (err) {
     console.error(err)
     return json(res, 500, { error: 'Failed to release escrow' })

@@ -450,7 +450,7 @@ function EscrowsTable({ rows, busy, runAction }) {
             </Td>
             <Td>{fmtDate(e.created_at)}</Td>
             <Td>
-              {e.status === 'not_funded' ? (
+              {e.status === 'not_funded' && !e.checkout_locked_at ? (
                 <ActionButton
                   disabled={busy === `escrow-${e.id}`}
                   danger

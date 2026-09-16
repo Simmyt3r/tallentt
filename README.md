@@ -32,7 +32,7 @@ export DATABASE_URL="postgresql://..."
 npm run db:migrate
 ```
 
-This creates `users`, `categories`, `hats`, `hat_media`, `applications`, `escrows`, `wallets`, `wallet_transactions`, `notifications`, `admin_audit_logs`, `leak_attempts`, and seeds default categories.
+This creates `users`, `categories`, `hats`, `hat_media`, `applications`, `escrows`, `booking_messages`, `wallets`, `wallet_transactions`, `notifications`, `admin_audit_logs`, `leak_attempts`, and seeds default categories.
 
 ## 3. Environment variables
 
@@ -83,6 +83,40 @@ Signed-in users get an in-app header inbox for important marketplace events:
 - Admin moderation and reconciliation updates
 
 The inbox intentionally ships as in-app notifications first. Email, SMS, and push notifications should wait until messaging, abuse controls, and user notification preferences are stable.
+
+### Booking Messages and Price Offers
+
+Book Talent opens `/messages?escrow=<booking-id>`. The header Messages shortcut lists conversations for both clients and talents. My Bookings links to each thread. This release supports talent-hat bookings; client-hat applications keep their existing workflow.
+
+- Only the booking's client and talent can read or send. Cancelled bookings are read-only.
+- Before funding, the server rejects detected phone numbers, email addresses, handles, URLs and common obfuscations in both messages and offer notes. Rejected text is not stored or sent in notifications. After `secured` or `released`, contact sharing also requires `contacts_unlocked=true`.
+- The filter is heuristic. It cannot guarantee detection of coded language, fragments across messages, or contacts already placed in public profile/media fields. Attachments are not supported in this release.
+- Either participant can propose a whole-naira price when the hat is marked negotiable. Counteroffers supersede the previous pending offer. Only the recipient can accept or decline; the sender can withdraw. Acceptance changes only that booking's price, never the public hat price.
+- A pending offer must be resolved before funding. Starting card checkout freezes the price and reference; closing the popup does not reopen negotiation. Retry the same checkout from the thread. A failed provider transaction that cannot reuse its reference requires operator reconciliation before another checkout is allowed. Wallet funding is unavailable once card checkout starts.
+- Both payment paths check the displayed price against the locked database row. Webhook/callback retries use the same payment reference and cannot apply twice. Contact information stays hidden until the server verifies funding.
+- Messages have a 2,000-character limit, 50-item history pages, client retry tokens, and a limit of 20 sends per participant per booking per minute. The active thread polls every 8 seconds; older-history reading pauses polling until Return to latest messages. Messaging requires a network connection; private API responses are not cached by the PWA.
+
+The feature uses the existing serverless routes, retaining 12 deployed API functions:
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/escrows?conversations=1&before=<optional-booking-id>` | Participant inbox, 50 bookings per page |
+| `GET /api/escrows?messages=1&escrow_id=<id>&before=<optional-message-id>` | Thread, pending offer, permitted contact fields, history |
+| `POST /api/escrows` | Actions `send_message`, `make_offer`, `respond_offer`, `read_messages` |
+| `POST /api/escrows/:id/prepare-checkout` | Freeze amount/reference; requires `expected_amount` |
+| `POST /api/escrows/:id/fund-wallet` | Debit the accepted amount; requires `expected_amount` |
+
+Message and offer sends require `escrow_id`, `body`, and UUID `client_token`; offers also require integer `amount` and `expected_offer_id` (null when no offer is pending). Offer responses require `offer_id` and `status` (`accepted`, `declined`, or `withdrawn`). Read acknowledgements include `through_id` from the loaded message page.
+
+### Migration and Verification for This Release
+
+Run `npm run db:migrate` against the intended Neon database **before deploying this version**. The migration adds `booking_messages` and checkout fields. On the first upgrade only, it freezes prices on existing unfunded bookings because an older client may already have opened a payment popup. Newly created bookings remain negotiable. Rerunning the migration preserves those new bookings. Operators should reconcile old outstanding payments before cancelling or replacing an old checkout.
+
+Run `npm run verify` for integration tests, serverless syntax checks, and the PWA build. Local tests use an isolated in-memory PostgreSQL engine (PGlite); no Neon credentials are needed. CI also runs against PostgreSQL 16 with independent connections to test competing writes. Setting `TEST_DATABASE_URL` uses a temporary database created and deleted by the test harness; its database user must be able to create databases. Tests never use `DATABASE_URL`.
+
+For the client/talent browser test, run `npx playwright install chromium` and `npm run test:ui`. It starts isolated fixture and Vite servers on ports 3000 and 5179, checks five screen widths, exercises counteroffer through contact unlock, and writes screenshots under `test-results/`. The fixture accounts exist only in the temporary test database. CI runs this check and uploads its screenshots.
+
+Payment verification follows [Paystack's server-side verification guidance](https://paystack.com/docs/payments/verify-payments/); negotiation and checkout share [PostgreSQL row locks](https://www.postgresql.org/docs/current/explicit-locking.html#LOCKING-ROWS).
 
 ## 6. Local development
 

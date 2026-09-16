@@ -119,21 +119,25 @@ export async function applyVerifiedTopup({ userId, reference, txn }) {
   const vat = 0
 
   const client = await getClient()
+  let balance
+  let alreadyProcessed = false
   try {
     await client.query('BEGIN')
-    const balance = await creditWallet(client, { userId, amount, type: 'topup', reference })
+    balance = await creditWallet(client, { userId, amount, type: 'topup', reference })
     await client.query('COMMIT')
-    await notifyWalletTopup({ userId, amount, balance })
-    return { alreadyProcessed: false, balance, amount, serviceFee, platformFee, vat, grossAmount, paidNaira }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     // Lost a race against a concurrent call with the same reference —
     // the unique index on wallet_transactions.reference caught it.
     if (err.code === '23505') {
-      return { alreadyProcessed: true, balance: await getWalletBalance(userId) }
+      alreadyProcessed = true
+    } else {
+      throw err
     }
-    throw err
   } finally {
     client.release()
   }
+  if (alreadyProcessed) return { alreadyProcessed: true, balance: await getWalletBalance(userId) }
+  await notifyWalletTopup({ userId, amount, balance })
+  return { alreadyProcessed: false, balance, amount, serviceFee, platformFee, vat, grossAmount, paidNaira }
 }

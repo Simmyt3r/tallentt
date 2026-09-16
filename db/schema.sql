@@ -219,6 +219,42 @@ CREATE INDEX IF NOT EXISTS idx_escrows_talent ON escrows (talent_id, created_at 
 CREATE INDEX IF NOT EXISTS idx_escrows_hat ON escrows (hat_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_escrows_payment_reference ON escrows (payment_reference) WHERE payment_reference IS NOT NULL;
 
+-- Existing checkouts may already be open in an older PWA. Freeze their prices
+-- once, on upgrade, so a delayed payment cannot fund a newly negotiated amount.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'escrows' AND column_name = 'checkout_locked_at') THEN
+    ALTER TABLE escrows ADD COLUMN checkout_locked_at TIMESTAMPTZ;
+    UPDATE escrows SET checkout_locked_at = NOW() WHERE status = 'not_funded';
+  END IF;
+END $$;
+ALTER TABLE escrows ADD COLUMN IF NOT EXISTS checkout_reference TEXT;
+ALTER TABLE escrows ADD COLUMN IF NOT EXISTS messages_updated_at TIMESTAMPTZ;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_escrows_checkout_reference ON escrows (checkout_reference) WHERE checkout_reference IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS booking_messages (
+  id BIGSERIAL PRIMARY KEY,
+  escrow_id UUID NOT NULL REFERENCES escrows(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES users(id),
+  recipient_id UUID NOT NULL REFERENCES users(id),
+  kind TEXT NOT NULL CHECK (kind IN ('message', 'offer')),
+  body TEXT NOT NULL CHECK (char_length(body) <= 2000),
+  amount INT,
+  offer_status TEXT,
+  client_token UUID NOT NULL,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (escrow_id, sender_id, client_token),
+  CHECK ((kind = 'message' AND char_length(btrim(body)) > 0 AND amount IS NULL AND offer_status IS NULL)
+    OR (kind = 'offer' AND amount IS NOT NULL AND amount > 0 AND offer_status IS NOT NULL
+      AND offer_status IN ('pending', 'accepted', 'declined', 'withdrawn', 'superseded')))
+);
+CREATE INDEX IF NOT EXISTS idx_booking_messages_thread ON booking_messages (escrow_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_booking_messages_unread ON booking_messages (escrow_id, recipient_id) WHERE read_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_messages_pending_offer ON booking_messages (escrow_id) WHERE offer_status = 'pending';
+
 CREATE TABLE IF NOT EXISTS wallets (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   balance INT NOT NULL DEFAULT 0 CHECK (balance >= 0),
