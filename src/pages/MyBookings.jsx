@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Clock } from 'lucide-react'
-import { api, payWithPaystack } from '../lib/api'
+import { api, payForBooking } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
 // Co-located per the codebase's existing pattern (see BentoCard.jsx,
@@ -62,12 +62,7 @@ export default function MyBookings() {
   async function handleFund(b) {
     setBusyId(b.id)
     try {
-      const reference = await payWithPaystack({
-        email: user.email,
-        amountNaira: b.amount,
-        metadata: { escrow_id: b.id, hat_id: b.hat_id },
-      })
-      const { escrow } = await api.fundEscrow(b.id, reference)
+      const { escrow } = await payForBooking(b, user.email)
       setBookings((list) => list.map((x) => (x.id === b.id ? { ...x, ...escrow } : x)))
     } catch (e) {
       alert(e.message)
@@ -82,7 +77,7 @@ export default function MyBookings() {
   async function handleFundWallet(b) {
     setBusyId(b.id)
     try {
-      const { escrow } = await api.fundEscrowWithWallet(b.id)
+      const { escrow } = await api.fundEscrowWithWallet(b.id, b.amount)
       setBookings((list) => list.map((x) => (x.id === b.id ? { ...x, ...escrow } : x)))
       await refreshUser()
     } catch (e) {
@@ -156,6 +151,9 @@ export default function MyBookings() {
                   </p>
                 </Link>
                 <span className="text-[13px] font-bold shrink-0">{fmtMoney(b.amount, b.currency)}</span>
+                <Link to={`/messages?escrow=${b.id}`} className="text-[12px] font-semibold underline underline-offset-4">
+                  Messages / offers
+                </Link>
                 <span
                   className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 ${STATUS_STYLE[b.status] || STATUS_STYLE.cancelled}`}
                 >

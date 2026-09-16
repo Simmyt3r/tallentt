@@ -14,6 +14,7 @@ import MyApplications from './pages/MyApplications.jsx'
 import MyBookings from './pages/MyBookings.jsx'
 import Wallet from './pages/Wallet.jsx'
 import Admin from './pages/Admin.jsx'
+import Messages from './pages/Messages.jsx'
 
 function FullPageSpinner() {
   return (
@@ -66,6 +67,7 @@ export default function App() {
         }
       />
       <Route path="/" element={<HomeRoute />} />
+      <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
       <Route
         path="/showroom"
         element={

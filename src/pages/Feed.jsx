@@ -1,13 +1,13 @@
 // Path: src/pages/Feed.jsx
 import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
-import { api, payWithPaystack } from '../lib/api'
+import { api } from '../lib/api'
+import { useNavigate } from 'react-router-dom'
 import BentoCard from '../components/BentoCard'
 import { useBrowseRole } from '../components/Layout'
-import { useAuth } from '../context/AuthContext'
 
 export default function Feed() {
-  const { user, refreshUser } = useAuth()
+  const navigate = useNavigate()
   const browseRole = useBrowseRole()
   const hatRole = browseRole === 'talent' ? 'client' : 'talent'
   const [hats, setHats] = useState([])
@@ -34,24 +34,8 @@ export default function Feed() {
 
   async function handleBook(hat) {
     try {
-      const { escrow } = await api.createEscrow({ hat_id: hat.id, talent_id: hat.user_id })
-      const canUseWallet = (user.walletBalance || 0) >= escrow.amount
-      const msg = canUseWallet
-        ? `Pay ₦${escrow.amount.toLocaleString()} from your wallet (balance ₦${user.walletBalance.toLocaleString()}) to secure this booking and unlock contacts?`
-        : `Pay ₦${escrow.amount.toLocaleString()} to secure this booking and unlock contacts?`
-      if (!confirm(msg)) return
-      if (canUseWallet) {
-        await api.fundEscrowWithWallet(escrow.id)
-      } else {
-        const reference = await payWithPaystack({
-          email: user.email,
-          amountNaira: escrow.amount,
-          metadata: { escrow_id: escrow.id, hat_id: hat.id },
-        })
-        await api.fundEscrow(escrow.id, reference)
-      }
-      await refreshUser()
-      alert('Payment verified — escrow secured! Contacts unlocked.')
+      const { escrow } = await api.createEscrow({ hat_id: hat.id })
+      navigate(`/messages?escrow=${escrow.id}`)
     } catch (e) {
       alert(e.message)
     }

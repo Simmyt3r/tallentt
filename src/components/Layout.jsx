@@ -11,6 +11,7 @@ import {
   CalendarCheck,
   Wallet as WalletIcon,
   ShieldCheck,
+  MessageCircle,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useEffect, useState } from 'react'
@@ -49,12 +50,12 @@ export default function Layout({ children }) {
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F3EB] text-black antialiased">
       <header className="sticky top-0 z-40 bg-[#F7F3EB]/90 backdrop-blur-xl border-b-[1.5px] border-black">
-        <div className="w-full px-4 md:px-6 lg:px-10 h-16 flex items-center justify-between gap-3">
+        <div className="w-full px-4 md:px-6 lg:px-10 min-h-16 py-2 flex flex-wrap items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <img src="/logo.png" alt="ChombuTar" className="w-11 h-11 object-contain" />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden xl:flex order-3 w-full justify-center items-center gap-1">
             <NavItem to="/" icon={Home} label="Feed" />
             <NavItem to="/showroom" icon={Store} label="Showroom" />
             <NavItem to="/my-hats" icon={Briefcase} label="My Hats" />
@@ -65,12 +66,17 @@ export default function Layout({ children }) {
             <NavItem to="/profile" icon={UserRound} label="Profile" />
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Link to="/messages" title="Messages" aria-label="Messages"
+              className="w-9 h-9 shrink-0 rounded-full bg-white border-[1.5px] border-black flex items-center justify-center hover:bg-black hover:text-white">
+              <MessageCircle size={16} />
+            </Link>
             <NotificationsMenu />
             <Link
               to="/wallet"
               title="Wallet"
-              className="flex items-center gap-1.5 h-9 px-3 rounded-full bg-white border-[1.5px] border-black text-[12px] font-semibold hover:bg-black hover:text-white transition shrink-0"
+              aria-label="Wallet"
+              className="flex items-center gap-1.5 h-9 px-2 sm:px-3 rounded-full bg-white border-[1.5px] border-black text-[12px] font-semibold hover:bg-black hover:text-white transition shrink-0"
             >
               <WalletIcon size={14} />
               <span className="hidden sm:inline">{fmtMoney(user?.walletBalance)}</span>
@@ -79,13 +85,14 @@ export default function Layout({ children }) {
               <Link
                 to="/admin"
                 title="Admin"
-                className="flex items-center gap-1.5 h-9 px-3 rounded-full bg-white border-[1.5px] border-black text-[12px] font-semibold hover:bg-[#0A13E6] hover:text-white transition shrink-0"
+                aria-label="Admin"
+                className="flex items-center gap-1.5 h-9 px-2 sm:px-3 rounded-full bg-white border-[1.5px] border-black text-[12px] font-semibold hover:bg-[#0A13E6] hover:text-white transition shrink-0"
               >
                 <ShieldCheck size={14} />
                 <span className="hidden sm:inline">Admin</span>
               </Link>
             )}
-            <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-semibold">
+            <div className="hidden sm:flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-semibold">
               <button
                 type="button"
                 onClick={() => setBrowseRole('talent')}
@@ -115,13 +122,19 @@ export default function Layout({ children }) {
             </button>
           </div>
         </div>
+        <div className="sm:hidden flex justify-center gap-1 pb-2 text-xs font-semibold">
+          <button type="button" aria-pressed={browseRole === 'talent'} onClick={() => setBrowseRole('talent')}
+            className={`px-3 py-1 rounded-full ${browseRole === 'talent' ? 'bg-[#0A13E6] text-white' : 'bg-white'}`}>Talent</button>
+          <button type="button" aria-pressed={browseRole === 'client'} onClick={() => setBrowseRole('client')}
+            className={`px-3 py-1 rounded-full ${browseRole === 'client' ? 'bg-black text-white' : 'bg-white'}`}>Client</button>
+        </div>
         <p className="text-center text-[11px] text-black/50 pb-2.5 px-4 font-medium">{helper}</p>
       </header>
 
       <main className="flex-1 w-full px-4 md:px-6 lg:px-10 py-6">{children}</main>
 
       {/* Mobile bottom nav — matches reference */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 p-3">
+      <nav className="xl:hidden fixed bottom-0 inset-x-0 z-40 p-3">
         <div className="bg-white rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] border-[1.5px] border-black/5 px-2 h-14 flex items-center justify-around">
           <NavItem to="/" icon={Home} label="Feed" mobile />
           <NavItem to="/showroom" icon={Store} label="Show" mobile />
@@ -132,7 +145,7 @@ export default function Layout({ children }) {
           <NavItem to="/profile" icon={UserRound} label="You" mobile />
         </div>
       </nav>
-      <div className="md:hidden h-20" />
+      <div className="xl:hidden h-20" />
     </div>
   )
 }
@@ -141,6 +154,8 @@ function NavItem({ to, icon: Icon, label, mobile, accent }) {
   return (
     <NavLink
       to={to}
+      aria-label={label}
+      title={label}
       className={({ isActive }) =>
         mobile
           ? `w-10 h-10 rounded-full grid place-items-center transition ${

@@ -141,7 +141,7 @@ async function getDashboard() {
     ),
     query(
       `SELECT e.id, e.hat_id, e.amount, e.status, e.contacts_unlocked,
-              e.payment_reference, e.created_at, e.funded_at, e.released_at,
+              e.payment_reference, e.checkout_locked_at, e.created_at, e.funded_at, e.released_at,
               h.hat_title,
               client.username as client_username,
               talent.username as talent_username
@@ -248,26 +248,27 @@ async function handleAdminAction(admin, body) {
   if (action === 'cancel_unfunded_escrow') {
     const escrowId = requireUuid(body.escrowId, 'escrowId')
     const client = await getClient()
+    let escrow
     try {
       await client.query('BEGIN')
       const { rows } = await client.query(
         `UPDATE escrows SET status = 'cancelled'
-         WHERE id = $1 AND status = 'not_funded'
+         WHERE id = $1 AND status = 'not_funded' AND checkout_locked_at IS NULL
          RETURNING *`,
         [escrowId],
       )
-      if (!rows[0]) throw httpError(409, 'Only unfunded escrows can be cancelled from admin.')
+      if (!rows[0]) throw httpError(409, 'Only unfunded bookings without a started checkout can be cancelled here. Reconcile outstanding payments first.')
       await logAdminAction(client, admin.id, action, 'escrow', escrowId, {})
-      const escrow = rows[0]
+      escrow = rows[0]
       await client.query('COMMIT')
-      await notifyEscrowCancelled(escrow.id)
-      return { ok: true, escrow }
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {})
       throw err
     } finally {
       client.release()
     }
+    await notifyEscrowCancelled(escrow.id)
+    return { ok: true, escrow }
   }
 
   if (action === 'set_withdrawal_status') {

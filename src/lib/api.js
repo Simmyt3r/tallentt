@@ -69,8 +69,14 @@ export const api = {
   createEscrow: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
   fundEscrow: (id, reference) =>
     request(`/api/escrows/${id}/fund`, { method: 'POST', body: JSON.stringify({ reference }) }),
-  fundEscrowWithWallet: (id) => request(`/api/escrows/${id}/fund-wallet`, { method: 'POST' }),
+  prepareCheckout: (id, expected_amount) =>
+    request(`/api/escrows/${id}/prepare-checkout`, { method: 'POST', body: JSON.stringify({ expected_amount }) }),
+  fundEscrowWithWallet: (id, expected_amount) =>
+    request(`/api/escrows/${id}/fund-wallet`, { method: 'POST', body: JSON.stringify({ expected_amount }) }),
   releaseEscrow: (id) => request(`/api/escrows/${id}/release`, { method: 'POST' }),
+  getConversations: (before) => request(`/api/escrows?conversations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`),
+  getMessages: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
+  messageAction: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
 
   // Wallet — reuses the /api/escrows endpoint with a query param / action
   // field rather than a dedicated /api/wallet one (see api/escrows/index.js
@@ -198,4 +204,15 @@ export async function payWithPaystack({ email, amountNaira, reference, metadata 
 export function maskLeaks(text) {
   if (!text) return text
   return text.replace(/\b(whatsapp|telegram|tg\b|call me|my number|hmu|dm me)\b/gi, '••••')
+}
+
+export async function payForBooking(booking, email) {
+  if (!import.meta.env.VITE_PAYSTACK_PUBLIC_KEY) throw new Error('Card payments are not configured.')
+  await waitForPaystack()
+  const checkout = await api.prepareCheckout(booking.id, booking.amount)
+  const reference = await payWithPaystack({
+    email, amountNaira: checkout.amount, reference: checkout.reference,
+    metadata: { escrow_id: booking.id, hat_id: booking.hat_id },
+  })
+  return api.fundEscrow(booking.id, reference)
 }

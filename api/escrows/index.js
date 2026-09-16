@@ -6,8 +6,11 @@ import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTran
 import { applyVerifiedPayment } from '../_lib/escrowPayments.js'
 import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from '../_lib/wallet.js'
 import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notifications.js'
+import { getConversations, getThread, threadAction } from '../_lib/bookingThreads.js'
+import { bookingError, requireBookingId } from '../_lib/bookingRules.js'
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store')
   // GET /api/escrows?mine=1 — "My Bookings" (escrows created as a client).
   // GET /api/escrows?wallet=1 — wallet balance + transaction history.
   // Both folded into this same function (Vercel Hobby's 12-function cap)
@@ -18,6 +21,13 @@ export default async function handler(req, res) {
       if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
       const url = new URL(req.url, `http://${req.headers.host}`)
+
+      if (url.searchParams.get('conversations') === '1') {
+        return json(res, 200, await getConversations(session.sub, url.searchParams.get('before')))
+      }
+      if (url.searchParams.get('messages') === '1') {
+        return json(res, 200, await getThread(session.sub, url.searchParams.get('escrow_id'), url.searchParams.get('before')))
+      }
 
       if (url.searchParams.get('wallet') === '1') {
         const balance = await getWalletBalance(session.sub)
@@ -49,8 +59,8 @@ export default async function handler(req, res) {
       )
       return json(res, 200, { bookings: rows })
     } catch (err) {
-      console.error(err)
-      return json(res, 500, { error: 'Failed to fetch bookings' })
+      if (!err.status) console.error(err)
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to fetch bookings' })
     }
   }
 
@@ -71,6 +81,11 @@ export default async function handler(req, res) {
     if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
     const body = await readBody(req)
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'A JSON object is required.' })
+
+    if (['send_message', 'make_offer', 'respond_offer', 'read_messages'].includes(body.action)) {
+      return json(res, 200, await threadAction(session.sub, body))
+    }
 
     // Wallet actions — dispatched by body.action, same pattern as the
     // fund/release split in api/escrows/[id]/[action].js, kept in this
@@ -78,50 +93,50 @@ export default async function handler(req, res) {
     // function-cap reason as the webhook above.
     if (body.action === 'topup') return handleTopup(res, session, body)
     if (body.action === 'withdraw') return handleWithdraw(res, session, body)
+    if (body.action) return json(res, 400, { error: 'Unknown booking action.' })
 
     const { hat_id } = body
-    if (!hat_id) return json(res, 400, { error: 'hat_id required' })
-
-    const { rows: hatRows } = await query(
-      `SELECT id, user_id, role, active, price_type, rate, price_min FROM hats WHERE id = $1`,
-      [hat_id],
-    )
-    if (!hatRows[0]) return json(res, 404, { error: 'Hat not found' })
-    const hat = hatRows[0]
-    if (!hat.active) return json(res, 400, { error: 'This hat is no longer active.' })
-    if (hat.role !== 'talent') {
-      return json(res, 400, { error: 'Client hats accept applications. Only talent hats can be booked.' })
-    }
-    if (hat.user_id === session.sub) {
-      return json(res, 400, { error: "You can't book your own hat." })
-    }
-
-    // Fixed pricing escrows the flat rate; range pricing escrows the floor
-    // of the range. The payee is always the hat owner, never client input.
-    const amount = Number(hat.price_type === 'range' ? hat.price_min : hat.rate)
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return json(res, 400, { error: 'This hat has no price set yet.' })
-    }
-
-    const { rows: existingRows } = await query(
-      `SELECT * FROM escrows
-       WHERE hat_id = $1 AND client_id = $2 AND status IN ('not_funded','secured')
-       ORDER BY created_at DESC LIMIT 1`,
-      [hat_id, session.sub],
-    )
-    if (existingRows[0]) {
-      return json(res, 200, { escrow: existingRows[0], already_exists: true })
-    }
-
-    const { rows } = await query(
-      `INSERT INTO escrows (hat_id, client_id, talent_id, amount, status, contacts_unlocked)
-       VALUES ($1, $2, $3, $4, 'not_funded', false) RETURNING *`,
-      [hat_id, session.sub, hat.user_id, amount],
-    )
-    return json(res, 201, { escrow: rows[0] })
+    requireBookingId(hat_id)
+    const result = await createBooking(session.sub, hat_id)
+    return json(res, result.already_exists ? 200 : 201, result)
   } catch (err) {
-    console.error(err)
-    return json(res, 500, { error: err.message || 'Failed to create escrow' })
+    if (!err.status) console.error(err)
+    return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to update booking' })
+  }
+}
+
+async function createBooking(userId, hatId) {
+  const client = await getClient()
+  try {
+    await client.query('BEGIN')
+    // Serialize creation for this hat, including double taps and retries.
+    const { rows: hats } = await client.query(`SELECT * FROM hats WHERE id = $1 FOR UPDATE`, [hatId])
+    const hat = hats[0]
+    if (!hat) throw bookingError(404, 'Hat not found.')
+    if (!hat.active || hat.role !== 'talent') throw bookingError(400, 'Only active talent hats can be booked.')
+    if (hat.user_id === userId) throw bookingError(400, "You can't book your own hat.")
+    if (hat.currency !== 'NGN') throw bookingError(400, 'Booking payments currently support NGN only.')
+    const { rows: existing } = await client.query(
+      `SELECT * FROM escrows WHERE hat_id = $1 AND client_id = $2 AND status IN ('not_funded', 'secured')
+       ORDER BY created_at DESC LIMIT 1`, [hatId, userId],
+    )
+    let escrow = existing[0]
+    if (!escrow) {
+      const amount = Number(hat.price_type === 'range' ? hat.price_min : hat.rate)
+      if (!Number.isInteger(amount) || amount <= 0) throw bookingError(400, 'This hat has no price set yet.')
+      const { rows } = await client.query(
+        `INSERT INTO escrows (hat_id, client_id, talent_id, amount) VALUES ($1, $2, $3, $4) RETURNING *`,
+        [hatId, userId, hat.user_id, amount],
+      )
+      escrow = rows[0]
+    }
+    await client.query('COMMIT')
+    return { escrow, already_exists: Boolean(existing[0]) }
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw err
+  } finally {
+    client.release()
   }
 }
 
