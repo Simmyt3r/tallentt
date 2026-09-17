@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         return json(res, 200, await getConversations(session.sub, url.searchParams.get('before')))
       }
       if (url.searchParams.get('messages') === '1') {
-        return json(res, 200, await getThread(session.sub, url.searchParams.get('escrow_id'), url.searchParams.get('before')))
+        return json(res, 200, await getThread(session.sub, url.searchParams.get('escrow_id'), url.searchParams.get('before'), url.searchParams.get('events_before')))
       }
 
       if (url.searchParams.get('wallet') === '1') {
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
 
       const { rows } = await query(
         `SELECT e.id, e.hat_id, e.client_id, e.talent_id, e.amount, e.status,
-                e.contacts_unlocked, e.created_at, e.released_at,
+                e.contacts_unlocked, e.created_at, e.released_at, e.work_status, e.work_version,
                 h.hat_title, h.category, h.role as hat_role, h.currency,
                 u.id as talent_user_id, u.username as talent_username,
                 u.full_name as talent_full_name, u.avatar_url as talent_avatar,

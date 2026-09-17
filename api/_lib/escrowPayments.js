@@ -22,7 +22,7 @@ export async function applyVerifiedPayment({ escrowId, reference, txn }) {
     const { rows } = await client.query(`SELECT * FROM escrows WHERE id = $1 FOR UPDATE`, [escrowId])
     const escrow = rows[0]
     if (!escrow) throw bookingError(404, 'Booking not found.')
-    if (escrow.payment_reference === reference && ['secured', 'released'].includes(escrow.status)) {
+    if (escrow.payment_reference === reference && ['secured', 'released', 'refunded'].includes(escrow.status)) {
       result = { escrow, alreadyProcessed: true }
     } else {
       if (escrow.status !== 'not_funded') {

@@ -15,7 +15,8 @@ async function main() {
     process.exit(1)
   }
 
-  const sql = readFileSync(join(__dirname, 'schema.sql'), 'utf8')
+  const file = process.argv.includes('--completion') ? 'booking-completion.sql' : 'schema.sql'
+  const sql = readFileSync(join(__dirname, file), 'utf8')
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
@@ -23,7 +24,7 @@ async function main() {
 
   try {
     await pool.query(sql)
-    console.log('✅ Schema applied (full ChombuTar schema applied).')
+    console.log(`✅ Migration applied: ${file}`)
   } catch (err) {
     console.error('❌ Migration failed:', err.message)
     process.exitCode = 1

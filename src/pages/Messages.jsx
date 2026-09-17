@@ -3,9 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, LockKeyhole, MessageCircle, RefreshCw, Send, UnlockKeyhole } from 'lucide-react'
 import { api, payForBooking } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
+import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
 
 const money = (amount) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(amount)
-const statusLabel = { not_funded: 'Awaiting payment', secured: 'Payment secured', released: 'Payment released', cancelled: 'Cancelled' }
+const statusLabel = { not_funded: 'Awaiting payment', secured: 'Payment secured', released: 'Payment released', cancelled: 'Cancelled', refunded: 'Refunded to wallet' }
 const button = 'px-3 py-2 rounded-lg border border-black/20 text-xs font-semibold disabled:opacity-40 hover:bg-black/5'
 
 export default function Messages() {
@@ -72,7 +73,7 @@ export default function Messages() {
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold truncate">@{item.peer_username}</span>
                   <span className="block text-xs text-black/60 truncate">{item.hat_title}</span>
-                  <span className="block text-[11px] text-black/50 mt-1">{statusLabel[item.status]}</span>
+                  <span className="block text-[11px] text-black/50 mt-1">{item.status === 'secured' ? workLabels[item.work_status] : statusLabel[item.status]}</span>
                 </span>
                 {item.unread_count > 0 && <span aria-label={`${item.unread_count} unread`} className="self-start text-[10px] bg-[#0A13E6] text-white rounded-full px-1.5 py-0.5">{item.unread_count}</span>}
               </button>
@@ -205,7 +206,7 @@ function BookingThread({ id, onBack }) {
   const thread = data.thread
   const pending = thread.pending_offer
   const negotiable = thread.price_negotiable && thread.status === 'not_funded' && !thread.checkout_locked_at
-  const closed = thread.status === 'cancelled'
+  const closed = ['cancelled', 'refunded'].includes(thread.status)
   const priceEditable = thread.status === 'not_funded' && !thread.checkout_locked_at
   const respond = (status) => run(() => api.messageAction({ action: 'respond_offer', escrow_id: id, offer_id: pending.id, status }))
 
@@ -219,7 +220,7 @@ function BookingThread({ id, onBack }) {
       </div>
       <p className="flex items-start gap-2 text-xs text-black/60">
         {thread.contacts_unlocked ? <UnlockKeyhole size={14} className="shrink-0" /> : <LockKeyhole size={14} className="shrink-0" />}
-        {thread.contacts_unlocked ? 'Contact sharing unlocked.' : 'Contact details and external links stay blocked until payment is secured.'}
+        {thread.contacts_unlocked ? 'Contact sharing unlocked.' : closed ? 'Contact fields are hidden for this closed booking.' : 'Contact details and external links stay blocked until payment is secured.'}
       </p>
       {thread.contacts_unlocked && <div className="text-xs space-y-1 break-all">
         {thread.peer?.email && <p>{thread.peer.email}</p>}{thread.peer?.phone && <p>{thread.peer.phone}</p>}
@@ -231,8 +232,9 @@ function BookingThread({ id, onBack }) {
           onClick={() => run(async () => { await api.fundEscrowWithWallet(id, thread.amount); await refreshUser() })}>Pay from wallet</button>}
         {pending && <p className="text-xs text-black/50">Resolve the pending offer before paying.</p>}
       </div>}
-      {thread.is_client && thread.status === 'secured' && <Link className="text-xs underline" to="/my-bookings">Manage booking and release payment</Link>}
     </header>
+    {thread.status !== 'cancelled' && <BookingProgress thread={thread} events={data.events} eventsCursor={data.eventsCursor}
+      busy={busy} run={run} refreshUser={refreshUser} />}
     {pending && <div className="p-4 bg-[#0A13E6]/5 border-b border-black/10 space-y-2">
       <p className="text-sm font-semibold">{pending.sender_id === user.id ? 'Your offer' : 'Received offer'}: {money(pending.amount)}</p>
       {pending.body && <p className="text-xs whitespace-pre-wrap break-words">{pending.body}</p>}
@@ -258,7 +260,7 @@ function BookingThread({ id, onBack }) {
     <div className="border-t border-black/10 p-4 space-y-3">
       {error && <ErrorNotice message={error} />}
       {syncError && <ErrorNotice message={syncError} onRetry={() => load().catch((e) => setSyncError(e.message))} />}
-      {closed ? <p className="text-sm text-black/50">This conversation is read-only because the booking was cancelled.</p> : <form onSubmit={send} className="space-y-2">
+      {closed ? <p className="text-sm text-black/50">This conversation is read-only because the booking is closed.</p> : <form onSubmit={send} className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <label htmlFor={`message-${id}`} className="text-xs font-semibold">{offerMode && negotiable ? 'Offer note' : 'Message'}</label>
           {negotiable && <button type="button" disabled={busy} className="text-xs underline" onClick={toggleOffer}>{offerMode ? 'Cancel offer' : 'Make an offer'}</button>}

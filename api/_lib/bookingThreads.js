@@ -1,5 +1,6 @@
 import { query, getClient } from './db.js'
 import { bookingError, requireBookingId, requireAmount, assertNegotiable, assertPriceEditable, messageText, canShareContacts } from './bookingRules.js'
+import { lifecycleHistory } from './bookingLifecycle.js'
 
 export async function withBooking(userId, escrowId, operation) {
   requireBookingId(escrowId)
@@ -27,7 +28,7 @@ export async function withBooking(userId, escrowId, operation) {
 export async function getConversations(userId, before) {
   if (before) requireBookingId(before)
   const { rows } = await query(
-    `SELECT e.id, e.hat_id, e.amount, e.status, e.created_at, h.hat_title,
+    `SELECT e.id, e.hat_id, e.amount, e.status, e.work_status, e.created_at, h.hat_title,
             u.username AS peer_username, u.avatar_url AS peer_avatar,
             (SELECT COUNT(*)::int FROM booking_messages m
              WHERE m.escrow_id = e.id AND m.recipient_id = $1 AND m.read_at IS NULL) AS unread_count
@@ -42,7 +43,7 @@ export async function getConversations(userId, before) {
   return { conversations: rows.slice(0, 50), nextCursor: rows.length > 50 ? rows[49].id : null }
 }
 
-export async function getThread(userId, escrowId, before) {
+export async function getThread(userId, escrowId, before, eventsBefore) {
   if (before && !/^[1-9]\d{0,18}$/.test(before)) throw bookingError(400, 'Invalid message cursor.')
   return withBooking(userId, escrowId, async (client, escrow) => {
     const { rows } = await client.query(
@@ -65,10 +66,12 @@ export async function getThread(userId, escrowId, before) {
     return {
       thread: { id: escrow.id, hat_id: escrow.hat_id, hat_title: escrow.hat_title,
         amount: escrow.amount, status: escrow.status, is_client: userId === escrow.client_id,
+        work_status: escrow.work_status, work_version: escrow.work_version,
         contacts_unlocked: canShareContacts(escrow), price_negotiable: escrow.price_negotiable,
         checkout_locked_at: escrow.checkout_locked_at, card_checkout_started: Boolean(escrow.checkout_reference),
         peer: peers[0], pending_offer: offers[0] || null },
       messages: rows.slice(0, 50).reverse(), nextCursor: rows.length > 50 ? rows[49].id : null,
+      ...(await lifecycleHistory(client, escrowId, eventsBefore)),
     }
   })
 }
@@ -112,7 +115,7 @@ export async function threadAction(userId, body) {
       )
       if (duplicate[0]) return { id: duplicate[0].id, alreadyProcessed: true }
     }
-    if (escrow.status === 'cancelled') throw bookingError(409, 'This booking is cancelled. Its conversation is read-only.')
+    if (['cancelled', 'refunded'].includes(escrow.status)) throw bookingError(409, 'This booking is closed. Its conversation is read-only.')
 
     if (body.action === 'send_message' || body.action === 'make_offer') {
       const isOffer = body.action === 'make_offer'
