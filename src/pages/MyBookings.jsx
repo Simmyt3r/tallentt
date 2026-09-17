@@ -28,6 +28,7 @@ const STATUS_LABEL = {
   secured: 'Secured',
   released: 'Released',
   cancelled: 'Cancelled',
+  refunded: 'Refunded to wallet',
 }
 
 // "My Bookings" — hats the signed-in user has booked as a client, backed
@@ -87,22 +88,6 @@ export default function MyBookings() {
     }
   }
 
-  async function handleRelease(b) {
-    if (!confirm(`Release payment for "${b.hat_title}" into ${b.talent_full_name || b.talent_username}'s wallet? This can't be undone.`))
-      return
-    setBusyId(b.id)
-    const prev = bookings
-    setBookings((list) => list.map((x) => (x.id === b.id ? { ...x, status: 'released' } : x)))
-    try {
-      await api.releaseEscrow(b.id)
-    } catch (e) {
-      setBookings(prev)
-      alert(e.message)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
   if (loading) {
     return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your bookings…</p>
   }
@@ -144,7 +129,7 @@ export default function MyBookings() {
                 <Link to={`/talent/${b.hat_id}`} className="min-w-0 flex-1">
                   <p className="font-semibold text-[14px] truncate">{b.hat_title}</p>
                   <p className="text-[12px] text-black/50 truncate">
-                    {b.talent_full_name || b.talent_username} · {b.category}
+                    @{b.talent_username} · {b.category}
                   </p>
                   <p className="text-[11px] text-black/40 flex items-center gap-1 mt-0.5">
                     <Clock size={11} /> Booked {new Date(b.created_at).toLocaleDateString()}
@@ -152,12 +137,12 @@ export default function MyBookings() {
                 </Link>
                 <span className="text-[13px] font-bold shrink-0">{fmtMoney(b.amount, b.currency)}</span>
                 <Link to={`/messages?escrow=${b.id}`} className="text-[12px] font-semibold underline underline-offset-4">
-                  Messages / offers
+                  Manage booking
                 </Link>
                 <span
                   className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 ${STATUS_STYLE[b.status] || STATUS_STYLE.cancelled}`}
                 >
-                  {STATUS_LABEL[b.status] || b.status}
+                  {b.status === 'secured' ? (b.work_status || 'in_progress').replace(/_/g, ' ') : STATUS_LABEL[b.status] || b.status}
                 </span>
                 {b.status === 'not_funded' && (
                   <div className="flex gap-2 shrink-0">
@@ -185,16 +170,7 @@ export default function MyBookings() {
                     </button>
                   </div>
                 )}
-                {b.status === 'secured' && (
-                  <button
-                    type="button"
-                    onClick={() => handleRelease(b)}
-                    disabled={busyId === b.id}
-                    className="h-8 px-3 rounded-full border-[1.5px] border-black/20 text-black/60 text-[11px] font-semibold shrink-0 hover:border-black hover:text-black transition disabled:opacity-50"
-                  >
-                    Release payment
-                  </button>
-                )}
+
               </li>
             )
           })}

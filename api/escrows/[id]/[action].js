@@ -1,20 +1,21 @@
 // Path: api/escrows/[id]/[action].js
-import { query, getClient } from '../../_lib/db.js'
+import { query } from '../../_lib/db.js'
 import { getSessionUser } from '../../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../../_lib/http.js'
 import { verifyPaystackTransaction } from '../../_lib/paystack.js'
 import { applyVerifiedPayment } from '../../_lib/escrowPayments.js'
-import { creditWallet } from '../../_lib/wallet.js'
-import { notifyEscrowReleased } from '../../_lib/notifications.js'
+import { bookingLifecycle } from '../../_lib/bookingLifecycle.js'
 import { prepareCheckout, payBookingWithWallet } from '../../_lib/bookingCheckout.js'
 
 // Handles:
 //   POST /api/escrows/:id/fund         — pay with card (Paystack)
 //   POST /api/escrows/:id/fund-wallet  — pay from wallet balance
-//   POST /api/escrows/:id/release      — move funds into the talent's wallet
+//   POST /api/escrows/:id/release      — compatibility alias for approve_delivery
+//   POST /api/escrows/:id/{submit_delivery,request_revision,approve_delivery,open_dispute}
 // Merged into one function (via the [action] dynamic segment) to stay
 // under Vercel's serverless function limit.
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store')
   if (req.method !== 'POST') return methodNotAllowed(res, ['POST'])
 
   const id = req.query?.id
@@ -36,7 +37,18 @@ export default async function handler(req, res) {
   }
 
   if (action === 'fund') return fund(req, res, id)
-  if (action === 'release') return release(req, res, id)
+  if (['submit_delivery', 'request_revision', 'open_dispute', 'approve_delivery', 'release'].includes(action)) {
+    try {
+      const session = getSessionUser(req)
+      if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
+      const body = await readBody(req)
+      // Old PWA clients must refresh; they cannot bypass delivery or a dispute.
+      return json(res, 200, await bookingLifecycle(session.sub, id, action === 'release' ? 'approve_delivery' : action, body))
+    } catch (err) {
+      if (!err.status) console.error('Booking update failed:', err)
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Could not update this booking.' })
+    }
+  }
   return json(res, 404, { error: 'Unknown escrow action' })
 }
 
@@ -77,60 +89,5 @@ async function fund(req, res, id) {
   } catch (err) {
     console.error(err)
     return json(res, 500, { error: 'Failed to fund escrow' })
-  }
-}
-
-// Moves a secured escrow's funds into the talent's wallet balance. This
-// used to call Paystack's Transfer API directly (requiring the talent to
-// have payout bank details on file *before* a client could ever release
-// a booking, and leaving payouts stuck in an 'otp'/'pending' limbo when
-// OTP was enabled). Now release just credits the wallet — instant, no
-// bank details required yet — and the talent withdraws to their bank
-// whenever they want (POST /api/escrows { action: 'withdraw' }), which is
-// where that OTP caveat now lives instead.
-async function release(req, res, id) {
-  try {
-    const session = getSessionUser(req)
-    if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
-
-    const { rows: existingRows } = await query(
-      `SELECT * FROM escrows WHERE id = $1 AND client_id = $2 AND status = 'secured'`,
-      [id, session.sub],
-    )
-    const escrow = existingRows[0]
-    if (!escrow) return json(res, 404, { error: 'Escrow not found or not secured' })
-
-    const client = await getClient()
-    let releasedEscrow
-    try {
-      await client.query('BEGIN')
-      await creditWallet(client, {
-        userId: escrow.talent_id,
-        amount: escrow.amount,
-        type: 'escrow_release',
-        escrowId: escrow.id,
-      })
-      const { rows } = await client.query(
-        `UPDATE escrows SET status = 'released', released_at = NOW()
-         WHERE id = $1 AND status = 'secured' RETURNING *`,
-        [id],
-      )
-      if (!rows[0]) {
-        await client.query('ROLLBACK')
-        return json(res, 409, { error: 'This booking was already released.' })
-      }
-      releasedEscrow = rows[0]
-      await client.query('COMMIT')
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {})
-      throw err
-    } finally {
-      client.release()
-    }
-    await notifyEscrowReleased(releasedEscrow.id)
-    return json(res, 200, { escrow: releasedEscrow })
-  } catch (err) {
-    console.error(err)
-    return json(res, 500, { error: 'Failed to release escrow' })
   }
 }

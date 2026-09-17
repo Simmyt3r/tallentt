@@ -118,6 +118,38 @@ For the client/talent browser test, run `npx playwright install chromium` and `n
 
 Payment verification follows [Paystack's server-side verification guidance](https://paystack.com/docs/payments/verify-payments/); negotiation and checkout share [PostgreSQL row locks](https://www.postgresql.org/docs/current/explicit-locking.html#LOCKING-ROWS).
 
+### Delivery, Revisions and Disputes
+
+Manage the full booking in Messages (also linked from My Bookings). Once funded, only the talent can submit work with a delivery note. Only the client can request revisions or approve the latest submission. Approval credits the talent's wallet in full. There are no platform fees, automatic releases, deadlines or partial settlements in this version. Delivery notes are plain text and can include links after funding; file attachments are not supported.
+
+Either party can open a dispute while funded and unsettled. The payment remains `secured` and the work state becomes `disputed`; ordinary release, revision and delivery actions are blocked. Both participants can continue messaging to provide evidence. Opening a dispute discloses that admins can read that booking's conversation and history. The admin **Disputes** tab provides a paginated oldest-first queue, both parties' messages, offers, and delivery/revision history. An admin who participates in the booking cannot resolve it; another admin is required.
+
+Admin decisions require a written reason and a confirmation. The supported outcomes are full release to the talent wallet or full refund to the client wallet. **A wallet refund is not a Paystack card/bank reversal.** The existing wallet withdrawal workflow remains separate. Refunds close the conversation to new messages and hide profile contact fields; contact information already shared cannot be taken back. The original payment reference stays attached so delayed payment callbacks cannot fund the booking again.
+
+The booking row is locked before a wallet row. Settlement, ledger entry, lifecycle event, notifications, and admin resolution audit commit together. Every action requires a UUID `client_token`, integer `expected_version` from the current thread, and a `note` of up to 2,000 characters (optional only for client approval). Reusing an identical token/request is a no-op; changing it or acting on a stale version is rejected. A unique ledger index also prevents both release and refund crediting the same booking.
+
+| Endpoint | Action |
+| --- | --- |
+| `POST /api/escrows/:id/submit_delivery` | Talent submits or resubmits work |
+| `POST /api/escrows/:id/request_revision` | Client requests changes to the latest submission |
+| `POST /api/escrows/:id/approve_delivery` | Client approves and pays the talent wallet |
+| `POST /api/escrows/:id/open_dispute` | Participant opens a case and holds funds |
+| `GET /api/escrows?messages=1&escrow_id=...&events_before=...` | Participant history, 50 events per page |
+| `GET /api/admin?action=disputes&status=open&before=...` | Admin queue; also supports `released` and `refunded` |
+| `GET /api/admin?action=dispute&escrow_id=...` | Case details; `before` and `events_before` page its evidence |
+| `POST /api/admin` | `resolve_release` / `resolve_refund`, plus `escrow_id` and the version/token/note fields |
+
+The old `/release` endpoint now uses the same approval rules and request fields. An older cached PWA cannot bypass delivery review or an open dispute. The deployment still uses 12 Vercel functions.
+
+#### Deploying the completion release
+
+1. For an existing database already running messaging, apply **the entire** `db/booking-completion.sql` file in Neon's SQL editor, or run `npm run db:migrate:completion` with the intended `DATABASE_URL`. It is transactional and rerunnable, and does not touch user roles or balances. Fresh installations use `npm run db:migrate`, whose full schema includes the same migration. The full migration also corrects legacy `creator`/`employer` conversion order; unknown roles cause rollback rather than being reassigned.
+2. Deploy the code immediately after the migration. During the short interval, old release requests will fail safely because the database requires a completed work state. Existing released bookings become completed; other existing funded bookings require a delivery submission. Unfunded checkouts, accepted prices, balances, and existing messages are preserved.
+3. Refresh the installed PWA. Verify with separate client, talent, and uninvolved admin accounts: funding → submit → revise → resubmit → approve. For another booking, verify dispute → review evidence → wallet refund. Check exactly one final ledger credit and the resolution reason in Audit. Verify the Paystack callback/webhook using the configured test environment before a live payment.
+4. If rollout fails after the migration, retain the database constraints and disable settlement actions while fixing forward. Do not deploy the previous release handler or drop state/ledger constraints to bypass a dispute.
+
+`npm run verify` covers migration upgrades/reruns, legacy roles, permissions, stale versions, retries, competing settlements, audit failure rollback and delayed callbacks. `npm run test:ui` covers the full client/talent/admin lifecycle at mobile and desktop widths, including the resulting wallet balance. Local fixture accounts and funds are isolated test data. Production Neon migration and live Paystack/bank checks require deployment access and are not performed by these tests.
+
 ## 6. Local development
 
 ```bash

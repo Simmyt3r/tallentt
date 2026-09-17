@@ -12,12 +12,14 @@ import {
   Wallet,
 } from 'lucide-react'
 import { api } from '../lib/api.js'
+import AdminDisputes from '../components/AdminDisputes.jsx'
 
 const TABS = [
   { id: 'users', label: 'Users' },
   { id: 'hats', label: 'Hats' },
   { id: 'applications', label: 'Applications' },
   { id: 'escrows', label: 'Escrows' },
+  { id: 'disputes', label: 'Disputes' },
   { id: 'wallet', label: 'Wallet' },
   { id: 'audit', label: 'Audit' },
 ]
@@ -30,6 +32,7 @@ const STATUS_STYLE = {
   accepted: 'bg-[#E8FFE6] text-[#0A7A00]',
   secured: 'bg-[#E8FFE6] text-[#0A7A00]',
   released: 'bg-[#EDEBFF] text-[#3B2FD9]',
+  refunded: 'bg-[#FFF6DB] text-[#8A6D00]',
   rejected: 'bg-red-50 text-red-600',
   failed: 'bg-red-50 text-red-600',
   cancelled: 'bg-red-50 text-red-600',
@@ -77,7 +80,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
-  const [tab, setTab] = useState('users')
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('tab') === 'disputes' ? 'disputes' : 'users')
   const [query, setQuery] = useState('')
 
   async function load() {
@@ -165,7 +168,7 @@ export default function Admin() {
         <Metric icon={Users} label="Users" value={metrics.users} />
         <Metric icon={Briefcase} label="Active Hats" value={metrics.active_hats} sub={`${metrics.hats || 0} total`} />
         <Metric icon={ClipboardList} label="Applications" value={metrics.applications} />
-        <Metric icon={Activity} label="Escrows" value={metrics.escrows} />
+        <Metric icon={Activity} label="Escrows" value={metrics.escrows} sub={`${metrics.open_disputes || 0} open disputes`} />
         <Metric icon={Wallet} label="Wallet Liability" value={fmtMoney(metrics.wallet_liability)} />
       </div>
 
@@ -193,7 +196,7 @@ export default function Admin() {
               </button>
             ))}
           </div>
-          <div className="relative lg:w-72">
+          <div className={`relative lg:w-72 ${tab === 'disputes' ? 'hidden' : ''}`}>
             <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/35" />
             <input
               type="search"
@@ -209,6 +212,7 @@ export default function Admin() {
         {tab === 'hats' && <HatsTable rows={filtered} busy={busy} runAction={runAction} />}
         {tab === 'applications' && <ApplicationsTable rows={filtered} busy={busy} runAction={runAction} />}
         {tab === 'escrows' && <EscrowsTable rows={filtered} busy={busy} runAction={runAction} />}
+        {tab === 'disputes' && <AdminDisputes />}
         {tab === 'wallet' && <WalletTable rows={filtered} busy={busy} runAction={runAction} />}
         {tab === 'audit' && <AuditTable rows={filtered} />}
       </div>

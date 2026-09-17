@@ -2,6 +2,7 @@
 import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
+import { bookingLifecycle, listDisputes, getDispute } from '../_lib/bookingLifecycle.js'
 import {
   notifyApplicationStatus,
   notifyEscrowCancelled,
@@ -15,16 +16,20 @@ const APP_STATUSES = new Set(['pending', 'accepted', 'rejected', 'withdrawn'])
 const WITHDRAWAL_STATUSES = new Set(['pending', 'success', 'failed'])
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store')
   const admin = await requireAdmin(req, res)
   if (!admin) return
 
   if (req.method === 'GET') {
     try {
+      const params = new URL(req.url, `http://${req.headers.host}`).searchParams
+      if (params.get('action') === 'disputes') return json(res, 200, await listDisputes(params.get('status') || 'open', params.get('before')))
+      if (params.get('action') === 'dispute') return json(res, 200, await getDispute(params.get('escrow_id'), params.get('before'), params.get('events_before')))
       const dashboard = await getDashboard()
       return json(res, 200, { admin: { id: admin.id, username: admin.username }, ...dashboard })
     } catch (err) {
-      console.error('admin dashboard error:', err)
-      return json(res, 500, { error: 'Failed to load admin dashboard.' })
+      if (!err.status) console.error('admin dashboard error:', err)
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to load admin dashboard.' })
     }
   }
 
@@ -40,7 +45,7 @@ export default async function handler(req, res) {
       const result = await handleAdminAction(admin, body)
       return json(res, 200, result)
     } catch (err) {
-      console.error('admin action error:', err)
+      if (!err.status) console.error('admin action error:', err)
       return json(res, err.status || 500, { error: err.message || 'Admin action failed.' })
     }
   }
@@ -94,6 +99,7 @@ async function getDashboard() {
         (SELECT COUNT(*)::int FROM hats WHERE role = 'client') as client_hats,
         (SELECT COUNT(*)::int FROM applications) as applications,
         (SELECT COUNT(*)::int FROM escrows) as escrows,
+        (SELECT COUNT(*)::int FROM booking_disputes WHERE status = 'open') as open_disputes,
         (SELECT COALESCE(SUM(balance), 0)::int FROM wallets) as wallet_liability
     `),
     query(`SELECT status, COUNT(*)::int as count FROM applications GROUP BY status ORDER BY status`),
@@ -194,6 +200,9 @@ async function getDashboard() {
 async function handleAdminAction(admin, body) {
   const action = body?.action
   if (!action) throw httpError(400, 'Action is required.')
+  if (['resolve_release', 'resolve_refund'].includes(action)) {
+    return bookingLifecycle(admin.id, body.escrow_id, action, body, true)
+  }
 
   if (action === 'set_hat_active') {
     const hatId = requireUuid(body.hatId, 'hatId')

@@ -123,9 +123,12 @@ test('wallet uses accepted price, rejects stale amount, and credits talent exact
   await send(clientId, 'a@example.com')
   assert.equal((await threads.getThread(clientId, escrowId)).thread.peer.phone, '08012345678')
   const releaseHandler = (await import('../api/escrows/[id]/[action].js')).default
-  assert.equal((await request(releaseHandler, clientId, 'POST', '', {}, { id: escrowId, action: 'release' })).status, 200)
+  const lifecycle = (await import('../api/_lib/bookingLifecycle.js')).bookingLifecycle
+  await lifecycle(talentId, escrowId, 'submit_delivery', { expected_version: 0, note: 'Completed the edit.', client_token: randomUUID() })
+  const releaseBody = { expected_version: 1, note: 'Approved.', client_token: randomUUID() }
+  assert.equal((await request(releaseHandler, clientId, 'POST', '', releaseBody, { id: escrowId, action: 'release' })).status, 200)
   assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 8500)
-  assert.equal((await request(releaseHandler, clientId, 'POST', '', {}, { id: escrowId, action: 'release' })).status, 404)
+  assert.equal((await request(releaseHandler, clientId, 'POST', '', releaseBody, { id: escrowId, action: 'release' })).body.alreadyProcessed, true)
 })
 
 test('card checkout freezes price and reference, rejects wrong and underpaid transactions', async () => {

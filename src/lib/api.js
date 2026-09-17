@@ -73,9 +73,10 @@ export const api = {
     request(`/api/escrows/${id}/prepare-checkout`, { method: 'POST', body: JSON.stringify({ expected_amount }) }),
   fundEscrowWithWallet: (id, expected_amount) =>
     request(`/api/escrows/${id}/fund-wallet`, { method: 'POST', body: JSON.stringify({ expected_amount }) }),
-  releaseEscrow: (id) => request(`/api/escrows/${id}/release`, { method: 'POST' }),
+  bookingAction: (id, action, body) => request(`/api/escrows/${id}/${action}`, { method: 'POST', body: JSON.stringify(body) }),
   getConversations: (before) => request(`/api/escrows?conversations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`),
   getMessages: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
+  getBookingHistory: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}&events_before=${encodeURIComponent(before)}`),
   messageAction: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
 
   // Wallet — reuses the /api/escrows endpoint with a query param / action
@@ -109,6 +110,8 @@ export const api = {
   // Admin — one consolidated endpoint to stay within Vercel Hobby's
   // function cap while still giving operations a real control panel.
   getAdminDashboard: () => request('/api/admin'),
+  getDisputes: (status, before) => request(`/api/admin?action=disputes&status=${status}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
+  getDispute: (id, before, eventsBefore) => request(`/api/admin?action=dispute&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}${eventsBefore ? `&events_before=${encodeURIComponent(eventsBefore)}` : ''}`),
   adminAction: (body) => request('/api/admin', { method: 'POST', body: JSON.stringify(body) }),
 }
 

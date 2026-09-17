@@ -54,7 +54,7 @@ jobs:
       - name: Install test browser
         run: npx playwright install --with-deps chromium
 
-      - name: Test messaging UI on desktop and mobile
+      - name: Test booking and dispute UI on desktop and mobile
         run: npm run test:ui
 
       - name: Upload messaging screenshots

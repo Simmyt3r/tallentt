@@ -200,7 +200,7 @@ export default function Wallet() {
             {transactions.map((t) => (
               <li key={t.id} className="flex items-center gap-3 p-4">
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-[13px]">{TYPE_LABEL[t.type] || t.type}</p>
+                  <p className="font-semibold text-[13px]">{t.type === 'refund' && t.escrow_id ? 'Booking refund' : TYPE_LABEL[t.type] || t.type}</p>
                   <p className="text-[11px] text-black/40 mt-0.5">{new Date(t.created_at).toLocaleString()}</p>
                 </div>
                 <span
