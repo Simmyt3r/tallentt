@@ -140,12 +140,13 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
 export async function listDisputes(status = 'open', before) {
   if (!['open', 'released', 'refunded'].includes(status)) throw bookingError(400, 'Invalid dispute status.')
   if (before) requireBookingId(before)
+  // The boundary's timestamp/id remain stable even if another admin resolves it.
   const { rows } = await query(
     `SELECT d.*, e.amount, h.hat_title, c.username AS client_username, t.username AS talent_username
      FROM booking_disputes d JOIN escrows e ON e.id = d.escrow_id
      LEFT JOIN hats h ON h.id = e.hat_id JOIN users c ON c.id = e.client_id JOIN users t ON t.id = e.talent_id
      WHERE d.status = $1 AND ($2::uuid IS NULL OR (d.created_at, d.escrow_id) >
-       (SELECT created_at, escrow_id FROM booking_disputes WHERE escrow_id = $2 AND status = $1))
+       (SELECT created_at, escrow_id FROM booking_disputes WHERE escrow_id = $2))
      ORDER BY d.created_at, d.escrow_id LIMIT 51`, [status, before || null],
   )
   return { disputes: rows.slice(0, 50), nextCursor: rows.length > 50 ? rows[49].escrow_id : null }

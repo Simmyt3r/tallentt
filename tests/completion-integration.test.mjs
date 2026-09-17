@@ -215,7 +215,7 @@ test('participants and admins can page all lifecycle evidence without leaking un
   assert.equal((await http(adminHandler, adminId, {}, '', `/api/admin?action=dispute&escrow_id=${randomUUID()}`)).status, 404)
 })
 
-test('dispute queue pagination does not strand cases older than the dashboard limit', async () => {
+test('dispute queue pagination survives the cursor case being resolved by another admin', async () => {
   await open()
   for (let n = 0; n < 52; n++) {
     const id = randomUUID()
@@ -228,6 +228,11 @@ test('dispute queue pagination does not strand cases older than the dashboard li
   const next = (await http(adminHandler, adminId, {}, '', `${url}&before=${first.nextCursor}`)).body
   assert.equal(first.disputes.length, 50); assert.equal(next.disputes.length, 3)
   assert.equal(new Set([...first.disputes, ...next.disputes].map((d) => d.escrow_id)).size, 53)
+  await pool.query('UPDATE users SET is_admin = true WHERE id = $1', [outsiderId])
+  const boundary = (await pool.query('SELECT work_version FROM escrows WHERE id = $1', [first.nextCursor])).rows[0]
+  await lifecycle(outsiderId, first.nextCursor, 'resolve_refund', payload(boundary.work_version, 'Refund agreed during case review.'), true)
+  const afterResolution = (await http(adminHandler, adminId, {}, '', `${url}&before=${first.nextCursor}`)).body
+  assert.deepEqual(afterResolution.disputes.map((d) => d.escrow_id), next.disputes.map((d) => d.escrow_id))
 })
 
 test('standalone and full migrations rerun over refunded data without changing balances or history', async () => {
