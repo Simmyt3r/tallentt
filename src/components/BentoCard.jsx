@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import { Heart, MapPin, Star, Clock } from 'lucide-react'
 import BentoCardDetailModal from './BentoCardDetailModal'
-import { Avatar, formatAvailabilityWindow, formatPrice } from './bentoCardShared'
+import { Avatar, formatAvailabilityWindow, formatPrice, relativeTime } from './bentoCardShared'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 
-export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = true, onHatChange, fullWidth = false }) {
+export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = true, onHatChange, fullWidth = false, moreCount = 0 }) {
   const [open, setOpen] = useState(false)
 
   const isTalent = hat.role === 'talent'
   const pillBg = isTalent ? 'bg-[#0A13E6] text-white' : 'bg-black text-white'
   const media = hat.media?.[0]
+  // Talent hats: the talent is "Seeking" bookings for this title. Client
+  // hats: the client is "Hiring" for this title.
+  const listingLabel = isTalent ? 'Seeking' : 'Hiring'
+  const postedAgo = relativeTime(hat.created_at)
   // Clients don't need a motto shown — talent voice only.
   const motto = isTalent && hat.motto
     ? hat.motto.length > 60
@@ -86,19 +90,29 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
                   </span>
                 )}
               </p>
-              <p className="text-[12px] text-black/50 truncate">{hat.hat_title}</p>
+              <p className="text-[12px] text-black/60 truncate">
+                <span className="font-semibold text-black/75">{listingLabel}:</span> {hat.hat_title}
+              </p>
+              {moreCount > 0 && (
+                <span className="inline-block mt-0.5 text-[10.5px] font-bold text-[#0A13E6]">
+                  +{moreCount} more hat{moreCount > 1 ? 's' : ''}
+                </span>
+              )}
               {motto && <p className="text-[12px] text-black/70 leading-snug line-clamp-2 italic mt-0.5">"{motto}"</p>}
             </div>
             {!showMedia && (
-              <div className="flex items-center gap-1.5 shrink-0">
-                {hat.availability && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#16C784] border-[1.5px] border-white shadow-sm" title="Available" />
-                )}
-                <span
-                  className={`${pillBg} text-[9px] font-bold tracking-widest uppercase px-2 py-1 rounded-full border-[1.5px] border-black`}
-                >
-                  {hat.hat_type || (isTalent ? 'Talent' : 'Client')}
-                </span>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                {postedAgo && <span className="text-[10px] text-black/40 font-semibold whitespace-nowrap">{postedAgo}</span>}
+                <div className="flex items-center gap-1.5">
+                  {hat.availability && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#16C784] border-[1.5px] border-white shadow-sm" title="Available" />
+                  )}
+                  <span
+                    className={`${pillBg} text-[9px] font-bold tracking-widest uppercase px-2 py-1 rounded-full border-[1.5px] border-black`}
+                  >
+                    {hat.hat_type || (isTalent ? 'Talent' : 'Client')}
+                  </span>
+                </div>
               </div>
             )}
           </div>

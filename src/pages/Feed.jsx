@@ -1,5 +1,5 @@
 // Path: src/pages/Feed.jsx
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { api } from '../lib/api'
 import { useNavigate } from 'react-router-dom'
@@ -31,6 +31,28 @@ export default function Feed() {
       cancelled = true
     }
   }, [hatRole, search])
+
+  // The feed is one card per USER, not per hat — a user with several
+  // active hats gets a single card (their best/most-recent one) plus a
+  // "+N more hats" badge, instead of flooding the feed with duplicates.
+  // Derived from `hats` (not separate state) so handleHatChange's in-place
+  // patches below stay in sync automatically.
+  const groupedHats = useMemo(() => {
+    const order = []
+    const byUser = new Map()
+    for (const h of hats) {
+      const key = h.user_id || h.id
+      if (!byUser.has(key)) {
+        byUser.set(key, [])
+        order.push(key)
+      }
+      byUser.get(key).push(h)
+    }
+    return order.map((key) => {
+      const group = byUser.get(key)
+      return { primary: group[0], moreCount: group.length - 1 }
+    })
+  }, [hats])
 
   async function handleBook(hat) {
     try {
@@ -86,16 +108,17 @@ export default function Feed() {
 
       {loading ? (
         <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading…</p>
-      ) : hats.length === 0 ? (
+      ) : groupedHats.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-[24px] border-[1.5px] border-dashed border-black/20">
           <p className="text-black/50 text-[13px] font-medium">No hats yet. Create one or check back soon.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full">
-          {hats.map((h) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          {groupedHats.map(({ primary, moreCount }) => (
             <BentoCard
-              key={h.id}
-              hat={h}
+              key={primary.id}
+              hat={primary}
+              moreCount={moreCount}
               onBook={handleBook}
               onApply={handleApply}
               showMedia={false}

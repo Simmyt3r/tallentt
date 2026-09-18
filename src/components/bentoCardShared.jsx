@@ -56,6 +56,23 @@ export function formatAvailabilityWindow(hat) {
   return formatTime(hat.available_from || hat.available_to)
 }
 
+// "2024-05-01T12:00:00Z" -> "2h", "3d", etc. Mirrors the relative-time
+// logic already used by NotificationsMenu.jsx for "time posted" on cards.
+export function relativeTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000))
+  if (seconds < 60) return 'now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d`
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
 export function Avatar({ src, name, className = 'w-12 h-12' }) {
   const [err, setErr] = useState(false)
   // Without this, an avatar that failed to load once would keep showing
