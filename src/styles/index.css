@@ -10,6 +10,26 @@
   /* Dynamic viewport height — fixes Android Chrome URL-bar jump */
   --app-vh: 100vh;
   --app-vh: 100dvh;
+
+  /* Spacing scale — used by new shell/sidebar layout for consistent rhythm */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --sidebar-w: 236px;
+  --sidebar-w-collapsed: 72px;
+}
+
+/* Visible keyboard focus ring across the new shell — kept subtle (brand
+   color, 2px) rather than the browser default so it reads as intentional
+   rather than an accessibility afterthought. */
+:focus-visible {
+  outline: 2px solid var(--tw-brand);
+  outline-offset: 2px;
 }
 
 html, body {
@@ -210,6 +230,20 @@ img, video { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .animate-slide-up { animation: none; }
   .escrow-secured { animation: none; }
+  * {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Page title used by page headers (see individual pages) — keeps the
+   "large heading" size consistent (24–30px) instead of ad-hoc text sizes. */
+.page-title {
+  font-size: clamp(20px, 1.6vw + 14px, 28px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 /* Design-system utilities matching reference HTML */

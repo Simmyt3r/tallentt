@@ -1,181 +1,101 @@
 // Path: src/components/Layout.jsx
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import {
-  Home,
-  Store,
-  UserRound,
-  PlusCircle,
-  LogOut,
-  Briefcase,
-  ClipboardList,
-  CalendarCheck,
-  Wallet as WalletIcon,
-  ShieldCheck,
-  MessageCircle,
-  Radio,
-} from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { Link, useLocation } from 'react-router-dom'
+import { Menu, MessageCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { DesktopSidebar, MobileDrawer } from './Sidebar.jsx'
 import NotificationsMenu from './NotificationsMenu.jsx'
-
-// Co-located per the codebase's existing pattern (see MyBookings.jsx,
-// TalentProfile.jsx) rather than pulled into a shared helper.
-function fmtMoney(n) {
-  if (n == null) return '₦0'
-  try {
-    return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n)
-  } catch {
-    return `₦${Number(n).toLocaleString()}`
-  }
-}
+import { getPageTitle } from '../lib/nav'
 
 export default function Layout({ children }) {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const location = useLocation()
   const [browseRole, setBrowseRole] = useState(() => localStorage.getItem('chombutar_role') || 'talent')
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
     localStorage.setItem('chombutar_role', browseRole)
   }, [browseRole])
 
-  async function handleLogout() {
-    await logout()
-    navigate('/auth')
-  }
+  useEffect(() => {
+    localStorage.setItem('chombutar_sidebar_collapsed', collapsed ? '1' : '0')
+  }, [collapsed])
 
-  const helper =
-    browseRole === 'talent'
-      ? 'You are browsing as Talent → viewing Client cards'
-      : 'You are browsing as Client → viewing Talent cards'
+  // Close the mobile drawer automatically whenever the route changes (e.g.
+  // browser back/forward), in addition to the explicit onNavigate close.
+  useEffect(() => {
+    setDrawerOpen(false)
+  }, [location.pathname])
+
+  // Prevent background scroll while the drawer is open (mirrors the
+  // existing .modal-open pattern used elsewhere in the app).
+  useEffect(() => {
+    document.documentElement.classList.toggle('modal-open', drawerOpen)
+    document.body.classList.toggle('modal-open', drawerOpen)
+    return () => {
+      document.documentElement.classList.remove('modal-open')
+      document.body.classList.remove('modal-open')
+    }
+  }, [drawerOpen])
+
+  // Close on Escape for keyboard users.
+  useEffect(() => {
+    if (!drawerOpen) return undefined
+    const onKey = (e) => {
+      if (e.key === 'Escape') setDrawerOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [drawerOpen])
+
+  const pageTitle = getPageTitle(location.pathname)
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F3EB] text-black antialiased">
-      <header className="sticky top-0 z-40 bg-[#F7F3EB]/90 backdrop-blur-xl border-b-[1.5px] border-black">
-        <div className="w-full px-4 md:px-6 lg:px-10 min-h-16 py-2 flex flex-wrap items-center justify-between gap-3">
-          <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <img src="/logo.png" alt="ChombuTar" className="w-11 h-11 object-contain" />
-          </Link>
+    <div className="min-h-screen bg-[#F7F3EB] text-black antialiased">
+      <DesktopSidebar
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((v) => !v)}
+        browseRole={browseRole}
+        setBrowseRole={setBrowseRole}
+      />
+      <MobileDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        browseRole={browseRole}
+        setBrowseRole={setBrowseRole}
+      />
 
-          <nav className="hidden xl:flex order-3 w-full justify-center items-center gap-1">
-            <NavItem to="/" icon={Home} label="Feed" />
-            <NavItem to="/showroom" icon={Store} label="Showroom" />
-            <NavItem to="/live" icon={Radio} label="Live" />
-            <NavItem to="/my-hats" icon={Briefcase} label="My Hats" />
-            <NavItem to="/my-applications" icon={ClipboardList} label="Applications" />
-            <NavItem to="/my-bookings" icon={CalendarCheck} label="Bookings" />
-            <NavItem to="/wallet" icon={WalletIcon} label="Wallet" />
-            <NavItem to="/create" icon={PlusCircle} label="Create" />
-            <NavItem to="/profile" icon={UserRound} label="Profile" />
-          </nav>
-
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Link to="/messages" title="Messages" aria-label="Messages"
-              className="w-9 h-9 shrink-0 rounded-full bg-white border-[1.5px] border-black flex items-center justify-center hover:bg-black hover:text-white">
+      {/* Mobile top header — Menu | Page title | quick actions */}
+      <header className="md:hidden sticky top-0 z-20 bg-[#F7F3EB]/95 backdrop-blur-xl border-b-[1.5px] border-black">
+        <div className="h-14 px-3 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open menu"
+            className="w-9 h-9 shrink-0 rounded-full bg-white border-[1.5px] border-black flex items-center justify-center"
+          >
+            <Menu size={17} />
+          </button>
+          <h1 className="flex-1 min-w-0 truncate text-center text-[15px] font-black tracking-tight">{pageTitle}</h1>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Link
+              to="/messages"
+              title="Messages"
+              aria-label="Messages"
+              className="w-9 h-9 rounded-full bg-white border-[1.5px] border-black flex items-center justify-center"
+            >
               <MessageCircle size={16} />
             </Link>
             <NotificationsMenu />
-            <Link
-              to="/wallet"
-              title="Wallet"
-              aria-label="Wallet"
-              className="flex items-center gap-1.5 h-9 px-2 sm:px-3 rounded-full bg-white border-[1.5px] border-black text-[12px] font-semibold hover:bg-black hover:text-white transition shrink-0"
-            >
-              <WalletIcon size={14} />
-              <span className="hidden sm:inline">{fmtMoney(user?.walletBalance)}</span>
-            </Link>
-            {user?.isAdmin && (
-              <Link
-                to="/admin"
-                title="Admin"
-                aria-label="Admin"
-                className="flex items-center gap-1.5 h-9 px-2 sm:px-3 rounded-full bg-white border-[1.5px] border-black text-[12px] font-semibold hover:bg-[#0A13E6] hover:text-white transition shrink-0"
-              >
-                <ShieldCheck size={14} />
-                <span className="hidden sm:inline">Admin</span>
-              </Link>
-            )}
-            <div className="hidden sm:flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-semibold">
-              <button
-                type="button"
-                onClick={() => setBrowseRole('talent')}
-                className={`px-3 py-1.5 rounded-full transition ${
-                  browseRole === 'talent' ? 'bg-[#0A13E6] text-white' : 'text-black/60 hover:text-black'
-                }`}
-              >
-                Talent
-              </button>
-              <button
-                type="button"
-                onClick={() => setBrowseRole('client')}
-                className={`px-3 py-1.5 rounded-full transition ${
-                  browseRole === 'client' ? 'bg-black text-white' : 'text-black/60 hover:text-black'
-                }`}
-              >
-                Client
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="w-9 h-9 rounded-full border-[1.5px] border-black bg-white flex items-center justify-center text-black/60 hover:bg-black hover:text-white transition"
-              title="Log out"
-            >
-              <LogOut size={16} />
-            </button>
           </div>
         </div>
-        <div className="sm:hidden flex justify-center gap-1 pb-2 text-xs font-semibold">
-          <button type="button" aria-pressed={browseRole === 'talent'} onClick={() => setBrowseRole('talent')}
-            className={`px-3 py-1 rounded-full ${browseRole === 'talent' ? 'bg-[#0A13E6] text-white' : 'bg-white'}`}>Talent</button>
-          <button type="button" aria-pressed={browseRole === 'client'} onClick={() => setBrowseRole('client')}
-            className={`px-3 py-1 rounded-full ${browseRole === 'client' ? 'bg-black text-white' : 'bg-white'}`}>Client</button>
-        </div>
-        <p className="text-center text-[11px] text-black/50 pb-2.5 px-4 font-medium">{helper}</p>
       </header>
 
-      <main className="flex-1 w-full px-4 md:px-6 lg:px-10 py-6">{children}</main>
-
-      {/* Mobile bottom nav — matches reference */}
-      <nav className="xl:hidden fixed bottom-0 inset-x-0 z-40 p-3">
-        <div className="bg-white rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] border-[1.5px] border-black/5 px-2 h-14 flex items-center justify-around">
-          <NavItem to="/" icon={Home} label="Feed" mobile />
-          <NavItem to="/showroom" icon={Store} label="Show" mobile />
-          <NavItem to="/live" icon={Radio} label="Live" mobile />
-          <NavItem to="/my-applications" icon={ClipboardList} label="Apps" mobile />
-          <NavItem to="/create" icon={PlusCircle} label="+" mobile accent />
-          <NavItem to="/my-bookings" icon={CalendarCheck} label="Book" mobile />
-          <NavItem to="/my-hats" icon={Briefcase} label="Hats" mobile />
-          <NavItem to="/profile" icon={UserRound} label="You" mobile />
-        </div>
-      </nav>
-      <div className="xl:hidden h-20" />
+      <main
+        className={`w-full transition-[padding] duration-200 ease-out ${collapsed ? 'md:pl-[72px]' : 'md:pl-[236px]'}`}
+      >
+        <div className="w-full max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-5 md:py-7">{children}</div>
+      </main>
     </div>
-  )
-}
-
-function NavItem({ to, icon: Icon, label, mobile, accent }) {
-  return (
-    <NavLink
-      to={to}
-      aria-label={label}
-      title={label}
-      className={({ isActive }) =>
-        mobile
-          ? `w-10 h-10 rounded-full grid place-items-center transition ${
-              accent
-                ? 'bg-black text-white w-12 h-12 text-[18px]'
-                : isActive
-                  ? 'bg-[#0A13E6] text-white'
-                  : 'opacity-50'
-            }`
-          : `flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition ${
-              isActive ? 'bg-[#0A13E6] text-white' : 'text-black/60 hover:text-black hover:bg-white'
-            }`
-      }
-    >
-      {mobile && accent ? <PlusCircle size={22} /> : <Icon size={mobile ? 18 : 15} />}
-      {!mobile && label}
-    </NavLink>
   )
 }
 
