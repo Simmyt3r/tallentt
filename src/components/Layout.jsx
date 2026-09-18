@@ -52,18 +52,8 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-[#F7F3EB] text-black antialiased">
-      <DesktopSidebar
-        collapsed={collapsed}
-        onToggleCollapsed={() => setCollapsed((v) => !v)}
-        browseRole={browseRole}
-        setBrowseRole={setBrowseRole}
-      />
-      <MobileDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        browseRole={browseRole}
-        setBrowseRole={setBrowseRole}
-      />
+      <DesktopSidebar collapsed={collapsed} onToggleCollapsed={() => setCollapsed((v) => !v)} />
+      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       {/* Persistent top strip carrying the brand mark on the left — sits
           opposite the sidebar now that the sidebar has moved to the right
@@ -77,7 +67,11 @@ export default function Layout({ children }) {
           and sits on the right — the same side the sidebar itself lives on). */}
       <header className="md:hidden sticky top-0 z-20 bg-[#F7F3EB]/95 backdrop-blur-xl border-b-[1.5px] border-black">
         <div className="h-14 px-3 flex items-center justify-between gap-2">
-          <img src="/logo.png" alt="ChombuTar" className="h-8 w-auto object-contain shrink-0" />
+          <img
+            src="/logo.png"
+            alt="ChombuTar"
+            className="h-12 w-12 rounded-full border-[1.5px] border-black object-cover shrink-0"
+          />
           <h1 className="flex-1 min-w-0 truncate text-left text-[20px] font-black tracking-tight">ChombuTar</h1>
           <div className="flex items-center gap-1.5 shrink-0">
             <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-bold">

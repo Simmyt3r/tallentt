@@ -46,7 +46,7 @@ function SidebarLink({ to, icon: Icon, label, end, collapsed, onNavigate }) {
  * Shared nav content rendered by both the fixed desktop sidebar and the
  * mobile drawer, so the two never drift out of sync.
  */
-function SidebarContent({ collapsed, onNavigate, browseRole, setBrowseRole }) {
+function SidebarContent({ collapsed, onNavigate }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -59,15 +59,6 @@ function SidebarContent({ collapsed, onNavigate, browseRole, setBrowseRole }) {
   return (
     <>
       <nav className="flex-1 overflow-y-auto overflow-x-visible px-2.5 py-3 space-y-5">
-        {!collapsed && (
-          <div className="px-1">
-            <div className="flex rounded-full bg-black/[0.05] p-0.5 text-[11px] font-bold">
-             
-            </div>
-            
-          </div>
-        )}
-
         <div className="space-y-1">
           {!collapsed && <p className="px-3 pb-1 text-[10.5px] font-bold uppercase tracking-widest text-black/35">Menu</p>}
           {NAV_PRIMARY.map((item) => (
@@ -151,12 +142,12 @@ function SidebarContent({ collapsed, onNavigate, browseRole, setBrowseRole }) {
 export function BrandMark({ className = '' }) {
   return (
     <NavLink to="/" className={`flex items-center min-w-0 ${className}`} aria-label="ChombuTar home">
-      <img src="/logo.png" alt="ChombuTar" className="h-10 w-auto object-contain shrink-0" />
+      <img src="/logo.png" alt="ChombuTar" className="h-12 w-12 rounded-full border-[1.5px] border-black object-cover shrink-0" />
     </NavLink>
   )
 }
 
-export function DesktopSidebar({ collapsed, onToggleCollapsed, browseRole, setBrowseRole }) {
+export function DesktopSidebar({ collapsed, onToggleCollapsed }) {
   return (
     <aside
       className={`hidden md:flex fixed inset-y-0 right-0 z-30 flex-col border-l-[1.5px] border-black bg-[#FAFAF8] transition-[width] duration-200 ease-out ${
@@ -175,12 +166,12 @@ export function DesktopSidebar({ collapsed, onToggleCollapsed, browseRole, setBr
         </button>
       </div>
 
-      <SidebarContent collapsed={collapsed} browseRole={browseRole} setBrowseRole={setBrowseRole} />
+      <SidebarContent collapsed={collapsed} />
     </aside>
   )
 }
 
-export function MobileDrawer({ open, onClose, browseRole, setBrowseRole }) {
+export function MobileDrawer({ open, onClose }) {
   return (
     <>
       <div
@@ -199,7 +190,7 @@ export function MobileDrawer({ open, onClose, browseRole, setBrowseRole }) {
         }`}
       >
         <div className="flex items-center justify-between h-16 shrink-0 border-b border-black/10 px-4">
-          <img src="/logo.png" alt="ChombuTar" className="h-9 w-auto object-contain" />
+          <img src="/logo.png" alt="ChombuTar" className="h-11 w-11 rounded-full border-[1.5px] border-black object-cover" />
           <button
             type="button"
             onClick={onClose}
@@ -209,7 +200,7 @@ export function MobileDrawer({ open, onClose, browseRole, setBrowseRole }) {
             <X size={16} />
           </button>
         </div>
-        <SidebarContent collapsed={false} onNavigate={onClose} browseRole={browseRole} setBrowseRole={setBrowseRole} />
+        <SidebarContent collapsed={false} onNavigate={onClose} />
       </aside>
     </>
   )
