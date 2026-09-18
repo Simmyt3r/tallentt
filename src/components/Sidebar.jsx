@@ -62,30 +62,9 @@ function SidebarContent({ collapsed, onNavigate, browseRole, setBrowseRole }) {
         {!collapsed && (
           <div className="px-1">
             <div className="flex rounded-full bg-black/[0.05] p-0.5 text-[11px] font-bold">
-              <button
-                type="button"
-                aria-pressed={browseRole === 'talent'}
-                onClick={() => setBrowseRole('talent')}
-                className={`flex-1 px-2 py-1.5 rounded-full transition ${
-                  browseRole === 'talent' ? 'bg-[#0A13E6] text-white shadow-sm' : 'text-black/55 hover:text-black'
-                }`}
-              >
-                Talent
-              </button>
-              <button
-                type="button"
-                aria-pressed={browseRole === 'client'}
-                onClick={() => setBrowseRole('client')}
-                className={`flex-1 px-2 py-1.5 rounded-full transition ${
-                  browseRole === 'client' ? 'bg-black text-white shadow-sm' : 'text-black/55 hover:text-black'
-                }`}
-              >
-                Client
-              </button>
+             
             </div>
-            <p className="mt-1.5 px-0.5 text-[10.5px] leading-snug text-black/40 font-medium">
-              {browseRole === 'talent' ? 'Browsing as Talent → viewing Client cards' : 'Browsing as Client → viewing Talent cards'}
-            </p>
+            
           </div>
         )}
 

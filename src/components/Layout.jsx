@@ -78,7 +78,7 @@ export default function Layout({ children }) {
       <header className="md:hidden sticky top-0 z-20 bg-[#F7F3EB]/95 backdrop-blur-xl border-b-[1.5px] border-black">
         <div className="h-14 px-3 flex items-center justify-between gap-2">
           <img src="/logo.png" alt="ChombuTar" className="h-8 w-auto object-contain shrink-0" />
-          <h1 className="flex-1 min-w-0 truncate text-left text-[15px] font-black tracking-tight">ChombuTar</h1>
+          <h1 className="flex-1 min-w-0 truncate text-left text-[20px] font-black tracking-tight">ChombuTar</h1>
           <div className="flex items-center gap-1.5 shrink-0">
             <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-bold">
               <button
