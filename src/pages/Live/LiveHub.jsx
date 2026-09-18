@@ -24,7 +24,7 @@ export default function LiveHub() {
     <div className="space-y-6 max-w-[760px] mx-auto">
       <div>
         <h1 className="text-[22px] font-bold tracking-tight flex items-center gap-2">
-          <Radio size={20} className="text-[#0A13E6]" /> Combutar Live
+          <Radio size={20} className="text-[#0A13E6]" /> Chombutar Live
         </h1>
         <p className="text-[12px] text-black/50 font-medium mt-0.5">
           Where talent competes and performs — using Orbit Coins from your existing wallet.
@@ -39,9 +39,9 @@ export default function LiveHub() {
           <div className="w-11 h-11 rounded-full bg-black text-white grid place-items-center mb-4">
             <Swords size={18} />
           </div>
-          <h2 className="text-[17px] font-bold tracking-tight">Arena Hall</h2>
+          <h2 className="text-[17px] font-bold tracking-tight">1V1 Arena</h2>
           <p className="text-[12px] text-black/50 font-medium mt-1">
-            1v1 competitions — Chess, Draught, Ludo, CODM. Back who you think will win.
+            Enter one-on-one challenge with other Talents.
           </p>
           <p className="mt-3 text-[12px] font-semibold text-[#0A13E6] group-hover:underline">Enter the Arena →</p>
         </Link>
@@ -53,7 +53,7 @@ export default function LiveHub() {
           <div className="w-11 h-11 rounded-full bg-[#0A13E6] text-white grid place-items-center mb-4">
             <Mic size={18} />
           </div>
-          <h2 className="text-[17px] font-bold tracking-tight">Stage Hall</h2>
+          <h2 className="text-[17px] font-bold tracking-tight">SLive tage </h2>
           <p className="text-[12px] text-black/50 font-medium mt-1">
             Sing, dance, or talk to a live 3D-style hall. Likes and gifts build your Orbit Score.
           </p>
