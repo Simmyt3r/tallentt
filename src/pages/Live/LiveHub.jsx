@@ -41,7 +41,7 @@ export default function LiveHub() {
           </div>
           <h2 className="text-[17px] font-bold tracking-tight">1V1 Arena</h2>
           <p className="text-[12px] text-black/50 font-medium mt-1">
-            Enter one-on-one challenge with other Talents.
+            Enter a one-on-one challenge with other Talents.
           </p>
           <p className="mt-3 text-[12px] font-semibold text-[#0A13E6] group-hover:underline">Enter the Arena →</p>
         </Link>
@@ -53,7 +53,7 @@ export default function LiveHub() {
           <div className="w-11 h-11 rounded-full bg-[#0A13E6] text-white grid place-items-center mb-4">
             <Mic size={18} />
           </div>
-          <h2 className="text-[17px] font-bold tracking-tight">SLive tage </h2>
+          <h2 className="text-[17px] font-bold tracking-tight">Live Stage </h2>
           <p className="text-[12px] text-black/50 font-medium mt-1">
             Sing, dance, or talk to a live 3D-style hall. Likes and gifts build your Orbit Score.
           </p>
