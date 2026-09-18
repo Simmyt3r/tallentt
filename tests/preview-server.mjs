@@ -30,7 +30,7 @@ await threadAction(ids.talent, { action: 'send_message', escrow_id: ids.escrow, 
 await threadAction(ids.talent, { action: 'make_offer', escrow_id: ids.escrow, body: 'For the highlight reel and one revision.', amount: 9000, expected_offer_id: null, client_token: ids.hat })
 const escrowHandler = (await import('../api/escrows/index.js')).default
 const actionHandler = (await import('../api/escrows/[id]/[action].js')).default
-const meHandler = (await import('../api/auth/me.js')).default
+const meHandler = (await import('../api/auth/index.js')).default
 const profileHandler = (await import('../api/auth/profile.js')).default
 const adminHandler = (await import('../api/admin/index.js')).default
 const { signSession } = await import('../api/_lib/auth.js')
