@@ -16,7 +16,7 @@ export async function getWalletBalance(userId) {
 // that credit a wallet (a verified top-up, an escrow release paying out
 // to the talent) both need the balance update and the ledger row to
 // commit or roll back together.
-export async function creditWallet(client, { userId, amount, type, reference = null, escrowId = null, status = 'success' }) {
+export async function creditWallet(client, { userId, amount, type, reference = null, escrowId = null, roomId = null, status = 'success' }) {
   await client.query(`INSERT INTO wallets (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, [userId])
   const { rows } = await client.query(
     `UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2 RETURNING balance`,
@@ -24,9 +24,9 @@ export async function creditWallet(client, { userId, amount, type, reference = n
   )
   const balance = rows[0].balance
   await client.query(
-    `INSERT INTO wallet_transactions (user_id, type, amount, balance_after, status, reference, escrow_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [userId, type, amount, balance, status, reference, escrowId],
+    `INSERT INTO wallet_transactions (user_id, type, amount, balance_after, status, reference, escrow_id, room_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [userId, type, amount, balance, status, reference, escrowId, roomId],
   )
   return balance
 }
@@ -35,7 +35,7 @@ export async function creditWallet(client, { userId, amount, type, reference = n
 // insufficient. The `WHERE balance >= $1` makes this race-safe under
 // concurrent requests: a lost race just updates 0 rows rather than
 // letting the balance go negative. Throws a 402 when there isn't enough.
-export async function debitWallet(client, { userId, amount, type, reference = null, escrowId = null, status = 'success' }) {
+export async function debitWallet(client, { userId, amount, type, reference = null, escrowId = null, roomId = null, status = 'success' }) {
   await client.query(`INSERT INTO wallets (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, [userId])
   const { rows } = await client.query(
     `UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2 AND balance >= $1 RETURNING balance`,
@@ -46,9 +46,9 @@ export async function debitWallet(client, { userId, amount, type, reference = nu
   }
   const balance = rows[0].balance
   await client.query(
-    `INSERT INTO wallet_transactions (user_id, type, amount, balance_after, status, reference, escrow_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [userId, type, amount, balance, status, reference, escrowId],
+    `INSERT INTO wallet_transactions (user_id, type, amount, balance_after, status, reference, escrow_id, room_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [userId, type, amount, balance, status, reference, escrowId, roomId],
   )
   return balance
 }

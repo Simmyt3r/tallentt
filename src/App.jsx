@@ -15,6 +15,11 @@ import MyBookings from './pages/MyBookings.jsx'
 import Wallet from './pages/Wallet.jsx'
 import Admin from './pages/Admin.jsx'
 import Messages from './pages/Messages.jsx'
+import LiveHub from './pages/Live/LiveHub.jsx'
+import ArenaHall from './pages/Live/ArenaHall.jsx'
+import ArenaRoom from './pages/Live/ArenaRoom.jsx'
+import StageHall from './pages/Live/StageHall.jsx'
+import StageRoom from './pages/Live/StageRoom.jsx'
 
 function FullPageSpinner() {
   return (
@@ -124,6 +129,11 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/live" element={<ProtectedRoute><LiveHub /></ProtectedRoute>} />
+      <Route path="/live/arena" element={<ProtectedRoute><ArenaHall /></ProtectedRoute>} />
+      <Route path="/live/arena/:id" element={<ProtectedRoute><ArenaRoom /></ProtectedRoute>} />
+      <Route path="/live/stage" element={<ProtectedRoute><StageHall /></ProtectedRoute>} />
+      <Route path="/live/stage/:id" element={<ProtectedRoute><StageRoom /></ProtectedRoute>} />
       <Route
         path="/admin"
         element={

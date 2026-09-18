@@ -112,7 +112,17 @@ export const api = {
   getAdminDashboard: () => request('/api/admin'),
   getDisputes: (status, before) => request(`/api/admin?action=disputes&status=${status}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
   getDispute: (id, before, eventsBefore) => request(`/api/admin?action=dispute&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}${eventsBefore ? `&events_before=${encodeURIComponent(eventsBefore)}` : ''}`),
+  getLiveDisputes: () => request('/api/admin?action=live_disputes'),
   adminAction: (body) => request('/api/admin', { method: 'POST', body: JSON.stringify(body) }),
+
+  // Combutar Live — Arena Hall + Stage Hall. One consolidated endpoint,
+  // same 12-function-cap reasoning as escrows/admin above (see
+  // api/live/index.js).
+  getLiveGames: () => request('/api/live?games=1'),
+  getLiveLeaderboard: () => request('/api/live?leaderboard=1'),
+  getLiveRooms: (hall, status) => request(`/api/live?hall=${encodeURIComponent(hall)}${status ? `&status=${encodeURIComponent(status)}` : ''}`),
+  getLiveRoom: (roomId) => request(`/api/live?room_id=${encodeURIComponent(roomId)}`),
+  liveAction: (body) => request('/api/live', { method: 'POST', body: JSON.stringify(body) }),
 }
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024

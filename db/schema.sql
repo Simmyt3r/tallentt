@@ -410,4 +410,148 @@ CREATE INDEX IF NOT EXISTS idx_booking_disputes_queue ON booking_disputes (statu
 -- A booking can fund exactly one final wallet credit, release OR refund.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_booking_settlement ON wallet_transactions (escrow_id)
   WHERE escrow_id IS NOT NULL AND type IN ('escrow_release', 'refund') AND status = 'success';
+
+-- ============================================================================
+-- Combutar Live — Arena Hall (1v1 competitions) + Stage Hall (performances).
+-- See api/_lib/live.js for the settlement/scoring logic that reads and
+-- writes these tables.
+-- ============================================================================
+
+-- Fixed catalog of Arena games. owner_id is the rights-holder account that
+-- gets the 10% "game owner" cut on settlement (see live.js splitPot()) —
+-- nullable because Ludo/CODM have no ChombuTar-side owner account yet; that
+-- 10% simply stays unallocated (with the platform) until an admin sets one.
+CREATE TABLE IF NOT EXISTS live_games (
+  code TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  verification TEXT NOT NULL CHECK (verification IN ('engine', 'referee')),
+  owner_id UUID REFERENCES users(id),
+  active BOOLEAN NOT NULL DEFAULT true
+);
+INSERT INTO live_games (code, name, verification) VALUES
+  ('chess', 'Chess', 'engine'),
+  ('draughts', 'Draught', 'engine'),
+  ('ludo', 'Ludo', 'referee'),
+  ('codm', 'CODM', 'referee')
+ON CONFLICT (code) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS live_rooms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  hall TEXT NOT NULL CHECK (hall IN ('arena', 'stage')),
+  host_id UUID NOT NULL REFERENCES users(id),
+  title TEXT NOT NULL CHECK (char_length(btrim(title)) BETWEEN 1 AND 120),
+  -- Arena only.
+  game TEXT REFERENCES live_games(code),
+  stake INT CHECK (stake IS NULL OR stake > 0),
+  verification TEXT CHECK (verification IS NULL OR verification IN ('engine', 'referee')),
+  -- If set, only this user may take the second Arena seat — how a Stage
+  -- "I challenge you" turns into a targeted Arena invite (see live.js
+  -- challenge()). NULL means open to whichever talent joins first.
+  invited_user_id UUID REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open', 'live', 'reported', 'disputed', 'completed', 'cancelled')),
+  winner_id UUID REFERENCES users(id),
+  -- Set when a result is first reported; the opponent has
+  -- dispute_window_seconds to dispute it before it auto-settles as reported
+  -- (checked lazily — see live.js maybeAutoSettle()).
+  dispute_opened_at TIMESTAMPTZ,
+  dispute_window_seconds INT NOT NULL DEFAULT 30,
+  dispute_reason TEXT CHECK (dispute_reason IS NULL OR char_length(dispute_reason) <= 1000),
+  settled_at TIMESTAMPTZ,
+  -- Stage only: audience can request Audio-Only mode client-side; this just
+  -- records the host started the room framed that way for the data-cost copy.
+  audio_only BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  started_at TIMESTAMPTZ,
+  ended_at TIMESTAMPTZ,
+  CHECK ((hall = 'arena' AND game IS NOT NULL AND stake IS NOT NULL AND verification IS NOT NULL)
+      OR (hall = 'stage' AND game IS NULL AND stake IS NULL AND verification IS NULL))
+);
+CREATE INDEX IF NOT EXISTS idx_live_rooms_hall_status ON live_rooms (hall, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_live_rooms_host ON live_rooms (host_id, created_at DESC);
+
+-- Arena: the two competing players. A row is inserted for the host at
+-- create_room and for the opponent at join_room.
+CREATE TABLE IF NOT EXISTS live_room_players (
+  room_id UUID NOT NULL REFERENCES live_rooms(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id),
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (room_id, user_id)
+);
+
+-- Spectator backing on an Arena match — play money from the same wallet,
+-- not real betting. One open back per spectator per room. Settled
+-- parimutuel-style in live.js settleRoom(): winners split the full pool
+-- proportionally to their own stake, no house cut.
+CREATE TABLE IF NOT EXISTS live_bets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID NOT NULL REFERENCES live_rooms(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id),
+  backing_user_id UUID NOT NULL REFERENCES users(id),
+  amount INT NOT NULL CHECK (amount > 0),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'won', 'lost', 'refunded')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (room_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_live_bets_room ON live_bets (room_id);
+
+-- Stage: one-way likes (never unliked — see live.js like(), which is
+-- deliberately not the toggle pattern hat_likes uses, so Orbit Score can't
+-- be farmed by like/unlike/like) and gifts, both of which build the host's
+-- live_orbit_score below.
+CREATE TABLE IF NOT EXISTS live_likes (
+  room_id UUID NOT NULL REFERENCES live_rooms(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (room_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS live_gifts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID NOT NULL REFERENCES live_rooms(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES users(id),
+  gift_type TEXT NOT NULL,
+  amount INT NOT NULL CHECK (amount > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_live_gifts_room ON live_gifts (room_id, created_at DESC);
+
+-- Stage reputation — separate from hats.orbit_score, which is a per-hat
+-- completeness/confidence score recomputed on every save (see
+-- api/_lib/orbitScore.js). live_orbit_score only ever goes up, earned from
+-- likes and gifts received while live on Stage (see live.js).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS live_orbit_score INT NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_users_live_orbit_score ON users (live_orbit_score DESC);
+
+-- Sponsor Hall: brands renting a placement inside a Stage room. One
+-- placement per room. rain_amount, if any, is distributed on the way in —
+-- see live.js rentSponsorSlot() — to that room's current audience (everyone
+-- who has liked or gifted it so far); there's no persistent viewer roster,
+-- so that's the closest proxy for "who's watching" this can offer for now.
+CREATE TABLE IF NOT EXISTS live_sponsor_slots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID NOT NULL REFERENCES live_rooms(id) ON DELETE CASCADE,
+  sponsor_id UUID NOT NULL REFERENCES users(id),
+  placement TEXT NOT NULL
+    CHECK (placement IN ('led_ribbon', 'side_poster_left', 'side_poster_right', 'roof_screen', 'seats')),
+  brand_name TEXT NOT NULL CHECK (char_length(btrim(brand_name)) BETWEEN 1 AND 60),
+  message TEXT CHECK (message IS NULL OR char_length(message) <= 140),
+  rain_amount INT NOT NULL DEFAULT 0 CHECK (rain_amount >= 0),
+  amount_paid INT NOT NULL CHECK (amount_paid > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (room_id, placement)
+);
+CREATE INDEX IF NOT EXISTS idx_live_sponsor_slots_room ON live_sponsor_slots (room_id);
+
+-- New wallet_transaction types for Live's money movements, on top of the
+-- existing topup/escrow_fund/escrow_release/withdrawal/refund set.
+ALTER TABLE wallet_transactions DROP CONSTRAINT IF EXISTS wallet_transactions_type_check;
+ALTER TABLE wallet_transactions ADD CONSTRAINT wallet_transactions_type_check
+  CHECK (type IN ('topup', 'escrow_fund', 'escrow_release', 'withdrawal', 'refund',
+                   'live_stake', 'live_stake_refund', 'live_prize', 'live_owner_share',
+                   'live_bet_stake', 'live_bet_payout', 'live_bet_refund',
+                   'live_gift_sent', 'live_gift_earning',
+                   'live_sponsor_rent', 'live_sponsor_rain'));
+ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS room_id UUID REFERENCES live_rooms(id);
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_room ON wallet_transactions (room_id) WHERE room_id IS NOT NULL;
 COMMIT;
