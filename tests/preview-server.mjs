@@ -1,3 +1,4 @@
+// Path: tests/preview-server.mjs
 // Local-only fixture server for reviewing the real UI against isolated test data.
 import http from 'node:http'
 import { readFile } from 'node:fs/promises'
@@ -30,8 +31,7 @@ await threadAction(ids.talent, { action: 'send_message', escrow_id: ids.escrow, 
 await threadAction(ids.talent, { action: 'make_offer', escrow_id: ids.escrow, body: 'For the highlight reel and one revision.', amount: 9000, expected_offer_id: null, client_token: ids.hat })
 const escrowHandler = (await import('../api/escrows/index.js')).default
 const actionHandler = (await import('../api/escrows/[id]/[action].js')).default
-const meHandler = (await import('../api/auth/index.js')).default
-const profileHandler = (await import('../api/auth/profile.js')).default
+const authHandler = (await import('../api/auth/index.js')).default
 const adminHandler = (await import('../api/admin/index.js')).default
 const { signSession } = await import('../api/_lib/auth.js')
 const server = http.createServer(async (req, res) => {
@@ -45,8 +45,11 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(302, { Location: role === 'admin' ? '/admin?tab=disputes' : `/messages?escrow=${ids.escrow}` }); res.end(); return
     }
     req.query = Object.fromEntries(url.searchParams)
-    if (url.pathname === '/api/auth/me') return await meHandler(req, res)
-    if (url.pathname === '/api/auth/profile') return await profileHandler(req, res)
+    // auth/index.js is one consolidated function (GET ?action=..., POST
+    // {action}, PUT for profile/notifications) — same route for everything,
+    // matching production (see src/lib/api.js) rather than the pre-consolidation
+    // /me and /profile sub-paths this fixture used to dispatch to separately.
+    if (url.pathname === '/api/auth') return await authHandler(req, res)
     if (url.pathname === '/api/admin') return await adminHandler(req, res)
     if (url.pathname === '/api/escrows') return await escrowHandler(req, res)
     const action = url.pathname.match(/^\/api\/escrows\/([^/]+)\/([^/]+)$/)
