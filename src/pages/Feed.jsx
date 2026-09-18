@@ -91,7 +91,7 @@ export default function Feed() {
           <p className="text-black/50 text-[13px] font-medium">No hats yet. Create one or check back soon.</p>
         </div>
       ) : (
-        <div className="hats-grid">
+        <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full">
           {hats.map((h) => (
             <BentoCard
               key={h.id}
@@ -99,6 +99,7 @@ export default function Feed() {
               onBook={handleBook}
               onApply={handleApply}
               showMedia={false}
+              fullWidth
               onHatChange={handleHatChange}
             />
           ))}

@@ -4,7 +4,7 @@ import BentoCardDetailModal from './BentoCardDetailModal'
 import { Avatar, formatAvailabilityWindow, formatPrice } from './bentoCardShared'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 
-export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = true, onHatChange }) {
+export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = true, onHatChange, fullWidth = false }) {
   const [open, setOpen] = useState(false)
 
   const isTalent = hat.role === 'talent'
@@ -24,7 +24,9 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
   return (
     <>
       <article
-        className="bg-white rounded-[20px] border-[1.5px] border-black shadow-sm overflow-hidden flex flex-col max-w-[300px] w-full cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-shadow"
+        className={`bg-white rounded-[20px] border-[1.5px] border-black shadow-sm overflow-hidden flex flex-col w-full cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-shadow ${
+          fullWidth ? '' : 'max-w-[300px]'
+        }`}
         onClick={() => setOpen(true)}
       >
         {/* Media */}

@@ -34,7 +34,7 @@ function SidebarLink({ to, icon: Icon, label, end, collapsed, onNavigate }) {
       <Icon size={18} className="shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
       {collapsed && (
-        <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-50">
+        <span className="pointer-events-none absolute right-full mr-2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-50">
           {label}
         </span>
       )}
@@ -115,7 +115,7 @@ function SidebarContent({ collapsed, onNavigate, browseRole, setBrowseRole }) {
               <ShieldCheck size={18} className="shrink-0" />
               {!collapsed && <span className="truncate">Admin</span>}
               {collapsed && (
-                <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-50">
+                <span className="pointer-events-none absolute right-full mr-2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-50">
                   Admin
                 </span>
               )}
@@ -164,42 +164,36 @@ function SidebarContent({ collapsed, onNavigate, browseRole, setBrowseRole }) {
   )
 }
 
+// Small persistent brand mark, shown independently of the sidebar now that
+// the sidebar lives on the right. Rendered by Layout on the opposite
+// (left) side of the screen on desktop.
+export function BrandMark({ className = '' }) {
+  return (
+    <NavLink to="/" className={`flex items-center gap-2 min-w-0 ${className}`} aria-label="ChombuTar home">
+      <img src="/logo.png" alt="ChombuTar" className="w-9 h-9 object-contain shrink-0" />
+      <span className="truncate text-[15px] font-black tracking-tight">ChombuTar</span>
+    </NavLink>
+  )
+}
+
 export function DesktopSidebar({ collapsed, onToggleCollapsed, browseRole, setBrowseRole }) {
   return (
     <aside
-      className={`hidden md:flex fixed inset-y-0 left-0 z-30 flex-col border-r-[1.5px] border-black bg-[#FAFAF8] transition-[width] duration-200 ease-out ${
+      className={`hidden md:flex fixed inset-y-0 right-0 z-30 flex-col border-l-[1.5px] border-black bg-[#FAFAF8] transition-[width] duration-200 ease-out ${
         collapsed ? 'w-[72px]' : 'w-[236px]'
       }`}
     >
-      <div className={`flex items-center h-16 shrink-0 border-b border-black/10 px-3 ${collapsed ? 'justify-center' : 'justify-between'}`}>
-        <NavLink to="/" className="flex items-center gap-2 min-w-0">
-          <img src="/logo.png" alt="ChombuTar" className="w-9 h-9 object-contain shrink-0" />
-          {!collapsed && <span className="truncate text-[15px] font-black tracking-tight">ChombuTar</span>}
-        </NavLink>
-        {!collapsed && (
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label="Collapse sidebar"
-            title="Collapse sidebar"
-            className="w-7 h-7 shrink-0 rounded-full border border-black/10 grid place-items-center text-black/50 hover:bg-black/[0.06] hover:text-black transition"
-          >
-            <ChevronLeft size={14} />
-          </button>
-        )}
-      </div>
-
-      {collapsed && (
+      <div className={`flex items-center h-16 shrink-0 border-b border-black/10 px-3 ${collapsed ? 'justify-center' : 'justify-end'}`}>
         <button
           type="button"
           onClick={onToggleCollapsed}
-          aria-label="Expand sidebar"
-          title="Expand sidebar"
-          className="mx-auto mt-2 w-7 h-7 shrink-0 rounded-full border border-black/10 grid place-items-center text-black/50 hover:bg-black/[0.06] hover:text-black transition"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="w-7 h-7 shrink-0 rounded-full border border-black/10 grid place-items-center text-black/50 hover:bg-black/[0.06] hover:text-black transition"
         >
-          <ChevronRight size={14} />
+          {collapsed ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
         </button>
-      )}
+      </div>
 
       <SidebarContent collapsed={collapsed} browseRole={browseRole} setBrowseRole={setBrowseRole} />
     </aside>
@@ -220,8 +214,8 @@ export function MobileDrawer({ open, onClose, browseRole, setBrowseRole }) {
         role="dialog"
         aria-modal="true"
         aria-label="Navigation"
-        className={`md:hidden fixed inset-y-0 left-0 z-50 flex w-[82%] max-w-[300px] flex-col bg-[#FAFAF8] border-r-[1.5px] border-black transition-transform duration-200 ease-out ${
-          open ? 'translate-x-0' : '-translate-x-full'
+        className={`md:hidden fixed inset-y-0 right-0 z-50 flex w-[82%] max-w-[300px] flex-col bg-[#FAFAF8] border-l-[1.5px] border-black transition-transform duration-200 ease-out ${
+          open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="flex items-center justify-between h-16 shrink-0 border-b border-black/10 px-4">
