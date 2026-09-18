@@ -166,12 +166,13 @@ function SidebarContent({ collapsed, onNavigate, browseRole, setBrowseRole }) {
 
 // Small persistent brand mark, shown independently of the sidebar now that
 // the sidebar lives on the right. Rendered by Layout on the opposite
-// (left) side of the screen on desktop.
+// (left) side of the screen on desktop. The logo graphic already carries
+// the "ChombuTar" wordmark, so no separate text label is rendered next to
+// it — that was redundant and crowded any title sitting near it.
 export function BrandMark({ className = '' }) {
   return (
-    <NavLink to="/" className={`flex items-center gap-2 min-w-0 ${className}`} aria-label="ChombuTar home">
-      <img src="/logo.png" alt="ChombuTar" className="w-9 h-9 object-contain shrink-0" />
-      <span className="truncate text-[15px] font-black tracking-tight">ChombuTar</span>
+    <NavLink to="/" className={`flex items-center min-w-0 ${className}`} aria-label="ChombuTar home">
+      <img src="/logo.png" alt="ChombuTar" className="h-10 w-auto object-contain shrink-0" />
     </NavLink>
   )
 }
@@ -219,10 +220,7 @@ export function MobileDrawer({ open, onClose, browseRole, setBrowseRole }) {
         }`}
       >
         <div className="flex items-center justify-between h-16 shrink-0 border-b border-black/10 px-4">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="ChombuTar" className="w-9 h-9 object-contain" />
-            <span className="text-[15px] font-black tracking-tight">ChombuTar</span>
-          </div>
+          <img src="/logo.png" alt="ChombuTar" className="h-9 w-auto object-contain" />
           <button
             type="button"
             onClick={onClose}

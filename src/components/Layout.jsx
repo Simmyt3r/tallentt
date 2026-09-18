@@ -70,10 +70,35 @@ export default function Layout({ children }) {
         <BrandMark />
       </div>
 
-      {/* Mobile top header — Menu/Logo | Page title | Talent/Client toggle */}
+      {/* Mobile top header — Logo | Page title | Talent/Client toggle + Menu
+          (the menu button sits on the right, mirroring the sidebar). */}
       <header className="md:hidden sticky top-0 z-20 bg-[#F7F3EB]/95 backdrop-blur-xl border-b-[1.5px] border-black">
         <div className="h-14 px-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 shrink-0">
+          <img src="/logo.png" alt="ChombuTar" className="h-8 w-auto object-contain shrink-0" />
+          <h1 className="flex-1 min-w-0 truncate text-center text-[15px] font-black tracking-tight">{pageTitle}</h1>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-bold">
+              <button
+                type="button"
+                aria-pressed={browseRole === 'talent'}
+                onClick={() => setBrowseRole('talent')}
+                className={`px-2.5 py-1 rounded-full transition ${
+                  browseRole === 'talent' ? 'bg-[#0A13E6] text-white' : 'text-black/55'
+                }`}
+              >
+                Talent
+              </button>
+              <button
+                type="button"
+                aria-pressed={browseRole === 'client'}
+                onClick={() => setBrowseRole('client')}
+                className={`px-2.5 py-1 rounded-full transition ${
+                  browseRole === 'client' ? 'bg-black text-white' : 'text-black/55'
+                }`}
+              >
+                Client
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
@@ -81,30 +106,6 @@ export default function Layout({ children }) {
               className="w-9 h-9 shrink-0 rounded-full bg-white border-[1.5px] border-black flex items-center justify-center"
             >
               <Menu size={17} />
-            </button>
-            <img src="/logo.png" alt="ChombuTar" className="w-7 h-7 object-contain shrink-0" />
-          </div>
-          <h1 className="flex-1 min-w-0 truncate text-center text-[15px] font-black tracking-tight">{pageTitle}</h1>
-          <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-bold shrink-0">
-            <button
-              type="button"
-              aria-pressed={browseRole === 'talent'}
-              onClick={() => setBrowseRole('talent')}
-              className={`px-2.5 py-1 rounded-full transition ${
-                browseRole === 'talent' ? 'bg-[#0A13E6] text-white' : 'text-black/55'
-              }`}
-            >
-              Talent
-            </button>
-            <button
-              type="button"
-              aria-pressed={browseRole === 'client'}
-              onClick={() => setBrowseRole('client')}
-              className={`px-2.5 py-1 rounded-full transition ${
-                browseRole === 'client' ? 'bg-black text-white' : 'text-black/55'
-              }`}
-            >
-              Client
             </button>
           </div>
         </div>
