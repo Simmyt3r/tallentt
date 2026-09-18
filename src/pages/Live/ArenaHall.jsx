@@ -87,7 +87,7 @@ export default function ArenaHall() {
         </Link>
         <div className="flex-1">
           <h1 className="text-[20px] font-bold tracking-tight flex items-center gap-2">
-            <Swords size={17} /> Arena Hall
+            <Swords size={17} /> 1V1 Arena
           </h1>
           <p className="text-[12px] text-black/50 font-medium">1v1 competitions — back who you think will win.</p>
         </div>

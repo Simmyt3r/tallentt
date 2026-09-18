@@ -43,7 +43,7 @@ export default function StageHall() {
     }
   }
 
-  if (loading) return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading Stage Hall…</p>
+  if (loading) return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading Live Hall…</p>
 
   return (
     <div className="space-y-5 max-w-[760px] mx-auto">
@@ -53,7 +53,7 @@ export default function StageHall() {
         </Link>
         <div className="flex-1">
           <h1 className="text-[20px] font-bold tracking-tight flex items-center gap-2">
-            <Mic size={17} /> Stage Hall
+            <Mic size={17} /> Live Stage
           </h1>
           <p className="text-[12px] text-black/50 font-medium">Perform live — likes and gifts build your Orbit Score.</p>
         </div>

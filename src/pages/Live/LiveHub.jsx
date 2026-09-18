@@ -61,30 +61,7 @@ export default function LiveHub() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-[20px] border-[1.5px] border-black overflow-hidden">
-        <div className="px-5 py-3 border-b-[1.5px] border-black flex items-center gap-2">
-          <Trophy size={14} className="text-[#8A6D00]" />
-          <h3 className="text-[13px] font-bold tracking-tight">Orbit Score leaderboard</h3>
-        </div>
-        {leaderboard.length === 0 ? (
-          <p className="text-center py-8 text-black/40 text-[13px] font-medium">No Stage scores yet — be the first.</p>
-        ) : (
-          <ul className="divide-y divide-black/10">
-            {leaderboard.map((row, i) => (
-              <li key={row.id} className="flex items-center gap-3 px-5 py-3">
-                <span className="w-6 text-[12px] font-bold text-black/40">{i + 1}</span>
-                <img
-                  src={row.avatar_url || '/logo.png'}
-                  alt=""
-                  className="w-8 h-8 rounded-full object-cover border-[1.5px] border-black/10"
-                />
-                <span className="flex-1 text-[13px] font-semibold truncate">{row.full_name || `@${row.username}`}</span>
-                <span className="text-[13px] font-bold text-[#0A13E6]">{row.live_orbit_score}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      
     </div>
   )
 }
