@@ -18,7 +18,7 @@ function relativeTime(value) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-export default function NotificationsMenu() {
+export default function NotificationsMenu({ panelPosition = 'down', className = '', buttonClassName = '', iconSize = 16 }) {
   const navigate = useNavigate()
   const rootRef = useRef(null)
   const [open, setOpen] = useState(false)
@@ -93,15 +93,18 @@ export default function NotificationsMenu() {
   }
 
   return (
-    <div className="relative shrink-0" ref={rootRef}>
+    <div className={`relative shrink-0 ${className}`} ref={rootRef}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="relative w-9 h-9 rounded-full border-[1.5px] border-black bg-white flex items-center justify-center text-black/70 hover:bg-black hover:text-white transition"
+        className={
+          buttonClassName ||
+          'relative w-9 h-9 rounded-full border-[1.5px] border-black bg-white flex items-center justify-center text-black/70 hover:bg-black hover:text-white transition'
+        }
         title="Notifications"
         aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
       >
-        <Bell size={16} />
+        <Bell size={iconSize} />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-[#FF5A1F] text-white text-[10px] font-black grid place-items-center border border-black">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -110,7 +113,11 @@ export default function NotificationsMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 w-[min(22rem,calc(100vw-1rem))] bg-white border-[1.5px] border-black rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.18)] overflow-hidden z-50">
+        <div
+          className={`absolute right-0 ${
+            panelPosition === 'up' ? 'bottom-11' : 'top-11'
+          } w-[min(22rem,calc(100vw-1rem))] bg-white border-[1.5px] border-black rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.18)] overflow-hidden z-50`}
+        >
           <div className="px-4 py-3 border-b border-black/10 flex items-center justify-between gap-3">
             <div>
               <p className="text-[13px] font-black">Notifications</p>

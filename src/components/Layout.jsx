@@ -1,12 +1,14 @@
 // Path: src/components/Layout.jsx
 import { useLocation } from 'react-router-dom'
-import { Menu } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
-import { getPageTitle } from '../lib/nav'
+import BottomNav from './BottomNav.jsx'
+import { useAuth } from '../context/AuthContext'
+import { cldImage } from '../lib/cloudinary'
 
 export default function Layout({ children }) {
   const location = useLocation()
+  const { user } = useAuth()
   const [browseRole, setBrowseRole] = useState(() => localStorage.getItem('chombutar_role') || 'talent')
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -46,7 +48,7 @@ export default function Layout({ children }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [drawerOpen])
 
-  const pageTitle = getPageTitle(location.pathname)
+  const initial = (user?.name || user?.fullName || 'U').slice(0, 1).toUpperCase()
 
   return (
     <div className="min-h-screen bg-[#F7F3EB] text-black antialiased">
@@ -70,12 +72,13 @@ export default function Layout({ children }) {
         <BrandMark />
       </div>
 
-      {/* Mobile top header — Logo | Page title | Talent/Client toggle + Menu
-          (the menu button sits on the right, mirroring the sidebar). */}
+      {/* Mobile top header — Logo | ChombuTar | Talent/Client toggle + avatar
+          (the avatar opens the drawer, mirroring the sidebar's account row,
+          and sits on the right — the same side the sidebar itself lives on). */}
       <header className="md:hidden sticky top-0 z-20 bg-[#F7F3EB]/95 backdrop-blur-xl border-b-[1.5px] border-black">
         <div className="h-14 px-3 flex items-center justify-between gap-2">
           <img src="/logo.png" alt="ChombuTar" className="h-8 w-auto object-contain shrink-0" />
-          <h1 className="flex-1 min-w-0 truncate text-center text-[15px] font-black tracking-tight">{pageTitle}</h1>
+          <h1 className="flex-1 min-w-0 truncate text-center text-[15px] font-black tracking-tight">ChombuTar</h1>
           <div className="flex items-center gap-1.5 shrink-0">
             <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-bold">
               <button
@@ -103,18 +106,26 @@ export default function Layout({ children }) {
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Open menu"
-              className="w-9 h-9 shrink-0 rounded-full bg-white border-[1.5px] border-black flex items-center justify-center"
+              className="w-9 h-9 shrink-0 rounded-full border-[1.5px] border-black overflow-hidden flex items-center justify-center bg-[#0A13E6] text-white text-[12px] font-black"
             >
-              <Menu size={17} />
+              {user?.avatarUrl ? (
+                <img src={cldImage(user.avatarUrl, { w: 72, h: 72 })} alt="" className="w-full h-full object-cover" />
+              ) : (
+                initial
+              )}
             </button>
           </div>
         </div>
       </header>
 
+      <BottomNav />
+
       <main
         className={`w-full transition-[padding] duration-200 ease-out ${collapsed ? 'md:pr-[72px]' : 'md:pr-[236px]'}`}
       >
-        <div className="w-full max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-5 md:pb-7 md:pt-[calc(64px+1.75rem)]">{children}</div>
+        <div className="w-full max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 pt-5 pb-[76px] md:pb-7 md:pt-[calc(64px+1.75rem)]">
+          {children}
+        </div>
       </main>
     </div>
   )
