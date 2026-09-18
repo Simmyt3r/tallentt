@@ -18,28 +18,31 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  // Auth
-  me: () => request('/api/auth/me'),
-  register: (body) => request('/api/auth/register', { method: 'POST', body: JSON.stringify(body) }),
-  login: (body) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }),
-  logout: () => request('/api/auth/logout', { method: 'POST' }),
-  usernameCheck: (u) => request(`/api/auth/username-check?u=${encodeURIComponent(u)}`),
-  updateProfile: (body) => request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(body) }),
-  getNotifications: () => request('/api/auth/profile?action=notifications'),
+  // Auth — one consolidated endpoint (api/auth/index.js). Was six separate
+  // files (login/logout/me/register/username-check/profile) until that
+  // put the deployment over Vercel Hobby's 12-function cap; see the
+  // comment at the top of api/auth/index.js.
+  me: () => request('/api/auth?action=me'),
+  register: (body) => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'register', ...body }) }),
+  login: (body) => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'login', ...body }) }),
+  logout: () => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) }),
+  usernameCheck: (u) => request(`/api/auth?action=username-check&u=${encodeURIComponent(u)}`),
+  updateProfile: (body) => request('/api/auth', { method: 'PUT', body: JSON.stringify(body) }),
+  getNotifications: () => request('/api/auth?action=notifications'),
   markNotificationRead: (notificationId) =>
-    request('/api/auth/profile', {
+    request('/api/auth', {
       method: 'PUT',
       body: JSON.stringify({ action: 'mark_notification_read', notificationId }),
     }),
   markAllNotificationsRead: () =>
-    request('/api/auth/profile', {
+    request('/api/auth', {
       method: 'PUT',
       body: JSON.stringify({ action: 'mark_all_notifications_read' }),
     }),
-  getBanks: () => request('/api/auth/profile?action=banks'),
+  getBanks: () => request('/api/auth?action=banks'),
   resolveBankAccount: (accountNumber, bankCode) =>
     request(
-      `/api/auth/profile?action=resolve-account&account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
+      `/api/auth?action=resolve-account&account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
     ),
 
   // Hats

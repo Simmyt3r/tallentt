@@ -124,7 +124,7 @@ export function toPublicUser(row) {
     // 'withdraw'}) can go through.
     payoutReady: Boolean(row.paystack_recipient_code),
     // Only present when the query selecting this row joined it in (see
-    // api/auth/me.js, login.js, profile.js) — defaults to 0 otherwise.
+    // the me/login/profile actions in api/auth/index.js) — defaults to 0 otherwise.
     walletBalance: row.wallet_balance != null ? Number(row.wallet_balance) : 0,
   }
 }

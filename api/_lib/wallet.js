@@ -3,7 +3,7 @@ import { query, getClient } from './db.js'
 import { notifyWalletTopup } from './notifications.js'
 
 // Wallets are created lazily on first touch (INSERT ... ON CONFLICT DO
-// NOTHING) rather than at registration — keeps api/auth/register.js
+// NOTHING) rather than at registration — keeps the register action in api/auth/index.js
 // untouched, and every call site below already owns its own client.
 export async function getWalletBalance(userId) {
   await query(`INSERT INTO wallets (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, [userId])
