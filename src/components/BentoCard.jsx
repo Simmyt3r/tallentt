@@ -35,7 +35,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
       >
         {/* Media */}
         {showMedia && (
-          <div className="relative aspect-[4/3] bg-[#F5F3EF]">
+          <div className="relative aspect-[4/5] bg-[#F5F3EF]">
             {media?.url ? (
               media.type === 'video' ? (
                 // This tile is never played — tapping the card opens the
@@ -45,14 +45,14 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
                 // paint one frame; a Cloudinary-generated poster JPG
                 // costs none.
                 <img
-                  src={cldVideoPoster(media.url, { w: 600, h: 450 })}
+                  src={cldVideoPoster(media.url, { w: 600, h: 750 })}
                   alt=""
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
               ) : (
                 <img
-                  src={cldImage(media.url, { w: 600, h: 450 })}
+                  src={cldImage(media.url, { w: 600, h: 750 })}
                   alt=""
                   className="w-full h-full object-cover"
                   loading="lazy"
@@ -68,11 +68,11 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
             >
               {hat.hat_type || (isTalent ? 'Talent' : 'Client')}
             </span>
-            {hat.availability && (
-              <span
-                className="absolute top-2.5 right-2.5 w-2.5 h-2.5 rounded-full bg-[#16C784] border-[1.5px] border-white"
-                title="Available"
-              />
+            {postedAgo && (
+              <span className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/60 text-white text-[10px] font-semibold px-2 py-1 rounded-full backdrop-blur-sm">
+                {hat.availability && <span className="w-1.5 h-1.5 rounded-full bg-[#16C784]" />}
+                {postedAgo}
+              </span>
             )}
           </div>
         )}
@@ -118,24 +118,26 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
           </div>
 
           <div className="flex items-center gap-2 text-[11px] text-black/50 font-medium flex-wrap">
-            {location && (
-              <span className="flex items-center gap-0.5" title="Talent location">
-                <MapPin size={11} /> {location}
-              </span>
-            )}
-            {availabilityWindow && (
-              <span className="flex items-center gap-0.5" title="Daily availability window">
-                <Clock size={11} /> {availabilityWindow}
-              </span>
-            )}
+            {/* Location and delivery mode always show — with a plain
+                fallback when a hat hasn't set them — since where the work
+                happens and how it's delivered are core to every listing. */}
+            <span className="flex items-center gap-0.5" title="Location">
+              <MapPin size={11} /> {location || 'Location not specified'}
+            </span>
+            <span
+              className="truncate px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10"
+              title="Delivery mode"
+            >
+              {hat.delivery_mode || 'Delivery mode N/A'}
+            </span>
             {hat.category && (
               <span className="truncate px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10">
                 {hat.category}
               </span>
             )}
-            {hat.delivery_mode && (
-              <span className="truncate px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10">
-                {hat.delivery_mode}
+            {availabilityWindow && (
+              <span className="flex items-center gap-0.5" title="Daily availability window">
+                <Clock size={11} /> {availabilityWindow}
               </span>
             )}
           </div>
