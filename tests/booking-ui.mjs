@@ -24,12 +24,21 @@ try {
   for (const width of [320, 390, 768, 1280, 1440]) {
     await client.setViewportSize({ width, height: 1000 })
     assert.equal(await client.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `page overflow at ${width}`)
+    // Below the md breakpoint, Messages/Wallet/Admin live behind the mobile
+    // drawer (hamburger), not the desktop sidebar — open it the way a real
+    // phone user would before checking those links.
+    const mobile = width < 768
+    if (mobile) {
+      await client.getByRole('button', { name: 'Open menu', exact: true }).click()
+      await client.waitForTimeout(250) // let the 200ms slide-in transition settle before measuring
+    }
     for (const name of ['Messages', 'Wallet', 'Admin']) {
       const link = client.getByRole('link', { name, exact: true }).first()
       assert.equal(await link.isVisible(), true, `${name} missing at ${width}`)
       const box = await link.boundingBox()
       assert.ok(box.x >= 0 && box.x + box.width <= width, `${name} clipped at ${width}`)
     }
+    if (mobile) await client.getByRole('button', { name: 'Close menu', exact: true }).click()
   }
   await client.setViewportSize({ width: 390, height: 844 })
   await client.screenshot({ path: 'test-results/messaging-mobile.png', fullPage: true })

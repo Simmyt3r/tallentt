@@ -175,7 +175,6 @@ export function MobileDrawer({ open, onClose }) {
   return (
     <>
       <div
-        aria-hidden={!open}
         onClick={onClose}
         className={`md:hidden fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 ${
           open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
@@ -185,6 +184,7 @@ export function MobileDrawer({ open, onClose }) {
         role="dialog"
         aria-modal="true"
         aria-label="Navigation"
+        aria-hidden={!open}
         className={`md:hidden fixed inset-y-0 right-0 z-50 flex w-[82%] max-w-[300px] flex-col bg-[#FAFAF8] border-l-[1.5px] border-black transition-transform duration-200 ease-out ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
