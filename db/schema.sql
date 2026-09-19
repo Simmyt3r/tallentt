@@ -54,6 +54,44 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nin_hash ON users (nin_hash) WHERE nin_hash IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_is_admin ON users (is_admin) WHERE is_admin = true;
 
+-- Profile UX upgrade (see db/patch-profile-ux.sql for the standalone
+-- version of just this block). Adds the identity/credibility fields the
+-- redesigned Profile page needs that nothing else in the schema already
+-- covers — kept minimal and reusing existing columns (bio, avatar_url,
+-- location/lga/country) everywhere one already exists.
+--   headline        — short professional headline, both roles (Talent:
+--                      "Photographer & Video Editor"; Client: "Technology
+--                      Company"). Distinct from `bio`, which is the longer
+--                      About text.
+--   skills          — Talent's profile-level skill chips. Deliberately
+--                      separate from hats.skills (per-listing tags used
+--                      for search/matching) — this is the person's general
+--                      showcased skillset, not tied to one hat.
+--   industry        — Client's Industry / Business Areas chips. Same
+--                      shape as `skills` but semantically distinct, so
+--                      kept as its own column rather than overloading one
+--                      array for two different concepts (see PROFILE.md
+--                      section 10).
+--   company_suffix  — Client's legal suffix (Ltd., Inc., ...), stored
+--                      separately from full_name so the app can render it
+--                      without ever guessing/fabricating one and without
+--                      ever double-appending it.
+--   website          — one professional/portfolio link, shown on Share/About.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS headline TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS skills TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS industry TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS company_suffix TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS website TEXT;
+UPDATE users SET skills = '{}' WHERE skills IS NULL;
+UPDATE users SET industry = '{}' WHERE industry IS NULL;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_headline_length_check;
+ALTER TABLE users ADD CONSTRAINT users_headline_length_check CHECK (headline IS NULL OR char_length(headline) <= 80);
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_website_length_check;
+ALTER TABLE users ADD CONSTRAINT users_website_length_check CHECK (website IS NULL OR char_length(website) <= 300);
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_company_suffix_check;
+ALTER TABLE users ADD CONSTRAINT users_company_suffix_check
+  CHECK (company_suffix IS NULL OR company_suffix IN ('Ltd.', 'Limited', 'Inc.', 'LLC', 'PLC', 'LLP', 'Corp.'));
+
 CREATE TABLE IF NOT EXISTS categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
