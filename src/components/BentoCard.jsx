@@ -1,5 +1,7 @@
 // Path: src/components/BentoCard.jsx
-import { useState } from 'react'
+// CONFORMED TO TWORLD-PART-1-_-Downloadable-Reference-1_1.html
+// Reference component: Mm({talent:e,viewMode:n,onClick:t,onLike:r,onBook:l})
+import { useState, useEffect } from 'react'
 import { MapPin, Clock } from 'lucide-react'
 import BentoCardDetailModal from './BentoCardDetailModal'
 import {
@@ -11,31 +13,115 @@ import {
 } from './bentoCardShared'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 
-// Discovery card: quickly answers "is this hat interesting enough to
-// inspect?" — full decision-making detail (About, skills, the Book/Apply
-// action, the negotiation notice) lives in BentoCardDetailModal, opened by
-// tapping anywhere on the card that isn't itself an interactive element
-// (avatar/username/share/like — see HatOwnerHeader, which already stops
-// propagation on all of those).
-export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = true, onHatChange, fullWidth = false, moreCount = 0 }) {
-  const [open, setOpen] = useState(false)
+// HTML Reference logic:
+// - Dual role: o = e.role==="dual" ? n==="creator" ? "client" : "talent" : e.role==="client" ? "client" : "talent"
+// - Motto truncated 60 chars: i = e.motto.length>60 ? e.motto.slice(0,60)+"…" : e.motto
+// - Hats extraction: c(U,ne) => U?.hats array || U?.hat => [{hat:U.hat, rate:U.hat, price:ne, priceMin:ne, priceMax:ne*1.6, active:!0}]
+// - Price format L(U): ₦M / ₦k / ₦ toLocaleString
+// - Price range F(U): priceMin-priceMax
+// - Visual: bg-white rounded-[24px] p-4 border border-black/5 shadow-[0_8px_24px_rgba(0,0,0,0.04)]
 
-  const isTalent = hat.role === 'talent'
-  const pillBg = isTalent ? 'bg-[#0A13E6] text-white' : 'bg-black text-white'
-  const media = hat.media?.[0]
-  // Talent hats: the talent is "Seeking" bookings for this title. Client
-  // hats: the client is "Hiring" for this title.
+export default function BentoCard({ 
+  hat, 
+  viewMode = 'creator', // creator = browsing Clients, employer = browsing Talents (from HTML talentworld_role)
+  onBook, 
+  onApply, 
+  escrow, 
+  showMedia = true, 
+  onHatChange, 
+  fullWidth = false, 
+  moreCount = 0 
+}) {
+  const [open, setOpen] = useState(false)
+  const [activeHatIndex, setActiveHatIndex] = useState(0)
+  const [activeEventIndex, setActiveEventIndex] = useState(0)
+  const [isVisible, setIsVisible] = useState(true)
+
+  // --- CONFORMED ROLE LOGIC FROM HTML (Mm component) ---
+  const effectiveRole = hat.role === 'dual' 
+    ? viewMode === 'creator' ? 'client' : 'talent' 
+    : hat.role === 'client' ? 'client' : 'talent'
+  const isTalent = effectiveRole === 'talent'
+
+  // --- MOTTO TRUNCATION 60 CHARS (HTML: i = e.motto.length>60 ? slice(0,60)+… ) ---
+  const shortMotto = hat.motto && hat.motto.length > 60 
+    ? `${hat.motto.slice(0, 60)}…` 
+    : hat.motto || ''
+  const fullDescription = hat.motto || ''
+
+  // --- HATS EXTRACTION (HTML: c function) ---
+  const extractHats = (data, fallbackPrice) => {
+    if (data?.hats && Array.isArray(data.hats) && data.hats.length > 0) return data.hats
+    if (data?.hat) return [{ 
+      hat: data.hat, 
+      rate: data.hat, 
+      price: fallbackPrice, 
+      priceMin: fallbackPrice, 
+      priceMax: Math.round(fallbackPrice * 1.6), 
+      active: true 
+    }]
+    return []
+  }
+
+  // Support both new flat hat structure and old talentData/clientData structure from HTML
+  const talentHats = hat.talentData ? extractHats(hat.talentData, hat.price) : [{ hat: hat.hat_title, rate: hat.rate, priceMin: hat.price_min || hat.price, priceMax: hat.price_max, active: true }]
+  const clientHats = hat.clientData ? extractHats(hat.clientData, hat.price) : [{ hat: hat.hat_title, rate: hat.rate, priceMin: hat.price_min || hat.price, priceMax: hat.price_max, active: true }]
+  
+  const hatsToShow = isTalent ? talentHats : clientHats
+  const activeHats = hatsToShow.filter(h => h.active)
+  const displayHats = activeHats.length > 0 ? activeHats : hatsToShow
+  const currentHat = displayHats[activeHatIndex] || displayHats[0] || null
+  const remainingCount = Math.max(0, displayHats.length - 1)
+
+  // --- PRICE FORMATTING L() and F() FROM HTML ---
+  const formatNaira = (val) => {
+    if (!val) return '₦—'
+    if (val >= 1_000_000) return `₦${(val/1_000_000).toFixed(val%1_000_000===0?0:1)}M`
+    if (val >= 1000) return `₦${Math.round(val/1000)}k`
+    return `₦${val.toLocaleString()}`
+  }
+  const formatPriceRange = (h) => {
+    const min = h?.priceMin ?? h?.price ?? 0
+    const max = h?.priceMax ?? (h?.price ? Math.round(h.price*1.6) : 0)
+    if (!min && !max) return '₦—'
+    if (min && max && min !== max) return `${formatNaira(min)}-${formatNaira(max).replace('₦','')}`
+    if (min) return `${formatNaira(min)}`
+    return `${formatNaira(max)}`
+  }
+
+  // --- AUTO-ROTATE HATS (HTML: setInterval 3500ms with fade) ---
+  useEffect(() => {
+    setActiveHatIndex(0)
+    setActiveEventIndex(0)
+  }, [effectiveRole, hat.id])
+
+  useEffect(() => {
+    if (displayHats.length <= 1 && (hat.clientData?.events?.length || 0) <= 1) return
+    const interval = setInterval(() => {
+      setIsVisible(false)
+      setTimeout(() => {
+        setActiveHatIndex(prev => displayHats.length ? (prev+1) % displayHats.length : prev)
+        setActiveEventIndex(prev => {
+          const len = hat.clientData?.events?.length || 1
+          return len ? (prev+1) % len : prev
+        })
+        setIsVisible(true)
+      }, 180)
+    }, 3500)
+    return () => clearInterval(interval)
+  }, [displayHats.length, hat.id, effectiveRole, hat.clientData?.events?.length])
+
   const listingLabel = isTalent ? 'Seeking' : 'Hiring'
   const postedAgo = relativeTime(hat.created_at)
   const currency = hat.currency || 'NGN'
-  // Talent's specific location — LGA/city + country, not just a bare city name.
   const location = [hat.lga, hat.country].filter(Boolean).join(', ')
-  const availabilityWindow = formatAvailabilityWindow(hat)
-  // The hats table has one free-text field (`motto`, max 80 chars) used by
-  // both talent and client hats — surfaced here as the short description/
-  // requirement preview the spec calls for, clamped to two lines so the
-  // feed never shows the complete text.
-  const description = hat.motto || ''
+  
+  // Availability from HTML: In = e.talentData.availability || "Mon-Sat, 8AM-8PM"
+  const availabilityWindow = formatAvailabilityWindow(hat) || hat.talentData?.availability || "Mon-Sat, 8AM-8PM"
+  
+  const media = hat.media?.[0]
+  const pillBg = isTalent ? 'bg-[#0A13E6] text-white' : 'bg-black text-white'
+  const priceDisplay = currentHat ? formatPriceRange(currentHat) : formatPrice(hat, currency)
 
   const { liked, toggle: toggleLike, liking } = useLikeToggle({
     id: hat.id,
@@ -44,19 +130,25 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
     onHatChange,
   })
 
+  // For Hiring/Available label logic from HTML snippet:
+  // Hiring: bn (rate/hat) : Available: ou (price range)
+  const hiringOrAvailableLabel = isTalent ? 'Available:' : 'Hiring:'
+  const hiringValue = currentHat?.rate || currentHat?.hat || ''
+  const priceValue = currentHat ? formatPriceRange(currentHat) : ''
+
   return (
     <>
       <article
-        className={`bg-white rounded-[20px] border-[1.5px] border-black shadow-sm overflow-hidden flex flex-col w-full cursor-pointer hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-shadow ${
+        className={`bg-white rounded-[24px] p-4 border border-black/5 shadow-[0_8px_24px_rgba(0,0,0,0.04)] cursor-pointer hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] transition-all duration-200 flex flex-col w-full overflow-hidden ${
           fullWidth ? '' : 'max-w-[300px]'
         }`}
         onClick={() => setOpen(true)}
       >
-        <div className="p-3.5 pb-2.5">
+        <div className="pb-2.5">
           <HatOwnerHeader
             cardId={hat.id}
-            avatarSrc={hat.owner_avatar || hat.avatar_url}
-            displayName={hat.username}
+            avatarSrc={hat.owner_avatar || hat.avatar_url || hat.avatar}
+            displayName={hat.username || hat.name}
             isVerified={hat.is_verified}
             metaParts={[isTalent ? 'Talent' : 'Client', postedAgo]}
             hatId={hat.id}
@@ -75,21 +167,19 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
                 +{moreCount} more hat{moreCount > 1 ? 's' : ''}
               </span>
             )}
+            {remainingCount > 0 && (
+              <span className="inline-block mt-0.5 ml-1 text-[10.5px] font-bold text-black/40">
+                +{remainingCount} more
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Media — strict 4:3, consistent across every card regardless of
-            the source image/video's own aspect ratio (object-cover). */}
+        {/* Media — strict 4:3 as per your original code comment */}
         {showMedia && (
-          <div className="relative aspect-[4/3] bg-[#F5F3EF]">
+          <div className="relative aspect-[4/3] bg-[#F5F3EF] rounded-[16px] overflow-hidden">
             {media?.url ? (
               media.type === 'video' ? (
-                // This tile is never played — tapping the card opens the
-                // real player in BentoCardDetailModal below — so it only
-                // ever needs a still frame. A muted <video> here would
-                // still cost the browser a full video download just to
-                // paint one frame; a Cloudinary-generated poster JPG
-                // costs none.
                 <img
                   src={cldVideoPoster(media.url, { w: 600, h: 450 })}
                   alt=""
@@ -128,33 +218,68 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
           </div>
         )}
 
-        {/* Body */}
-        <div className="p-3.5 pt-2.5 flex-1 flex flex-col gap-1.5">
-          <div className="flex items-center gap-2 text-[11px] text-black/50 font-medium flex-wrap">
+        {/* Body — conformed to HTML Hiring:/Available: + Time: pattern */}
+        <div className="pt-3 flex-1 flex flex-col gap-1.5">
+          <div className={`text-[12px] leading-snug flex items-baseline gap-1 transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+            <span className="font-bold text-black/70 shrink-0">{hiringOrAvailableLabel}</span>
+            <span className="font-semibold text-black truncate">{hiringValue}</span>
+            <span className="text-black/40 font-bold mx-0.5">:</span>
+            <span className="font-bold text-[#0A13E6] shrink-0">{priceValue}</span>
+          </div>
+
+          {isTalent && (
+            <div className="text-[12px] leading-snug flex items-baseline gap-1">
+              <span className="font-bold text-black/70 shrink-0">Time:</span>
+              <span className="font-medium text-black/80 truncate">{availabilityWindow}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 text-[11px] text-black/50 font-medium flex-wrap mt-0.5">
             {location && (
               <span className="flex items-center gap-0.5" title="Talent location">
                 <MapPin size={11} /> {location}
               </span>
             )}
-            {availabilityWindow && (
+            {!isTalent && availabilityWindow && (
               <span className="flex items-center gap-0.5" title="Daily availability window">
                 <Clock size={11} /> {availabilityWindow}
               </span>
             )}
           </div>
 
-          <span className="font-bold text-[14px]">{formatPrice(hat, currency)}</span>
+          <span className="font-bold text-[14px] mt-0.5">{priceDisplay}</span>
 
-          {description && (
-            <p className="text-[12px] text-black/60 leading-snug line-clamp-2">{description}</p>
+          {shortMotto && (
+            <p className="text-[12px] text-black/60 leading-snug line-clamp-2">{shortMotto}</p>
           )}
+
+          {/* Action row — HTML: Book Now / Apply Now + like + comments */}
+          <div className="mt-2 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[11px] text-black/50">
+              <span className="flex items-center gap-1">
+                <span className="w-1 h-1 bg-black/20 rounded-full"></span>
+                <span className="font-bold">{hat.likes || 0} likes</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span>💬</span> {hat.commentsCount || hat.comments_count || 0}
+              </span>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                isTalent ? onBook?.(hat) : onApply?.(hat)
+              }}
+              className="h-8 px-4 bg-[#0A13E6] text-white rounded-full text-[11px] font-bold hover:opacity-90 transition-opacity"
+            >
+              {isTalent ? 'Book Now' : 'Apply Now'}
+            </button>
+          </div>
         </div>
       </article>
 
-      {/* Detail modal — full-screen on Android ≤768px */}
       {open && (
         <BentoCardDetailModal
-          hat={hat}
+          hat={{...hat, currentHat, effectiveRole}}
           escrow={escrow}
           showMedia={showMedia}
           onClose={() => setOpen(false)}
