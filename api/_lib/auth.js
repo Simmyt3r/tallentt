@@ -1,521 +1,138 @@
-// Path: api/auth/index.js
-// Consolidates what used to be six separate files — login.js, logout.js,
-// me.js, register.js, username-check.js, profile.js — into one function.
-// Vercel Hobby caps a deployment at 12 serverless functions; this project
-// was already sitting at exactly 12 before Combutar Live added a 13th
-// (api/live/index.js). Folding these six into one, same dispatch-by-action
-// pattern as api/escrows/index.js and api/admin/index.js, drops the total
-// back down with real headroom instead of just barely re-fitting.
-import { query, getClient } from '../_lib/db.js'
-import {
-  verifyPassword,
-  hashPassword,
-  signSession,
-  setSessionCookie,
-  clearSessionCookie,
-  getSessionUser,
-  hashNin,
-  toPublicUser,
-} from '../_lib/auth.js'
-import { json, methodNotAllowed, readBody } from '../_lib/http.js'
-import { listBanks, resolveBankAccount, createTransferRecipient } from '../_lib/paystack.js'
-import { getNotificationInbox, markAllNotificationsRead, markNotificationRead } from '../_lib/notifications.js'
+// Path: api/_lib/auth.js
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+import crypto from 'node:crypto'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const USERNAME_RE = /^[A-Za-z0-9._-]{3,30}$/
-const VALID_ROLES = ['talent', 'client', 'dual']
-// One shared list — used to be duplicated between register.js,
-// username-check.js, and profile.js. Now there's only one copy to keep in sync.
-const RESERVED_USERNAMES = new Set(['admin', 'talent', 'test', 'chombutar', 'talentworld', 'tworld', 'support', 'root'])
-const MAX_BIO = 280
+const COOKIE_NAME = 'cw_session'
+const SEVEN_DAYS_SECONDS = 60 * 60 * 24 * 7
+const NIN_RE = /^\d{11}$/ // Nigerian NIN: 11 digits
 
-export default async function handler(req, res) {
-  const url = new URL(req.url, `http://${req.headers.host}`)
-
-  if (req.method === 'GET') {
-    const action = url.searchParams.get('action') || 'me'
-    if (action === 'me') return handleMe(req, res)
-    if (action === 'username-check') return handleUsernameCheck(url, res)
-    if (action === 'banks') return handleBanks(res)
-    if (action === 'resolve-account') return handleResolveAccount(url, res)
-    if (action === 'notifications') return handleNotifications(req, res)
-    return json(res, 400, { error: 'Unknown action.' })
+function getSecret() {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    throw new Error('JWT_SECRET is not set. Add it in Vercel → Settings → Environment Variables.')
   }
-
-  if (req.method === 'POST') {
-    let body
-    try {
-      body = await readBody(req)
-    } catch {
-      return json(res, 400, { error: 'Invalid request body' })
-    }
-    if (body?.action === 'login') return handleLogin(body, res)
-    if (body?.action === 'register') return handleRegister(body, res)
-    if (body?.action === 'logout') return handleLogout(res)
-    return json(res, 400, { error: 'Unknown action.' })
-  }
-
-  if (req.method === 'PUT') return handleProfileUpdate(req, res)
-
-  return methodNotAllowed(res, ['GET', 'POST', 'PUT'])
+  return secret
 }
 
-// ---------------------------------------------------------------------------
-// GET ?action=me
-// ---------------------------------------------------------------------------
-async function handleMe(req, res) {
-  const session = getSessionUser(req)
-  if (!session) return json(res, 401, { error: 'Not signed in' })
+function getNinSecret() {
+  // Deliberately separate from JWT_SECRET so rotating one doesn't silently
+  // invalidate/re-derive the other. Falls back to JWT_SECRET only if unset,
+  // so existing deployments don't crash — set NIN_HASH_SECRET in Vercel.
+  return process.env.NIN_HASH_SECRET || getSecret()
+}
 
+// We never store a raw NIN — only a keyed hash (HMAC, not bcrypt, since we
+// need the same NIN to always hash the same way for the uniqueness check
+// in schema.sql). Without NIN_HASH_SECRET this can't be reversed or
+// brute-forced offline the way an unsalted hash could be.
+export function hashNin(nin) {
+  const clean = String(nin ?? '').replace(/\D/g, '')
+  if (!NIN_RE.test(clean)) {
+    const err = new Error('NIN must be exactly 11 digits.')
+    err.status = 400
+    throw err
+  }
+  const digest = crypto.createHmac('sha256', getNinSecret()).update(clean).digest('hex')
+  return { hash: digest, last4: clean.slice(-4) }
+}
+
+export function hashPassword(password) {
+  return bcrypt.hash(password, 10)
+}
+
+export function verifyPassword(password, hash) {
+  return bcrypt.compare(password, hash)
+}
+
+export function signSession(payload) {
+  return jwt.sign(payload, getSecret(), { expiresIn: SEVEN_DAYS_SECONDS })
+}
+
+export function verifySession(token) {
   try {
-    const result = await query(
-      `SELECT id, full_name, username, email, role, is_admin, country, lga,
-              avatar_url, bio, location, phone, nin_hash, nin_last4,
-              headline, skills, industry, company_suffix, website,
-              bank_name, account_number, account_name, paystack_recipient_code,
-              (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance
-       FROM users WHERE id = $1`,
-      [session.sub],
-    )
-    const row = result.rows[0]
-    if (!row) return json(res, 401, { error: 'Not signed in' })
-    return json(res, 200, { user: toPublicUser(row) })
-  } catch (err) {
-    console.error('me error:', err)
-    return json(res, 500, { error: 'Something went wrong.' })
-  }
-}
-
-// ---------------------------------------------------------------------------
-// GET ?action=username-check&u=...
-// ---------------------------------------------------------------------------
-async function handleUsernameCheck(url, res) {
-  try {
-    const raw = (url.searchParams.get('u') || '').trim().replace(/^@/, '')
-    if (!raw) return json(res, 400, { status: 'invalid', message: 'Username required' })
-
-    if (!USERNAME_RE.test(raw)) {
-      return json(res, 200, { status: 'invalid', message: '3–30 chars: letters, numbers, . _ -' })
-    }
-    if (RESERVED_USERNAMES.has(raw.toLowerCase())) {
-      return json(res, 200, { status: 'taken', message: 'Reserved username' })
-    }
-
-    const { rows } = await query(`SELECT 1 FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1`, [raw])
-    if (rows.length) return json(res, 200, { status: 'taken', message: 'Taken' })
-    return json(res, 200, { status: 'available', message: 'Available' })
-  } catch (err) {
-    console.error(err)
-    return json(res, 500, { status: 'error', message: 'Check failed' })
-  }
-}
-
-// ---------------------------------------------------------------------------
-// POST { action: 'login', email, password }
-// ---------------------------------------------------------------------------
-async function handleLogin(body, res) {
-  const { email, password } = body ?? {}
-  if (!email || !password) return json(res, 400, { error: 'Enter your email and password.' })
-
-  // Same generic error for "no such user" and "wrong password" so we don't
-  // leak which emails have accounts.
-  const invalidCreds = () =>
-    json(res, 401, {
-      error: 'We could not find an account with those details. Create an account to get started.',
-    })
-
-  try {
-    const result = await query(
-      `SELECT id, full_name, username, email, password_hash, role, is_admin, country, lga,
-              avatar_url, bio, location, phone, nin_hash, nin_last4,
-              headline, skills, industry, company_suffix, website,
-              bank_name, account_number, account_name, paystack_recipient_code,
-              (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance
-       FROM users WHERE email = $1`,
-      [String(email).trim().toLowerCase()],
-    )
-    const row = result.rows[0]
-    if (!row) return invalidCreds()
-
-    const ok = await verifyPassword(password, row.password_hash)
-    if (!ok) return invalidCreds()
-
-    const user = toPublicUser(row)
-    const token = signSession({ sub: user.id })
-    setSessionCookie(res, token)
-    return json(res, 200, { user })
-  } catch (err) {
-    console.error('login error:', err)
-    return json(res, 500, { error: 'Something went wrong signing you in. Try again.' })
-  }
-}
-
-// ---------------------------------------------------------------------------
-// POST { action: 'logout' }
-// ---------------------------------------------------------------------------
-async function handleLogout(res) {
-  clearSessionCookie(res)
-  return json(res, 200, { ok: true })
-}
-
-// ---------------------------------------------------------------------------
-// POST { action: 'register', fullName, username, email, password, country, lga, role }
-// ---------------------------------------------------------------------------
-async function handleRegister(body, res) {
-  const { fullName, username, email, password, country, lga, role } = body ?? {}
-
-  if (!fullName || typeof fullName !== 'string' || fullName.trim().length < 2) {
-    return json(res, 400, { error: 'Enter your full name.' })
-  }
-  const cleanUsername = String(username ?? '').trim().replace(/^@/, '')
-  if (!USERNAME_RE.test(cleanUsername)) {
-    return json(res, 400, { error: 'Username must be 3-30 characters: letters, numbers, dots, dashes, underscores.' })
-  }
-  if (!email || !EMAIL_RE.test(String(email).trim())) {
-    return json(res, 400, { error: 'Enter a valid email address.' })
-  }
-  if (!password || String(password).length < 8) {
-    return json(res, 400, { error: 'Password must be at least 8 characters.' })
-  }
-  if (!VALID_ROLES.includes(role)) {
-    return json(res, 400, { error: 'Choose a valid role.' })
-  }
-  if (!country || !lga) {
-    return json(res, 400, { error: 'Country and city/LGA are required.' })
-  }
-
-  try {
-    const passwordHash = await hashPassword(password)
-    const result = await query(
-      `INSERT INTO users (full_name, username, email, password_hash, role, country, lga)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, full_name, username, email, role, is_admin, country, lga`,
-      [fullName.trim(), cleanUsername, String(email).trim().toLowerCase(), passwordHash, role, country, lga.trim()],
-    )
-
-    const user = toPublicUser(result.rows[0])
-    const token = signSession({ sub: user.id })
-    setSessionCookie(res, token)
-    return json(res, 201, { user })
-  } catch (err) {
-    if (err.code === '23505') {
-      const field = err.constraint?.includes('username') ? 'Username' : 'Email'
-      return json(res, 409, { error: `${field} is already taken.` })
-    }
-    console.error('register error:', err)
-    return json(res, 500, { error: 'Something went wrong creating your account. Try again.' })
-  }
-}
-
-// ---------------------------------------------------------------------------
-// GET ?action=banks / ?action=resolve-account / ?action=notifications
-// (unchanged from what api/auth/profile.js already folded these into)
-// ---------------------------------------------------------------------------
-async function handleBanks(res) {
-  try {
-    const banks = await listBanks()
-    return json(res, 200, { banks: banks.map((b) => ({ name: b.name, code: b.code })) })
-  } catch (err) {
-    return json(res, 502, { error: err.message })
-  }
-}
-
-async function handleResolveAccount(url, res) {
-  const accountNumber = url.searchParams.get('account_number')
-  const bankCode = url.searchParams.get('bank_code')
-  if (!accountNumber || !bankCode) return json(res, 400, { error: 'account_number and bank_code are required.' })
-  try {
-    const account = await resolveBankAccount(accountNumber, bankCode)
-    return json(res, 200, { accountName: account.account_name })
-  } catch (err) {
-    return json(res, 400, { error: err.message })
-  }
-}
-
-async function handleNotifications(req, res) {
-  const session = getSessionUser(req)
-  if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
-  try {
-    return json(res, 200, await getNotificationInbox(session.sub))
-  } catch (err) {
-    console.error('notification inbox error:', err)
-    return json(res, 500, { error: 'Failed to load notifications.' })
-  }
-}
-
-// ---------------------------------------------------------------------------
-// PUT — profile update, plus the two notification-mutation sub-actions
-// api/auth/profile.js already folded in here.
-// ---------------------------------------------------------------------------
-async function handleProfileUpdate(req, res) {
-  const session = getSessionUser(req)
-  if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
-
-  let body
-  try {
-    body = await readBody(req)
+    return jwt.verify(token, getSecret())
   } catch {
-    return json(res, 400, { error: 'Invalid request body' })
+    return null
   }
+}
 
-  if (body?.action === 'mark_notification_read') {
-    const notificationId = String(body.notificationId || '').trim()
-    if (!notificationId) return json(res, 400, { error: 'notificationId is required.' })
-    try {
-      const notification = await markNotificationRead(session.sub, notificationId)
-      if (!notification) return json(res, 404, { error: 'Notification not found.' })
-      const inbox = await getNotificationInbox(session.sub)
-      return json(res, 200, { notification, unreadCount: inbox.unreadCount })
-    } catch (err) {
-      console.error('notification read update error:', err)
-      return json(res, 500, { error: 'Failed to update notification.' })
-    }
-  }
+export function parseCookies(req) {
+  const header = req.headers.cookie
+  if (!header) return {}
+  return Object.fromEntries(
+    header.split(';').map((pair) => {
+      const idx = pair.indexOf('=')
+      const key = decodeURIComponent(pair.slice(0, idx).trim())
+      const value = decodeURIComponent(pair.slice(idx + 1).trim())
+      return [key, value]
+    }),
+  )
+}
 
-  if (body?.action === 'mark_all_notifications_read') {
-    try {
-      const updated = await markAllNotificationsRead(session.sub)
-      return json(res, 200, { updated, unreadCount: 0 })
-    } catch (err) {
-      console.error('notification bulk read update error:', err)
-      return json(res, 500, { error: 'Failed to update notifications.' })
-    }
-  }
+export function setSessionCookie(res, token) {
+  const isProd = process.env.NODE_ENV === 'production'
+  const parts = [
+    `${COOKIE_NAME}=${token}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${SEVEN_DAYS_SECONDS}`,
+  ]
+  if (isProd) parts.push('Secure')
+  res.setHeader('Set-Cookie', parts.join('; '))
+}
 
-  const {
-    fullName,
-    username,
-    bio,
-    location,
-    phone,
-    country,
-    lga,
-    avatarUrl,
-    nin,
-    bankCode,
-    bankName,
-    accountNumber,
-    headline,
-    skills,
-    industry,
-    companySuffix,
-    website,
-  } = body ?? {}
+export function clearSessionCookie(res) {
+  const isProd = process.env.NODE_ENV === 'production'
+  const parts = [`${COOKIE_NAME}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0']
+  if (isProd) parts.push('Secure')
+  res.setHeader('Set-Cookie', parts.join('; '))
+}
 
-  // Payout details are optional per-request, same pattern as NIN below —
-  // only touched when the talent actually submits bank info. The account
-  // holder name is always re-resolved from Paystack here rather than
-  // trusted from the client, since it's what a payout will actually go to.
-  let cleanBankCode = null
-  let cleanBankName = null
-  let cleanAccountNumber = null
-  let cleanAccountName = null
-  let recipientCode = null
-  if (bankCode != null && accountNumber != null) {
-    cleanAccountNumber = String(accountNumber).trim()
-    if (!/^\d{10}$/.test(cleanAccountNumber)) {
-      return json(res, 400, { error: 'Account number must be exactly 10 digits.' })
-    }
-    cleanBankCode = String(bankCode).trim()
-    cleanBankName = bankName ? String(bankName).trim() : null
+export function getSessionUser(req) {
+  const cookies = parseCookies(req)
+  const token = cookies[COOKIE_NAME]
+  if (!token) return null
+  return verifySession(token)
+}
 
-    try {
-      const resolved = await resolveBankAccount(cleanAccountNumber, cleanBankCode)
-      cleanAccountName = resolved.account_name
-      const recipient = await createTransferRecipient({
-        name: cleanAccountName,
-        accountNumber: cleanAccountNumber,
-        bankCode: cleanBankCode,
-      })
-      recipientCode = recipient.recipient_code
-    } catch (err) {
-      return json(res, 400, { error: err.message })
-    }
-  }
-
-  if (fullName != null && (typeof fullName !== 'string' || fullName.trim().length < 2)) {
-    return json(res, 400, { error: 'Full name must be at least 2 characters.' })
-  }
-
-  let cleanUsername = null
-  if (username != null) {
-    cleanUsername = String(username).trim().replace(/^@/, '')
-    if (!USERNAME_RE.test(cleanUsername)) {
-      return json(res, 400, { error: 'Username must be 3-30 characters: letters, numbers, dots, dashes, underscores.' })
-    }
-    if (RESERVED_USERNAMES.has(cleanUsername.toLowerCase())) {
-      return json(res, 400, { error: 'That username is reserved.' })
-    }
-  }
-
-  if (bio != null && String(bio).length > MAX_BIO) {
-    return json(res, 400, { error: `Bio must be ${MAX_BIO} characters or fewer.` })
-  }
-  if (avatarUrl != null && typeof avatarUrl !== 'string') {
-    return json(res, 400, { error: 'Invalid avatar.' })
-  }
-
-  // Profile UX fields — headline/website are simple optional text;
-  // skills/industry are arrays of short chip strings. All optional, all
-  // validated the same way regardless of account role (the frontend
-  // decides which of skills/industry to show/edit for a given role;
-  // the API itself doesn't need to enforce that split).
-  let cleanHeadline = null
-  if (headline != null) {
-    cleanHeadline = String(headline).trim()
-    if (cleanHeadline.length > 80) {
-      return json(res, 400, { error: 'Headline must be 80 characters or fewer.' })
-    }
-  }
-  if (website != null && String(website).trim() !== '') {
-    const w = String(website).trim()
-    if (w.length > 300 || !/^https?:\/\/.+\..+/i.test(w)) {
-      return json(res, 400, { error: 'Enter a valid link starting with http:// or https://' })
-    }
-  }
-  const cleanWebsite = website != null ? String(website).trim() : null
-  const ALLOWED_SUFFIXES = new Set(['Ltd.', 'Limited', 'Inc.', 'LLC', 'PLC', 'LLP', 'Corp.'])
-  let cleanCompanySuffix = null
-  if (companySuffix != null) {
-    cleanCompanySuffix = String(companySuffix).trim()
-    if (cleanCompanySuffix && !ALLOWED_SUFFIXES.has(cleanCompanySuffix)) {
-      return json(res, 400, { error: 'Choose a valid business suffix.' })
-    }
-  }
-  function cleanChipList(list, label) {
-    if (list == null) return undefined // not submitted — leave column untouched
-    if (!Array.isArray(list)) {
-      const err = new Error(`${label} must be a list.`)
-      err.status = 400
-      throw err
-    }
-    const cleaned = list
-      .map((s) => String(s ?? '').trim())
-      .filter(Boolean)
-      .slice(0, 20)
-    if (cleaned.some((s) => s.length > 40)) {
-      const err = new Error(`Each ${label.toLowerCase()} entry must be 40 characters or fewer.`)
-      err.status = 400
-      throw err
-    }
-    return cleaned
-  }
-  let cleanSkills
-  let cleanIndustry
-  try {
-    cleanSkills = cleanChipList(skills, 'Skills')
-    cleanIndustry = cleanChipList(industry, 'Industry')
-  } catch (err) {
-    return json(res, err.status || 400, { error: err.message })
-  }
-
-  // NIN is optional per-request — only touched when the user actually
-  // types a new one. The raw value is hashed here and never persisted or
-  // logged in plaintext.
-  let ninHash = null
-  let ninLast4 = null
-  if (nin != null && String(nin).trim() !== '') {
-    try {
-      const result = hashNin(nin)
-      ninHash = result.hash
-      ninLast4 = result.last4
-    } catch (err) {
-      return json(res, err.status || 400, { error: err.message })
-    }
-  }
-
-  // Username lives on the user row, but hats keep a denormalized copy for
-  // fast listing queries (see api/hats/index.js). When the username
-  // changes, both need to move together, so this runs as a transaction —
-  // a client is checked out just for this request rather than using the
-  // shared single-connection pool.
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-
-    const result = await client.query(
-      `UPDATE users SET
-         full_name  = COALESCE($1, full_name),
-         username   = COALESCE($2, username),
-         bio        = COALESCE($3, bio),
-         location   = COALESCE($4, location),
-         phone      = COALESCE($5, phone),
-         country    = COALESCE($6, country),
-         lga        = COALESCE($7, lga),
-         avatar_url = COALESCE($8, avatar_url),
-         nin_hash   = COALESCE($9, nin_hash),
-         nin_last4  = COALESCE($10, nin_last4),
-         bank_code  = COALESCE($11, bank_code),
-         bank_name  = COALESCE($12, bank_name),
-         account_number = COALESCE($13, account_number),
-         account_name   = COALESCE($14, account_name),
-         paystack_recipient_code = COALESCE($15, paystack_recipient_code),
-         headline       = COALESCE($16, headline),
-         skills         = COALESCE($17, skills),
-         industry       = COALESCE($18, industry),
-         -- $19 NULL = field omitted, keep as-is; '' = explicit clear (the
-         -- company_suffix CHECK constraint only allows NULL or one of the
-         -- fixed suffixes, so a plain COALESCE — which would store '' —
-         -- can't be used the way the text fields above are).
-         company_suffix = CASE WHEN $19::text IS NULL THEN company_suffix
-                                WHEN $19 = '' THEN NULL
-                                ELSE $19 END,
-         website        = COALESCE($20, website)
-       WHERE id = $21
-       RETURNING id, full_name, username, email, role, is_admin, country, lga,
-                 avatar_url, bio, location, phone, nin_hash, nin_last4,
-                 headline, skills, industry, company_suffix, website,
-                 bank_name, account_number, account_name, paystack_recipient_code,
-                 (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance`,
-      [
-        fullName?.trim() ?? null,
-        cleanUsername,
-        bio ?? null,
-        location ?? null,
-        phone ?? null,
-        country ?? null,
-        lga ?? null,
-        avatarUrl ?? null,
-        ninHash,
-        ninLast4,
-        cleanBankCode,
-        cleanBankName,
-        cleanAccountNumber,
-        cleanAccountName,
-        recipientCode,
-        cleanHeadline,
-        cleanSkills ?? null,
-        cleanIndustry ?? null,
-        // NULL = field omitted (CASE above keeps the existing value); '' =
-        // explicit clear; anything else = the new suffix.
-        companySuffix != null ? cleanCompanySuffix : null,
-        cleanWebsite,
-        session.sub,
-      ],
-    )
-    const row = result.rows[0]
-    if (!row) {
-      await client.query('ROLLBACK')
-      return json(res, 404, { error: 'User not found' })
-    }
-
-    if (cleanUsername) {
-      await client.query(`UPDATE hats SET username = $1 WHERE user_id = $2`, [cleanUsername, session.sub])
-    }
-
-    await client.query('COMMIT')
-    return json(res, 200, { user: toPublicUser(row) })
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    if (err.code === '23505' && err.constraint?.includes('nin')) {
-      return json(res, 409, { error: 'This NIN is already linked to another account.' })
-    }
-    if (err.code === '23505' && err.constraint?.includes('username')) {
-      return json(res, 409, { error: 'That username is already taken.' })
-    }
-    console.error('profile update error:', err)
-    return json(res, 500, { error: 'Something went wrong updating your profile.' })
-  } finally {
-    client.release()
+// Shape the public-safe user object returned to the frontend — never send
+// password_hash or nin_hash back to the client, only whether a NIN is on
+// file and its last 4 digits for display.
+export function toPublicUser(row) {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    username: row.username,
+    email: row.email,
+    role: row.role,
+    isAdmin: Boolean(row.is_admin),
+    country: row.country,
+    lga: row.lga,
+    avatarUrl: row.avatar_url ?? null,
+    bio: row.bio ?? null,
+    location: row.location ?? null,
+    phone: row.phone ?? null,
+    // Profile UX fields (db/patch-profile-ux.sql). headline/website are
+    // plain optional text; skills/industry default to [] at the DB level
+    // so callers never have to null-check an array field.
+    headline: row.headline ?? null,
+    skills: row.skills ?? [],
+    industry: row.industry ?? [],
+    companySuffix: row.company_suffix ?? null,
+    website: row.website ?? null,
+    ninVerified: Boolean(row.nin_hash),
+    ninLast4: row.nin_last4 ?? null,
+    bankName: row.bank_name ?? null,
+    accountNumber: row.account_number ?? null,
+    accountName: row.account_name ?? null,
+    // Whether Paystack has a registered Transfer Recipient for this user —
+    // required before a wallet withdrawal (POST /api/escrows {action:
+    // 'withdraw'}) can go through.
+    payoutReady: Boolean(row.paystack_recipient_code),
+    // Only present when the query selecting this row joined it in (see
+    // the me/login/profile actions in api/auth/index.js) — defaults to 0 otherwise.
+    walletBalance: row.wallet_balance != null ? Number(row.wallet_balance) : 0,
   }
 }
