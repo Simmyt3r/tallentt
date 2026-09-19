@@ -5,6 +5,7 @@ import AuthPage from './pages/AuthPage.jsx'
 import Landing from './pages/Landing.jsx'
 import Layout from './components/Layout.jsx'
 import Feed from './pages/Feed.jsx'
+import HatPage from './pages/HatPage.jsx'
 import ShowroomPage from './pages/ShowroomPage.jsx'
 import MyHats from './components/MyHats.jsx'
 import HatForm from './components/HatForm.jsx'
@@ -147,6 +148,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <TalentProfile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hat/:hatId"
+        element={
+          <ProtectedRoute>
+            <HatPage />
           </ProtectedRoute>
         }
       />

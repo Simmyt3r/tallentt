@@ -1,32 +1,17 @@
+// Path: src/components/BentoCardDetailModal.jsx
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { MapPin, Clock, X, BookOpen, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Heart, Eye } from 'lucide-react'
+import { Clock, BookOpen, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Eye } from 'lucide-react'
 import { api } from '../lib/api'
-import { Avatar, fmtMoney, formatAvailabilityWindow, formatPrice } from './bentoCardShared'
+import {
+  HatOwnerHeader,
+  NegotiationFeeNotice,
+  formatAvailabilityWindow,
+  formatBudget,
+  formatPrice,
+  relativeTime,
+  useLikeToggle,
+} from './bentoCardShared'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
-
-// Same pricing logic, adapted for the normalized `budget` object the
-// detail API returns (api/hats/[id].js buildCardDetail): { type, currency,
-// amount, min, max, unit, negotiable }. `unit` there is already resolved
-// (custom-or-standard) into one string, so a slash is only prepended for
-// short standard units — a free-text custom unit (e.g. "per session")
-// reads fine on its own.
-function formatBudget(budget) {
-  if (!budget) return '—'
-  const currency = budget.currency || 'NGN'
-  if (budget.type === 'range' && budget.min != null) {
-    const base =
-      budget.max != null && budget.max !== budget.min
-        ? `${fmtMoney(budget.min, currency)} – ${fmtMoney(budget.max, currency)}`
-        : fmtMoney(budget.min, currency)
-    return budget.negotiable ? `${base} · negotiable` : base
-  }
-  if (budget.amount != null) {
-    const unitText = budget.unit ? (budget.unit.includes(' ') ? ` ${budget.unit}` : ` /${budget.unit}`) : ''
-    return `${fmtMoney(budget.amount, currency)}${unitText}`
-  }
-  return '—'
-}
 
 // Publication date, shared by the feed's `created_at` and the detail
 // API's `created_at` — same underlying column either way.
@@ -37,18 +22,17 @@ function formatDate(dateStr) {
   return new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }).format(d)
 }
 
-// Wraps the owner identity (avatar and/or username) in the app's existing
-// hat-detail route (`/talent/:hatId` — see Showroom.jsx's identical
-// `Link to={`/talent/${hat.id}`}`) so clicking either reuses the app's
-// existing profile-navigation mechanism instead of introducing a new one.
-// Falls back to a plain, non-interactive span if there's no valid card id
-// to link to, so an unresolved owner never produces a broken destination.
-function OwnerLink({ cardId, className, ariaLabel, children }) {
-  if (!cardId) return <span className={className}>{children}</span>
+// A labeled section of the decision surface — "About", "Skills",
+// "Availability", etc. Renders nothing at all when there's no value, per
+// the spec's "do not render empty sections" rule, so callers can just
+// always include every section without an if/else at each call site.
+function DetailSection({ label, children }) {
+  if (!children) return null
   return (
-    <Link to={`/talent/${cardId}`} className={className} aria-label={ariaLabel}>
-      {children}
-    </Link>
+    <div>
+      <p className="text-[10.5px] font-bold uppercase tracking-wide text-black/40">{label}</p>
+      <div className="text-[13.5px] text-black/80 mt-0.5">{children}</div>
+    </div>
   )
 }
 
@@ -71,9 +55,11 @@ function EscrowBadge({ hat, escrow }) {
   )
 }
 
-// The BentoCard detail modal — extracted verbatim (markup, styling, and
-// behavior unchanged) so there's a single implementation of this UI
-// instead of it living inline in BentoCard.jsx.
+// The BentoCard detail modal — the app's Hat *decision* surface (as
+// opposed to BentoCard's discovery surface). Also reused, unmodified, by
+// HatPage.jsx for the directly-shareable /hat/:hatId route — that page
+// just supplies its own onClose (navigate back) instead of closing a
+// card overlay.
 //
 // BentoCard still owns the `open` state and only mounts this component
 // while open, so the body-scroll lock here runs on mount/unmount, which
@@ -91,25 +77,26 @@ function EscrowBadge({ hat, escrow }) {
 // (api/hats/[id].js) never includes likes/liked_by_me/views, so those
 // always come from the feed's `hat`, mirroring the same optimistic
 // like-toggle + rollback used in Showroom's ReelSlide and TalentProfile —
-// same api.toggleLike/api.recordView calls, no new endpoints.
+// same api.toggleLike/api.recordView calls, no new endpoints (the actual
+// toggle now lives in bentoCardShared's useLikeToggle, shared with
+// BentoCard's own header like-button).
 //
 // `onHatChange`, if given, is called with `{ id, ...patch }` after a
 // successful like/view so the parent (Feed) can patch its own `hats`
 // list — otherwise the feed card behind the modal would show stale
 // counts once the modal closes, with no full refetch required.
 export default function BentoCardDetailModal({ hat, escrow, showMedia = true, onClose, onBook, onApply, onHatChange }) {
-  // Focus the close button on open (so keyboard users land somewhere
-  // useful inside the dialog immediately) and restore focus to whatever
-  // triggered the modal once it closes, in addition to the existing
-  // scroll-lock/restore behavior.
-  const closeButtonRef = useRef(null)
+  // Focus something useful inside the dialog on open, and restore focus to
+  // whatever triggered the modal once it closes, in addition to the
+  // existing scroll-lock/restore behavior.
+  const panelRef = useRef(null)
   useEffect(() => {
     const scrollY = window.scrollY
     const previouslyFocused = document.activeElement
     document.documentElement.classList.add('modal-open')
     document.body.classList.add('modal-open')
     document.body.style.top = `-${scrollY}px`
-    closeButtonRef.current?.focus()
+    panelRef.current?.focus()
     return () => {
       document.documentElement.classList.remove('modal-open')
       document.body.classList.remove('modal-open')
@@ -151,14 +138,14 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
     setBrokenMedia(new Set())
   }, [cardId])
 
-  // Engagement — sourced from the feed's `hat` (see note above on why
-  // `detail` can't be used for this), reset whenever the modal points at
-  // a different card. Mirrors Showroom's ReelSlide / TalentProfile state
-  // shape exactly (liked / likeCount / viewCount / liking).
-  const [liked, setLiked] = useState(!!hat?.liked_by_me)
-  const [likeCount, setLikeCount] = useState(hat?.likes || 0)
+  const { liked, liking, toggle: handleLike } = useLikeToggle({
+    id: cardId,
+    liked: hat?.liked_by_me,
+    count: hat?.likes,
+    onHatChange,
+  })
+
   const [viewCount, setViewCount] = useState(hat?.views || 0)
-  const [liking, setLiking] = useState(false)
   const viewedRef = useRef(null)
 
   // Applying — onApply is owned by the parent (Feed/Showroom), so this is
@@ -166,13 +153,15 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   // whatever the detail fetch already knows (has_applied) once loaded.
   const [applying, setApplying] = useState(false)
   const [justApplied, setJustApplied] = useState(false)
+  // The negotiation-fee confirmation from the spec — only ever relevant
+  // to a talent hat's "Book" action when the price is negotiable; see
+  // handlePrimaryAction below.
+  const [showNegotiationNotice, setShowNegotiationNotice] = useState(false)
 
   useEffect(() => {
-    setLiked(!!hat?.liked_by_me)
-    setLikeCount(hat?.likes || 0)
     setViewCount(hat?.views || 0)
     setJustApplied(false)
-  }, [cardId, hat?.liked_by_me, hat?.likes, hat?.views])
+  }, [cardId, hat?.views])
 
   // Record one view per card per time the modal is open — same
   // fire-and-forget api.recordView call TalentProfile/Showroom make, with
@@ -187,27 +176,6 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
     })
     api.recordView(cardId).catch(() => {})
   }, [cardId, onHatChange])
-
-  async function handleLike() {
-    if (liking || !cardId) return
-    setLiking(true)
-    const next = !liked
-    const nextCount = likeCount + (next ? 1 : -1)
-    setLiked(next)
-    setLikeCount(nextCount)
-    try {
-      await api.toggleLike(cardId)
-      onHatChange?.({ id: cardId, liked_by_me: next, likes: nextCount })
-    } catch {
-      // Restore the previous state — never leave the UI showing a like
-      // the server rejected (e.g. session expired, so the PATCH 401s).
-      setLiked(!next)
-      setLikeCount(likeCount)
-    } finally {
-      setLiking(false)
-    }
-  }
-
 
   // Tracks the most recently *issued* request so a slow, older response
   // (e.g. Card A) can't overwrite a newer one (Card B) if the user opens
@@ -258,7 +226,6 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const owner = loaded ? detail.owner : null
 
   const isTalent = (owner?.role ?? hat.role) === 'talent'
-  const pillBg = isTalent ? 'bg-[#0A13E6] text-white' : 'bg-black text-white'
   // Both the feed's partial hat and the full detail carry the same shape:
   // an ordered array of { url, type, caption }, newest first (see
   // AddShowroomMedia's "prepend to front" comment). Drop entries with no
@@ -283,7 +250,6 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   // Owner-level profile fields — only present once the full detail has
   // loaded; the feed card carries no equivalent for either.
   const ownerLocation = loaded ? owner?.location : null
-  const ownerBio = loaded ? owner?.bio_short : null
   // Card title — the primary heading for the detail view.
   const titleLine = loaded ? detail.title : hat.hat_title
   // Full description/content — no truncation and no role gate here; this
@@ -291,15 +257,43 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   // actually has one.
   const description = loaded ? detail.description : hat.motto
   const tags = (loaded ? detail.tags : hat.skills) || []
-  const hatTypeLabel = hat.hat_type || (isTalent ? 'Talent' : 'Client')
+  const listingLabel = isTalent ? 'Seeking' : 'Hiring'
   const currency = (loaded ? detail.budget?.currency : hat.currency) || 'NGN'
   // Talent's specific location — LGA/city + country, not just a bare city name.
   const location = loaded ? detail.location : [hat.lga, hat.country].filter(Boolean).join(', ')
   // No equivalent in the normalized detail — always sourced from the feed card.
   const availabilityWindow = formatAvailabilityWindow(hat)
   const priceDisplay = loaded ? formatBudget(detail.budget) : formatPrice(hat, currency)
+  const isNegotiable = loaded ? Boolean(detail.budget?.negotiable) : Boolean(hat.price_negotiable)
   const publishedLabel = formatDate(loaded ? detail.created_at : hat.created_at)
+  const postedAgo = relativeTime(loaded ? detail.created_at : hat.created_at)
   const applied = (loaded && Boolean(detail.has_applied)) || justApplied
+
+  // Talent hats book directly unless the price is negotiable, in which
+  // case the spec's fee notice runs first — "Continue" there calls
+  // onBook exactly as it would have run without the notice. Client hats
+  // are unaffected (see the spec's own worked examples: the notice only
+  // ever appears on the Talent/Book flow).
+  function handlePrimaryAction() {
+    if (isTalent) {
+      if (isNegotiable) {
+        setShowNegotiationNotice(true)
+        return
+      }
+      onBook?.(hat)
+      return
+    }
+    if (applied || applying) return
+    setApplying(true)
+    Promise.resolve(onApply?.(hat))
+      .then(() => setJustApplied(true))
+      .finally(() => setApplying(false))
+  }
+
+  function handleNegotiationContinue() {
+    setShowNegotiationNotice(false)
+    onBook?.(hat)
+  }
 
   return (
     <div
@@ -310,260 +304,212 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
       onClick={onClose}
     >
       <div
-        className="modal-panel animate-slide-up"
+        ref={panelRef}
+        tabIndex={-1}
+        className="modal-panel animate-slide-up outline-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          ref={closeButtonRef}
-          type="button"
-          className="modal-close absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-[#F5F3EF] border-[1.5px] border-black flex items-center justify-center hover:bg-black hover:text-white transition"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <X size={16} />
-        </button>
+        <div className="max-w-[720px] mx-auto w-full">
+        <div className="p-4 md:p-5 pb-3 space-y-3">
+          <HatOwnerHeader
+            cardId={cardId}
+            avatarSrc={avatarSrc}
+            avatarClassName="w-11 h-11"
+            displayName={displayName}
+            isVerified={isVerified}
+            metaParts={[isTalent ? 'Talent' : 'Client', ownerLocation || location, postedAgo]}
+            hatId={cardId}
+            shareTitle={titleLine}
+            shareContext={`${listingLabel}: ${titleLine}`}
+            liked={liked}
+            onToggleLike={handleLike}
+            likeDisabled={liking}
+            onClose={onClose}
+          />
 
-        <div className={showMedia ? 'grid md:grid-cols-2 gap-0 min-h-0' : 'min-h-0'}>
-          {showMedia && (
-            <div className="modal-media bg-[#F5F3EF] min-h-[240px] border-b-[1.5px] md:border-b-0 md:border-r-[1.5px] border-black flex flex-col">
-              <div className="relative flex-1 min-h-0 flex items-center justify-center">
-                {hasMedia && !activeMediaBroken ? (
-                  activeMedia.type === 'video' ? (
-                    <video
-                      key={activeMedia.url}
-                      src={cldVideo(activeMedia.url, { w: 1080 })}
-                      poster={cldVideoPoster(activeMedia.url, { w: 1080, crop: 'limit' })}
-                      controls
-                      preload="metadata"
-                      className="w-full h-full object-contain max-h-[70vh]"
-                      aria-label={activeMedia.caption || `${displayName || 'Portfolio'} video`}
-                      onError={() => markMediaBroken(safeMediaIndex)}
-                    />
-                  ) : (
-                    <img
-                      key={activeMedia.url}
-                      src={cldImage(activeMedia.url, { w: 1080, crop: 'limit' })}
-                      alt={activeMedia.caption || (displayName ? `${displayName}'s work` : 'Portfolio media')}
-                      className="w-full h-full object-contain max-h-[70vh]"
-                      onError={() => markMediaBroken(safeMediaIndex)}
-                    />
-                  )
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-black/40">{listingLabel}</p>
+            <h2 className="text-[19px] md:text-[20px] font-bold leading-snug break-words">{titleLine}</h2>
+          </div>
+        </div>
+
+        {showMedia && (
+          <div className="modal-media bg-[#F5F3EF] min-h-[240px] border-y-[1.5px] border-black flex flex-col">
+            <div className="relative flex-1 min-h-0 flex items-center justify-center">
+              {hasMedia && !activeMediaBroken ? (
+                activeMedia.type === 'video' ? (
+                  <video
+                    key={activeMedia.url}
+                    src={cldVideo(activeMedia.url, { w: 1080 })}
+                    poster={cldVideoPoster(activeMedia.url, { w: 1080, crop: 'limit' })}
+                    controls
+                    preload="metadata"
+                    className="w-full h-full object-contain max-h-[70vh]"
+                    aria-label={activeMedia.caption || `${displayName || 'Portfolio'} video`}
+                    onError={() => markMediaBroken(safeMediaIndex)}
+                  />
                 ) : (
-                  <div className="flex items-center justify-center h-64 text-black/30 text-[13px]">
-                    {hasMedia ? 'This media couldn\u2019t be loaded' : 'No portfolio'}
-                  </div>
-                )}
-              </div>
-
-              {mediaItems.length > 1 && (
-                <div
-                  role="group"
-                  aria-label="Portfolio media thumbnails"
-                  className="flex gap-1.5 p-2 overflow-x-auto shrink-0 border-t-[1.5px] border-black/10 bg-white/60"
-                >
-                  {mediaItems.map((m, idx) => {
-                    const broken = brokenMedia.has(idx)
-                    const selected = idx === safeMediaIndex
-                    return (
-                      <button
-                        key={`${m.url}-${idx}`}
-                        type="button"
-                        aria-pressed={selected}
-                        aria-label={`View ${m.type === 'video' ? 'video' : 'photo'} ${idx + 1} of ${mediaItems.length}`}
-                        onClick={() => setActiveMediaIndex(idx)}
-                        className={`relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border-[1.5px] transition ${
-                          selected ? 'border-[#0A13E6]' : 'border-black/10 hover:border-black/30'
-                        }`}
-                      >
-                        {broken ? (
-                          <div className="w-full h-full flex items-center justify-center bg-[#F5F3EF] text-black/25">
-                            <ImageOff size={14} />
-                          </div>
-                        ) : m.type === 'video' ? (
-                          <div className="relative w-full h-full bg-black">
-                            <img
-                              src={cldVideoPoster(m.url, { w: 112, h: 112 })}
-                              alt=""
-                              loading="lazy"
-                              className="w-full h-full object-cover opacity-70"
-                              onError={() => markMediaBroken(idx)}
-                            />
-                            <Play size={12} className="absolute inset-0 m-auto text-white" fill="white" />
-                          </div>
-                        ) : (
-                          <img
-                            src={cldImage(m.url, { w: 112, h: 112 })}
-                            alt=""
-                            loading="lazy"
-                            className="w-full h-full object-cover"
-                            onError={() => markMediaBroken(idx)}
-                          />
-                        )}
-                      </button>
-                    )
-                  })}
+                  <img
+                    key={activeMedia.url}
+                    src={cldImage(activeMedia.url, { w: 1080, crop: 'limit' })}
+                    alt={activeMedia.caption || (displayName ? `${displayName}'s work` : 'Portfolio media')}
+                    className="w-full h-full object-contain max-h-[70vh]"
+                    onError={() => markMediaBroken(safeMediaIndex)}
+                  />
+                )
+              ) : (
+                <div className="flex items-center justify-center h-64 text-black/30 text-[13px]">
+                  {hasMedia ? 'This media couldn\u2019t be loaded' : 'No portfolio'}
                 </div>
               )}
             </div>
+
+            {mediaItems.length > 1 && (
+              <div
+                role="group"
+                aria-label="Portfolio media thumbnails"
+                className="flex gap-1.5 p-2 overflow-x-auto shrink-0 border-t-[1.5px] border-black/10 bg-white/60"
+              >
+                {mediaItems.map((m, idx) => {
+                  const broken = brokenMedia.has(idx)
+                  const selected = idx === safeMediaIndex
+                  return (
+                    <button
+                      key={`${m.url}-${idx}`}
+                      type="button"
+                      aria-pressed={selected}
+                      aria-label={`View ${m.type === 'video' ? 'video' : 'photo'} ${idx + 1} of ${mediaItems.length}`}
+                      onClick={() => setActiveMediaIndex(idx)}
+                      className={`relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border-[1.5px] transition ${
+                        selected ? 'border-[#0A13E6]' : 'border-black/10 hover:border-black/30'
+                      }`}
+                    >
+                      {broken ? (
+                        <div className="w-full h-full flex items-center justify-center bg-[#F5F3EF] text-black/25">
+                          <ImageOff size={14} />
+                        </div>
+                      ) : m.type === 'video' ? (
+                        <div className="relative w-full h-full bg-black">
+                          <img
+                            src={cldVideoPoster(m.url, { w: 112, h: 112 })}
+                            alt=""
+                            loading="lazy"
+                            className="w-full h-full object-cover opacity-70"
+                            onError={() => markMediaBroken(idx)}
+                          />
+                          <Play size={12} className="absolute inset-0 m-auto text-white" fill="white" />
+                        </div>
+                      ) : (
+                        <img
+                          src={cldImage(m.url, { w: 112, h: 112 })}
+                          alt=""
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                          onError={() => markMediaBroken(idx)}
+                        />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="p-4 md:p-5 space-y-4 min-w-0">
+          {publishedLabel && <p className="text-[11px] text-black/40 font-medium">Posted {publishedLabel}</p>}
+
+          {status === 'loading' && (
+            <p className="text-[11px] text-black/40 font-medium">Loading full details…</p>
           )}
 
-          <div className="p-5 md:p-6 space-y-4 min-w-0">
-            {/* Owner section — visually separated from the card content
-                below via the surface background, matching the app's
-                existing muted-panel convention (used for pills, media bg). */}
-            <div className="flex items-center gap-3 min-w-0 bg-[#F5F3EF] border-[1.5px] border-black/10 rounded-2xl p-3">
-              <OwnerLink
-                cardId={cardId}
-                className="shrink-0"
-                ariaLabel={displayName ? `View ${displayName}'s profile` : undefined}
+          {status === 'error' && (
+            <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-[#FFF3F0] border-[1.5px] border-[#E6260A]/20 text-[#E6260A]">
+              <span className="flex items-center gap-1.5 text-[12px] font-semibold">
+                <AlertCircle size={14} /> {errorMessage || 'Couldn\u2019t load full details.'}
+              </span>
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="shrink-0 text-[12px] font-bold underline underline-offset-2 hover:opacity-70"
               >
-                <Avatar src={avatarSrc} name={displayName} className="w-11 h-11" />
-              </OwnerLink>
-              <div className="min-w-0 flex-1">
-                {displayName ? (
-                  <OwnerLink cardId={cardId} className="text-[13px] font-semibold flex items-center gap-1 truncate hover:underline w-fit">
-                    {displayName}
-                    {isVerified && <span className="text-[#0A13E6]">✓</span>}
-                  </OwnerLink>
-                ) : (
-                  <p className="text-[13px] font-medium text-black/40">Unknown creator</p>
-                )}
-                {category && <p className="text-[11px] text-black/50 font-medium truncate">{category}</p>}
-                {ownerLocation && (
-                  <p className="text-[11px] text-black/40 font-medium truncate flex items-center gap-1 mt-0.5">
-                    <MapPin size={10} /> {ownerLocation}
-                  </p>
-                )}
-                {ownerBio && (
-                  <p className="text-[11px] text-black/50 leading-snug mt-1 break-words">{ownerBio}</p>
-                )}
-              </div>
+                Retry
+              </button>
             </div>
+          )}
 
-            {publishedLabel && (
-              <p className="text-[11px] text-black/40 font-medium -mt-2">Posted {publishedLabel}</p>
-            )}
+          <DetailSection label={isTalent ? 'About' : 'Requirements'}>
+            {description && <p className="leading-relaxed break-words whitespace-pre-line">{description}</p>}
+          </DetailSection>
 
-            {status === 'loading' && (
-              <p className="text-[11px] text-black/40 font-medium">Loading full details…</p>
-            )}
-
-            {status === 'error' && (
-              <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-[#FFF3F0] border-[1.5px] border-[#E6260A]/20 text-[#E6260A]">
-                <span className="flex items-center gap-1.5 text-[12px] font-semibold">
-                  <AlertCircle size={14} /> {errorMessage || 'Couldn\u2019t load full details.'}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleRetry}
-                  className="shrink-0 text-[12px] font-bold underline underline-offset-2 hover:opacity-70"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {titleLine && (
-              <h2 className="text-[19px] md:text-[20px] font-bold leading-snug break-words">{titleLine}</h2>
-            )}
-
-            {description && (
-              <p className="text-[14px] text-black/70 leading-relaxed break-words whitespace-pre-line">
-                {description}
-              </p>
-            )}
-
+          <DetailSection label={isTalent ? 'Skills' : 'Required skills'}>
             {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 mt-1">
                 {tags.map((t, i) => (
                   <span
                     key={`${t}-${i}`}
-                    className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-white border border-black/10 text-black/60"
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#F5F3EF] border border-black/10 text-black/60"
                   >
                     {t}
                   </span>
                 ))}
               </div>
             )}
+          </DetailSection>
 
-            <div className="flex flex-wrap gap-1.5">
-              <span className={`${pillBg} text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full border-[1.5px] border-black`}>
-                {hatTypeLabel}
-              </span>
-              {category && (
-                <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10">
-                  {category}
-                </span>
-              )}
-              {hat.delivery_mode && (
-                <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10">
-                  {hat.delivery_mode}
-                </span>
-              )}
-              {location && (
-                <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 flex items-center gap-1" title="Talent location">
-                  <MapPin size={11} /> {location}
-                </span>
-              )}
+          <div className="grid grid-cols-2 gap-3">
+            <DetailSection label="Availability">
               {availabilityWindow && (
-                <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 flex items-center gap-1" title="Daily availability window">
-                  <Clock size={11} /> {availabilityWindow}
+                <span className="flex items-center gap-1">
+                  <Clock size={12} /> {availabilityWindow}
                 </span>
               )}
-            </div>
+            </DetailSection>
+            <DetailSection label="Delivery">{hat.delivery_mode}</DetailSection>
+          </div>
 
-            <p className="text-[16px] font-bold">{priceDisplay}</p>
+          <DetailSection label="Location">{location}</DetailSection>
 
-            {/* Engagement — same Heart/Eye icons and optimistic toggle used
-                on Showroom's reel and the talent profile page; secondary
-                to price/tags above, not a redesign of the modal. */}
-            <div className="flex items-center gap-3 text-[12px] text-black/50 font-medium -mt-1">
-              <button
-                type="button"
-                onClick={handleLike}
-                disabled={liking}
-                aria-pressed={liked}
-                aria-label={liked ? 'Unlike' : 'Like'}
-                className="flex items-center gap-1 hover:text-black transition disabled:opacity-50"
-              >
-                <Heart size={14} className={liked ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} /> {likeCount}
-              </button>
-              <span className="flex items-center gap-1">
-                <Eye size={14} /> {viewCount}
-              </span>
-            </div>
+          <DetailSection label={isTalent ? 'Price' : 'Budget'}>
+            <span className="text-[16px] font-bold">{priceDisplay}</span>
+          </DetailSection>
 
-            <EscrowBadge hat={hat} escrow={escrow} />
+          {category && (
+            <span className="inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10">
+              {category}
+            </span>
+          )}
 
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                disabled={!isTalent && (applying || applied)}
-                className={`flex-1 h-12 rounded-full text-white font-semibold text-[14px] border-[1.5px] border-black flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(10,19,230,0.25)] hover:bg-black transition disabled:opacity-60 ${
-                  isTalent ? 'bg-[#0A13E6]' : 'bg-black'
-                }`}
-                onClick={async () => {
-                  if (isTalent) {
-                    onBook?.(hat)
-                    return
-                  }
-                  if (applied || applying) return
-                  setApplying(true)
-                  try {
-                    await onApply?.(hat)
-                    setJustApplied(true)
-                  } finally {
-                    setApplying(false)
-                  }
-                }}
-              >
-                {isTalent ? <BookOpen size={16} /> : <Send size={16} />}
-                {isTalent ? 'Book Talent' : applying ? 'Applying…' : applied ? 'Applied' : 'Apply'}
-              </button>
-            </div>
+          <div className="flex items-center gap-3 text-[12px] text-black/50 font-medium">
+            <span className="flex items-center gap-1">
+              <Eye size={14} /> {viewCount} view{viewCount === 1 ? '' : 's'}
+            </span>
+          </div>
+
+          <EscrowBadge hat={hat} escrow={escrow} />
+
+          <div className="sticky bottom-0 -mx-4 md:-mx-5 -mb-4 md:-mb-5 px-4 md:px-5 py-3 bg-white border-t-[1.5px] border-black/10 flex gap-2">
+            <button
+              type="button"
+              disabled={!isTalent && (applying || applied)}
+              className={`flex-1 h-12 rounded-full text-white font-semibold text-[14px] border-[1.5px] border-black flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(10,19,230,0.25)] hover:bg-black transition disabled:opacity-60 ${
+                isTalent ? 'bg-[#0A13E6]' : 'bg-black'
+              }`}
+              onClick={handlePrimaryAction}
+            >
+              {isTalent ? <BookOpen size={16} /> : <Send size={16} />}
+              {isTalent ? 'Book' : applying ? 'Applying…' : applied ? 'Applied' : 'Apply'}
+            </button>
           </div>
         </div>
+        </div>
       </div>
+
+      <NegotiationFeeNotice
+        open={showNegotiationNotice}
+        onCancel={() => setShowNegotiationNotice(false)}
+        onContinue={handleNegotiationContinue}
+      />
     </div>
   )
 }

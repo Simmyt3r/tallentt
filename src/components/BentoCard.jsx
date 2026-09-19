@@ -1,9 +1,22 @@
+// Path: src/components/BentoCard.jsx
 import { useState } from 'react'
-import { Heart, MapPin, Star, Clock } from 'lucide-react'
+import { MapPin, Clock } from 'lucide-react'
 import BentoCardDetailModal from './BentoCardDetailModal'
-import { Avatar, formatAvailabilityWindow, formatPrice, relativeTime } from './bentoCardShared'
+import {
+  HatOwnerHeader,
+  formatAvailabilityWindow,
+  formatPrice,
+  relativeTime,
+  useLikeToggle,
+} from './bentoCardShared'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 
+// Discovery card: quickly answers "is this hat interesting enough to
+// inspect?" — full decision-making detail (About, skills, the Book/Apply
+// action, the negotiation notice) lives in BentoCardDetailModal, opened by
+// tapping anywhere on the card that isn't itself an interactive element
+// (avatar/username/share/like — see HatOwnerHeader, which already stops
+// propagation on all of those).
 export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = true, onHatChange, fullWidth = false, moreCount = 0 }) {
   const [open, setOpen] = useState(false)
 
@@ -14,16 +27,22 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
   // hats: the client is "Hiring" for this title.
   const listingLabel = isTalent ? 'Seeking' : 'Hiring'
   const postedAgo = relativeTime(hat.created_at)
-  // Clients don't need a motto shown — talent voice only.
-  const motto = isTalent && hat.motto
-    ? hat.motto.length > 60
-      ? hat.motto.slice(0, 60) + '…'
-      : hat.motto
-    : ''
   const currency = hat.currency || 'NGN'
   // Talent's specific location — LGA/city + country, not just a bare city name.
   const location = [hat.lga, hat.country].filter(Boolean).join(', ')
   const availabilityWindow = formatAvailabilityWindow(hat)
+  // The hats table has one free-text field (`motto`, max 80 chars) used by
+  // both talent and client hats — surfaced here as the short description/
+  // requirement preview the spec calls for, clamped to two lines so the
+  // feed never shows the complete text.
+  const description = hat.motto || ''
+
+  const { liked, toggle: toggleLike, liking } = useLikeToggle({
+    id: hat.id,
+    liked: hat.liked_by_me,
+    count: hat.likes,
+    onHatChange,
+  })
 
   return (
     <>
@@ -33,7 +52,34 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
         }`}
         onClick={() => setOpen(true)}
       >
-        {/* Media */}
+        <div className="p-3.5 pb-2.5">
+          <HatOwnerHeader
+            cardId={hat.id}
+            avatarSrc={hat.owner_avatar || hat.avatar_url}
+            displayName={hat.username}
+            isVerified={hat.is_verified}
+            metaParts={[isTalent ? 'Talent' : 'Client', postedAgo]}
+            hatId={hat.id}
+            shareTitle={hat.hat_title}
+            shareContext={`${listingLabel}: ${hat.hat_title}`}
+            liked={liked}
+            onToggleLike={toggleLike}
+            likeDisabled={liking}
+          />
+
+          <div className="mt-2.5">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-black/40">{listingLabel}</p>
+            <p className="text-[15px] font-bold leading-snug truncate">{hat.hat_title}</p>
+            {moreCount > 0 && (
+              <span className="inline-block mt-0.5 text-[10.5px] font-bold text-[#0A13E6]">
+                +{moreCount} more hat{moreCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Media — strict 4:3, consistent across every card regardless of
+            the source image/video's own aspect ratio (object-cover). */}
         {showMedia && (
           <div className="relative aspect-[4/3] bg-[#F5F3EF]">
             {media?.url ? (
@@ -74,49 +120,16 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
                 title="Available"
               />
             )}
+            {hat.media && hat.media.length > 1 && (
+              <span className="absolute bottom-2.5 right-2.5 bg-black/70 text-white text-[10.5px] font-bold px-2 py-0.5 rounded-full">
+                +{hat.media.length - 1}
+              </span>
+            )}
           </div>
         )}
 
         {/* Body */}
-        <div className="p-3.5 flex-1 flex flex-col gap-2">
-          <div className="flex items-center gap-2.5">
-            <Avatar src={hat.owner_avatar || hat.avatar_url} name={hat.username} className="w-11 h-11" />
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-[14px] truncate leading-tight flex items-center gap-1">
-                {hat.username}
-                {hat.is_verified && (
-                  <span className="text-[#0A13E6] text-[12px]" title="Verified">
-                    ✓
-                  </span>
-                )}
-              </p>
-              <p className="text-[12px] text-black/60 truncate">
-                <span className="font-semibold text-black/75">{listingLabel}:</span> {hat.hat_title}
-              </p>
-              {moreCount > 0 && (
-                <span className="inline-block mt-0.5 text-[10.5px] font-bold text-[#0A13E6]">
-                  +{moreCount} more hat{moreCount > 1 ? 's' : ''}
-                </span>
-              )}
-              {motto && <p className="text-[12px] text-black/70 leading-snug line-clamp-2 italic mt-0.5">"{motto}"</p>}
-            </div>
-            {!showMedia && (
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                {postedAgo && <span className="text-[10px] text-black/40 font-semibold whitespace-nowrap">{postedAgo}</span>}
-                <div className="flex items-center gap-1.5">
-                  {hat.availability && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#16C784] border-[1.5px] border-white shadow-sm" title="Available" />
-                  )}
-                  <span
-                    className={`${pillBg} text-[9px] font-bold tracking-widest uppercase px-2 py-1 rounded-full border-[1.5px] border-black`}
-                  >
-                    {hat.hat_type || (isTalent ? 'Talent' : 'Client')}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
+        <div className="p-3.5 pt-2.5 flex-1 flex flex-col gap-1.5">
           <div className="flex items-center gap-2 text-[11px] text-black/50 font-medium flex-wrap">
             {location && (
               <span className="flex items-center gap-0.5" title="Talent location">
@@ -128,48 +141,13 @@ export default function BentoCard({ hat, onBook, onApply, escrow, showMedia = tr
                 <Clock size={11} /> {availabilityWindow}
               </span>
             )}
-            {hat.category && (
-              <span className="truncate px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10">
-                {hat.category}
-              </span>
-            )}
-            {hat.delivery_mode && (
-              <span className="truncate px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10">
-                {hat.delivery_mode}
-              </span>
-            )}
           </div>
 
-          <div className="mt-auto flex items-center justify-between pt-1">
-            <span className="font-bold text-[14px]">{formatPrice(hat, currency)}</span>
-            <div className="flex items-center gap-2.5 text-[11px] text-black/50">
-              <span className="flex items-center gap-0.5">
-                <Star size={12} className="text-amber-400 fill-amber-400" /> {Number(hat.rating || 0).toFixed(1)}
-              </span>
-              {(hat.orbit_score != null || hat.confidence != null) && (
-                <span className="text-[10px] font-bold tracking-wide text-[#0A13E6]" title="Orbit confidence score">
-                  {hat.orbit_score ?? hat.confidence}% conf
-                </span>
-              )}
-              <span className="flex items-center gap-0.5">
-                <Heart size={12} /> {hat.likes || 0}
-              </span>
-            </div>
-          </div>
+          <span className="font-bold text-[14px]">{formatPrice(hat, currency)}</span>
 
-          <button
-            type="button"
-            className={`mt-1.5 w-full h-10 rounded-full text-[13px] font-semibold border-[1.5px] border-black text-white transition hover:brightness-110 active:scale-[0.98] ${
-              isTalent ? 'bg-[#0A13E6]' : 'bg-black'
-            }`}
-            onClick={(e) => {
-              e.stopPropagation()
-              if (isTalent) onBook?.(hat)
-              else onApply?.(hat)
-            }}
-          >
-            {isTalent ? 'Book Talent' : 'Apply'}
-          </button>
+          {description && (
+            <p className="text-[12px] text-black/60 leading-snug line-clamp-2">{description}</p>
+          )}
         </div>
       </article>
 

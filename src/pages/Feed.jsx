@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { useNavigate } from 'react-router-dom'
 import BentoCard from '../components/BentoCard'
 import { useBrowseRole } from '../components/Layout'
+import { bookHat, submitApplication } from '../lib/hatActions'
 
 export default function Feed() {
   const navigate = useNavigate()
@@ -54,29 +55,6 @@ export default function Feed() {
     })
   }, [hats])
 
-  async function handleBook(hat) {
-    try {
-      const { escrow } = await api.createEscrow({ hat_id: hat.id })
-      navigate(`/messages?escrow=${escrow.id}`)
-    } catch (e) {
-      alert(e.message)
-    }
-  }
-
-  async function handleApply(hat) {
-    try {
-      const { application, already_applied } = await api.applyToHat(hat.id)
-      handleHatChange({ id: hat.id, my_application: application })
-      alert(
-        already_applied
-          ? `You already applied for “${hat.hat_title}”.`
-          : `Application sent for “${hat.hat_title}”.`,
-      )
-    } catch (e) {
-      alert(e.message)
-    }
-  }
-
   // Patches a single card in the feed list in place — used so a like/view
   // recorded inside the BentoCardDetailModal (see its `onHatChange`) is
   // reflected the moment the modal closes, without refetching the whole
@@ -113,15 +91,18 @@ export default function Feed() {
           <p className="text-black/50 text-[13px] font-medium">No hats yet. Create one or check back soon.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+        // Responsive by content, not by breakpoint headcount: each card
+        // gets at least 300px and the grid fits as many as the available
+        // width allows (1 on a phone, up to several on a wide desktop),
+        // rather than a fixed column count per screen size.
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] gap-4">
           {groupedHats.map(({ primary, moreCount }) => (
             <BentoCard
               key={primary.id}
               hat={primary}
               moreCount={moreCount}
-              onBook={handleBook}
-              onApply={handleApply}
-              showMedia={false}
+              onBook={(hat) => bookHat(hat, navigate)}
+              onApply={(hat) => submitApplication(hat, handleHatChange)}
               fullWidth
               onHatChange={handleHatChange}
             />
