@@ -45,6 +45,13 @@ export const api = {
       `/api/auth?action=resolve-account&account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
     ),
 
+  // Public profile — GET /api/users/:username (see api/users/[username].js).
+  // Used for both the public profile page and (for the signed-in user's
+  // own username) the owner's Portfolio/Active Hats/Reviews sections —
+  // identity fields for "own profile" come from AuthContext's `user`
+  // instead, since that's already the freshest copy after an edit.
+  getUserProfile: (username) => request(`/api/users/${encodeURIComponent(username)}`),
+
   // Hats
   getHats: (params = {}) => {
     const q = new URLSearchParams(
