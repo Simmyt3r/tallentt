@@ -71,6 +71,7 @@ async function handleMe(req, res) {
     const result = await query(
       `SELECT id, full_name, username, email, role, is_admin, country, lga,
               avatar_url, bio, location, phone, nin_hash, nin_last4,
+              headline, skills, industry, company_suffix, website,
               bank_name, account_number, account_name, paystack_recipient_code,
               (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance
        FROM users WHERE id = $1`,
@@ -126,6 +127,8 @@ async function handleLogin(body, res) {
   try {
     const result = await query(
       `SELECT id, full_name, username, email, password_hash, role, is_admin, country, lga,
+              avatar_url, bio, location, phone, nin_hash, nin_last4,
+              headline, skills, industry, company_suffix, website,
               bank_name, account_number, account_name, paystack_recipient_code,
               (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance
        FROM users WHERE email = $1`,
@@ -279,8 +282,25 @@ async function handleProfileUpdate(req, res) {
     }
   }
 
-  const { fullName, username, bio, location, phone, country, lga, avatarUrl, nin, bankCode, bankName, accountNumber } =
-    body ?? {}
+  const {
+    fullName,
+    username,
+    bio,
+    location,
+    phone,
+    country,
+    lga,
+    avatarUrl,
+    nin,
+    bankCode,
+    bankName,
+    accountNumber,
+    headline,
+    skills,
+    industry,
+    companySuffix,
+    website,
+  } = body ?? {}
 
   // Payout details are optional per-request, same pattern as NIN below —
   // only touched when the talent actually submits bank info. The account
@@ -335,6 +355,60 @@ async function handleProfileUpdate(req, res) {
     return json(res, 400, { error: 'Invalid avatar.' })
   }
 
+  // Profile UX fields — headline/website are simple optional text;
+  // skills/industry are arrays of short chip strings. All optional, all
+  // validated the same way regardless of account role (the frontend
+  // decides which of skills/industry to show/edit for a given role;
+  // the API itself doesn't need to enforce that split).
+  let cleanHeadline = null
+  if (headline != null) {
+    cleanHeadline = String(headline).trim()
+    if (cleanHeadline.length > 80) {
+      return json(res, 400, { error: 'Headline must be 80 characters or fewer.' })
+    }
+  }
+  if (website != null && String(website).trim() !== '') {
+    const w = String(website).trim()
+    if (w.length > 300 || !/^https?:\/\/.+\..+/i.test(w)) {
+      return json(res, 400, { error: 'Enter a valid link starting with http:// or https://' })
+    }
+  }
+  const cleanWebsite = website != null ? String(website).trim() : null
+  const ALLOWED_SUFFIXES = new Set(['Ltd.', 'Limited', 'Inc.', 'LLC', 'PLC', 'LLP', 'Corp.'])
+  let cleanCompanySuffix = null
+  if (companySuffix != null) {
+    cleanCompanySuffix = String(companySuffix).trim()
+    if (cleanCompanySuffix && !ALLOWED_SUFFIXES.has(cleanCompanySuffix)) {
+      return json(res, 400, { error: 'Choose a valid business suffix.' })
+    }
+  }
+  function cleanChipList(list, label) {
+    if (list == null) return undefined // not submitted — leave column untouched
+    if (!Array.isArray(list)) {
+      const err = new Error(`${label} must be a list.`)
+      err.status = 400
+      throw err
+    }
+    const cleaned = list
+      .map((s) => String(s ?? '').trim())
+      .filter(Boolean)
+      .slice(0, 20)
+    if (cleaned.some((s) => s.length > 40)) {
+      const err = new Error(`Each ${label.toLowerCase()} entry must be 40 characters or fewer.`)
+      err.status = 400
+      throw err
+    }
+    return cleaned
+  }
+  let cleanSkills
+  let cleanIndustry
+  try {
+    cleanSkills = cleanChipList(skills, 'Skills')
+    cleanIndustry = cleanChipList(industry, 'Industry')
+  } catch (err) {
+    return json(res, err.status || 400, { error: err.message })
+  }
+
   // NIN is optional per-request — only touched when the user actually
   // types a new one. The raw value is hashed here and never persisted or
   // logged in plaintext.
@@ -375,10 +449,22 @@ async function handleProfileUpdate(req, res) {
          bank_name  = COALESCE($12, bank_name),
          account_number = COALESCE($13, account_number),
          account_name   = COALESCE($14, account_name),
-         paystack_recipient_code = COALESCE($15, paystack_recipient_code)
-       WHERE id = $16
+         paystack_recipient_code = COALESCE($15, paystack_recipient_code),
+         headline       = COALESCE($16, headline),
+         skills         = COALESCE($17, skills),
+         industry       = COALESCE($18, industry),
+         -- $19 NULL = field omitted, keep as-is; '' = explicit clear (the
+         -- company_suffix CHECK constraint only allows NULL or one of the
+         -- fixed suffixes, so a plain COALESCE — which would store '' —
+         -- can't be used the way the text fields above are).
+         company_suffix = CASE WHEN $19::text IS NULL THEN company_suffix
+                                WHEN $19 = '' THEN NULL
+                                ELSE $19 END,
+         website        = COALESCE($20, website)
+       WHERE id = $21
        RETURNING id, full_name, username, email, role, is_admin, country, lga,
                  avatar_url, bio, location, phone, nin_hash, nin_last4,
+                 headline, skills, industry, company_suffix, website,
                  bank_name, account_number, account_name, paystack_recipient_code,
                  (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance`,
       [
@@ -397,6 +483,13 @@ async function handleProfileUpdate(req, res) {
         cleanAccountNumber,
         cleanAccountName,
         recipientCode,
+        cleanHeadline,
+        cleanSkills ?? null,
+        cleanIndustry ?? null,
+        // NULL = field omitted (CASE above keeps the existing value); '' =
+        // explicit clear; anything else = the new suffix.
+        companySuffix != null ? cleanCompanySuffix : null,
+        cleanWebsite,
         session.sub,
       ],
     )
