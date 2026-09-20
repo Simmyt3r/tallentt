@@ -70,7 +70,7 @@ export default function Layout({ children }) {
           <img
             src="/logo.png"
             alt="ChombuTar"
-            className="h-12 w-12 rounded-full border-[1px] border-black object-cover shrink-0"
+            className="h-12 w-12 rounded-full border-[0px] border-black object-cover shrink-0"
           />
           <h1 className="flex-1 min-w-0 truncate text-left text-[20px] font-black tracking-tight">ChombuTar</h1>
           <div className="flex items-center gap-1.5 shrink-0">
