@@ -2484,11 +2484,10 @@ diff --git a/src/styles/index.css b/src/styles/index.css
 index 943a5d7..34e6c26 100644
 --- a/src/styles/index.css
 +++ b/src/styles/index.css
-@@ -72,53 +72,132 @@ img, video { max-width: 100%; }
+@@ -72,52 +72,131 @@ img, video { max-width: 100%; }
    gap: 20px;
  }
- 
--/* Showroom reel — vertical, snap-scroll, one talent per screen.
+ -/* Showroom reel — vertical, snap-scroll, one talent per screen.
 -   Capped at a sensible max-width and centered so it reads as a portrait
 -   video card with breathing room on either side, instead of stretching
 -   edge-to-edge on wide screens. On mobile the cap simply exceeds the
