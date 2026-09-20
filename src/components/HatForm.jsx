@@ -1,661 +1,430 @@
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Upload, X, Sparkles } from 'lucide-react'
-import { api, uploadToCloudinary } from '../lib/api'
+// Path: src/components/HatForm.jsx
+//
+// Create Hat / Edit Hat — one page, one form, role-aware wording.
+// Route: /create (new) and /create?edit=<hatId> (edit). Sections live in
+// ./hatform/*; pure logic (validation, payloads, copy) in ../lib/hatForm.js.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Eye } from 'lucide-react'
+import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { compressImageFile } from '../lib/media'
-import { cldImage, cldVideoPoster } from '../lib/cloudinary'
+import { showToast } from '../lib/toast'
+import {
+  DEFAULT_CATEGORIES,
+  FIELD_IDS,
+  OTHER_CATEGORY,
+  buildPayload,
+  buildPreview,
+  countryByName,
+  currencySymbol,
+  deriveNewHatRole,
+  describeLoadError,
+  describeSaveError,
+  emptyForm,
+  formSignature,
+  hydrateForm,
+  mediaSignature,
+  normalizeHatRole,
+  roleCopy,
+  summarizeErrors,
+  validateForm,
+} from '../lib/hatForm'
+import Dialog from './hatform/Dialog'
+import BasicInfoSection from './hatform/BasicInfoSection'
+import MediaSection from './hatform/MediaSection'
+import PricingSection from './hatform/PricingSection'
+import AvailabilitySection from './hatform/AvailabilitySection'
+import LocationSection from './hatform/LocationSection'
+import HatPreview from './hatform/HatPreview'
+import { useHatMedia } from './hatform/useHatMedia'
+import useLeaveGuard from './hatform/useLeaveGuard'
 
-const COUNTRIES = [
-  { name: 'Nigeria', flag: '🇳🇬', currency: 'NGN' },
-  { name: 'Ghana', flag: '🇬🇭', currency: 'GHS' },
-  { name: 'Kenya', flag: '🇰🇪', currency: 'KES' },
-  { name: 'South Africa', flag: '🇿🇦', currency: 'ZAR' },
-  { name: 'United States', flag: '🇺🇸', currency: 'USD' },
-  { name: 'United Kingdom', flag: '🇬🇧', currency: 'GBP' },
-]
+const idToField = Object.fromEntries(Object.entries(FIELD_IDS).map(([field, id]) => [id, field]))
 
-const HAT_TYPES = ['Full-time', 'Part-time', 'Freelance', 'Contract', 'One-Off']
-const DELIVERY_MODES = ['Physical', 'Remote', 'Hybrid']
-const RATE_UNITS = [
-  { value: 'hr', label: 'Per hour' },
-  { value: 'day', label: 'Per day' },
-  { value: 'week', label: 'Per week' },
-  { value: 'month', label: 'Per month' },
-  { value: 'year', label: 'Per year' },
-  { value: 'custom', label: 'Custom…' },
-]
-
-// 14 MECE Hats Categories — open-ended (custom entries also allowed, and
-// get saved so they show up as options for future hats too). This is a
-// fallback shown before /api/hats?categories=1 responds; NOT the Orbit score,
-// which is a separately computed confidence metric shown on the card.
-const DEFAULT_CATEGORIES = [
-  'Beauty & Grooming',
-  'Fashion & Styling',
-  'Photography & Videography',
-  'Music & Audio',
-  'Performing Arts & Entertainment',
-  'Visual Arts, Design & Crafts',
-  'Modeling & Acting',
-  'Food & Catering',
-  'Events & Hospitality',
-  'Health, Wellness & Fitness',
-  'Home Services & Skilled Trades',
-  'Tech & Digital Services',
-  'Business, Admin & Professional Services',
-  'Education & Training',
-]
-
-function fmtMoney(n, currency) {
-  if (n === '' || n == null || Number.isNaN(Number(n))) return null
-  try {
-    return new Intl.NumberFormat('en-NG', { style: 'currency', currency, maximumFractionDigits: 0 }).format(
-      Number(n),
-    )
-  } catch {
-    return `${currency} ${Number(n).toLocaleString()}`
-  }
+function FormSkeleton() {
+  return (
+    <div className="max-w-[680px] mx-auto space-y-4" role="status" aria-busy="true">
+      <span className="sr-only">Loading your Hat…</span>
+      <div className="h-12 w-2/3 rounded-[14px] bg-black/5 animate-pulse" />
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-40 rounded-[20px] border-[1.5px] border-black/10 bg-white animate-pulse" />
+      ))}
+    </div>
+  )
 }
 
+function LoadProblem({ message, sessionExpired, onRetry }) {
+  return (
+    <div className="max-w-[680px] mx-auto rounded-[20px] border-[1.5px] border-black bg-white p-6 text-center space-y-4" role="alert">
+      <h1 className="text-[18px] font-bold">Can't open this Hat</h1>
+      <p className="text-[13px] font-medium text-black/65">{message}</p>
+      <div className="flex flex-wrap justify-center gap-2">
+        {onRetry && (
+          <button type="button" onClick={onRetry} className="tw-btn-primary px-6">
+            Try again
+          </button>
+        )}
+        {sessionExpired && (
+          <a href="/auth" target="_blank" rel="noreferrer" className="tw-btn-ghost px-6 inline-flex items-center">
+            Sign in
+          </a>
+        )}
+        <Link to="/my-hats" className="tw-btn-ghost px-6 inline-flex items-center">
+          Back to My Hats
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+const prefersReducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
 export default function HatForm() {
-  const navigate = useNavigate()
   const [params] = useSearchParams()
-  const editId = params.get('edit')
+  const editId = params.get('edit') || ''
+  // Keyed so switching between "new" and a different hat starts from clean state.
+  return <HatFormScreen key={editId || 'new'} editId={editId} />
+}
+
+function HatFormScreen({ editId }) {
+  const navigate = useNavigate()
   const { user } = useAuth()
+  const editing = Boolean(editId)
 
-  const [role, setRole] = useState('talent')
+  const [form, setForm] = useState(() => emptyForm(user))
+  const [chosenRole, setChosenRole] = useState('talent') // only used by dual accounts on Create
+  const [editRole, setEditRole] = useState('talent') // the hat's own role, fixed once created
+  const [categories, setCategories] = useState(() => DEFAULT_CATEGORIES.map((name) => ({ name })))
+  const [load, setLoad] = useState({ status: editing ? 'loading' : 'ready' })
+  const [reloadKey, setReloadKey] = useState(0)
 
-  // Seeking field (role-aware "hat title") + typeahead suggestions
-  const [hatTitle, setHatTitle] = useState('')
-  const [suggestions, setSuggestions] = useState([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const suggestDebounce = useRef(null)
-
-  const [verifiedName, setVerifiedName] = useState('')
-
-  // Category
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES.map((name) => ({ name })))
-  const [category, setCategory] = useState('')
-  const [customCategory, setCustomCategory] = useState('')
-
-  const [skills, setSkills] = useState('')
-  const [hatType, setHatType] = useState('Freelance')
-
-  // Location
-  const [country, setCountry] = useState(COUNTRIES[0])
-  const [lga, setLga] = useState('')
-
-  // Daily availability window, e.g. 15:00 – 17:00
-  const [availableFrom, setAvailableFrom] = useState('')
-  const [availableTo, setAvailableTo] = useState('')
-
-  // Delivery mode
-  const [deliveryMode, setDeliveryMode] = useState('Remote')
-
-  // Price settings
-  const [priceType, setPriceType] = useState('fixed')
-  const [rate, setRate] = useState('')
-  const [rateUnit, setRateUnit] = useState('hr')
-  const [rateUnitCustom, setRateUnitCustom] = useState('')
-  const [priceMin, setPriceMin] = useState('')
-  const [priceMax, setPriceMax] = useState('')
-  const [negotiable, setNegotiable] = useState(false)
-
-  const [motto, setMotto] = useState('')
-  const [media, setMedia] = useState([])
-  const [uploading, setUploading] = useState(false)
+  const [touched, setTouched] = useState({})
+  const [showAllErrors, setShowAllErrors] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [portfolioError, setPortfolioError] = useState(false)
+  const [submitError, setSubmitError] = useState(null) // { message, sessionExpired }
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [pendingNav, setPendingNav] = useState(null)
+  const [leaving, setLeaving] = useState(false)
 
+  const media = useHatMedia()
+  const submittingRef = useRef(false)
+  const savedIdRef = useRef('') // set once a Create succeeds, so a repeat submit updates instead of duplicating
+  const baseline = useRef(null) // signature of the form as loaded/initial
+  const baselineMedia = useRef(mediaSignature([], 0))
+
+  // ── Role: the account decides; only dual accounts choose. ──────────────
+  const newRole = deriveNewHatRole(user?.role, chosenRole)
+  const hatRole = editing ? normalizeHatRole(editRole) : newRole.role
+  const canChooseRole = !editing && newRole.canChoose
+  const copy = useMemo(() => roleCopy(hatRole), [hatRole])
+
+  if (baseline.current === null && !editing) baseline.current = formSignature(form, hatRole, media.signature)
+
+  // ── Data loading ───────────────────────────────────────────────────────
   useEffect(() => {
     api
       .getCategories()
       .then((d) => {
         if (d.categories?.length) setCategories(d.categories)
       })
-      .catch(() => {})
+      .catch(() => {}) // the built-in list stays as the fallback
   }, [])
 
-  // Seeking-field suggestions — debounced, pulled from the opposite role
-  // (client typing sees phrasing talents already use, and vice versa).
   useEffect(() => {
-    clearTimeout(suggestDebounce.current)
-    if (!hatTitle.trim()) {
-      setSuggestions([])
-      return
-    }
-    suggestDebounce.current = setTimeout(async () => {
-      try {
-        const d = await api.getSeekingSuggestions(role, hatTitle.trim())
-        setSuggestions(d.suggestions || [])
-      } catch {
-        setSuggestions([])
-      }
-    }, 350)
-    return () => clearTimeout(suggestDebounce.current)
-  }, [hatTitle, role])
-
-  useEffect(() => {
-    if (!editId) return
+    if (!editing) return undefined
+    let cancelled = false
+    setLoad({ status: 'loading' })
     api
       .getHat(editId)
       .then(({ hat }) => {
-        setRole(hat.role || 'talent')
-        setHatTitle(hat.hat_title || '')
-        setVerifiedName(hat.verified_name || '')
-        setCategory(hat.category || '')
-        setSkills((hat.skills || []).join(', '))
-        setHatType(hat.hat_type || 'Freelance')
-        const c = COUNTRIES.find((x) => x.name === hat.country) || COUNTRIES[0]
-        setCountry(c)
-        setLga(hat.lga || '')
-        setAvailableFrom(hat.available_from ? hat.available_from.slice(0, 5) : '')
-        setAvailableTo(hat.available_to ? hat.available_to.slice(0, 5) : '')
-        setDeliveryMode(hat.delivery_mode || 'Remote')
-        setPriceType(hat.price_type || 'fixed')
-        setRate(hat.rate != null ? String(hat.rate) : '')
-        setRateUnit(hat.rate_unit || 'hr')
-        setRateUnitCustom(hat.rate_unit_custom || '')
-        setPriceMin(hat.price_min != null ? String(hat.price_min) : '')
-        setPriceMax(hat.price_max != null ? String(hat.price_max) : '')
-        setNegotiable(Boolean(hat.price_negotiable))
-        setMotto(hat.motto || '')
-        setMedia(hat.media || [])
+        if (cancelled) return
+        if (user?.id && hat.user_id && hat.user_id !== user.id) {
+          setLoad({ status: 'forbidden' })
+          return
+        }
+        const next = hydrateForm(hat)
+        const role = normalizeHatRole(hat.role)
+        const stored = (hat.media || []).filter((m) => m && m.url && m.public_id)
+        media.reset(stored)
+        setForm(next)
+        setEditRole(role)
+        baselineMedia.current = mediaSignature(stored.map((m) => m.public_id), 0)
+        baseline.current = formSignature(next, role, baselineMedia.current)
+        setLoad({ status: 'ready' })
       })
-      .catch((e) => setError(e.message))
-  }, [editId])
-
-  async function onFile(e) {
-    const files = Array.from(e.target.files || [])
-    if (!files.length) return
-    setUploading(true)
-    setPortfolioError(false)
-    try {
-      const uploaded = []
-      for (const f of files) {
-        const toUpload = await compressImageFile(f)
-        const m = await uploadToCloudinary(toUpload)
-        uploaded.push(m)
-      }
-      setMedia((prev) => [...prev, ...uploaded])
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setUploading(false)
-      e.target.value = ''
+      .catch((err) => {
+        if (!cancelled) setLoad({ status: 'error', ...describeLoadError(err) })
+      })
+    return () => {
+      cancelled = true
     }
+    // media.reset is stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId, editing, user?.id, reloadKey])
+
+  // ── Field state ────────────────────────────────────────────────────────
+  const setField = useCallback((name, value) => {
+    setForm((f) => (f[name] === value ? f : { ...f, [name]: value }))
+  }, [])
+
+  const country = countryByName(form.countryName)
+  const symbol = useMemo(() => currencySymbol(country.currency), [country.currency])
+
+  // ── Validation: computed continuously, revealed per field once touched ─
+  const errors = useMemo(() => validateForm(form, { role: hatRole, media: media.stats }), [form, hatRole, media.stats])
+  const visible = useMemo(() => {
+    if (showAllErrors) return errors
+    const shown = {}
+    for (const key of Object.keys(errors)) if (key !== 'media' && touched[key]) shown[key] = errors[key]
+    return shown
+  }, [errors, showAllErrors, touched])
+
+  const basicErrors = useMemo(() => ({ title: visible.title, category: visible.category, categoryCustom: visible.categoryCustom }), [visible.title, visible.category, visible.categoryCustom])
+  const pricingErrors = useMemo(
+    () => ({ amount: visible.amount, rateUnitCustom: visible.rateUnitCustom, priceMin: visible.priceMin, priceMax: visible.priceMax }),
+    [visible.amount, visible.rateUnitCustom, visible.priceMin, visible.priceMax],
+  )
+  const availabilityErrors = useMemo(() => ({ availableFrom: visible.availableFrom, availableTo: visible.availableTo }), [visible.availableFrom, visible.availableTo])
+  const locationErrors = useMemo(() => ({ deliveryMode: visible.deliveryMode, city: visible.city }), [visible.deliveryMode, visible.city])
+
+  const summary = useMemo(() => (showAllErrors ? summarizeErrors(errors, hatRole) : []), [showAllErrors, errors, hatRole])
+
+  function onBlur(e) {
+    const id = e.target?.id || ''
+    const field = idToField[id] || (id.startsWith('hat-delivery-') ? 'deliveryMode' : null)
+    if (field) setTouched((t) => (t[field] ? t : { ...t, [field]: true }))
   }
 
-  function removeMedia(idx) {
-    setMedia((prev) => prev.filter((_, i) => i !== idx))
+  function focusField(field) {
+    const el = document.getElementById(FIELD_IDS[field])
+    if (!el) return
+    el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+    el.focus({ preventScroll: true })
   }
 
-  function pickSuggestion(s) {
-    setHatTitle(s)
-    setShowSuggestions(false)
+  // ── Unsaved changes ────────────────────────────────────────────────────
+  const dirty = baseline.current !== null && formSignature(form, hatRole, media.signature) !== baseline.current
+  useLeaveGuard(dirty && !leaving, setPendingNav)
+
+  function requestLeave(path) {
+    if (dirty && !leaving) setPendingNav(path)
+    else navigate(path)
   }
 
-  const pricePreview = (() => {
-    if (priceType === 'fixed') {
-      const amount = fmtMoney(rate, country.currency)
-      if (!amount) return null
-      const unit = rateUnit === 'custom' ? rateUnitCustom.trim() : RATE_UNITS.find((u) => u.value === rateUnit)?.label
-      return unit ? `${amount} · ${unit}` : amount
-    }
-    const min = fmtMoney(priceMin, country.currency)
-    const max = fmtMoney(priceMax, country.currency)
-    if (!min) return null
-    const base = max && priceMax !== priceMin ? `${min} – ${max}` : min
-    return negotiable ? `${base} · Open to negotiation` : base
-  })()
+  function confirmDiscard() {
+    const to = pendingNav
+    setLeaving(true)
+    setPendingNav(null)
+    navigate(to)
+  }
 
+  // ── Submit ─────────────────────────────────────────────────────────────
   async function onSubmit(e) {
     e.preventDefault()
-    setError('')
-    if (role === 'talent' && media.length === 0) {
-      setPortfolioError(true)
-      setError('Portfolio media is required for Talent hats')
+    if (submittingRef.current || media.stats.uploading > 0) return
+    setSubmitError(null)
+    setShowAllErrors(true)
+
+    const found = validateForm(form, { role: hatRole, media: media.stats })
+    const keys = Object.keys(found)
+    if (keys.length) {
+      focusField(keys[0])
       return
-    }
-    const finalCategory = customCategory.trim() || category
-    if (!finalCategory) {
-      setError('Select or enter a category')
-      return
-    }
-    if (!hatTitle.trim()) {
-      setError(role === 'client' ? 'Enter what you’re seeking' : 'Enter what you’re seeking as talent')
-      return
-    }
-    if (priceType === 'fixed') {
-      if (!rate || Number(rate) <= 0) {
-        setError('Enter a fixed rate greater than 0.')
-        return
-      }
-      if (rateUnit === 'custom' && !rateUnitCustom.trim()) {
-        setError('Enter a label for the custom rate unit.')
-        return
-      }
-    } else {
-      if (!priceMin || Number(priceMin) <= 0) {
-        setError('Enter a minimum price greater than 0.')
-        return
-      }
-      if (!priceMax || Number(priceMax) < Number(priceMin)) {
-        setError('Enter a maximum price greater than or equal to the minimum.')
-        return
-      }
     }
 
+    submittingRef.current = true
     setSubmitting(true)
+    const targetId = editId || savedIdRef.current
     try {
-      if (customCategory.trim() && !categories.some((c) => c.name === customCategory.trim())) {
-        await api.createCategory(customCategory.trim()).catch(() => {})
+      if (form.category === OTHER_CATEGORY) {
+        const name = form.customCategory.trim()
+        if (!categories.some((c) => c.name === name)) await api.createCategory(name).catch(() => {})
       }
-      const body = {
-        hat_title: hatTitle.trim(),
-        verified_name: verifiedName || undefined,
-        category: finalCategory,
-        skills: skills
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-        hat_type: hatType,
-        delivery_mode: deliveryMode,
-        country: country.name,
-        country_flag: country.flag,
-        currency: country.currency,
-        lga,
-        available_from: availableFrom || undefined,
-        available_to: availableTo || undefined,
-        motto: motto.slice(0, 80),
-        price_type: priceType,
-        rate: priceType === 'fixed' ? Number(rate) : undefined,
-        rate_unit: priceType === 'fixed' ? rateUnit : undefined,
-        rate_unit_custom: priceType === 'fixed' && rateUnit === 'custom' ? rateUnitCustom.trim() : undefined,
-        price_min: priceType === 'range' ? Number(priceMin) : undefined,
-        price_max: priceType === 'range' ? Number(priceMax) : undefined,
-        price_negotiable: priceType === 'range' ? negotiable : false,
-        role,
-        media,
-        availability: true,
+      const mediaChanged = media.signature !== baselineMedia.current
+      const body = buildPayload(form, {
+        mode: targetId ? 'edit' : 'create',
+        role: hatRole,
+        media: !targetId || mediaChanged ? media.readyMedia : null,
+      })
+      if (targetId) {
+        await api.updateHat(targetId, body)
+      } else {
+        const created = await api.createHat(body)
+        savedIdRef.current = created?.hat?.id || 'created'
       }
-      if (editId) await api.updateHat(editId, body)
-      else await api.createHat(body)
+      setLeaving(true) // saved: nothing left to guard
+      showToast(editing ? 'Changes saved' : 'Hat published')
       navigate('/my-hats')
     } catch (err) {
-      setError(err.message)
+      setSubmitError(describeSaveError(err, editing ? 'save' : 'publish'))
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
 
-  const seekingLabel = role === 'client' ? 'Client seeking' : 'Talent seeking'
-  const seekingPlaceholder =
-    role === 'client' ? 'e.g. Henna artist for bridal shoot' : 'e.g. UI design gigs for SaaS products'
+  // ── Render ─────────────────────────────────────────────────────────────
+  if (load.status === 'loading') return <FormSkeleton />
+  if (load.status === 'error') return <LoadProblem message={load.message} sessionExpired={load.sessionExpired} onRetry={() => setReloadKey((k) => k + 1)} />
+  if (load.status === 'forbidden') return <LoadProblem message="You can only edit your own Hats." />
+
+  const uploading = media.stats.uploading > 0
+  const submitLabel = submitting ? (editing ? 'Saving…' : 'Publishing…') : uploading ? 'Uploading media…' : editing ? 'Save Changes' : 'Publish Hat'
+  const preview = previewOpen ? buildPreview(form, { role: hatRole }) : null
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="max-w-[520px] mx-auto space-y-5 bg-white rounded-[24px] border-[1.5px] border-black p-5 md:p-7 shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
-    >
-      <div>
-        <h1 className="text-[20px] font-bold tracking-tight">{editId ? 'Edit Hat' : 'Create Hat'}</h1>
-        <p className="text-[12px] text-black/50 mt-0.5 font-medium">A hat is a listing under your account</p>
-      </div>
+    <div className="max-w-[680px] mx-auto">
+      <header className="flex items-start justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <h1 className="text-[20px] font-bold tracking-tight">{editing ? 'Edit Hat' : 'Create Hat'}</h1>
+          <p className="text-[12px] text-black/55 font-medium mt-0.5">{editing ? 'Update your Hat' : copy.headerSubtitle}</p>
+        </div>
+        <button type="button" onClick={() => setPreviewOpen(true)} aria-haspopup="dialog" className="tw-btn-ghost h-11 px-4 text-[13px] inline-flex items-center gap-1.5 shrink-0">
+          <Eye size={15} aria-hidden="true" /> Preview
+        </button>
+      </header>
 
-      {/* Role toggle */}
-      <div className="flex gap-2 p-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black">
-        {['talent', 'client'].map((r) => (
-          <button
-            key={r}
-            type="button"
-            onClick={() => {
-              setRole(r)
-              setPortfolioError(false)
-              setShowSuggestions(false)
-            }}
-            className={`flex-1 h-10 rounded-full text-[13px] font-semibold capitalize transition ${
-              role === r
-                ? r === 'talent'
-                  ? 'bg-[#0A13E6] text-white border-[1.5px] border-black shadow'
-                  : 'bg-black text-white border-[1.5px] border-black shadow'
-                : 'text-black/50 hover:text-black'
-            }`}
-          >
-            {r === 'talent' ? 'Talent hat' : 'Client hat'}
-          </button>
-        ))}
-      </div>
-
-      <div className="rounded-[14px] border-[1.5px] border-black/10 bg-[#F5F3EF] px-4 py-3">
-        <div className="tw-label mb-1">Account</div>
-        <p className="text-[14px] font-semibold">
-          @{user?.username || '…'}
-          <span className="ml-2 text-[11px] font-medium text-black/40 normal-case tracking-normal">
-            from your signed-in profile — not editable per hat
-          </span>
-        </p>
-      </div>
-
-      {/* Seeking field — role-aware label + typeahead, custom text always allowed */}
-      <Field label={seekingLabel} required>
-        <div className="relative">
-          <input
-            className="tw-input"
-            value={hatTitle}
-            onChange={(e) => {
-              setHatTitle(e.target.value)
-              setShowSuggestions(true)
-            }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-            placeholder={seekingPlaceholder}
-            required
-            autoComplete="off"
-          />
-          {showSuggestions && suggestions.length > 0 && (
-            <ul className="absolute z-10 mt-1.5 w-full bg-white rounded-[14px] border-[1.5px] border-black shadow-[0_8px_20px_rgba(0,0,0,0.1)] max-h-48 overflow-auto">
-              {suggestions.map((s) => (
-                <li key={s}>
-                  <button
-                    type="button"
-                    onMouseDown={() => pickSuggestion(s)}
-                    className="w-full text-left px-3.5 py-2 text-[13px] font-medium hover:bg-[#F5F3EF] transition"
-                  >
-                    {s}
+      <form
+        noValidate
+        onSubmit={onSubmit}
+        onBlur={onBlur}
+        onKeyDown={(e) => {
+          // Enter in a text box shouldn't publish by accident; the Publish button does that.
+          if (e.key === 'Enter' && e.target instanceof HTMLInputElement && !['checkbox', 'radio', 'button', 'submit'].includes(e.target.type)) e.preventDefault()
+        }}
+        className="space-y-4"
+        aria-label={editing ? 'Edit Hat' : 'Create Hat'}
+      >
+        {summary.length > 0 && (
+          <div role="alert" className="rounded-[16px] border-[1.5px] border-red-300 bg-red-50 px-4 py-3">
+            <p className="text-[13px] font-bold text-red-700">Please complete:</p>
+            <ul className="mt-1 space-y-0.5">
+              {summary.map((row) => (
+                <li key={row.label}>
+                  <button type="button" onClick={() => focusField(row.field)} className="text-[13px] font-semibold text-red-700 underline underline-offset-2 min-h-[32px]">
+                    {row.label}
                   </button>
                 </li>
               ))}
             </ul>
-          )}
-        </div>
-        <p className="text-[10px] text-black/40 mt-1.5 font-medium">
-          {role === 'client'
-            ? 'Suggestions are pulled from what talents already offer — type your own too.'
-            : 'Suggestions are pulled from what clients are seeking — type your own too.'}
-        </p>
-      </Field>
-
-      <Field label="Verified name (optional)">
-        <input
-          className="tw-input"
-          value={verifiedName}
-          onChange={(e) => setVerifiedName(e.target.value)}
-          placeholder="e.g. Acme Studios Ltd"
-        />
-        <p className="text-[10px] text-black/40 mt-1.5 font-medium">
-          Ends with Ltd / Plc / Corp / Inc / LLC → verified badge
-        </p>
-      </Field>
-
-      {/* Hats Category — 14 MECE taxonomy, open-ended */}
-      <Field label="Hats Category" required>
-        <select
-          className="tw-input appearance-none"
-          value={category}
-          onChange={(e) => {
-            setCategory(e.target.value)
-            setCustomCategory('')
-          }}
-        >
-          <option value="">Select category…</option>
-          {categories.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <input
-          className="tw-input mt-2"
-          placeholder="Or type a custom category"
-          value={customCategory}
-          onChange={(e) => setCustomCategory(e.target.value)}
-        />
-      </Field>
-
-      <Field label="Skills (comma-separated)">
-        <input className="tw-input" value={skills} onChange={(e) => setSkills(e.target.value)} placeholder="React, Figma, Voice-over" />
-      </Field>
-
-      <Field label="Hat Type" required>
-        <select className="tw-input appearance-none" value={hatType} onChange={(e) => setHatType(e.target.value)}>
-          {HAT_TYPES.map((t) => (
-            <option key={t}>{t}</option>
-          ))}
-        </select>
-      </Field>
-
-      {/* Location */}
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Country">
-          <select
-            className="tw-input appearance-none"
-            value={country.name}
-            onChange={(e) => setCountry(COUNTRIES.find((c) => c.name === e.target.value) || COUNTRIES[0])}
-          >
-            {COUNTRIES.map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.flag} {c.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="LGA / City">
-          <input className="tw-input" value={lga} onChange={(e) => setLga(e.target.value)} placeholder="Yaba" />
-        </Field>
-      </div>
-
-      {/* Daily availability window */}
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Available From">
-          <input
-            type="time"
-            className="tw-input"
-            value={availableFrom}
-            onChange={(e) => setAvailableFrom(e.target.value)}
-          />
-        </Field>
-        <Field label="Available To">
-          <input
-            type="time"
-            className="tw-input"
-            value={availableTo}
-            onChange={(e) => setAvailableTo(e.target.value)}
-          />
-        </Field>
-      </div>
-
-      {/* Delivery mode */}
-      <Field label="Delivery Mode" required>
-        <div className="flex gap-2 p-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black">
-          {DELIVERY_MODES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setDeliveryMode(m)}
-              className={`flex-1 h-9 rounded-full text-[12px] font-semibold transition ${
-                deliveryMode === m ? 'bg-[#0A13E6] text-white border-[1.5px] border-black shadow' : 'text-black/50 hover:text-black'
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-      </Field>
-
-      {/* Price settings */}
-      <div className="space-y-3">
-        <span className="tw-label">Price Settings</span>
-        <div className="flex gap-2 p-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black">
-          {[
-            { v: 'fixed', label: 'Fixed rate' },
-            { v: 'range', label: 'Range' },
-          ].map((o) => (
-            <button
-              key={o.v}
-              type="button"
-              onClick={() => setPriceType(o.v)}
-              className={`flex-1 h-10 rounded-full text-[13px] font-semibold transition ${
-                priceType === o.v ? 'bg-[#0A13E6] text-white border-[1.5px] border-black shadow' : 'text-black/50 hover:text-black'
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-
-        {priceType === 'fixed' ? (
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Rate *" required>
-              <input type="number" min="0" className="tw-input" value={rate} onChange={(e) => setRate(e.target.value)} required placeholder="50000" />
-            </Field>
-            <Field label="Per">
-              <select className="tw-input appearance-none" value={rateUnit} onChange={(e) => setRateUnit(e.target.value)}>
-                {RATE_UNITS.map((u) => (
-                  <option key={u.value} value={u.value}>
-                    {u.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            {rateUnit === 'custom' && (
-              <div className="col-span-2">
-                <Field label="Custom unit label" required>
-                  <input
-                    className="tw-input"
-                    value={rateUnitCustom}
-                    onChange={(e) => setRateUnitCustom(e.target.value)}
-                    placeholder="e.g. per session"
-                    maxLength={24}
-                  />
-                </Field>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Min price *" required>
-                <input type="number" min="0" className="tw-input" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} required placeholder="50000" />
-              </Field>
-              <Field label="Max price *" required>
-                <input type="number" min="0" className="tw-input" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} required placeholder="120000" />
-              </Field>
-            </div>
-            <label className="flex items-center gap-2 text-[12px] font-semibold cursor-pointer select-none">
-              <input type="checkbox" checked={negotiable} onChange={(e) => setNegotiable(e.target.checked)} className="rounded border-black" />
-              Open to negotiation
-            </label>
           </div>
         )}
 
-        {pricePreview && (
-          <div className="rounded-[12px] border-[1.5px] border-black/10 bg-[#F5F3EF] px-3.5 py-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-black/40">Price preview</p>
-            <p className="text-[15px] font-bold mt-0.5">{pricePreview}</p>
-          </div>
-        )}
-      </div>
-
-      <Field label={`Motto (${motto.length}/80)`}>
-        <textarea
-          className="tw-input min-h-[88px] resize-none"
-          maxLength={80}
-          value={motto}
-          onChange={(e) => setMotto(e.target.value)}
-          placeholder="e.g. Rhythm lives in every heartbeat I play."
+        <BasicInfoSection
+          copy={copy}
+          hatRole={hatRole}
+          username={user?.username}
+          roleLocked={editing || !newRole.canChoose}
+          canChooseRole={canChooseRole}
+          onRoleChange={setChosenRole}
+          title={form.title}
+          category={form.category}
+          customCategory={form.customCategory}
+          description={form.description}
+          skills={form.skills}
+          hatType={form.hatType}
+          verifiedName={form.verifiedName}
+          categories={categories}
+          errors={basicErrors}
+          onChange={setField}
         />
-        <div className="flex items-center gap-1.5 mt-1.5">
-          <Sparkles size={12} className="text-violet-600" />
-          <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wide">AI-assisted suggestions coming</span>
-        </div>
-      </Field>
 
-      {/* Media upload — many images/videos/audio; required for Talent, optional for Client */}
-      <div className="space-y-2">
-        <label className="tw-label flex items-center gap-2 flex-wrap">
-          {role === 'talent' ? (
-            <>
-              Upload Media *
-              <span className="normal-case font-semibold text-[10px] px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700">
-                Required for Talent
-              </span>
-            </>
-          ) : (
-            <>
-              Upload Media
-              <span className="normal-case font-medium text-[10px] px-2 py-0.5 rounded-full bg-[#f2f2f1] border border-black/10 text-black/60">
-                Optional for Client
-              </span>
-            </>
-          )}
-        </label>
-        <p className={`text-[10px] font-medium px-0.5 ${portfolioError ? 'text-red-600 font-semibold' : 'text-black/50'}`}>
-          {role === 'talent'
-            ? 'Portfolio media is required for Talent hats — add as many images, videos, or audio clips as you like.'
-            : 'For clients, media is optional — add reference material if it helps.'}
-        </p>
+        <MediaSection
+          items={media.items}
+          error={showAllErrors ? errors.media : undefined}
+          copy={copy}
+          rejected={media.rejected}
+          announcement={media.announcement}
+          onAddFiles={media.addFiles}
+          onRetry={media.retry}
+          onRemove={media.remove}
+          onMove={media.move}
+          onMakeCover={media.makeCover}
+          onDismissRejected={media.dismissRejected}
+        />
 
-        <div
-          className={`rounded-[16px] border-[1.5px] border-dashed p-4 transition ${
-            portfolioError ? 'border-red-400 ring-4 ring-red-100 bg-red-50/30' : 'border-black/15 bg-[#F5F3EF]/50'
-          }`}
-        >
-          <label className="flex flex-col items-center gap-2 cursor-pointer py-2">
-            <div className="w-10 h-10 rounded-full bg-white border-[1.5px] border-black flex items-center justify-center">
-              <Upload size={18} />
-            </div>
-            <span className="text-[12px] font-semibold text-black/70">
-              {uploading ? 'Uploading…' : 'Upload images / videos / audio'}
-            </span>
-            <input type="file" accept="image/*,video/*,audio/*" multiple className="hidden" onChange={onFile} disabled={uploading} />
-          </label>
+        <PricingSection
+          copy={copy}
+          currency={country.currency}
+          symbol={symbol}
+          priceMode={form.priceMode}
+          amount={form.amount}
+          rateUnit={form.rateUnit}
+          rateUnitCustom={form.rateUnitCustom}
+          priceMin={form.priceMin}
+          priceMax={form.priceMax}
+          rangeNegotiable={form.rangeNegotiable}
+          errors={pricingErrors}
+          onChange={setField}
+        />
 
-          {media.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {media.map((m, i) => (
-                <div key={m.public_id || i} className="relative w-20 h-20 rounded-[12px] overflow-hidden bg-white border-[1.5px] border-black/10">
-                  {m.type === 'image' || !m.type ? (
-                    <img src={cldImage(m.url, { w: 160, h: 160 })} alt="" className="w-full h-full object-cover" />
-                  ) : m.type === 'video' ? (
-                    <img src={cldVideoPoster(m.url, { w: 160, h: 160 })} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold uppercase text-black/40">{m.type}</div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeMedia(i)}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              ))}
+        <AvailabilitySection
+          copy={copy}
+          available={form.available}
+          flexibleHours={form.flexibleHours}
+          availableFrom={form.availableFrom}
+          availableTo={form.availableTo}
+          errors={availabilityErrors}
+          onChange={setField}
+        />
+
+        <LocationSection countryName={form.countryName} currency={country.currency} city={form.city} deliveryMode={form.deliveryMode} errors={locationErrors} onChange={setField} />
+
+        <div className="sticky bottom-[60px] z-10 -mx-4 px-4 py-3 space-y-2 bg-[#F7F3EB]/95 backdrop-blur border-t-[1.5px] border-black md:static md:mx-0 md:px-0 md:pt-1 md:pb-6 md:bg-transparent md:border-0 md:backdrop-blur-none">
+          {submitError && (
+            <div role="alert" className="rounded-[14px] border-[1.5px] border-red-300 bg-red-50 px-3.5 py-2.5 text-[13px] font-semibold text-red-700">
+              {submitError.message}
+              {submitError.sessionExpired && (
+                <>
+                  {' '}
+                  <a href="/auth" target="_blank" rel="noreferrer" className="underline">
+                    Sign in
+                  </a>
+                </>
+              )}
             </div>
           )}
+          <div className="flex items-center gap-2 md:justify-end">
+            <button type="button" onClick={() => requestLeave('/my-hats')} className="tw-btn-ghost hidden md:inline-flex items-center px-6">
+              Cancel
+            </button>
+            <button type="button" onClick={() => setPreviewOpen(true)} aria-haspopup="dialog" className="tw-btn-ghost md:hidden px-5">
+              Preview
+            </button>
+            <button type="submit" disabled={submitting || uploading} aria-busy={submitting} className="tw-btn-primary flex-1 md:flex-none md:px-10 disabled:opacity-60 disabled:hover:bg-[#0A13E6]">
+              {submitLabel}
+            </button>
+          </div>
         </div>
-      </div>
+      </form>
 
-      {error && (
-        <div className="rounded-[12px] border-[1.5px] border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-medium text-red-700">{error}</div>
+      {preview && (
+        <HatPreview
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          preview={preview}
+          cover={media.items[0] || null}
+          username={user?.username || ''}
+          avatarUrl={user?.avatarUrl || ''}
+        />
       )}
 
-      <button type="submit" disabled={submitting || uploading} className="tw-btn-primary w-full disabled:opacity-60">
-        {submitting ? 'Saving…' : 'Save'}
-      </button>
-    </form>
-  )
-}
-
-function Field({ label, required, children }) {
-  return (
-    <label className="block space-y-1.5">
-      <span className="tw-label">
-        {label} {required && <span className="text-red-500 normal-case">*</span>}
-      </span>
-      {children}
-    </label>
+      <Dialog open={Boolean(pendingNav)} onClose={() => setPendingNav(null)} variant="alert" role="alertdialog" labelledBy="hat-discard-title" describedBy="hat-discard-text">
+        <h2 id="hat-discard-title" className="text-[17px] font-bold">
+          Discard changes?
+        </h2>
+        <p id="hat-discard-text" className="mt-1.5 text-[13px] font-medium text-black/65">
+          You have unsaved changes.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={() => setPendingNav(null)} className="tw-btn-primary px-6" autoFocus>
+            Stay
+          </button>
+          <button type="button" onClick={confirmDiscard} className="tw-btn-ghost px-6 !text-red-600 hover:!bg-red-50">
+            Discard
+          </button>
+        </div>
+      </Dialog>
+    </div>
   )
 }

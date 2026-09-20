@@ -135,17 +135,67 @@ export const api = {
   liveAction: (body) => request('/api/live', { method: 'POST', body: JSON.stringify(body) }),
 }
 
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
-const ALLOWED_UPLOAD_PREFIXES = ['image/', 'video/', 'audio/']
+export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+export const ALLOWED_UPLOAD_PREFIXES = ['image/', 'video/', 'audio/']
 
-export async function uploadToCloudinary(file) {
-  if (!file) throw new Error('Choose a file to upload.')
-  if (file.size > MAX_UPLOAD_BYTES) {
-    throw new Error('File is too large. Upload a file of 20MB or less.')
-  }
+// Returns a user-facing message when `file` can't be uploaded, else ''.
+// Exported so callers can reject a file before spending any bandwidth on it.
+export function validateUploadFile(file) {
+  if (!file) return 'Choose a file to upload.'
+  if (file.size > MAX_UPLOAD_BYTES) return 'File is too large. Upload a file of 20MB or less.'
   if (!ALLOWED_UPLOAD_PREFIXES.some((prefix) => file.type?.startsWith(prefix))) {
-    throw new Error('Only image, video, and audio uploads are supported.')
+    return 'Only image, video, and audio uploads are supported.'
   }
+  return ''
+}
+
+// fetch() can't report upload progress, so callers that ask for progress (or
+// cancellation) go through XMLHttpRequest instead. Rejects with
+//   - name 'AbortError' when cancelled through `signal`
+//   - code 'network' when the connection drops or times out mid-upload
+function xhrUpload(url, formData, { onProgress, signal } = {}) {
+  return new Promise((resolve, reject) => {
+    const abortError = () => Object.assign(new Error('Upload cancelled.'), { name: 'AbortError' })
+    if (signal?.aborted) return reject(abortError())
+
+    const xhr = new XMLHttpRequest()
+    const onAbort = () => xhr.abort()
+    const cleanup = () => signal?.removeEventListener('abort', onAbort)
+
+    xhr.open('POST', url)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) onProgress?.(Math.min(1, e.loaded / e.total))
+    }
+    xhr.onload = () => {
+      cleanup()
+      let data = {}
+      try {
+        data = JSON.parse(xhr.responseText)
+      } catch {
+        data = {}
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data)
+      else reject(new Error(data.error?.message || 'Upload failed'))
+    }
+    xhr.onerror = () => {
+      cleanup()
+      reject(Object.assign(new Error('Upload interrupted. Check your connection and try again.'), { code: 'network' }))
+    }
+    xhr.ontimeout = xhr.onerror
+    xhr.onabort = () => {
+      cleanup()
+      reject(abortError())
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+    xhr.send(formData)
+  })
+}
+
+// `options.onProgress(fraction 0..1)` and `options.signal` are optional; with
+// neither, this behaves exactly as it always has (a plain fetch).
+export async function uploadToCloudinary(file, options = {}) {
+  const invalid = validateUploadFile(file)
+  if (invalid) throw new Error(invalid)
 
   const cloud = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
   const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
@@ -157,12 +207,15 @@ export async function uploadToCloudinary(file) {
   fd.append('upload_preset', preset)
   fd.append('folder', folder)
 
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/auto/upload`, {
-    method: 'POST',
-    body: fd,
-  })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error?.message || 'Upload failed')
+  const endpoint = `https://api.cloudinary.com/v1_1/${cloud}/auto/upload`
+  let data
+  if (options.onProgress || options.signal) {
+    data = await xhrUpload(endpoint, fd, options)
+  } else {
+    const res = await fetch(endpoint, { method: 'POST', body: fd })
+    data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error?.message || 'Upload failed')
+  }
   return {
     url: data.secure_url,
     public_id: data.public_id,

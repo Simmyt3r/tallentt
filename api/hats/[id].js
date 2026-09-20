@@ -1,8 +1,8 @@
-import { query } from '../_lib/db.js'
+import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
-import { HAT_TYPES, DELIVERY_MODES, normalizePricing } from '../_lib/hatFields.js'
+import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, normalizePricing } from '../_lib/hatFields.js'
 import { notifyApplicationReceived, notifyApplicationStatus } from '../_lib/notifications.js'
 
 async function getHat(id, viewerId) {
@@ -31,7 +31,7 @@ async function getHat(id, viewerId) {
   )
   if (!rows[0]) return null
   const { rows: media } = await query(
-    `SELECT id, hat_id, url, public_id, type, caption FROM hat_media WHERE hat_id = $1`,
+    `SELECT id, hat_id, url, public_id, type, caption FROM hat_media WHERE hat_id = $1 ORDER BY created_at, id`,
     [id],
   )
   let likedByMe = false
@@ -221,6 +221,23 @@ export default async function handler(req, res) {
       const verified =
         body.verified_name != null ? isVerifiedName(body.verified_name) : existing.is_verified
 
+      // A hat's role is fixed when it's created (applications hang off client
+      // hats, escrows off talent hats) — re-sending the same role is fine,
+      // changing it is not.
+      if (body.role != null && body.role !== existing.role) {
+        return json(res, 403, { error: "A Hat's role can't be changed after it's created." })
+      }
+      if (body.hat_title != null) {
+        const nextTitle = String(body.hat_title).trim()
+        if (!nextTitle) return json(res, 400, { error: 'A seeking title is required.' })
+        if (nextTitle.length > HAT_TITLE_MAX) {
+          return json(res, 400, { error: `Title must be ${HAT_TITLE_MAX} characters or fewer.` })
+        }
+        body.hat_title = nextTitle
+      }
+      if (body.motto != null && String(body.motto).length > HAT_DESCRIPTION_MAX) {
+        return json(res, 400, { error: `Description must be ${HAT_DESCRIPTION_MAX} characters or fewer.` })
+      }
       if (body.hat_type != null && !HAT_TYPES.includes(body.hat_type)) {
         return json(res, 400, { error: 'Invalid hat type.' })
       }
@@ -242,6 +259,11 @@ export default async function handler(req, res) {
       }
       if (touchedPricing) {
         const merged = { ...existing, ...body }
+        // Switching price type without saying anything about negotiability
+        // starts from "not negotiable" rather than inheriting the old type's flag.
+        if (body.price_negotiable === undefined && body.price_type && body.price_type !== existing.price_type) {
+          merged.price_negotiable = false
+        }
         const pricing = normalizePricing(merged)
         if (!pricing.ok) return json(res, 400, { error: pricing.error })
         pricingFields = pricing.fields
@@ -251,18 +273,15 @@ export default async function handler(req, res) {
       const nextMotto = body.motto ?? existing.motto
       const nextAvail = body.availability != null ? body.availability : existing.availability
 
-      let mediaCount = existing.media?.length || 0
-      if (Array.isArray(body.media)) {
-        await query(`DELETE FROM hat_media WHERE hat_id = $1`, [id])
-        for (const m of body.media) {
-          if (!m.url || !m.public_id) continue
-          await query(
-            `INSERT INTO hat_media (hat_id, url, public_id, type, caption) VALUES ($1,$2,$3,$4,$5)`,
-            [id, m.url, m.public_id, m.type || 'image', m.caption || null],
-          )
-        }
-        mediaCount = body.media.filter((m) => m.url && m.public_id).length
-      }
+      // `media` is only replaced when the client actually sends it — a text-only
+      // edit leaves existing media untouched. When it is sent, the array order
+      // is the display order (index 0 = cover).
+      const nextMedia = Array.isArray(body.media) ? body.media.filter((m) => m && m.url && m.public_id) : null
+      const mediaCount = nextMedia ? nextMedia.length : existing.media?.length || 0
+
+      // The daily availability window can be cleared: `undefined` (key absent)
+      // keeps what's on file, `null`/'' clears it.
+      const windowValue = (incoming, current) => (incoming === undefined ? current ?? null : incoming || null)
 
       const orbitScore = computeOrbitScore({
         mediaCount,
@@ -276,63 +295,87 @@ export default async function handler(req, res) {
         rating: existing.rating || 0,
       })
 
-      await query(
-        `UPDATE hats SET
-          hat_title = COALESCE($1, hat_title),
-          verified_name = COALESCE($2, verified_name),
-          is_verified = $3,
-          category = COALESCE($4, category),
-          skills = COALESCE($5, skills),
-          hat_type = COALESCE($6, hat_type),
-          delivery_mode = COALESCE($7, delivery_mode),
-          country = COALESCE($8, country),
-          country_flag = COALESCE($9, country_flag),
-          currency = COALESCE($10, currency),
-          lga = COALESCE($11, lga),
-          motto = COALESCE($12, motto),
-          price_type = $13,
-          price_min = $14,
-          price_max = $15,
-          price_negotiable = $16,
-          rate = $17,
-          rate_unit = $18,
-          rate_unit_custom = $19,
-          availability = COALESCE($20, availability),
-          active = COALESCE($21, active),
-          role = COALESCE($22, role),
-          available_from = $23,
-          available_to = $24,
-          orbit_score = $25
-        WHERE id = $26`,
-        [
-          body.hat_title ?? null,
-          body.verified_name ?? null,
-          verified,
-          body.category ?? null,
-          body.skills ?? null,
-          body.hat_type ?? null,
-          body.delivery_mode ?? null,
-          body.country ?? null,
-          body.country_flag ?? null,
-          body.currency ?? null,
-          body.lga ?? null,
-          body.motto ?? null,
-          pricingFields.price_type,
-          pricingFields.price_min,
-          pricingFields.price_max,
-          pricingFields.price_negotiable,
-          pricingFields.rate,
-          pricingFields.rate_unit,
-          pricingFields.rate_unit_custom,
-          body.availability ?? null,
-          body.active ?? null,
-          body.role ?? null,
-          body.available_from ?? existing.available_from ?? null,
-          body.available_to ?? existing.available_to ?? null,
-          orbitScore,
-          id,
-        ],
-      )
+      // Media replacement and the hat update commit together, so a failure
+      // can never leave a hat with its media half-deleted. (Only client.query
+      // inside the transaction — the pool is size 1 in production.)
+      const client = await getClient()
+      try {
+        await client.query('BEGIN')
+        if (nextMedia) {
+          await client.query(`DELETE FROM hat_media WHERE hat_id = $1`, [id])
+          for (let i = 0; i < nextMedia.length; i++) {
+            const m = nextMedia[i]
+            // created_at is staggered by index: NOW() is constant inside a
+            // transaction, and reads order by created_at.
+            await client.query(
+              `INSERT INTO hat_media (hat_id, url, public_id, type, caption, created_at)
+               VALUES ($1,$2,$3,$4,$5, NOW() + $6::int * interval '1 millisecond')`,
+              [id, m.url, m.public_id, m.type || 'image', m.caption || null, i],
+            )
+          }
+        }
+        await client.query(
+          `UPDATE hats SET
+            hat_title = COALESCE($1, hat_title),
+            verified_name = COALESCE($2, verified_name),
+            is_verified = $3,
+            category = COALESCE($4, category),
+            skills = COALESCE($5, skills),
+            hat_type = COALESCE($6, hat_type),
+            delivery_mode = COALESCE($7, delivery_mode),
+            country = COALESCE($8, country),
+            country_flag = COALESCE($9, country_flag),
+            currency = COALESCE($10, currency),
+            lga = COALESCE($11, lga),
+            motto = COALESCE($12, motto),
+            price_type = $13,
+            price_min = $14,
+            price_max = $15,
+            price_negotiable = $16,
+            rate = $17,
+            rate_unit = $18,
+            rate_unit_custom = $19,
+            availability = COALESCE($20, availability),
+            active = COALESCE($21, active),
+            available_from = $22,
+            available_to = $23,
+            orbit_score = $24
+          WHERE id = $25`,
+          [
+            body.hat_title ?? null,
+            body.verified_name ?? null,
+            verified,
+            body.category ?? null,
+            body.skills ?? null,
+            body.hat_type ?? null,
+            body.delivery_mode ?? null,
+            body.country ?? null,
+            body.country_flag ?? null,
+            body.currency ?? null,
+            body.lga ?? null,
+            body.motto ?? null,
+            pricingFields.price_type,
+            pricingFields.price_min,
+            pricingFields.price_max,
+            pricingFields.price_negotiable,
+            pricingFields.rate,
+            pricingFields.rate_unit,
+            pricingFields.rate_unit_custom,
+            body.availability ?? null,
+            body.active ?? null,
+            windowValue(body.available_from, existing.available_from),
+            windowValue(body.available_to, existing.available_to),
+            orbitScore,
+            id,
+          ],
+        )
+        await client.query('COMMIT')
+      } catch (txErr) {
+        await client.query('ROLLBACK').catch(() => {})
+        throw txErr
+      } finally {
+        client.release()
+      }
 
       const hat = await getHat(id)
       return json(res, 200, { hat })

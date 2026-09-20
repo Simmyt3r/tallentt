@@ -3,13 +3,20 @@ import { query } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
-import { HAT_TYPES, DELIVERY_MODES, normalizePricing } from '../_lib/hatFields.js'
+import {
+  HAT_TYPES,
+  DELIVERY_MODES,
+  HAT_TITLE_MAX,
+  HAT_DESCRIPTION_MAX,
+  normalizePricing,
+  resolveHatRole,
+} from '../_lib/hatFields.js'
 
 async function attachMedia(hats) {
   if (!hats.length) return hats
   const ids = hats.map((h) => h.id)
   const { rows } = await query(
-    `SELECT id, hat_id, url, public_id, type, caption FROM hat_media WHERE hat_id = ANY($1::uuid[])`,
+    `SELECT id, hat_id, url, public_id, type, caption FROM hat_media WHERE hat_id = ANY($1::uuid[]) ORDER BY created_at, id`,
     [ids],
   )
   const byHat = {}
@@ -176,11 +183,18 @@ export default async function handler(req, res) {
 
       // Username always comes from the signed-in account — never re-asked on hat create
       const { rows: userRows } = await query(
-        `SELECT id, username, full_name FROM users WHERE id = $1`,
+        `SELECT id, username, full_name, role FROM users WHERE id = $1`,
         [session.sub],
       )
       if (!userRows[0]) return json(res, 401, { error: 'User not found' })
       const accountUsername = userRows[0].username
+
+      // The hat's role comes from the authenticated account, never from the
+      // browser. `body.role` is only honoured for dual accounts (which may
+      // post either kind); talent/client accounts can't post the other kind.
+      const roleResult = resolveHatRole(userRows[0].role, body.role)
+      if (!roleResult.ok) return json(res, roleResult.status, { error: roleResult.error })
+      const role = roleResult.role
 
       const {
         hat_title,
@@ -194,15 +208,21 @@ export default async function handler(req, res) {
         currency = 'NGN',
         lga,
         motto,
-        role = 'talent', // talent hat = talent listing
         media = [],
         availability = true,
         available_from,
         available_to,
       } = body
 
-      if (!hat_title || !category) {
+      const title = String(hat_title ?? '').trim()
+      if (!title || !category) {
         return json(res, 400, { error: 'A seeking title and category are required.' })
+      }
+      if (title.length > HAT_TITLE_MAX) {
+        return json(res, 400, { error: `Title must be ${HAT_TITLE_MAX} characters or fewer.` })
+      }
+      if (motto && String(motto).length > HAT_DESCRIPTION_MAX) {
+        return json(res, 400, { error: `Description must be ${HAT_DESCRIPTION_MAX} characters or fewer.` })
       }
       if (!HAT_TYPES.includes(hat_type)) {
         return json(res, 400, { error: 'Invalid hat type.' })
@@ -241,7 +261,7 @@ export default async function handler(req, res) {
         RETURNING *`,
         [
           session.sub,
-          hat_title,
+          title,
           accountUsername,
           verified_name || null,
           verified,
