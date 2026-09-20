@@ -127,7 +127,19 @@ export default async function handler(req, res) {
 
       const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
       const { rows } = await query(
-        `SELECT h.*, u.avatar_url as owner_avatar
+        `SELECT h.*, u.avatar_url as owner_avatar, u.full_name as owner_full_name, u.role as owner_role,
+                -- "N jobs" (talent hats) / "N hires" (client hats) badge — reuses
+                -- the existing escrows system exactly like getHat()'s has_booked
+                -- check does (see api/hats/[id].js): a released escrow is a
+                -- completed engagement. Counted from the talent's or client's
+                -- side depending on which role this specific hat is, and left
+                -- for the frontend to label ("jobs" vs "hires") since that's
+                -- presentation, not data.
+                (SELECT COUNT(*)::int FROM escrows e
+                   WHERE e.status = 'released'
+                     AND ((h.role = 'talent' AND e.talent_id = h.user_id)
+                       OR (h.role = 'client' AND e.client_id = h.user_id))
+                ) AS hires
          FROM hats h
          LEFT JOIN users u ON u.id = h.user_id
          ${where}

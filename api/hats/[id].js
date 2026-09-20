@@ -15,7 +15,17 @@ async function getHat(id, viewerId) {
             u.bio as owner_bio,
             u.location as owner_location,
             u.lga as owner_lga,
-            u.country as owner_country
+            u.country as owner_country,
+            -- Same "N jobs"/"N hires" completed-engagement count as the feed
+            -- listing (api/hats/index.js) — kept identical so a card looks
+            -- the same whether it came from the feed or a direct /hat/:id
+            -- load. See that file's comment for why this reuses escrows
+            -- rather than a new table.
+            (SELECT COUNT(*)::int FROM escrows e
+               WHERE e.status = 'released'
+                 AND ((h.role = 'talent' AND e.talent_id = h.user_id)
+                   OR (h.role = 'client' AND e.client_id = h.user_id))
+            ) AS hires
      FROM hats h LEFT JOIN users u ON u.id = h.user_id WHERE h.id = $1`,
     [id],
   )
