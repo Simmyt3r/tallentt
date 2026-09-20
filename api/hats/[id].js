@@ -217,6 +217,22 @@ export default async function handler(req, res) {
       if (existing.user_id !== session.sub) return json(res, 403, { error: 'Forbidden' })
 
       const body = await readBody(req)
+
+      // Adding media to a talent hat is how content reaches the Showroom, and
+      // that is Talent-only: a pure Client account may not do it (talent and
+      // dual accounts may). Only *new* media is checked, so a Client account
+      // can still edit whatever it already owns.
+      if (Array.isArray(body.media) && (body.role ?? existing.role) === 'talent') {
+        const known = new Set((existing.media || []).map((m) => m.public_id))
+        const addingMedia = body.media.some((m) => m?.public_id && !known.has(m.public_id))
+        if (addingMedia) {
+          const { rows: account } = await query(`SELECT role FROM users WHERE id = $1`, [session.sub])
+          if (account[0]?.role === 'client') {
+            return json(res, 403, { error: 'Only Talent accounts can add to the Showroom.' })
+          }
+        }
+      }
+
       // Never accept username from client on update — keep account username
       const verified =
         body.verified_name != null ? isVerifiedName(body.verified_name) : existing.is_verified

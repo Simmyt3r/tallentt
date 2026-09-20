@@ -2484,7 +2484,7 @@ diff --git a/src/styles/index.css b/src/styles/index.css
 index 943a5d7..34e6c26 100644
 --- a/src/styles/index.css
 +++ b/src/styles/index.css
-@@ -72,53 +72,132 @@ img, video { max-width: 100%; }
+@@ -72,52 +72,131 @@ img, video { max-width: 100%; }
    gap: 20px;
  }
  
