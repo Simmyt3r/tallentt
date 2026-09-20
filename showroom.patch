@@ -1,0 +1,2653 @@
+diff --git a/api/hats/[id].js b/api/hats/[id].js
+index 2f9f343..c371af2 100644
+--- a/api/hats/[id].js
++++ b/api/hats/[id].js
+@@ -217,6 +217,22 @@ export default async function handler(req, res) {
+       if (existing.user_id !== session.sub) return json(res, 403, { error: 'Forbidden' })
+ 
+       const body = await readBody(req)
++
++      // Adding media to a talent hat is how content reaches the Showroom, and
++      // that is Talent-only: a pure Client account may not do it (talent and
++      // dual accounts may). Only *new* media is checked, so a Client account
++      // can still edit whatever it already owns.
++      if (Array.isArray(body.media) && (body.role ?? existing.role) === 'talent') {
++        const known = new Set((existing.media || []).map((m) => m.public_id))
++        const addingMedia = body.media.some((m) => m?.public_id && !known.has(m.public_id))
++        if (addingMedia) {
++          const { rows: account } = await query(`SELECT role FROM users WHERE id = $1`, [session.sub])
++          if (account[0]?.role === 'client') {
++            return json(res, 403, { error: 'Only Talent accounts can add to the Showroom.' })
++          }
++        }
++      }
++
+       // Never accept username from client on update — keep account username
+       const verified =
+         body.verified_name != null ? isVerifiedName(body.verified_name) : existing.is_verified
+diff --git a/src/App.jsx b/src/App.jsx
+index 07d3797..d4db3fd 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -75,8 +75,11 @@ export default function App() {
+       />
+       <Route path="/" element={<HomeRoute />} />
+       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
++      {/* One route with an optional :postId, so /showroom and /showroom/:postId
++          render the very same mounted Showroom — opening or closing a post's
++          detail modal never remounts the feed underneath it. */}
+       <Route
+-        path="/showroom"
++        path="/showroom/:postId?"
+         element={
+           <ProtectedRoute>
+             <ShowroomPage />
+diff --git a/src/components/NegotiationNotice.jsx b/src/components/NegotiationNotice.jsx
+new file mode 100644
+index 0000000..5b61aa9
+--- /dev/null
++++ b/src/components/NegotiationNotice.jsx
+@@ -0,0 +1,72 @@
++import { useRef } from 'react'
++import { createPortal } from 'react-dom'
++import { useBackdropClose, useDialog } from '../lib/dialog'
++import { fmtMoney } from './bentoCardShared'
++
++// "This price is negotiable…" confirmation, shown above the Showroom detail
++// modal before a negotiable Hat is booked.
++//
++// It only informs and asks. It never creates a booking, starts a negotiation,
++// touches the wallet or charges anything: Cancel simply closes it, and
++// Continue hands control back to the caller, which passes the user on to the
++// existing booking / negotiation flow.
++//
++// `fee` is optional and only used if the caller already has the real
++// negotiation fee in hand (nothing in the app exposes one today, so it is not
++// passed anywhere yet). Without it the generic wording is shown — a fee is
++// never invented here.
++export default function NegotiationNotice({ fee, onCancel, onContinue, returnFocusRef }) {
++  const panelRef = useRef(null)
++  const cancelRef = useRef(null)
++  const backdrop = useBackdropClose(onCancel)
++  // Only the topmost dialog answers Escape / traps focus (see lib/dialog.js),
++  // so Escape here closes this notice and leaves the detail modal open.
++  useDialog(panelRef, { onClose: onCancel, initialFocusRef: cancelRef, returnFocusRef })
++
++  const hasFee = Number.isFinite(Number(fee)) && Number(fee) > 0
++  const message = hasFee
++    ? `This price is negotiable. A negotiation fee of ${fmtMoney(Number(fee))} will apply when you start negotiating.`
++    : 'This price is negotiable. A negotiation fee will apply when you start negotiating.'
++
++  return createPortal(
++    <div
++      {...backdrop}
++      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:backdrop-blur-[2px]"
++    >
++      <div
++        ref={panelRef}
++        role="alertdialog"
++        aria-modal="true"
++        aria-labelledby="sr-neg-title"
++        aria-describedby="sr-neg-desc"
++        tabIndex={-1}
++        className="animate-slide-up w-full sm:w-[calc(100%-2rem)] sm:max-w-[400px] bg-white border-[1.5px] border-black rounded-t-[24px] sm:rounded-[24px] p-5 sm:p-6 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-6 shadow-[0_20px_60px_-12px_rgba(0,0,0,0.35)] outline-none"
++      >
++        <h2 id="sr-neg-title" className="text-[18px] font-bold tracking-tight">
++          Price Negotiation
++        </h2>
++        <p id="sr-neg-desc" className="text-[14px] text-black/70 leading-relaxed mt-2">
++          {message}
++        </p>
++        <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5">
++          <button
++            ref={cancelRef}
++            type="button"
++            onClick={onCancel}
++            className="tw-btn-ghost h-12 px-6 sm:min-w-[120px]"
++          >
++            Cancel
++          </button>
++          <button
++            type="button"
++            onClick={onContinue}
++            className="tw-btn-primary h-12 px-6 sm:min-w-[120px]"
++          >
++            Continue
++          </button>
++        </div>
++      </div>
++    </div>,
++    document.body,
++  )
++}
+diff --git a/src/components/Showroom.jsx b/src/components/Showroom.jsx
+index 4e4835f..97195c0 100644
+--- a/src/components/Showroom.jsx
++++ b/src/components/Showroom.jsx
+@@ -1,550 +1,609 @@
+-import { useEffect, useRef, useState } from 'react'
+-import { Plus, Search, Heart, MapPin, Eye, Play, Pause, Volume2, VolumeX, Maximize2, LayoutGrid } from 'lucide-react'
+-import { Link } from 'react-router-dom'
++import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
++import { useLocation, useNavigate, useParams } from 'react-router-dom'
++import { Plus, Search } from 'lucide-react'
+ import { api } from '../lib/api'
+-import AvailabilityBadge from './AvailabilityBadge'
++import { useAuth } from '../context/AuthContext'
++import { UUID_RE, getScroller, nextLap, shareShowroomPost, showroomPath } from '../lib/showroom'
+ import AddShowroomMedia from './AddShowroomMedia'
+-import ShowroomVideoModal from './ShowroomVideoModal'
+-import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
+-
+-function formatTime(seconds) {
+-  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+-  const m = Math.floor(seconds / 60)
+-  const s = Math.floor(seconds % 60)
+-  return `${m}:${s.toString().padStart(2, '0')}`
+-}
++import ShowroomDetailModal from './ShowroomDetailModal'
++import ShowroomPost from './ShowroomPost'
+ 
+-// One full-screen reel slide. Only plays its video while `active` — i.e.
+-// it's the slide currently snapped into view — driven by a single shared
+-// observer up in Showroom rather than one per slide, so exactly one video
+-// plays at a time. Also fires a view once, and lets the viewer like it.
+-//
+-// `muted` / `onSetMuted` are lifted to the parent so the mute preference
+-// carries across slides as the user scrolls, matching typical reel UX.
+-function ReelSlide({ hat, active, muted, onSetMuted, onExpand }) {
+-  const videoRef = useRef(null)
+-  const slideRef = useRef(null)
+-  const progressRef = useRef(null)
+-  const viewedRef = useRef(false)
+-  const media = hat.media?.[0]
+-  const isVideo = media?.type === 'video' && !!media?.url
+-
+-  const [liked, setLiked] = useState(!!hat.liked_by_me)
+-  const [likeCount, setLikeCount] = useState(hat.likes || 0)
+-  const [viewCount, setViewCount] = useState(hat.views || 0)
+-  const [liking, setLiking] = useState(false)
+-
+-  const [playing, setPlaying] = useState(false)
+-  const [duration, setDuration] = useState(0)
+-  const [currentTime, setCurrentTime] = useState(0)
+-  const [isFullscreen, setIsFullscreen] = useState(false)
++// How many posts are kept mounted above/below the ones on screen, and how far
++// ahead of the last visible post the endless sequence is topped up.
++const BUFFER = 2
++const PRELOAD = 5
+ 
+-  useEffect(() => {
+-    setLiked(!!hat.liked_by_me)
+-    setLikeCount(hat.likes || 0)
+-    setViewCount(hat.views || 0)
+-  }, [hat.id, hat.liked_by_me, hat.likes, hat.views])
++const keyToId = (key) => key.slice(0, key.indexOf('~'))
+ 
+-  useEffect(() => {
+-    const video = videoRef.current
+-    if (!isVideo) return
+-    if (active) {
+-      if (!viewedRef.current) {
+-        viewedRef.current = true
+-        setViewCount((v) => v + 1)
+-        api.recordView(hat.id).catch(() => {})
+-      }
+-      if (video) {
+-        // Try to honor the shared mute preference (which defaults to
+-        // unmuted, so videos keep their original audio by default). If the
+-        // browser blocks autoplay-with-sound, fall back to muted autoplay
+-        // and let the user unmute via the control — never get stuck silent
+-        // forever, and never force `muted` permanently in markup.
+-        video.muted = muted
+-        const playPromise = video.play()
+-        if (playPromise?.catch) {
+-          playPromise.catch(() => {
+-            if (!video.muted) {
+-              video.muted = true
+-              onSetMuted(true)
+-              video.play().catch(() => {})
+-            }
+-          })
+-        }
+-      }
+-    } else if (video) {
+-      video.pause()
+-    }
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [active, hat.id, isVideo])
++// Showroom — a continuous, endless discovery feed.
++//
++//  • Each post is a fixed-height card (see `.sr-post` in styles/index.css) that
++//    roughly fills the space under the app + Showroom headers. Scrolling is
++//    ordinary and continuous — no snapping.
++//  • The feed is endless: the first lap is the API's curated order, every lap
++//    after that is a fresh client-side shuffle (never opening with the post the
++//    previous lap ended on), appended well before the user reaches the end.
++//  • It never grows without bound in the DOM: because every post has the same
++//    height, only the few posts near the viewport are mounted and the rest are
++//    stood in for by padding of the exact same height, so scroll position is
++//    stable however far the user goes.
++//  • "View" opens the detail modal by pushing /showroom/:postId. The modal is
++//    derived from that URL, and the feed underneath is the same mounted
++//    component, so it keeps its scroll position and sequence. Back, refresh
++//    and shared links all work because the URL is the single source of truth.
++export default function Showroom() {
++  const { user } = useAuth()
++  const { postId } = useParams()
++  const location = useLocation()
++  const navigate = useNavigate()
++  const modalOpen = Boolean(postId)
++
++  // Creating Showroom content is Talent-only. 'dual' accounts are Talent too;
++  // only a pure Client account is excluded. The API enforces the same rule
++  // (api/hats), this just avoids rendering a control that could never work.
++  const canAdd = user?.role === 'talent' || user?.role === 'dual'
++
++  // ── data ──────────────────────────────────────────────────────────────
++  // hatMap holds every hat we know about (the Showroom list plus any post
++  // opened directly by link); listIds is the API's ordering of the list.
++  const [hatMap, setHatMap] = useState({})
++  const [listIds, setListIds] = useState([])
++  const [loading, setLoading] = useState(true)
++  const [loadError, setLoadError] = useState('')
++  const [reloadTick, setReloadTick] = useState(0)
++  const [search, setSearch] = useState('')
++  const [postState, setPostState] = useState({ id: null, state: 'idle' })
++  const [retryTick, setRetryTick] = useState(0)
+ 
+-  // Keep the live element in sync whenever the shared mute preference
+-  // changes (e.g. user taps unmute on any slide).
+-  useEffect(() => {
+-    const video = videoRef.current
+-    if (video) video.muted = muted
+-  }, [muted])
++  // ── ui ────────────────────────────────────────────────────────────────
++  const [muted, setMuted] = useState(false) // shared across posts; sound on by default
++  const [showAdd, setShowAdd] = useState(false)
++  const [toast, setToast] = useState('')
++  const [pageVisible, setPageVisible] = useState(() => !document.hidden)
++  const [activeKey, setActiveKey] = useState(null)
+ 
+-  useEffect(() => {
+-    const video = videoRef.current
+-    if (!video) return
+-    const onTime = () => setCurrentTime(video.currentTime)
+-    const onMeta = () => setDuration(video.duration || 0)
+-    const onPlay = () => setPlaying(true)
+-    const onPause = () => setPlaying(false)
+-    video.addEventListener('timeupdate', onTime)
+-    video.addEventListener('loadedmetadata', onMeta)
+-    video.addEventListener('durationchange', onMeta)
+-    video.addEventListener('play', onPlay)
+-    video.addEventListener('pause', onPause)
+-    video.addEventListener('ended', onPause)
+-    return () => {
+-      video.removeEventListener('timeupdate', onTime)
+-      video.removeEventListener('loadedmetadata', onMeta)
+-      video.removeEventListener('durationchange', onMeta)
+-      video.removeEventListener('play', onPlay)
+-      video.removeEventListener('pause', onPause)
+-      video.removeEventListener('ended', onPause)
+-    }
+-  }, [media?.url])
++  // ── endless sequence + windowing ────────────────────────────────────────
++  const [seq, setSeq] = useState([]) // [{ key, id }] — ids only, tiny
++  const [vis, setVis] = useState({ first: 0, last: 0 })
++  const [step, setStep] = useState(0) // one post's height + gap, measured
++
++  const listRef = useRef(null)
++  const headerRef = useRef(null)
++  const hatMapRef = useRef(hatMap)
++  const seqRef = useRef(seq)
++  const filteredRef = useRef([])
++  const stepRef = useRef(0)
++  const anchorRef = useRef(null)
++  const cycleRef = useRef(1)
++  const lastResetRef = useRef(null)
++  const ioRef = useRef(null)
++  const intersectingRef = useRef(new Set())
++  const feedViewedRef = useRef(new Set())
++  const modalViewedRef = useRef(new Set())
++  const likingRef = useRef(new Set())
++  const closingRef = useRef(false)
++  const toastTimer = useRef(0)
++  const fromShowroomRef = useRef(false)
++
++  hatMapRef.current = hatMap
++  seqRef.current = seq
++  fromShowroomRef.current = Boolean(location.state?.fromShowroom)
++
++  // ── loading the list ──────────────────────────────────────────────────
++  const applyList = useCallback((hats) => {
++    setHatMap((prev) => {
++      const next = { ...prev }
++      for (const h of hats) next[h.id] = h
++      return next
++    })
++    setListIds(hats.map((h) => h.id))
++  }, [])
+ 
++  // `cancelled` makes sure only the response for the current mount is applied
++  // (React.StrictMode double-invokes mount effects in dev — see main.jsx).
+   useEffect(() => {
+-    const onFsChange = () => {
+-      const fsEl = document.fullscreenElement || document.webkitFullscreenElement || null
+-      setIsFullscreen(!!fsEl && (fsEl === slideRef.current || fsEl === videoRef.current))
+-    }
+-    document.addEventListener('fullscreenchange', onFsChange)
+-    document.addEventListener('webkitfullscreenchange', onFsChange)
++    let cancelled = false
++    ;(async () => {
++      try {
++        const data = await api.getShowroom()
++        if (!cancelled) applyList(data.hats || [])
++      } catch (e) {
++        if (!cancelled) {
++          console.error(e)
++          setLoadError(e.message || 'Could not load the Showroom.')
++        }
++      } finally {
++        if (!cancelled) setLoading(false)
++      }
++    })()
+     return () => {
+-      document.removeEventListener('fullscreenchange', onFsChange)
+-      document.removeEventListener('webkitfullscreenchange', onFsChange)
++      cancelled = true
+     }
+-  }, [])
++  }, [applyList, reloadTick])
+ 
+-  async function handleLike() {
+-    if (liking) return
+-    setLiking(true)
+-    const next = !liked
+-    setLiked(next)
+-    setLikeCount((c) => c + (next ? 1 : -1))
++  // After a Talent adds media: refresh in place — no skeleton, and the feed's
++  // sequence and scroll position are left alone.
++  const refreshShowroom = useCallback(async () => {
+     try {
+-      await api.toggleLike(hat.id)
++      const data = await api.getShowroom()
++      applyList(data.hats || [])
+     } catch (e) {
+-      setLiked(!next)
+-      setLikeCount((c) => c + (next ? -1 : 1))
+-    } finally {
+-      setLiking(false)
++      console.error(e)
+     }
+-  }
+-
+-  function togglePlay() {
+-    const video = videoRef.current
+-    if (!video) return
+-    if (video.paused) video.play().catch(() => {})
+-    else video.pause()
+-  }
++  }, [applyList])
+ 
+-  function handleSeek(e) {
+-    const track = progressRef.current
+-    const video = videoRef.current
+-    if (!track || !video || !duration) return
+-    const rect = track.getBoundingClientRect()
+-    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+-    video.currentTime = ratio * duration
+-    setCurrentTime(video.currentTime)
+-  }
++  const patchHat = useCallback((id, patch) => {
++    setHatMap((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev))
++  }, [])
+ 
+-  function handleFullscreen() {
+-    const video = videoRef.current
+-    if (!video) return
+-    // iOS Safari only supports native fullscreen on the <video> element
+-    // itself — arbitrary-element Fullscreen API isn't available there.
+-    if (video.webkitEnterFullscreen) {
+-      video.webkitEnterFullscreen()
+-      return
++  // ── search ────────────────────────────────────────────────────────────
++  const filteredIds = useMemo(() => {
++    const q = search.trim().toLowerCase()
++    return listIds.filter((id) => {
++      const h = hatMap[id]
++      if (!h) return false
++      if (!q) return true
++      return (
++        (h.username || '').toLowerCase().includes(q) ||
++        (h.hat_title || '').toLowerCase().includes(q) ||
++        (h.skills || []).some((s) => s.toLowerCase().includes(q))
++      )
++    })
++  }, [listIds, hatMap, search])
++  // Likes/views patch hatMap constantly; the *set of ids* rarely changes.
++  const idsSig = filteredIds.join('|')
++  filteredRef.current = filteredIds
++  const resetKey = search.trim().toLowerCase()
++
++  // First lap = the API's curated order. Rebuilt only for a new search (which
++  // also returns to the top); a refresh merely drops posts that disappeared.
++  useEffect(() => {
++    if (loading) return
++    const ids = filteredRef.current
++    const prev = seqRef.current
++    if (lastResetRef.current !== resetKey || prev.length === 0) {
++      if (!(ids.length === 0 && prev.length === 0)) {
++        cycleRef.current = 1
++        setSeq(ids.map((id) => ({ key: `${id}~0`, id })))
++        intersectingRef.current.clear()
++        setActiveKey(null)
++      }
++      if (lastResetRef.current !== null && lastResetRef.current !== resetKey) {
++        getScroller().scrollTo({ top: 0 })
++      }
++    } else {
++      const allowed = new Set(ids)
++      const next = prev.filter((it) => allowed.has(it.id))
++      if (next.length !== prev.length) setSeq(next)
+     }
+-    const target = slideRef.current || video
+-    const request =
+-      target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen
+-    if (request) request.call(target)
+-  }
++    lastResetRef.current = resetKey
++  }, [loading, resetKey, idsSig])
+ 
+-  return (
+-    <div ref={slideRef} data-hat-id={hat.id} className="reel-slide">
+-      {media?.url ? (
+-        isVideo ? (
+-          <video
+-            ref={videoRef}
+-            src={cldVideo(media.url, { w: 720 })}
+-            poster={cldVideoPoster(media.url, { w: 480 })}
+-            className={`absolute inset-0 w-full h-full ${isFullscreen ? 'object-contain' : 'object-cover'}`}
+-            loop
+-            playsInline
+-            preload="metadata"
+-            onClick={togglePlay}
+-          />
+-        ) : (
+-          <img
+-            src={cldImage(media.url, { w: 720 })}
+-            alt=""
+-            className="absolute inset-0 w-full h-full object-cover"
+-          />
+-        )
+-      ) : (
+-        <div className="absolute inset-0 flex items-center justify-center text-white/30 text-[13px] font-medium">
+-          No media
+-        </div>
+-      )}
++  // Top the sequence up well before the end: append a freshly shuffled lap
++  // whenever fewer than PRELOAD posts remain beyond the last visible one. It is
++  // pure client-side work on ids, so there is never a loading state. A single
++  // post is never repeated.
++  useEffect(() => {
++    if (loading || seq.length === 0 || filteredIds.length < 2) return
++    if (seq.length >= vis.last + 1 + PRELOAD) return
++    const ids = filteredRef.current
++    const lastId = seq[seq.length - 1]?.id
++    const previousLap = seq.slice(-ids.length).map((it) => it.id)
++    const order = nextLap(ids, lastId, previousLap)
++    const n = cycleRef.current++
++    setSeq([...seq, ...order.map((id) => ({ key: `${id}~${n}`, id }))])
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [seq, vis.last, loading, idsSig])
++
++  // ── windowing maths ───────────────────────────────────────────────────
++  const measure = useCallback(() => {
++    const list = listRef.current
++    const first = list?.querySelector('[data-post-key]')
++    if (!first) return
++    const gap = parseFloat(getComputedStyle(first).marginBottom) || 0
++    const next = Math.round((first.offsetHeight + gap) * 100) / 100
++    if (!next || next === stepRef.current) return
++    const old = stepRef.current
++    if (old) {
++      // Post height changed (window resized / device rotated): remember which
++      // point of the sequence is at the top so the same content stays there.
++      const regionTop = headerRef.current?.getBoundingClientRect().bottom ?? 0
++      anchorRef.current = (regionTop - list.getBoundingClientRect().top) / old
++    }
++    stepRef.current = next
++    setStep(next)
++  }, [])
+ 
+-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
++  const computeVis = useCallback(() => {
++    const list = listRef.current
++    const s = stepRef.current
++    if (!list || !s) return
++    const top = list.getBoundingClientRect().top
++    const regionTop = headerRef.current ? headerRef.current.getBoundingClientRect().bottom : 0
++    const max = Math.max(0, seqRef.current.length - 1)
++    const first = Math.min(max, Math.max(0, Math.floor((regionTop - top) / s)))
++    const last = Math.min(max, Math.max(first, Math.floor((window.innerHeight - top) / s)))
++    setVis((prev) => (prev.first === first && prev.last === last ? prev : { first, last }))
++  }, [])
+ 
+-      {hat.isHost && (
+-        <span className="absolute top-3 left-3 z-10 bg-[#FFBD2E] text-black text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full border-[1.5px] border-black shadow">
+-          Showroom Host
+-        </span>
+-      )}
++  useLayoutEffect(() => {
++    measure()
++  })
+ 
+-      <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
+-        <AvailabilityBadge available={hat.availability} />
+-        {isVideo && (
+-          <div className="flex items-center gap-1.5">
+-            <button
+-              type="button"
+-              onClick={() => onSetMuted(!muted)}
+-              aria-label={muted ? 'Unmute video' : 'Mute video'}
+-              className="w-7 h-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center border border-white/20"
+-            >
+-              {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+-            </button>
+-            <button
+-              type="button"
+-              onClick={handleFullscreen}
+-              aria-label="Fullscreen"
+-              className="w-7 h-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center border border-white/20"
+-            >
+-              <Maximize2 size={12} />
+-            </button>
+-            <button
+-              type="button"
+-              onClick={() => onExpand?.(hat.id)}
+-              aria-label="Open with more videos"
+-              title="Open with more videos"
+-              className="w-7 h-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center border border-white/20"
+-            >
+-              <LayoutGrid size={12} />
+-            </button>
+-          </div>
+-        )}
+-      </div>
++  useLayoutEffect(() => {
++    const anchor = anchorRef.current
++    if (anchor != null && step) {
++      anchorRef.current = null
++      const regionTop = headerRef.current?.getBoundingClientRect().bottom ?? 0
++      const current = regionTop - listRef.current.getBoundingClientRect().top
++      getScroller().scrollBy(0, anchor * step - current)
++    }
++    computeVis()
++  }, [step, seq.length, computeVis])
+ 
+-      <div className="relative z-10 w-full p-4 sm:p-5 text-white">
+-        {isVideo && (
+-          <div className="flex items-center gap-2 mb-3">
+-            <button
+-              type="button"
+-              onClick={togglePlay}
+-              aria-label={playing ? 'Pause video' : 'Play video'}
+-              className="w-7 h-7 shrink-0 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center border border-white/20"
+-            >
+-              {playing ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
+-            </button>
+-            <div
+-              ref={progressRef}
+-              onClick={handleSeek}
+-              role="slider"
+-              tabIndex={0}
+-              aria-label="Seek video"
+-              aria-valuemin={0}
+-              aria-valuemax={Math.round(duration) || 0}
+-              aria-valuenow={Math.round(currentTime) || 0}
+-              className="flex-1 h-1.5 rounded-full bg-white/25 cursor-pointer relative"
+-            >
+-              <div
+-                className="absolute inset-y-0 left-0 rounded-full bg-white"
+-                style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+-              />
+-            </div>
+-            <span className="text-[10px] font-medium text-white/80 tabular-nums shrink-0">
+-              {formatTime(currentTime)} / {formatTime(duration)}
+-            </span>
+-          </div>
+-        )}
++  useEffect(() => {
++    let raf = 0
++    const onScroll = () => {
++      if (raf) return
++      raf = requestAnimationFrame(() => {
++        raf = 0
++        computeVis()
++      })
++    }
++    const onResize = () => {
++      measure()
++      onScroll()
++    }
++    // Capture, because <body> (not window) is what scrolls and scroll events
++    // don't bubble.
++    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
++    window.addEventListener('resize', onResize)
++    window.addEventListener('orientationchange', onResize)
++    return () => {
++      if (raf) cancelAnimationFrame(raf)
++      window.removeEventListener('scroll', onScroll, { capture: true })
++      window.removeEventListener('resize', onResize)
++      window.removeEventListener('orientationchange', onResize)
++    }
++  }, [computeVis, measure])
++
++  const start = Math.max(0, vis.first - BUFFER)
++  const end = Math.min(seq.length, vis.last + BUFFER + 1)
++
++  // ── which post is "active" (the only one allowed to play) ───────────────
++  // A zero-height band across the middle of the viewport: whichever post it
++  // crosses is the one being looked at. Independent of header/nav heights.
++  const observePost = useCallback((el) => {
++    if (typeof IntersectionObserver === 'undefined') return undefined
++    let io = ioRef.current
++    if (!io) {
++      io = new IntersectionObserver(
++        (entries) => {
++          for (const entry of entries) {
++            const key = entry.target.dataset.postKey
++            if (!key) continue
++            if (entry.isIntersecting) intersectingRef.current.add(key)
++            else intersectingRef.current.delete(key)
++          }
++          // Nothing under the band (e.g. the 16px gap between two posts, or a
++          // fast jump before the next post has mounted) means nothing plays.
++          const keys = [...intersectingRef.current]
++          setActiveKey(keys.length ? keys[keys.length - 1] : null)
++        },
++        { rootMargin: '-50% 0px -50% 0px' },
++      )
++      ioRef.current = io
++    }
++    io.observe(el)
++    const key = el.dataset.postKey
++    return () => {
++      io.unobserve(el)
++      intersectingRef.current.delete(key)
++    }
++  }, [])
+ 
+-        <p className="font-bold text-[16px] leading-tight flex items-center gap-1">
+-          {hat.username}
+-          {hat.is_verified && <span className="text-[#7C9CFF]">✓</span>}
+-        </p>
+-        {(media?.caption || hat.motto) && (
+-          <p className="text-[13px] text-white/85 italic leading-snug mt-1 line-clamp-2">
+-            "{media?.caption || hat.motto}"
+-          </p>
+-        )}
+-        {hat.lga && (
+-          <p className="text-[11px] text-white/70 font-medium mt-1.5 flex items-center gap-1">
+-            <MapPin size={11} /> {[hat.lga, hat.country].filter(Boolean).join(', ')}
+-          </p>
+-        )}
+-        <div className="flex items-center gap-3 mt-3">
+-          <Link
+-            to={`/talent/${hat.id}`}
+-            className="h-9 px-5 shrink-0 rounded-full bg-[#0A13E6] text-white text-[13px] font-semibold border-[1.5px] border-white/20 flex items-center justify-center"
+-          >
+-            Book
+-          </Link>
+-          <button
+-            type="button"
+-            onClick={handleLike}
+-            className="flex items-center gap-1 text-[12px] font-medium"
+-            aria-pressed={liked}
+-          >
+-            <Heart size={16} className={liked ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} /> {likeCount}
+-          </button>
+-          <span className="flex items-center gap-1 text-[12px] font-medium text-white/70">
+-            <Eye size={14} /> {viewCount}
+-          </span>
+-        </div>
+-      </div>
+-    </div>
++  useEffect(
++    () => () => {
++      ioRef.current?.disconnect()
++      ioRef.current = null
++    },
++    [],
+   )
+-}
+-
+-export default function Showroom() {
+-  const [hats, setHats] = useState([])
+-  const [search, setSearch] = useState('')
+-  const [availableOnly, setAvailableOnly] = useState(false)
+-  const [loading, setLoading] = useState(true)
+-  const [showAdd, setShowAdd] = useState(false)
+-  const [activeIndex, setActiveIndex] = useState(0)
+-  // Id of the hat currently open in the YouTube-style popup (ShowroomVideoModal),
+-  // or null when the popup is closed. Kept separate from `activeIndex` — the
+-  // popup can flip through several hats via its own "more videos" rail
+-  // without touching which reel slide is snapped into view underneath.
+-  const [expandedId, setExpandedId] = useState(null)
+-  // Shared mute preference across all slides — defaults to unmuted so
+-  // videos play with their original audio; the ReelSlide autoplay effect
+-  // falls back to muted (and flips this) only if the browser blocks
+-  // autoplay with sound.
+-  const [muted, setMuted] = useState(false)
+-  const containerRef = useRef(null)
+-  const headerRef = useRef(null)
+-  const [headerOffset, setHeaderOffset] = useState(0)
+-  // Height of Showroom's own fixed filter bar — measured at runtime so a
+-  // spacer of the same height can reserve its space in normal flow
+-  // (the bar itself is `position: fixed` and so takes up no flow space).
+-  const [filterBarHeight, setFilterBarHeight] = useState(0)
+-
+-  // Patches a single hat in place — used so a like/view recorded inside
+-  // ShowroomVideoModal (see its `onHatChange`) is reflected the moment the
+-  // popup closes, without refetching. Same pattern as Feed.jsx's
+-  // handleHatChange for BentoCardDetailModal.
+-  function handleHatChange(patch) {
+-    setHats((prev) => prev.map((h) => (h.id === patch.id ? { ...h, ...patch } : h)))
+-  }
+ 
+-  // Closing the popup snaps the reel behind it to whichever hat was last
+-  // shown there — so if the popup's own "more videos" rail was used to
+-  // browse elsewhere, the reel picks up where the popup left off instead
+-  // of silently staying on whatever slide was active before it opened.
+-  function closeExpanded() {
+-    const id = expandedId
+-    setExpandedId(null)
+-    if (!id) return
+-    const idx = filtered.findIndex((h) => h.id === id)
+-    if (idx === -1) return
+-    setActiveIndex(idx)
+-    containerRef.current
+-      ?.querySelector(`[data-hat-id="${id}"]`)
+-      ?.scrollIntoView({ block: 'start' })
+-  }
+-
+-  async function loadShowroom() {
+-    try {
+-      const data = await api.getShowroom()
+-      setHats(data.hats || [])
+-    } catch (e) {
+-      console.error(e)
+-    } finally {
+-      setLoading(false)
+-    }
+-  }
++  useEffect(() => {
++    const onVis = () => setPageVisible(!document.hidden)
++    document.addEventListener('visibilitychange', onVis)
++    return () => document.removeEventListener('visibilitychange', onVis)
++  }, [])
+ 
+-  // Guarded separately from loadShowroom() above: React.StrictMode (see
+-  // main.jsx) double-invokes mount effects in dev, firing two overlapping
+-  // requests. Without this guard, whichever one resolves last wins — even
+-  // if it's the stale one — which is what caused the showroom to flash
+-  // in with data then go blank. `cancelled` ensures only the response
+-  // belonging to the current mount is ever applied.
++  // One view per hat per visit for the feed (video posts, as before).
+   useEffect(() => {
+-    let cancelled = false
+-    ;(async () => {
++    if (!activeKey || modalOpen) return
++    const id = keyToId(activeKey)
++    const hat = hatMapRef.current[id]
++    if (!hat || hat.media?.[0]?.type !== 'video' || feedViewedRef.current.has(id)) return
++    feedViewedRef.current.add(id)
++    patchHat(id, { views: (hat.views || 0) + 1 })
++    api.recordView(id).catch(() => {})
++  }, [activeKey, modalOpen, patchHat])
++
++  // ── engagement ────────────────────────────────────────────────────────
++  const toggleLike = useCallback(
++    async (id) => {
++      const hat = hatMapRef.current[id]
++      if (!hat || likingRef.current.has(id)) return
++      likingRef.current.add(id)
++      const next = !hat.liked_by_me
++      const prevLikes = hat.likes || 0
++      patchHat(id, { liked_by_me: next, likes: Math.max(0, prevLikes + (next ? 1 : -1)) })
+       try {
+-        const data = await api.getShowroom()
+-        if (!cancelled) setHats(data.hats || [])
+-      } catch (e) {
+-        if (!cancelled) console.error(e)
++        await api.toggleLike(id)
++      } catch {
++        patchHat(id, { liked_by_me: !next, likes: prevLikes })
+       } finally {
+-        if (!cancelled) setLoading(false)
++        likingRef.current.delete(id)
+       }
+-    })()
+-    return () => {
+-      cancelled = true
+-    }
++    },
++    [patchHat],
++  )
++
++  const notify = useCallback((message) => {
++    setToast(message)
++    clearTimeout(toastTimer.current)
++    toastTimer.current = setTimeout(() => setToast(''), 2400)
+   }, [])
++  useEffect(() => () => clearTimeout(toastTimer.current), [])
++
++  // Feed and modal both come through here → the same canonical URL.
++  const handleShare = useCallback(
++    async (hat) => {
++      const result = await shareShowroomPost({ id: hat.id, username: hat.username })
++      if (result === 'copied') notify('Link copied')
++      else if (result === 'failed') notify("Couldn't copy the link")
++    },
++    [notify],
++  )
+ 
+-  // Keep the fixed filter bar pinned just below the app's own sticky
+-  // header instead of overlapping it — measured at runtime so it stays
+-  // correct across breakpoints without hardcoding pixel values.
++  // ── the detail modal (driven by the URL) ──────────────────────────────
++  const openDetail = useCallback(
++    (id) => {
++      const target = showroomPath(id)
++      if (window.location.pathname === target) return // rapid double click
++      closingRef.current = false
++      navigate(target, { state: { fromShowroom: true } })
++    },
++    [navigate],
++  )
++
++  // Closing pops the entry View pushed (so history stays tidy and the feed is
++  // exactly where it was). A link opened cold has nothing to pop → go to the
++  // plain Showroom instead of leaving the app.
++  const closeDetail = useCallback(() => {
++    if (closingRef.current) return
++    closingRef.current = true
++    if (fromShowroomRef.current) navigate(-1)
++    else navigate('/showroom', { replace: true })
++  }, [navigate])
+   useEffect(() => {
+-    const measure = () => {
+-      const appHeader = document.querySelector('header')
+-      setHeaderOffset(appHeader ? appHeader.getBoundingClientRect().height : 0)
+-    }
+-    measure()
+-    window.addEventListener('resize', measure)
+-    return () => window.removeEventListener('resize', measure)
+-  }, [])
++    if (!postId) closingRef.current = false
++  }, [postId])
++
++  // Picking a related post swaps the SAME modal: replace, don't push, so one
++  // Back/close still returns to the feed.
++  const selectRelated = useCallback(
++    (id) => {
++      navigate(showroomPath(id), { replace: true, state: { fromShowroom: fromShowroomRef.current } })
++    },
++    [navigate],
++  )
+ 
+-  // Measure the filter bar's own height so the spacer below it can reserve
+-  // exactly that much room. Uses ResizeObserver (in addition to a resize
+-  // listener) so it stays correct if the row wraps to two lines on very
+-  // narrow screens or the search field grows/shrinks at a breakpoint.
++  // A shared link may point at a post that isn't in the loaded list.
+   useEffect(() => {
+-    const el = headerRef.current
+-    if (!el) return
+-    const measure = () => setFilterBarHeight(el.getBoundingClientRect().height)
+-    measure()
+-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+-    ro?.observe(el)
+-    window.addEventListener('resize', measure)
++    if (!postId || loading) return undefined
++    if (hatMapRef.current[postId]) return undefined
++    if (!UUID_RE.test(postId)) {
++      setPostState({ id: postId, state: 'unavailable' })
++      return undefined
++    }
++    let cancelled = false
++    setPostState({ id: postId, state: 'loading' })
++    api
++      .getHat(postId)
++      .then(({ hat }) => {
++        if (cancelled) return
++        // Only live talent hats belong in the Showroom.
++        if (!hat || hat.active === false || hat.role !== 'talent') {
++          setPostState({ id: postId, state: 'unavailable' })
++          return
++        }
++        setHatMap((prev) => ({ ...prev, [hat.id]: hat }))
++        setPostState({ id: postId, state: 'ready' })
++      })
++      .catch((err) => {
++        if (!cancelled) setPostState({ id: postId, state: err?.status === 404 ? 'unavailable' : 'error' })
++      })
+     return () => {
+-      ro?.disconnect()
+-      window.removeEventListener('resize', measure)
++      cancelled = true
+     }
+-  }, [headerOffset])
++  }, [postId, loading, retryTick])
+ 
+-  const filtered = hats.filter((h) => {
+-    if (availableOnly && !h.availability) return false
+-    if (search) {
+-      const q = search.toLowerCase()
+-      const match =
+-        (h.username || '').toLowerCase().includes(q) ||
+-        (h.hat_title || '').toLowerCase().includes(q) ||
+-        (h.skills || []).some((s) => s.toLowerCase().includes(q))
+-      if (!match) return false
+-    }
+-    return true
+-  })
++  const activeHat = postId ? hatMap[postId] || null : null
++  const activeHatId = activeHat?.id
++  let modalStatus = 'loading'
++  if (activeHat) modalStatus = 'ready'
++  else if (!loading && postState.id === postId && postState.state !== 'ready') modalStatus = postState.state
+ 
+-  // Filters/search reshuffle which slide is "first" — snap back to it.
++  // One view per post per time the modal is open.
+   useEffect(() => {
+-    setActiveIndex(0)
+-    containerRef.current?.scrollTo({ top: 0 })
+-  }, [search, availableOnly])
++    if (!postId) {
++      modalViewedRef.current.clear()
++      return
++    }
++    const hat = hatMapRef.current[postId]
++    if (!hat || modalViewedRef.current.has(postId)) return
++    modalViewedRef.current.add(postId)
++    patchHat(postId, { views: (hat.views || 0) + 1 })
++    api.recordView(postId).catch(() => {})
++  }, [postId, activeHatId, patchHat])
++
++  // "Related": what the feed would show next after this post, minus this post.
++  const related = useMemo(() => {
++    if (!postId) return []
++    const ids = filteredRef.current
++    const i = ids.indexOf(postId)
++    const rotated = i === -1 ? ids : [...ids.slice(i + 1), ...ids.slice(0, i)]
++    return rotated.filter((id) => id !== postId).map((id) => hatMap[id]).filter(Boolean)
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [postId, idsSig, hatMap])
+ 
+-  // One observer watching every slide at once decides which single index
+-  // is "active" (i.e. snapped fully into view) — that's what drives which
+-  // video plays and which slide counts as viewed.
+-  useEffect(() => {
+-    const container = containerRef.current
+-    if (!container) return
+-    const slides = Array.from(container.querySelectorAll('[data-hat-id]'))
+-    if (!slides.length) return
+-
+-    const observer = new IntersectionObserver(
+-      (entries) => {
+-        const visible = entries.filter((e) => e.isIntersecting)
+-        if (!visible.length) return
+-        const top = visible.reduce((a, b) => (b.intersectionRatio > a.intersectionRatio ? b : a))
+-        const idx = slides.indexOf(top.target)
+-        if (idx !== -1) setActiveIndex(idx)
+-      },
+-      { root: container, threshold: [0.6] },
++  // ── render ────────────────────────────────────────────────────────────
++  const items = seq.slice(start, end)
++  const singlePost = filteredIds.length === 1
++
++  let body
++  if (loading) {
++    body = (
++      <div className="sr-post mt-2 -mx-4 md:mx-0 flex items-center justify-center bg-white border-y md:border border-black/15 md:rounded-[20px] animate-pulse">
++        <p className="text-black/40 text-[13px] font-medium">Loading showroom…</p>
++      </div>
++    )
++  } else if (loadError && listIds.length === 0) {
++    body = (
++      <div className="py-16 text-center space-y-3">
++        <p className="text-black/50 text-[13px] font-medium">{loadError}</p>
++        <button
++          type="button"
++          onClick={() => {
++            setLoadError('')
++            setLoading(true)
++            setReloadTick((t) => t + 1)
++          }}
++          className="tw-btn-ghost h-10 px-5 text-[13px] inline-flex items-center justify-center"
++        >
++          Try again
++        </button>
++      </div>
++    )
++  } else if (listIds.length === 0) {
++    body = (
++      <p className="text-black/45 py-16 text-center text-[13px] font-medium">
++        Nothing in the Showroom yet.{canAdd ? ' Tap + to add the first post.' : ''}
++      </p>
++    )
++  } else if (filteredIds.length === 0) {
++    body = <p className="text-black/45 py-16 text-center text-[13px] font-medium">No talents match your search.</p>
++  } else {
++    body = (
++      <>
++        <section
++          ref={listRef}
++          aria-label="Showroom posts"
++          className="mt-2 -mx-4 md:mx-0"
++          style={{
++            paddingTop: start * step,
++            paddingBottom: Math.max(0, seq.length - end) * step,
++            overflowAnchor: 'none',
++          }}
++        >
++          {items.map((it) => {
++            const hat = hatMap[it.id]
++            if (!hat) return null
++            return (
++              <ShowroomPost
++                key={it.key}
++                postKey={it.key}
++                hat={hat}
++                playing={it.key === activeKey && !modalOpen && pageVisible}
++                muted={muted}
++                onMutedChange={setMuted}
++                onLike={toggleLike}
++                onShare={handleShare}
++                onView={openDetail}
++                observe={observePost}
++              />
++            )
++          })}
++        </section>
++        {singlePost && (
++          <p className="text-black/40 text-[12px] font-medium text-center py-6">You’re all caught up.</p>
++        )}
++      </>
+     )
+-    slides.forEach((s) => observer.observe(s))
+-    return () => observer.disconnect()
+-  }, [hats, search, availableOnly])
++  }
+ 
+   return (
+-    <div className="space-y-5 relative">
++    <div className="relative -mt-5 md:-mt-7" style={{ minHeight: 'calc(var(--app-vh) - var(--sr-app-top))' }}>
+       <div
+         ref={headerRef}
+-        style={{ top: headerOffset }}
+-        className="sticky z-30 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-[#F7F3EB]/95 backdrop-blur-md flex flex-col sm:flex-row sm:items-center gap-3 justify-between"
++        style={{ top: 'var(--sr-app-top)', height: 'var(--sr-header-h)' }}
++        className="sticky z-30 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 bg-[#F7F3EB]/95 backdrop-blur-md border-b border-black/10 flex items-center gap-3"
+       >
+-        <div>
+-          <h1 className="text-[22px] font-bold tracking-tight">Showroom</h1>
+-          <p className="text-[12px] text-black/50 font-medium mt-0.5">
+-            Curated top talents · sorted by bookings + orbit score + likes
+-          </p>
+-        </div>
+-        <div className="flex items-center gap-2">
+-          <div className="relative flex-1 sm:w-64">
+-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40" />
+-            <input
+-              type="search"
+-              placeholder="Search name / skill…"
+-              value={search}
+-              onChange={(e) => setSearch(e.target.value)}
+-              className="w-full pl-9 pr-3 h-10 rounded-full border-[1.5px] border-black bg-white text-[13px] font-medium outline-none focus:ring-4 focus:ring-black/[0.04]"
+-            />
+-          </div>
+-          <label className="flex items-center gap-1.5 text-[12px] font-semibold whitespace-nowrap cursor-pointer select-none">
+-            <input
+-              type="checkbox"
+-              checked={availableOnly}
+-              onChange={(e) => setAvailableOnly(e.target.checked)}
+-              className="rounded border-black"
+-            />
+-            Available only
+-          </label>
++        <h1 className="text-[20px] font-bold tracking-tight shrink-0">Showroom</h1>
++        <div className="relative flex-1 min-w-0 md:flex-none md:w-[320px] ml-auto">
++          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" />
++          <input
++            type="search"
++            aria-label="Search Showroom"
++            placeholder="Search Showroom…"
++            value={search}
++            onChange={(e) => setSearch(e.target.value)}
++            className="w-full pl-9 pr-3 h-10 rounded-full border-[1.5px] border-black bg-white text-[13px] font-medium outline-none focus:ring-4 focus:ring-black/[0.04]"
++          />
+         </div>
+       </div>
+ 
+-      {loading ? (
+-        <p className="text-black/40 py-16 text-center text-[13px] font-medium">Loading showroom…</p>
+-      ) : filtered.length === 0 ? (
+-        <p className="text-black/40 py-16 text-center text-[13px] font-medium">No talents match your filters.</p>
+-      ) : (
+-        <div className="reel-container" ref={containerRef}>
+-          {filtered.map((h, i) => (
+-            <ReelSlide
+-              key={h.id}
+-              hat={h}
+-              active={i === activeIndex && !expandedId}
+-              muted={muted}
+-              onSetMuted={setMuted}
+-              onExpand={setExpandedId}
+-            />
+-          ))}
++      {body}
++
++      {/* Showroom-level "+": lives outside every post, sticks to the bottom
++          corner of the content area while scrolling (clear of the sidebar and
++          of the mobile bottom nav / safe area), and is not rendered at all
++          for Client accounts. */}
++      {canAdd && (
++        <div
++          className="sticky z-40 h-0 flex justify-end pointer-events-none"
++          style={{ bottom: 'var(--sr-fab-bottom)' }}
++        >
++          <button
++            type="button"
++            onClick={() => setShowAdd(true)}
++            aria-label="Add to Showroom"
++            title="Add to Showroom"
++            className="pointer-events-auto -translate-y-full w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#0A13E6] text-white flex items-center justify-center border-[1.5px] border-black shadow-[0_10px_30px_rgba(10,19,230,0.35)] hover:bg-black transition active:scale-95"
++          >
++            <Plus size={22} aria-hidden="true" />
++          </button>
+         </div>
+       )}
+ 
+-      {/* Fixed circular "Add Spotlight" action — stays reachable while
+-          scrolling, tucked above the mobile bottom nav on small screens
+-          and pinned to the corner on desktop. */}
+-      <button
+-        type="button"
+-        onClick={() => setShowAdd(true)}
+-        aria-label="Add Spotlight"
+-        title="Add Spotlight"
+-        className="fixed z-40 bottom-28 right-4 md:bottom-8 md:right-8 w-14 h-14 rounded-full bg-[#0A13E6] text-white flex items-center justify-center border-[1.5px] border-black shadow-[0_10px_30px_rgba(10,19,230,0.35)] hover:bg-black transition active:scale-95"
+-      >
+-        <Plus size={22} />
+-      </button>
++      {canAdd && <AddShowroomMedia open={showAdd} onClose={() => setShowAdd(false)} onAdded={refreshShowroom} />}
+ 
+-      <AddShowroomMedia open={showAdd} onClose={() => setShowAdd(false)} onAdded={loadShowroom} />
++      <div
++        role="status"
++        aria-live="polite"
++        className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[70] bottom-[calc(76px+env(safe-area-inset-bottom,0px))] md:bottom-8"
++      >
++        {toast && (
++          <div className="rounded-full bg-black text-white text-[13px] font-semibold px-4 py-2.5 shadow-lg animate-slide-up whitespace-nowrap">
++            {toast}
++          </div>
++        )}
++      </div>
+ 
+-      {expandedId && (
+-        <ShowroomVideoModal
+-          hats={filtered}
+-          activeId={expandedId}
+-          onSelect={setExpandedId}
+-          onClose={closeExpanded}
++      {modalOpen && (
++        <ShowroomDetailModal
++          hat={activeHat}
++          status={modalStatus}
++          related={related}
+           muted={muted}
+-          onSetMuted={setMuted}
+-          onHatChange={handleHatChange}
++          onMutedChange={setMuted}
++          onClose={closeDetail}
++          onSelect={selectRelated}
++          onLike={toggleLike}
++          onShare={handleShare}
++          onRetry={() => setRetryTick((t) => t + 1)}
++          onNotify={notify}
+         />
+       )}
+     </div>
+   )
+-}
+\ No newline at end of file
++}
+diff --git a/src/components/ShowroomDetailModal.jsx b/src/components/ShowroomDetailModal.jsx
+new file mode 100644
+index 0000000..06a8a59
+--- /dev/null
++++ b/src/components/ShowroomDetailModal.jsx
+@@ -0,0 +1,329 @@
++import { useEffect, useRef, useState } from 'react'
++import { createPortal } from 'react-dom'
++import { Link, useNavigate } from 'react-router-dom'
++import { BookOpen, Eye, Heart, MapPin, Play, Share2, X } from 'lucide-react'
++import { api } from '../lib/api'
++import { cldImage, cldVideoPoster } from '../lib/cloudinary'
++import { useBackdropClose, useDialog, useScrollLock } from '../lib/dialog'
++import { useAuth } from '../context/AuthContext'
++import AvailabilityBadge from './AvailabilityBadge'
++import NegotiationNotice from './NegotiationNotice'
++import ShowroomMedia from './ShowroomMedia'
++import { Avatar, formatPrice, relativeTime } from './bentoCardShared'
++
++const iconBtn =
++  'inline-flex items-center justify-center gap-1.5 h-11 min-w-[44px] px-3 rounded-full text-[13px] font-semibold transition hover:bg-black/[0.06] active:scale-95'
++
++function timeAgo(value) {
++  const t = relativeTime(value)
++  return /^\d+[mhd]$/.test(t) ? `${t} ago` : t
++}
++
++function RelatedItem({ hat, onSelect }) {
++  const [broken, setBroken] = useState(false)
++  const media = hat.media?.[0]
++  const isVideo = media?.type === 'video' && !!media?.url
++  const thumb = media?.url
++    ? isVideo
++      ? cldVideoPoster(media.url, { w: 320, h: 180 })
++      : cldImage(media.url, { w: 320, h: 180 })
++    : null
++  const title = media?.caption || hat.motto || hat.hat_title || ''
++  return (
++    <li>
++      <button
++        type="button"
++        onClick={() => onSelect(hat.id)}
++        aria-label={`Open ${hat.username}'s post${title ? `: ${title}` : ''}`}
++        className="w-full flex gap-3 p-2 rounded-xl text-left transition hover:bg-black/[0.04] focus-visible:bg-black/[0.04]"
++      >
++        <div className="relative shrink-0 w-[132px] xl:w-[128px] aspect-video rounded-lg overflow-hidden bg-[#0b0b0b] border border-black/10">
++          {thumb && !broken ? (
++            <img
++              src={thumb}
++              alt=""
++              loading="lazy"
++              onError={() => setBroken(true)}
++              className="absolute inset-0 w-full h-full object-cover"
++            />
++          ) : (
++            <span className="absolute inset-0 flex items-center justify-center text-white/30 text-[10px] font-medium">
++              {media?.url ? 'Unavailable' : 'No media'}
++            </span>
++          )}
++          {isVideo && (
++            <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1.5 py-0.5" aria-hidden="true">
++              <Play size={9} className="text-white" fill="white" />
++            </span>
++          )}
++        </div>
++        <div className="min-w-0 flex-1 py-0.5">
++          {title && <p className="text-[13px] font-semibold leading-snug line-clamp-2 break-words">{title}</p>}
++          <p className="text-[12px] text-black/55 mt-0.5 truncate">@{hat.username}</p>
++          <p className="text-[11px] text-black/40 mt-0.5 flex items-center gap-1">
++            <Eye size={11} aria-hidden="true" /> {hat.views || 0}
++          </p>
++        </div>
++      </button>
++    </li>
++  )
++}
++
++// Overlay over the live Showroom. Everything about *which* post is showing
++// comes from the URL (/showroom/:postId), owned by Showroom — this component
++// just renders what it is handed, so browser Back, refresh, direct links and
++// related-post switching all behave the same way.
++export default function ShowroomDetailModal({
++  hat,
++  status, // 'loading' | 'ready' | 'unavailable' | 'error'
++  related,
++  muted,
++  onMutedChange,
++  onClose,
++  onSelect,
++  onLike,
++  onShare,
++  onRetry,
++  onNotify,
++}) {
++  const navigate = useNavigate()
++  const { user } = useAuth()
++  const panelRef = useRef(null)
++  const closeRef = useRef(null)
++  const bookRef = useRef(null)
++  const bodyRef = useRef(null)
++  const mainRef = useRef(null)
++  const [aspect, setAspect] = useState(null)
++  const [noticeOpen, setNoticeOpen] = useState(false)
++  const [checking, setChecking] = useState(false)
++  const checkingRef = useRef(false) // synchronous guard: state alone can't stop clicks in the same tick
++
++  useScrollLock()
++  useDialog(panelRef, { onClose, initialFocusRef: closeRef })
++  const backdrop = useBackdropClose(onClose)
++
++  // A newly selected post starts from the top of the modal, at its own shape.
++  const hatId = hat?.id
++  useEffect(() => {
++    setAspect(null)
++    setNoticeOpen(false)
++    bodyRef.current?.scrollTo?.(0, 0)
++    mainRef.current?.scrollTo?.(0, 0)
++  }, [hatId])
++
++  const media = hat?.media?.[0]
++  const caption = media?.caption || hat?.motto || ''
++  const location = hat ? [hat.lga, hat.country].filter(Boolean).join(', ') : ''
++  const isOwn = !!hat && !!user && hat.user_id === user.id
++  const profilePath = hat ? `/talent/${hat.id}` : null
++  const hasRelated = related.length > 0
++
++  // Book. The hat is re-read first: whether the price is negotiable comes from
++  // the hat's own `price_negotiable` field as it is *now* (never from displayed
++  // text, never from a possibly stale list). If that can't be confirmed we stop
++  // rather than risk sending a negotiable hat down the plain booking path.
++  async function handleBook() {
++    if (!hat || checkingRef.current || noticeOpen) return
++    checkingRef.current = true
++    setChecking(true)
++    try {
++      const { hat: fresh } = await api.getHat(hat.id)
++      if (!fresh || fresh.active === false || fresh.role !== 'talent') {
++        onNotify?.('This talent is no longer available to book.')
++        return
++      }
++      if (fresh.price_negotiable) setNoticeOpen(true)
++      else navigate(`/talent/${fresh.id}`)
++    } catch {
++      onNotify?.("Couldn't check this price. Please try again.")
++    } finally {
++      checkingRef.current = false
++      setChecking(false)
++    }
++  }
++
++  // Continue: nothing is created or charged here — the user simply proceeds
++  // to the same booking page the old Book button led to, where the existing
++  // booking / negotiation flow takes over.
++  function handleContinue() {
++    if (!hat) return
++    setNoticeOpen(false)
++    navigate(`/talent/${hat.id}`)
++  }
++
++  const labelId = 'sr-detail-title'
++
++  return createPortal(
++    <>
++      <div {...backdrop} className="sr-overlay">
++        <div
++          ref={panelRef}
++          role="dialog"
++          aria-modal="true"
++          aria-labelledby={labelId}
++          tabIndex={-1}
++          className="sr-panel animate-slide-up outline-none"
++        >
++          <header className="sr-head shrink-0 flex items-center gap-2 px-3 md:px-4 border-b border-black/10 bg-white">
++            {hat && profilePath ? (
++              <Link to={profilePath} className="flex items-center gap-2.5 min-w-0 min-h-[44px] flex-1 rounded-full">
++                <Avatar src={hat.owner_avatar} name={hat.username} className="w-10 h-10" />
++                <span className="min-w-0">
++                  <span id={labelId} className="block font-bold text-[14px] leading-tight truncate">
++                    @{hat.username}
++                    {hat.is_verified && <span className="text-[#0A13E6] ml-1">✓</span>}
++                  </span>
++                  <span className="block text-[11px] text-black/50 leading-tight truncate">
++                    {[timeAgo(hat.created_at), location].filter(Boolean).join(' · ')}
++                  </span>
++                </span>
++              </Link>
++            ) : (
++              <h2 id={labelId} className="flex-1 font-bold text-[15px]">
++                Showroom
++              </h2>
++            )}
++            {hat && (
++              <button type="button" onClick={() => onShare(hat)} aria-label={`Share post by ${hat.username}`} className={iconBtn}>
++                <Share2 size={17} aria-hidden="true" />
++                <span className="hidden sm:inline">Share</span>
++              </button>
++            )}
++            <button
++              ref={closeRef}
++              type="button"
++              onClick={onClose}
++              aria-label="Close"
++              className="w-11 h-11 shrink-0 rounded-full border-[1.5px] border-black bg-[#F5F3EF] flex items-center justify-center hover:bg-black hover:text-white transition"
++            >
++              <X size={18} aria-hidden="true" />
++            </button>
++          </header>
++
++          {status === 'ready' && hat ? (
++            <div ref={bodyRef} className={`sr-body ${hasRelated ? '' : 'sr-body--solo'}`}>
++              <div ref={mainRef} className="sr-main">
++                <div className="sr-stage" style={aspect ? { '--sr-aspect': aspect } : undefined}>
++                  <ShowroomMedia
++                    media={media}
++                    alt={caption || `${hat.username}'s Showroom post`}
++                    playing
++                    muted={muted}
++                    onMutedChange={onMutedChange}
++                    onDimensions={({ w, h }) => w && h && setAspect(w / h)}
++                    width={1600}
++                  />
++                </div>
++
++                <div className="sr-actions flex items-center gap-0.5 px-2 md:px-3 border-b border-black/10">
++                  <button
++                    type="button"
++                    onClick={() => onLike(hat.id)}
++                    aria-pressed={!!hat.liked_by_me}
++                    aria-label={`${hat.liked_by_me ? 'Unlike' : 'Like'}${hat.likes ? `, ${hat.likes} likes` : ''}`}
++                    className={iconBtn}
++                  >
++                    <Heart size={18} className={hat.liked_by_me ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} aria-hidden="true" />
++                    <span>{hat.likes > 0 ? hat.likes : 'Like'}</span>
++                  </button>
++                  <button type="button" onClick={() => onShare(hat)} aria-label={`Share post by ${hat.username}`} className={iconBtn}>
++                    <Share2 size={17} aria-hidden="true" />
++                    <span>Share</span>
++                  </button>
++                  {!isOwn && (
++                    <button
++                      ref={bookRef}
++                      type="button"
++                      onClick={handleBook}
++                      aria-disabled={checking}
++                      className={`ml-auto h-11 px-5 rounded-full bg-[#0A13E6] text-white text-[13px] font-semibold border-[1.5px] border-black inline-flex items-center gap-2 transition hover:bg-black active:scale-95 ${checking ? 'opacity-60' : ''}`}
++                    >
++                      <BookOpen size={15} aria-hidden="true" />
++                      {checking ? 'Checking…' : 'Book'}
++                    </button>
++                  )}
++                </div>
++
++                <div className="p-4 md:p-5 space-y-3">
++                  {caption && <p className="text-[14px] leading-relaxed text-black/85 whitespace-pre-line break-words">{caption}</p>}
++                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[12px] text-black/60">
++                    {hat.hat_title && <span className="font-semibold text-black/80">{hat.hat_title}</span>}
++                    <span className="font-semibold text-black/80">{formatPrice(hat, hat.currency || 'NGN')}</span>
++                    <AvailabilityBadge
++                      available={hat.availability}
++                      className={hat.availability ? '' : '!bg-transparent !text-black/55 !border-black/25'}
++                    />
++                    <span className="inline-flex items-center gap-1">
++                      <Eye size={13} aria-hidden="true" /> {hat.views || 0} views
++                    </span>
++                    {location && (
++                      <span className="inline-flex items-center gap-1">
++                        <MapPin size={12} aria-hidden="true" /> {location}
++                      </span>
++                    )}
++                  </div>
++                  {(hat.category || hat.skills?.length > 0) && (
++                    <div className="flex flex-wrap gap-1.5">
++                      {[hat.category, ...(hat.skills || [])].filter(Boolean).slice(0, 8).map((t) => (
++                        <span key={t} className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#F5F3EF] border border-black/10 text-black/65">
++                          {t}
++                        </span>
++                      ))}
++                    </div>
++                  )}
++                </div>
++              </div>
++
++              {hasRelated && (
++                <aside className="sr-rail" aria-label="Related Showroom">
++                  <p className="tw-label px-4 pt-4 pb-2">Related Showroom</p>
++                  <ul className="px-2 pb-4 space-y-0.5">
++                    {related.map((h) => (
++                      <RelatedItem key={h.id} hat={h} onSelect={onSelect} />
++                    ))}
++                  </ul>
++                </aside>
++              )}
++            </div>
++          ) : (
++            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
++              {status === 'loading' && <p className="text-black/45 text-[13px] font-medium">Loading post…</p>}
++              {status === 'unavailable' && (
++                <>
++                  <p className="font-bold text-[16px]">This post isn’t available</p>
++                  <p className="text-black/55 text-[13px] max-w-xs">It may have been removed, or the link may be wrong.</p>
++                  <button type="button" onClick={onClose} className="tw-btn-primary h-11 px-6 text-[13px]">
++                    Back to Showroom
++                  </button>
++                </>
++              )}
++              {status === 'error' && (
++                <>
++                  <p className="font-bold text-[16px]">Couldn’t load this post</p>
++                  <p className="text-black/55 text-[13px]">Check your connection and try again.</p>
++                  <div className="flex gap-2">
++                    <button type="button" onClick={onRetry} className="tw-btn-primary h-11 px-6 text-[13px]">
++                      Try again
++                    </button>
++                    <button type="button" onClick={onClose} className="tw-btn-ghost h-11 px-6 text-[13px]">
++                      Close
++                    </button>
++                  </div>
++                </>
++              )}
++            </div>
++          )}
++        </div>
++      </div>
++
++      {noticeOpen && (
++        <NegotiationNotice
++          onCancel={() => setNoticeOpen(false)}
++          onContinue={handleContinue}
++          returnFocusRef={bookRef}
++        />
++      )}
++    </>,
++    document.body,
++  )
++}
+diff --git a/src/components/ShowroomMedia.jsx b/src/components/ShowroomMedia.jsx
+new file mode 100644
+index 0000000..aa5ca13
+--- /dev/null
++++ b/src/components/ShowroomMedia.jsx
+@@ -0,0 +1,170 @@
++import { useEffect, useRef, useState } from 'react'
++import { ImageOff, Music } from 'lucide-react'
++import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
++
++// One media item, letterboxed (`object-contain`) inside whatever box the
++// parent gives it — never cropped, never stretched. Videos keep their NATIVE
++// controls (play/pause, seek, volume, fullscreen); the app only decides
++// *when* a video should be playing via `playing`, and mirrors the mute
++// preference across posts.
++//
++// Keyed on the media URL so a different item always starts from a clean
++// loading state (and a clean <video>) rather than inheriting the last one's.
++export default function ShowroomMedia(props) {
++  return <MediaInner key={props.media?.url || 'none'} {...props} />
++}
++
++function MediaInner({
++  media,
++  alt = '',
++  playing = false,
++  muted = false,
++  onMutedChange,
++  onOpen,
++  onDimensions,
++  width = 1080,
++}) {
++  const url = media?.url
++  const isVideo = media?.type === 'video' && !!url
++  const isAudio = media?.type === 'audio' && !!url
++  const isImage = !!url && !isVideo && !isAudio
++
++  const elRef = useRef(null)
++  const [status, setStatus] = useState(url ? 'loading' : 'empty') // loading | ready | error | empty
++
++  // Latest values for effects/handlers that must not re-run on every change.
++  const mutedRef = useRef(muted)
++  mutedRef.current = muted
++  const onMutedChangeRef = useRef(onMutedChange)
++  onMutedChangeRef.current = onMutedChange
++
++  // Start / stop playback as `playing` flips. Autoplay honours the shared mute
++  // preference (default: sound on); if the browser refuses autoplay-with-sound
++  // we fall back to muted playback and flip the shared preference so every
++  // other post agrees — never stuck silent, never forcing `muted` in markup.
++  useEffect(() => {
++    const el = elRef.current
++    if (!el) return
++    if (!playing) {
++      el.pause()
++      return
++    }
++    if (!isVideo) return // audio is never auto-played
++    el.muted = mutedRef.current
++    const p = el.play()
++    p?.catch?.((err) => {
++      if (err?.name === 'AbortError') return // interrupted by a pause()/reload, not a block
++      if (!el.muted) {
++        el.muted = true
++        onMutedChangeRef.current?.(true)
++        el.play().catch(() => {})
++      }
++    })
++  }, [playing, isVideo])
++
++  // Mute preference changed elsewhere (e.g. on another post).
++  useEffect(() => {
++    const el = elRef.current
++    if (el && el.muted !== muted) el.muted = muted
++  }, [muted])
++
++  // Release the network connection and decoder when this item goes away
++  // (scrolled far off, modal closed, another related post picked).
++  // The pause is immediate (a detached <video> would otherwise keep playing
++  // audio); the source is only dropped once the element is really gone. In
++  // dev, React.StrictMode runs this cleanup against a still-mounted element
++  // and re-runs the effect straight after — dropping the source then would
++  // leave a live player blank.
++  useEffect(() => {
++    const el = elRef.current
++    return () => {
++      if (!el || !(isVideo || isAudio)) return
++      el.pause()
++      setTimeout(() => {
++        if (el.isConnected) return
++        el.removeAttribute('src')
++        el.load()
++      }, 0)
++    }
++  }, [isVideo, isAudio])
++
++  const handleVolumeChange = (e) => {
++    const m = e.currentTarget.muted
++    if (m !== mutedRef.current) onMutedChangeRef.current?.(m)
++  }
++
++  return (
++    <div className="absolute inset-0 bg-[#0b0b0b] overflow-hidden">
++      {status === 'loading' && <div className="absolute inset-0 animate-pulse bg-white/[0.06]" aria-hidden="true" />}
++
++      {isVideo && (
++        <video
++          ref={elRef}
++          src={cldVideo(url, { w: width })}
++          poster={cldVideoPoster(url, { w: width, crop: 'limit' })}
++          aria-label={alt || 'Video'}
++          className="absolute inset-0 w-full h-full object-contain"
++          controls
++          loop
++          playsInline
++          preload="metadata"
++          onLoadedMetadata={(e) => {
++            setStatus('ready')
++            onDimensions?.({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })
++          }}
++          onError={() => setStatus('error')}
++          onVolumeChange={handleVolumeChange}
++        />
++      )}
++
++      {isImage && (
++        <img
++          src={cldImage(url, { w: width, crop: 'limit' })}
++          alt={alt}
++          decoding="async"
++          draggable={false}
++          onClick={onOpen}
++          className={`absolute inset-0 w-full h-full object-contain ${onOpen ? 'cursor-zoom-in' : ''}`}
++          onLoad={(e) => {
++            setStatus('ready')
++            onDimensions?.({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
++          }}
++          onError={() => setStatus('error')}
++        />
++      )}
++
++      {isAudio && (
++        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6">
++          <Music size={40} className="text-white/40" aria-hidden="true" />
++          <audio
++            ref={elRef}
++            src={cldVideo(url)}
++            controls
++            preload="metadata"
++            aria-label={alt || 'Audio'}
++            className="w-full max-w-sm"
++            onLoadedMetadata={() => setStatus('ready')}
++            onError={() => setStatus('error')}
++          />
++        </div>
++      )}
++
++      {status === 'empty' && (
++        <div className="absolute inset-0 flex items-center justify-center text-white/35 text-[13px] font-medium">
++          No media
++        </div>
++      )}
++
++      {status === 'error' && (
++        <div
++          role="img"
++          aria-label="Media unavailable"
++          className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/50 text-[13px] font-medium bg-[#0b0b0b]"
++        >
++          <ImageOff size={28} aria-hidden="true" />
++          Media unavailable
++        </div>
++      )}
++    </div>
++  )
++}
+diff --git a/src/components/ShowroomPost.jsx b/src/components/ShowroomPost.jsx
+new file mode 100644
+index 0000000..5f4581a
+--- /dev/null
++++ b/src/components/ShowroomPost.jsx
+@@ -0,0 +1,168 @@
++import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
++import { Link } from 'react-router-dom'
++import { Eye, Heart, Maximize2, Share2 } from 'lucide-react'
++import AvailabilityBadge from './AvailabilityBadge'
++import ShowroomMedia from './ShowroomMedia'
++import { Avatar } from './bentoCardShared'
++
++// True when a clamped paragraph is actually cut off, so "More" only shows
++// when there is something more to read. Re-measured on resize because the
++// same caption clamps differently at different widths.
++function useIsClamped(ref, text) {
++  const [clamped, setClamped] = useState(false)
++  useLayoutEffect(() => {
++    const el = ref.current
++    if (!el) return undefined
++    const measure = () => setClamped(el.scrollHeight > el.clientHeight + 1)
++    measure()
++    if (typeof ResizeObserver === 'undefined') return undefined
++    const ro = new ResizeObserver(measure)
++    ro.observe(el)
++    return () => ro.disconnect()
++  }, [ref, text])
++  return clamped
++}
++
++const actionBtn =
++  'inline-flex items-center justify-center gap-1.5 h-11 min-w-[44px] px-2.5 sm:px-3 rounded-full text-[13px] font-semibold transition hover:bg-black/[0.06] active:scale-95'
++
++// A single post. Its height is fixed by CSS (`.sr-post`) so the feed can be
++// windowed with simple arithmetic; the media stage flexes to fill whatever the
++// action row and identity block leave over.
++//
++// `playing` is decided by the parent (this post is the one in view, no dialog
++// is open, the tab is visible) — the post never starts playback on its own.
++function ShowroomPost({
++  hat,
++  postKey,
++  playing,
++  muted,
++  onMutedChange,
++  onLike,
++  onShare,
++  onView,
++  observe,
++}) {
++  const rootRef = useRef(null)
++  const captionRef = useRef(null)
++  const media = hat.media?.[0]
++  const caption = media?.caption || hat.motto || ''
++  const isVideo = media?.type === 'video'
++  const truncated = useIsClamped(captionRef, caption)
++  const location = [hat.lga, hat.country].filter(Boolean).join(', ')
++  const profilePath = `/talent/${hat.id}`
++
++  // Register with the parent's shared IntersectionObserver so it can tell
++  // which single post is in view.
++  useEffect(() => {
++    const el = rootRef.current
++    return el ? observe(el) : undefined
++  }, [observe])
++
++  return (
++    <article
++      ref={rootRef}
++      data-post-key={postKey}
++      aria-label={`Showroom post by ${hat.username}`}
++      className="sr-post flex flex-col overflow-hidden bg-white border-y md:border border-black/15 md:rounded-[20px] md:shadow-[0_6px_20px_-12px_rgba(0,0,0,0.25)]"
++    >
++      <div className="relative flex-1 min-h-0 bg-[#0b0b0b]">
++        <ShowroomMedia
++          media={media}
++          alt={caption || `${hat.username}'s Showroom ${isVideo ? 'video' : 'post'}`}
++          playing={playing}
++          muted={muted}
++          onMutedChange={onMutedChange}
++          onOpen={() => onView(hat.id)}
++        />
++        {hat.isHost && (
++          <span className="absolute top-3 left-3 z-10 bg-[#FFBD2E] text-black text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full border-[1.5px] border-black shadow pointer-events-none">
++            Showroom Host
++          </span>
++        )}
++        <div className="absolute top-3 right-3 z-10 pointer-events-none">
++          <AvailabilityBadge available={hat.availability} />
++        </div>
++      </div>
++
++      <div className="shrink-0 flex items-center gap-0.5 px-2 sm:px-3 pt-1">
++        <button
++          type="button"
++          onClick={() => onLike(hat.id)}
++          aria-pressed={!!hat.liked_by_me}
++          aria-label={`${hat.liked_by_me ? 'Unlike' : 'Like'}${hat.likes ? `, ${hat.likes} likes` : ''}`}
++          className={actionBtn}
++        >
++          <Heart size={18} className={hat.liked_by_me ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} aria-hidden="true" />
++          <span>{hat.likes > 0 ? hat.likes : 'Like'}</span>
++        </button>
++        <button
++          type="button"
++          onClick={() => onShare(hat)}
++          aria-label={`Share post by ${hat.username}`}
++          className={actionBtn}
++        >
++          <Share2 size={17} aria-hidden="true" />
++          <span>Share</span>
++        </button>
++        <button
++          type="button"
++          onClick={() => onView(hat.id)}
++          aria-label={`View post by ${hat.username}`}
++          className={`${actionBtn} bg-[#0A13E6] text-white hover:bg-black`}
++        >
++          <Maximize2 size={15} aria-hidden="true" />
++          <span>View</span>
++        </button>
++        <span
++          className="ml-auto pr-1 inline-flex items-center gap-1 text-[12px] font-medium text-black/45 tabular-nums"
++          title={`${hat.views || 0} views`}
++        >
++          <Eye size={14} aria-hidden="true" />
++          {hat.views || 0}
++        </span>
++      </div>
++
++      <div className="shrink-0 flex items-start gap-2.5 px-3 sm:px-4 pt-1.5 pb-3 min-w-0">
++        <Link to={profilePath} aria-label={`${hat.username}'s profile`} className="shrink-0 rounded-full">
++          <Avatar src={hat.owner_avatar} name={hat.username} className="w-10 h-10" />
++        </Link>
++        <div className="min-w-0 flex-1">
++          <div className="flex items-baseline gap-1.5 min-w-0">
++            <Link to={profilePath} className="font-bold text-[14px] leading-tight truncate min-w-0 hover:underline">
++              @{hat.username}
++            </Link>
++            {hat.is_verified && (
++              <span className="text-[#0A13E6] text-[12px] shrink-0" title="Verified" aria-label="Verified">
++                ✓
++              </span>
++            )}
++            {location && <span className="text-[11px] text-black/45 truncate min-w-0 hidden sm:inline">· {location}</span>}
++          </div>
++          {caption && (
++            <div className="flex items-end gap-1.5 mt-0.5">
++              <p
++                ref={captionRef}
++                className="text-[13px] leading-snug text-black/80 line-clamp-2 break-words min-w-0"
++              >
++                {caption}
++              </p>
++              {truncated && (
++                <button
++                  type="button"
++                  onClick={() => onView(hat.id)}
++                  aria-label={`Read the full caption by ${hat.username}`}
++                  className="shrink-0 text-[13px] font-semibold text-black/55 hover:text-black leading-snug"
++                >
++                  More
++                </button>
++              )}
++            </div>
++          )}
++        </div>
++      </div>
++    </article>
++  )
++}
++
++export default memo(ShowroomPost)
+diff --git a/src/components/ShowroomVideoModal.jsx b/src/components/ShowroomVideoModal.jsx
+deleted file mode 100644
+index 529c033..0000000
+--- a/src/components/ShowroomVideoModal.jsx
++++ /dev/null
+@@ -1,281 +0,0 @@
+-import { useEffect, useRef } from 'react'
+-import { Link } from 'react-router-dom'
+-import { X, Heart, Eye, MapPin, Play } from 'lucide-react'
+-import { api } from '../lib/api'
+-import { Avatar } from './bentoCardShared'
+-import AvailabilityBadge from './AvailabilityBadge'
+-import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
+-
+-// YouTube-style "expanded" popup for a Showroom video. The active video
+-// plays large up top with native controls (same pattern as
+-// BentoCardDetailModal's media viewer) and the creator's info sits right
+-// below it — but unlike BentoCardDetailModal, whose strip under the player
+-// is that *same* card's own extra media, this rail holds *other* Showroom
+-// talents' videos, so tapping one swaps the player in place without
+-// closing the popup (mirrors YouTube's "up next" list).
+-//
+-// `hats` is the same filtered/search-matched list Showroom's reel is
+-// currently showing, so the rail always matches whatever the reel itself
+-// would scroll through next.
+-//
+-// Engagement (likes/views) isn't kept as local state here — every card in
+-// `hats` (the active one included) belongs to the parent Showroom's own
+-// list, so an optimistic like/view is reported straight up via
+-// `onHatChange` and read back down through `hats`. That's the same
+-// "patch the shared list" pattern Feed/BentoCardDetailModal already use,
+-// and it keeps the rail's own like/view counts in sync with whichever
+-// card is currently active, with no separate copy of the numbers that
+-// could drift.
+-export default function ShowroomVideoModal({
+-  hats,
+-  activeId,
+-  onSelect,
+-  onClose,
+-  muted,
+-  onSetMuted,
+-  onHatChange,
+-}) {
+-  const videoRef = useRef(null)
+-  const closeButtonRef = useRef(null)
+-  const viewedIdsRef = useRef(new Set())
+-  const likingIdsRef = useRef(new Set())
+-
+-  const activeHat = hats.find((h) => h.id === activeId) || null
+-  const media = activeHat?.media?.[0]
+-  const isVideo = media?.type === 'video' && !!media?.url
+-
+-  // Body-scroll lock + focus management — same shape as
+-  // BentoCardDetailModal's identical effect, so the two popups behave
+-  // identically to the rest of the app.
+-  useEffect(() => {
+-    const scrollY = window.scrollY
+-    const previouslyFocused = document.activeElement
+-    document.documentElement.classList.add('modal-open')
+-    document.body.classList.add('modal-open')
+-    document.body.style.top = `-${scrollY}px`
+-    closeButtonRef.current?.focus()
+-    return () => {
+-      document.documentElement.classList.remove('modal-open')
+-      document.body.classList.remove('modal-open')
+-      document.body.style.top = ''
+-      window.scrollTo(0, scrollY)
+-      if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus()
+-    }
+-  }, [])
+-
+-  useEffect(() => {
+-    function onKeyDown(e) {
+-      if (e.key === 'Escape') onClose?.()
+-    }
+-    document.addEventListener('keydown', onKeyDown)
+-    return () => document.removeEventListener('keydown', onKeyDown)
+-  }, [onClose])
+-
+-  // Record one view per card per popup session, then (re)play whichever
+-  // video just became active — mirrors ReelSlide's autoplay-with-fallback
+-  // so picking a rail video feels the same as scrolling to a new slide.
+-  useEffect(() => {
+-    if (!activeHat) return
+-    if (!viewedIdsRef.current.has(activeHat.id)) {
+-      viewedIdsRef.current.add(activeHat.id)
+-      onHatChange?.({ id: activeHat.id, views: (activeHat.views || 0) + 1 })
+-      api.recordView(activeHat.id).catch(() => {})
+-    }
+-    const video = videoRef.current
+-    if (!isVideo || !video) return
+-    video.muted = muted
+-    const playPromise = video.play()
+-    if (playPromise?.catch) {
+-      playPromise.catch(() => {
+-        if (!video.muted) {
+-          video.muted = true
+-          onSetMuted?.(true)
+-          video.play().catch(() => {})
+-        }
+-      })
+-    }
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [activeHat?.id, isVideo])
+-
+-  // Keep the live element in sync whenever the shared mute preference
+-  // changes elsewhere (e.g. the reel behind this popup).
+-  useEffect(() => {
+-    const video = videoRef.current
+-    if (video) video.muted = muted
+-  }, [muted])
+-
+-  async function handleLike() {
+-    if (!activeHat || likingIdsRef.current.has(activeHat.id)) return
+-    likingIdsRef.current.add(activeHat.id)
+-    const next = !activeHat.liked_by_me
+-    const prevLikes = activeHat.likes || 0
+-    onHatChange?.({ id: activeHat.id, liked_by_me: next, likes: prevLikes + (next ? 1 : -1) })
+-    try {
+-      await api.toggleLike(activeHat.id)
+-    } catch {
+-      onHatChange?.({ id: activeHat.id, liked_by_me: !next, likes: prevLikes })
+-    } finally {
+-      likingIdsRef.current.delete(activeHat.id)
+-    }
+-  }
+-
+-  if (!activeHat) return null
+-
+-  const rail = hats.filter((h) => h.id !== activeHat.id)
+-
+-  return (
+-    <div
+-      className="modal-overlay"
+-      role="dialog"
+-      aria-modal="true"
+-      aria-label={`${activeHat.username}'s showroom video`}
+-      onClick={onClose}
+-    >
+-      <div className="modal-panel animate-slide-up" onClick={(e) => e.stopPropagation()}>
+-        <button
+-          ref={closeButtonRef}
+-          type="button"
+-          onClick={onClose}
+-          aria-label="Close"
+-          className="modal-close absolute top-3 right-3 z-20 w-9 h-9 rounded-full bg-[#F5F3EF] border-[1.5px] border-black flex items-center justify-center hover:bg-black hover:text-white transition"
+-        >
+-          <X size={16} />
+-        </button>
+-
+-        <div className="bg-black flex items-center justify-center min-h-[240px] max-h-[70vh]">
+-          {media?.url ? (
+-            isVideo ? (
+-              <video
+-                key={media.url}
+-                ref={videoRef}
+-                src={cldVideo(media.url, { w: 1080 })}
+-                poster={cldVideoPoster(media.url, { w: 1080, crop: 'limit' })}
+-                controls
+-                loop
+-                playsInline
+-                autoPlay
+-                className="w-full max-h-[70vh] object-contain"
+-              />
+-            ) : (
+-              <img
+-                key={media.url}
+-                src={cldImage(media.url, { w: 1080, crop: 'limit' })}
+-                alt=""
+-                className="w-full max-h-[70vh] object-contain"
+-              />
+-            )
+-          ) : (
+-            <div className="w-full h-64 flex items-center justify-center text-white/30 text-[13px] font-medium">
+-              No media
+-            </div>
+-          )}
+-        </div>
+-
+-        <div className="p-5 md:p-6 space-y-4">
+-          <div className="flex items-start justify-between gap-3">
+-            <div className="flex items-center gap-3 min-w-0">
+-              <Avatar src={activeHat.owner_avatar} name={activeHat.username} className="w-11 h-11" />
+-              <div className="min-w-0">
+-                <p className="font-bold text-[15px] flex items-center gap-1 truncate">
+-                  {activeHat.username}
+-                  {activeHat.is_verified && <span className="text-[#0A13E6]">✓</span>}
+-                  {activeHat.isHost && (
+-                    <span className="ml-1 bg-[#FFBD2E] text-black text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full border-[1.5px] border-black">
+-                      Host
+-                    </span>
+-                  )}
+-                </p>
+-                {activeHat.lga && (
+-                  <p className="text-[11px] text-black/50 font-medium flex items-center gap-1 mt-0.5">
+-                    <MapPin size={11} /> {[activeHat.lga, activeHat.country].filter(Boolean).join(', ')}
+-                  </p>
+-                )}
+-              </div>
+-            </div>
+-            <AvailabilityBadge available={activeHat.availability} />
+-          </div>
+-
+-          {(media?.caption || activeHat.motto) && (
+-            <p className="text-[13px] text-black/70 leading-relaxed">{media?.caption || activeHat.motto}</p>
+-          )}
+-
+-          <div className="flex items-center gap-4">
+-            <Link
+-              to={`/talent/${activeHat.id}`}
+-              className="h-10 px-5 rounded-full bg-[#0A13E6] text-white text-[13px] font-semibold border-[1.5px] border-black flex items-center justify-center"
+-            >
+-              Book
+-            </Link>
+-            <button
+-              type="button"
+-              onClick={handleLike}
+-              aria-pressed={!!activeHat.liked_by_me}
+-              aria-label={activeHat.liked_by_me ? 'Unlike' : 'Like'}
+-              className="flex items-center gap-1.5 text-[13px] font-semibold hover:opacity-70 transition"
+-            >
+-              <Heart size={16} className={activeHat.liked_by_me ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} />
+-              {activeHat.likes || 0}
+-            </button>
+-            <span className="flex items-center gap-1.5 text-[13px] font-medium text-black/50">
+-              <Eye size={16} /> {activeHat.views || 0}
+-            </span>
+-          </div>
+-
+-          {rail.length > 0 && (
+-            <div className="pt-2 border-t-[1.5px] border-black/10">
+-              <p className="tw-label mb-3">More from Showroom</p>
+-              <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+-                {rail.map((h) => {
+-                  const m = h.media?.[0]
+-                  const vid = m?.type === 'video' && !!m?.url
+-                  return (
+-                    <button
+-                      key={h.id}
+-                      type="button"
+-                      onClick={() => onSelect(h.id)}
+-                      aria-label={`Play ${h.username}'s video`}
+-                      className="relative shrink-0 w-[118px] h-[196px] rounded-2xl overflow-hidden border-[1.5px] border-black bg-black text-left"
+-                    >
+-                      {m?.url ? (
+-                        vid ? (
+-                          <img
+-                            src={cldVideoPoster(m.url, { w: 236, h: 392 })}
+-                            alt=""
+-                            loading="lazy"
+-                            className="absolute inset-0 w-full h-full object-cover"
+-                          />
+-                        ) : (
+-                          <img
+-                            src={cldImage(m.url, { w: 236, h: 392 })}
+-                            alt=""
+-                            loading="lazy"
+-                            className="absolute inset-0 w-full h-full object-cover"
+-                          />
+-                        )
+-                      ) : (
+-                        <div className="absolute inset-0 flex items-center justify-center text-white/25 text-[10px] font-medium">
+-                          No media
+-                        </div>
+-                      )}
+-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+-                      {vid && <Play size={20} className="absolute inset-0 m-auto text-white/85" fill="white" />}
+-                      <div className="absolute bottom-0 left-0 right-0 p-2">
+-                        <p className="text-white text-[11px] font-bold truncate">{h.username}</p>
+-                        <p className="flex items-center gap-1 text-white/75 text-[10px] font-medium mt-0.5">
+-                          <Heart size={9} className={h.liked_by_me ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} />
+-                          {h.likes || 0}
+-                          <Eye size={9} className="ml-1" />
+-                          {h.views || 0}
+-                        </p>
+-                      </div>
+-                    </button>
+-                  )
+-                })}
+-              </div>
+-            </div>
+-          )}
+-        </div>
+-      </div>
+-    </div>
+-  )
+-}
+\ No newline at end of file
+diff --git a/src/lib/dialog.js b/src/lib/dialog.js
+new file mode 100644
+index 0000000..ea1f153
+--- /dev/null
++++ b/src/lib/dialog.js
+@@ -0,0 +1,162 @@
++// Path: src/lib/dialog.js
++// Behaviour shared by the Showroom detail modal and the negotiation notice
++// that opens above it.
++
++import { useEffect, useRef } from 'react'
++
++// ── Scroll lock ────────────────────────────────────────────────────────────
++// In this app <html> and <body> both carry `overflow-x: hidden` and
++// `height: 100%` (styles/index.css), which makes <body> — not the window —
++// the element that actually scrolls. Locking therefore means switching that
++// element to `overflow: hidden`: unlike the `position: fixed` trick it never
++// disturbs the scroll offset, so closing a dialog leaves the page exactly
++// where it was. The scrollbar's width is re-added as padding so the layout
++// doesn't shift sideways when the bar disappears.
++let lockCount = 0
++let unlock = null
++
++function applyLock() {
++  const els = [document.documentElement, document.body]
++  const saved = els.map((el) => ({
++    el,
++    overflow: el.style.overflow,
++    paddingRight: el.style.paddingRight,
++  }))
++  const gutters = els.map((el) => Math.max(0, el.offsetWidth - el.clientWidth))
++  els.forEach((el, i) => {
++    const basePadding = parseFloat(getComputedStyle(el).paddingRight) || 0
++    el.style.overflow = 'hidden'
++    if (gutters[i] > 0) el.style.paddingRight = `${basePadding + gutters[i]}px`
++  })
++  return () => {
++    saved.forEach(({ el, overflow, paddingRight }) => {
++      el.style.overflow = overflow
++      el.style.paddingRight = paddingRight
++    })
++  }
++}
++
++// Ref-counted, so a dialog opened above another dialog neither re-locks nor
++// unlocks early.
++export function useScrollLock() {
++  useEffect(() => {
++    lockCount += 1
++    if (lockCount === 1) unlock = applyLock()
++    return () => {
++      lockCount -= 1
++      if (lockCount === 0) {
++        unlock?.()
++        unlock = null
++      }
++    }
++  }, [])
++}
++
++// ── Dialog stack ───────────────────────────────────────────────────────────
++const stack = []
++
++const FOCUSABLE =
++  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), audio[controls], video[controls], [tabindex]:not([tabindex="-1"])'
++
++function focusableIn(container) {
++  if (!container) return []
++  return Array.from(container.querySelectorAll(FOCUSABLE)).filter(
++    (el) => !el.hasAttribute('inert') && el.getClientRects().length > 0,
++  )
++}
++
++// Call from any component that renders a dialog. While it is mounted:
++//  - it sits on a stack, and only the TOPMOST dialog reacts to Escape or
++//    traps Tab — so Escape on the negotiation notice closes just the notice;
++//  - focus moves into it on mount and is pulled back if it escapes;
++//  - on unmount focus returns to `returnFocusRef` if given, otherwise to
++//    whatever had it before (without scrolling) — the explicit target matters
++//    because some browsers (Safari) don't focus a button when it is clicked.
++export function useDialog(containerRef, { onClose, initialFocusRef, returnFocusRef } = {}) {
++  const onCloseRef = useRef(onClose)
++  onCloseRef.current = onClose
++
++  useEffect(() => {
++    const token = {}
++    stack.push(token)
++    const isTop = () => stack[stack.length - 1] === token
++    const previouslyFocused = document.activeElement
++
++    const container = () => containerRef.current
++    const focusFirst = () => {
++      const target = initialFocusRef?.current || focusableIn(container())[0] || container()
++      target?.focus?.({ preventScroll: true })
++    }
++    focusFirst()
++
++    function onKeyDown(e) {
++      if (!isTop()) return
++      if (e.key === 'Escape') {
++        e.preventDefault()
++        e.stopPropagation()
++        onCloseRef.current?.()
++        return
++      }
++      if (e.key !== 'Tab') return
++      const c = container()
++      if (!c) return
++      const items = focusableIn(c)
++      if (!items.length) {
++        e.preventDefault()
++        c.focus?.({ preventScroll: true })
++        return
++      }
++      const first = items[0]
++      const last = items[items.length - 1]
++      const active = document.activeElement
++      if (!c.contains(active)) {
++        e.preventDefault()
++        first.focus({ preventScroll: true })
++      } else if (e.shiftKey && (active === first || active === c)) {
++        e.preventDefault()
++        last.focus({ preventScroll: true })
++      } else if (!e.shiftKey && active === last) {
++        e.preventDefault()
++        first.focus({ preventScroll: true })
++      }
++    }
++
++    function onFocusIn(e) {
++      if (!isTop()) return
++      const c = container()
++      if (c && !c.contains(e.target)) focusFirst()
++    }
++
++    document.addEventListener('keydown', onKeyDown, true)
++    document.addEventListener('focusin', onFocusIn)
++    return () => {
++      document.removeEventListener('keydown', onKeyDown, true)
++      document.removeEventListener('focusin', onFocusIn)
++      const i = stack.indexOf(token)
++      if (i !== -1) stack.splice(i, 1)
++      const target = returnFocusRef?.current || previouslyFocused
++      if (target instanceof HTMLElement && document.contains(target)) {
++        target.focus({ preventScroll: true })
++      }
++    }
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [])
++}
++
++// Backdrop that closes only on a genuine click *on the backdrop itself*: the
++// press must start and end there, so dragging out of the panel, or clicking
++// anything inside it, never dismisses.
++export function useBackdropClose(onClose) {
++  const pressed = useRef(false)
++  const onCloseRef = useRef(onClose)
++  onCloseRef.current = onClose
++  return {
++    onMouseDown: (e) => {
++      pressed.current = e.target === e.currentTarget
++    },
++    onClick: (e) => {
++      if (pressed.current && e.target === e.currentTarget) onCloseRef.current?.()
++      pressed.current = false
++    },
++  }
++}
+diff --git a/src/lib/showroom.js b/src/lib/showroom.js
+new file mode 100644
+index 0000000..fde6f82
+--- /dev/null
++++ b/src/lib/showroom.js
+@@ -0,0 +1,109 @@
++// Path: src/lib/showroom.js
++// Small, dependency-free helpers for the Showroom feed and its detail modal.
++
++export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
++
++// Client-side Fisher–Yates. Only ever used to reorder what is *presented* —
++// the API's own ordering (bookings + orbit score + likes) is never touched.
++export function shuffle(items, random = Math.random) {
++  const out = [...items]
++  for (let i = out.length - 1; i > 0; i--) {
++    const j = Math.floor(random() * (i + 1))
++    ;[out[i], out[j]] = [out[j], out[i]]
++  }
++  return out
++}
++
++function sameOrder(a, b) {
++  return a.length === b.length && a.every((v, i) => v === b[i])
++}
++
++// The next "lap" of the endless feed: a fresh shuffle of `ids` that
++//  - never opens with `previousLastId` when any other id could open it, so
++//    the seam between two laps never shows the same post twice in a row;
++//  - differs from `previousOrder` when there are enough ids for that to be
++//    possible (with 2 ids the seam rule and "different order" can't both
++//    hold, and the seam rule wins).
++export function nextLap(ids, previousLastId, previousOrder) {
++  if (ids.length <= 1) return [...ids]
++  let out = ids
++  for (let attempt = 0; attempt < 6; attempt++) {
++    out = shuffle(ids)
++    if (out[0] === previousLastId) {
++      const j = 1 + Math.floor(Math.random() * (out.length - 1))
++      ;[out[0], out[j]] = [out[j], out[0]]
++    }
++    if (out.length < 3 || !previousOrder || !sameOrder(out, previousOrder)) break
++  }
++  return out
++}
++
++// Canonical route for one Showroom post (a post is a talent hat's current
++// media, so its id is the hat id). App.jsx registers /showroom/:postId?.
++export function showroomPath(id) {
++  return `/showroom/${encodeURIComponent(id)}`
++}
++
++// Full share URL, built from wherever the app is currently served. The router
++// is mounted without a basename (see main.jsx), so origin + path is exactly
++// what the router resolves — nothing about the production domain is baked in.
++export function showroomUrl(id) {
++  return `${window.location.origin}${showroomPath(id)}`
++}
++
++async function copyText(text) {
++  try {
++    if (navigator.clipboard?.writeText) {
++      await navigator.clipboard.writeText(text)
++      return true
++    }
++  } catch {
++    // fall through to the legacy path (insecure origin, denied permission…)
++  }
++  try {
++    const ta = document.createElement('textarea')
++    ta.value = text
++    ta.setAttribute('readonly', '')
++    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none'
++    document.body.appendChild(ta)
++    ta.select()
++    const ok = document.execCommand('copy')
++    ta.remove()
++    return ok
++  } catch {
++    return false
++  }
++}
++
++// Shared by the feed's Share button and the detail modal's Share buttons so
++// both hand out the same canonical URL. Resolves to 'shared' | 'copied' |
++// 'cancelled' | 'failed'; the caller decides what feedback to show.
++export async function shareShowroomPost({ id, username }) {
++  const url = showroomUrl(id)
++  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
++    try {
++      // Must be the first await so it still counts as part of the user's click.
++      await navigator.share({
++        title: username ? `${username} on the ChombuTar Showroom` : 'ChombuTar Showroom',
++        url,
++      })
++      return 'shared'
++    } catch (err) {
++      if (err?.name === 'AbortError') return 'cancelled'
++      // Any other failure (NotAllowedError, unsupported target…) → copy instead.
++    }
++  }
++  return (await copyText(url)) ? 'copied' : 'failed'
++}
++
++// The element that actually scrolls the app. <html> and <body> both have
++// `overflow-x: hidden` + `height: 100%` (styles/index.css), which makes <body>
++// its own scroll container and leaves window.scrollY stuck at 0. Resolved from
++// computed style rather than assumed, so it keeps working if that CSS changes.
++export function getScroller() {
++  const html = document.documentElement
++  const body = document.body
++  const bodyOY = getComputedStyle(body).overflowY
++  if (getComputedStyle(html).overflowY !== 'visible' && (bodyOY === 'auto' || bodyOY === 'scroll')) return body
++  return document.scrollingElement || html
++}
+diff --git a/src/styles/index.css b/src/styles/index.css
+index 943a5d7..34e6c26 100644
+--- a/src/styles/index.css
++++ b/src/styles/index.css
+@@ -72,53 +72,132 @@ img, video { max-width: 100%; }
+   gap: 20px;
+ }
+ 
+-/* Showroom reel — vertical, snap-scroll, one talent per screen.
+-   Capped at a sensible max-width and centered so it reads as a portrait
+-   video card with breathing room on either side, instead of stretching
+-   edge-to-edge on wide screens. On mobile the cap simply exceeds the
+-   viewport, so it fills the column while still respecting the page's
+-   own side padding (never touching the true screen edge). */
+-.reel-container {
++/* ── Showroom ────────────────────────────────────────────────────────────
++   Chrome the feed has to fit around. These mirror Layout.jsx (mobile header =
++   h-14 + 1.5px border, bottom nav = 60px, desktop top strip = h-16); if that
++   shell changes, posts only get a little taller or shorter — nothing breaks. */
++:root {
++  --sr-app-top: 57.5px;
++  --sr-app-bottom: 60px;
++  --sr-header-h: 52px;
++  --sr-gap: 12px;
++  --sr-fab-bottom: calc(var(--sr-app-bottom) + env(safe-area-inset-bottom, 0px) + 16px);
++}
++@media (min-width: 768px) {
++  :root {
++    --sr-app-top: 64px;
++    --sr-app-bottom: 0px;
++    --sr-gap: 16px;
++    --sr-fab-bottom: 24px;
++  }
++}
++
++/* One feed post: roughly the space left under the headers (dynamic viewport
++   height, so mobile browser chrome is accounted for). Fixed on purpose — the
++   feed is windowed and relies on every post being the same height. Scrolling
++   itself is plain and continuous: there is deliberately no scroll-snap. */
++.sr-post {
++  height: calc(var(--app-vh) - var(--sr-app-top) - var(--sr-header-h) - var(--sr-app-bottom) - var(--sr-gap));
++  min-height: 380px;
++  margin-bottom: var(--sr-gap);
++}
++
++/* Detail modal. Mobile: full screen. Tablet/desktop: large, centred. */
++.sr-overlay {
++  position: fixed;
++  inset: 0;
++  z-index: 50;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  background: rgba(0, 0, 0, 0.6);
++  overscroll-behavior: contain;
++}
++.sr-panel {
++  --sr-head-h: 60px;
++  --sr-actions-h: 60px;
++  --sr-panel-h: 100vh;
++  --sr-panel-h: 100dvh;
++  position: relative;
++  display: flex;
++  flex-direction: column;
+   width: 100%;
+-  max-width: 480px;
+-  margin: 0 auto;
+-  height: calc(var(--app-vh) - 220px);
+-  min-height: 420px;
+-  max-height: 780px;
++  height: var(--sr-panel-h);
++  background: #fff;
++  overflow: hidden;
++  padding-top: env(safe-area-inset-top, 0px);
++  padding-bottom: env(safe-area-inset-bottom, 0px);
++}
++.sr-head { height: var(--sr-head-h); }
++.sr-actions { min-height: var(--sr-actions-h); }
++.sr-body {
++  flex: 1 1 auto;
++  min-height: 0;
+   overflow-y: auto;
+-  scroll-snap-type: y mandatory;
+-  border-radius: 20px;
+-  border: 1.5px solid #000;
+-  background: #000;
+-  -webkit-overflow-scrolling: touch;
+   overscroll-behavior: contain;
++  -webkit-overflow-scrolling: touch;
+ }
+-.reel-container::-webkit-scrollbar { display: none; }
+-.reel-container { scrollbar-width: none; }
++.sr-main { min-width: 0; }
++.sr-rail { border-top: 1.5px solid rgba(0, 0, 0, 0.1); background: #fff; }
+ 
+-.reel-slide {
++/* Stacked (mobile/tablet): the stage takes the media's own shape, capped so
++   the action row stays on screen under it. */
++.sr-stage {
+   position: relative;
+-  height: 100%;
+-  scroll-snap-align: start;
+-  scroll-snap-stop: always;
+-  display: flex;
+-  align-items: flex-end;
++  width: 100%;
++  aspect-ratio: var(--sr-aspect, 16 / 9);
++  min-height: 200px;
++  max-height: calc(var(--sr-panel-h) - var(--sr-head-h) - var(--sr-actions-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+   background: #0b0b0b;
+ }
+ 
+-@media (max-width: 640px) {
+-  .reel-container {
+-    /* Extra 40px vs. desktop's budget leaves clear room below the card
+-       for the fixed circular Add Spotlight button so it never overlaps
+-       the video's own Book/Like/Eye row. */
+-    height: calc(var(--app-vh) - 300px);
++@media (min-width: 768px) {
++  /* Only where the backdrop is actually visible — on phones the panel covers
++     the whole screen and a live blur would just cost frames. */
++  .sr-overlay {
++    -webkit-backdrop-filter: blur(3px);
++    backdrop-filter: blur(3px);
++  }
++  .sr-panel {
++    --sr-panel-h: min(94vh, 1080px);
++    --sr-panel-h: min(94dvh, 1080px);
++    width: 96vw;
++    max-width: 1800px;
++    border: 1.5px solid #000;
++    border-radius: 20px;
++    padding-top: 0;
++    padding-bottom: 0;
++    box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.35);
+   }
+ }
+ 
+-@media (min-width: 768px) {
+-  .reel-container {
+-    max-height: 720px;
+-    box-shadow: 0 24px 50px -22px rgba(0, 0, 0, 0.35);
++@media (min-width: 1024px) {
++  .sr-panel {
++    --sr-panel-h: min(95vh, 1080px);
++    --sr-panel-h: min(95dvh, 1080px);
++    width: 95vw;
++  }
++}
++
++/* Wide: YouTube-style — media + details on the left (about 75%), related
++   posts in their own scrolling column on the right (about 25%). The stage
++   fills the column's height minus the action row. Below this width the
++   related column would squeeze landscape video well under its old size, so
++   the layout stays stacked (related posts under the media) instead. */
++@media (min-width: 1280px) {
++  .sr-body {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) clamp(288px, 25%, 480px);
++    overflow: hidden;
++  }
++  .sr-body--solo { grid-template-columns: minmax(0, 1fr); }
++  .sr-main { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
++  .sr-rail { overflow-y: auto; overscroll-behavior: contain; min-height: 0; border-top: 0; border-left: 1.5px solid rgba(0, 0, 0, 0.1); }
++  .sr-stage {
++    aspect-ratio: auto;
++    max-height: none;
++    min-height: 320px;
++    height: calc(var(--sr-panel-h) - var(--sr-head-h) - var(--sr-actions-h) - 3px);
+   }
+ }
