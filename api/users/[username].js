@@ -91,9 +91,14 @@ export default async function handler(req, res) {
     let portfolio = []
     if (talentHatIds.length) {
       const { rows: media } = await query(
+        // Portfolio is spec'd as media-first images/video only (section
+        // 11) — hat_media.type also allows 'audio' for a Hat's own
+        // listing media, which the Portfolio grid/viewer below don't
+        // render, so it's excluded here rather than reaching the UI as a
+        // broken tile.
         `SELECT m.id, m.hat_id, m.url, m.public_id, m.type, m.caption, m.created_at, h.hat_title
          FROM hat_media m JOIN hats h ON h.id = m.hat_id
-         WHERE m.hat_id = ANY($1::uuid[])
+         WHERE m.hat_id = ANY($1::uuid[]) AND m.type IN ('image', 'video')
          ORDER BY m.created_at DESC
          LIMIT 60`,
         [talentHatIds],
