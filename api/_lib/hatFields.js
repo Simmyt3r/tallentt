@@ -10,6 +10,13 @@ export const HAT_ROLES = ['talent', 'client']
 export const HAT_TITLE_MAX = 80
 export const HAT_DESCRIPTION_MAX = 80
 
+// hats.hat_name — a short nickname for the listing (e.g. "Weekend Wedding
+// Package"), shown as the feed card's headline. Kept separate from
+// hat_title ("what service" / "who you're looking for") and capped shorter
+// since it's meant to read as a headline, not a sentence. Column has
+// CHECK (char_length(hat_name) <= 60) — see db/schema.sql.
+export const HAT_NAME_MAX = 60
+
 // rate / price_min / price_max are 32-bit INT columns. Anything larger (or
 // fractional) used to surface as a raw database error; reject it up front.
 export const MAX_PRICE = 2_000_000_000

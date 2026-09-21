@@ -1,0 +1,377 @@
+diff --git a/api/_lib/hatFields.js b/api/_lib/hatFields.js
+index 07cfb94..063cefa 100644
+--- a/api/_lib/hatFields.js
++++ b/api/_lib/hatFields.js
+@@ -10,6 +10,13 @@ export const HAT_ROLES = ['talent', 'client']
+ export const HAT_TITLE_MAX = 80
+ export const HAT_DESCRIPTION_MAX = 80
+ 
++// hats.hat_name — a short nickname for the listing (e.g. "Weekend Wedding
++// Package"), shown as the feed card's headline. Kept separate from
++// hat_title ("what service" / "who you're looking for") and capped shorter
++// since it's meant to read as a headline, not a sentence. Column has
++// CHECK (char_length(hat_name) <= 60) — see db/schema.sql.
++export const HAT_NAME_MAX = 60
++
+ // rate / price_min / price_max are 32-bit INT columns. Anything larger (or
+ // fractional) used to surface as a raw database error; reject it up front.
+ export const MAX_PRICE = 2_000_000_000
+diff --git a/api/hats/[id].js b/api/hats/[id].js
+index 6188320..87313c1 100644
+--- a/api/hats/[id].js
++++ b/api/hats/[id].js
+@@ -2,7 +2,7 @@ import { query, getClient } from '../_lib/db.js'
+ import { getSessionUser } from '../_lib/auth.js'
+ import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
+ import { computeOrbitScore } from '../_lib/orbitScore.js'
+-import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, normalizePricing } from '../_lib/hatFields.js'
++import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing } from '../_lib/hatFields.js'
+ import { notifyApplicationReceived, notifyApplicationStatus } from '../_lib/notifications.js'
+ 
+ async function getHat(id, viewerId) {
+@@ -253,6 +253,14 @@ export default async function handler(req, res) {
+         }
+         body.hat_title = nextTitle
+       }
++      if (body.hat_name != null) {
++        const nextName = String(body.hat_name).trim()
++        if (!nextName) return json(res, 400, { error: 'A name for this listing is required.' })
++        if (nextName.length > HAT_NAME_MAX) {
++          return json(res, 400, { error: `Name must be ${HAT_NAME_MAX} characters or fewer.` })
++        }
++        body.hat_name = nextName
++      }
+       if (body.motto != null && String(body.motto).length > HAT_DESCRIPTION_MAX) {
+         return json(res, 400, { error: `Description must be ${HAT_DESCRIPTION_MAX} characters or fewer.` })
+       }
+@@ -335,32 +343,34 @@ export default async function handler(req, res) {
+         await client.query(
+           `UPDATE hats SET
+             hat_title = COALESCE($1, hat_title),
+-            verified_name = COALESCE($2, verified_name),
+-            is_verified = $3,
+-            category = COALESCE($4, category),
+-            skills = COALESCE($5, skills),
+-            hat_type = COALESCE($6, hat_type),
+-            delivery_mode = COALESCE($7, delivery_mode),
+-            country = COALESCE($8, country),
+-            country_flag = COALESCE($9, country_flag),
+-            currency = COALESCE($10, currency),
+-            lga = COALESCE($11, lga),
+-            motto = COALESCE($12, motto),
+-            price_type = $13,
+-            price_min = $14,
+-            price_max = $15,
+-            price_negotiable = $16,
+-            rate = $17,
+-            rate_unit = $18,
+-            rate_unit_custom = $19,
+-            availability = COALESCE($20, availability),
+-            active = COALESCE($21, active),
+-            available_from = $22,
+-            available_to = $23,
+-            orbit_score = $24
+-          WHERE id = $25`,
++            hat_name = COALESCE($2, hat_name),
++            verified_name = COALESCE($3, verified_name),
++            is_verified = $4,
++            category = COALESCE($5, category),
++            skills = COALESCE($6, skills),
++            hat_type = COALESCE($7, hat_type),
++            delivery_mode = COALESCE($8, delivery_mode),
++            country = COALESCE($9, country),
++            country_flag = COALESCE($10, country_flag),
++            currency = COALESCE($11, currency),
++            lga = COALESCE($12, lga),
++            motto = COALESCE($13, motto),
++            price_type = $14,
++            price_min = $15,
++            price_max = $16,
++            price_negotiable = $17,
++            rate = $18,
++            rate_unit = $19,
++            rate_unit_custom = $20,
++            availability = COALESCE($21, availability),
++            active = COALESCE($22, active),
++            available_from = $23,
++            available_to = $24,
++            orbit_score = $25
++          WHERE id = $26`,
+           [
+             body.hat_title ?? null,
++            body.hat_name ?? null,
+             body.verified_name ?? null,
+             verified,
+             body.category ?? null,
+diff --git a/api/hats/index.js b/api/hats/index.js
+index 962d428..ed73293 100644
+--- a/api/hats/index.js
++++ b/api/hats/index.js
+@@ -8,6 +8,7 @@ import {
+   DELIVERY_MODES,
+   HAT_TITLE_MAX,
+   HAT_DESCRIPTION_MAX,
++  HAT_NAME_MAX,
+   normalizePricing,
+   resolveHatRole,
+ } from '../_lib/hatFields.js'
+@@ -200,6 +201,7 @@ export default async function handler(req, res) {
+ 
+       const {
+         hat_title,
++        hat_name,
+         verified_name,
+         category,
+         skills = [],
+@@ -223,6 +225,13 @@ export default async function handler(req, res) {
+       if (title.length > HAT_TITLE_MAX) {
+         return json(res, 400, { error: `Title must be ${HAT_TITLE_MAX} characters or fewer.` })
+       }
++      const name = String(hat_name ?? '').trim()
++      if (!name) {
++        return json(res, 400, { error: 'A name for this listing is required.' })
++      }
++      if (name.length > HAT_NAME_MAX) {
++        return json(res, 400, { error: `Name must be ${HAT_NAME_MAX} characters or fewer.` })
++      }
+       if (motto && String(motto).length > HAT_DESCRIPTION_MAX) {
+         return json(res, 400, { error: `Description must be ${HAT_DESCRIPTION_MAX} characters or fewer.` })
+       }
+@@ -255,15 +264,16 @@ export default async function handler(req, res) {
+ 
+       const { rows } = await query(
+         `INSERT INTO hats (
+-          user_id, hat_title, username, verified_name, is_verified, category, skills,
++          user_id, hat_title, hat_name, username, verified_name, is_verified, category, skills,
+           hat_type, delivery_mode, country, country_flag, currency, lga, motto,
+           price_type, price_min, price_max, price_negotiable, rate, rate_unit, rate_unit_custom,
+           role, availability, available_from, available_to, orbit_score
+-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
++        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+         RETURNING *`,
+         [
+           session.sub,
+           title,
++          name,
+           accountUsername,
+           verified_name || null,
+           verified,
+diff --git a/db/patch-hat-name.sql b/db/patch-hat-name.sql
+new file mode 100644
+index 0000000..07059a3
+--- /dev/null
++++ b/db/patch-hat-name.sql
+@@ -0,0 +1,15 @@
++-- Run this once against your existing database to add the "Hat Name" field
++-- (a short nickname like "Weekend Wedding Package", shown as the feed card's
++-- headline) that schema.sql now defines for fresh installs. Separate from
++-- hat_title, which stays "what service" / "who you're looking for". Safe to
++-- re-run.
++
++ALTER TABLE hats ADD COLUMN IF NOT EXISTS hat_name TEXT;
++
++-- Backfill from the existing title so old listings don't show a blank
++-- headline, then lock the column down for anything saved from here on.
++UPDATE hats SET hat_name = hat_title WHERE hat_name IS NULL;
++ALTER TABLE hats ALTER COLUMN hat_name SET NOT NULL;
++
++ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_hat_name_length_check;
++ALTER TABLE hats ADD CONSTRAINT hats_hat_name_length_check CHECK (char_length(hat_name) <= 60);
+diff --git a/db/schema.sql b/db/schema.sql
+index 98150a2..074021b 100644
+--- a/db/schema.sql
++++ b/db/schema.sql
+@@ -180,6 +180,16 @@ UPDATE hats SET price_type = 'fixed', rate = COALESCE(rate, price_min), rate_uni
+ WHERE price_type IS NULL OR (price_max IS NULL OR price_max = price_min);
+ UPDATE hats SET price_type = 'range' WHERE price_max IS NOT NULL AND price_max <> price_min;
+ 
++-- Hat Name: a short nickname for the listing (e.g. "Weekend Wedding
++-- Package"), shown as the feed card's headline. Separate from hat_title,
++-- which stays "what service" / "who you're looking for" — the two answer
++-- different questions on the Create/Edit Hat form. Backfilled from the
++-- existing title so old listings still show something, then locked to
++-- NOT NULL for anything saved from here on (see api/_lib/hatFields.js).
++ALTER TABLE hats ADD COLUMN IF NOT EXISTS hat_name TEXT;
++UPDATE hats SET hat_name = hat_title WHERE hat_name IS NULL;
++ALTER TABLE hats ALTER COLUMN hat_name SET NOT NULL;
++
+ ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_hat_type_check;
+ ALTER TABLE hats ADD CONSTRAINT hats_hat_type_check CHECK (hat_type IN ('Full-time','Part-time','Freelance','Contract','One-Off'));
+ ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_delivery_mode_check;
+@@ -190,6 +200,8 @@ ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_rate_unit_check;
+ ALTER TABLE hats ADD CONSTRAINT hats_rate_unit_check CHECK (rate_unit IS NULL OR rate_unit IN ('hr','day','week','month','year','custom'));
+ ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_role_check;
+ ALTER TABLE hats ADD CONSTRAINT hats_role_check CHECK (role IN ('talent','client','dual'));
++ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_hat_name_length_check;
++ALTER TABLE hats ADD CONSTRAINT hats_hat_name_length_check CHECK (char_length(hat_name) <= 60);
+ 
+ DROP INDEX IF EXISTS idx_hats_orbit;
+ CREATE INDEX IF NOT EXISTS idx_hats_user ON hats (user_id);
+diff --git a/src/components/BentoCard.jsx b/src/components/BentoCard.jsx
+index 7292207..2a7ed33 100644
+--- a/src/components/BentoCard.jsx
++++ b/src/components/BentoCard.jsx
+@@ -76,7 +76,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
+ 
+         <div className="mt-3 text-[12px] leading-snug">
+           <span className="font-bold text-black/70">Hats:</span>{' '}
+-          <span className="font-semibold text-black">{hat.hat_title}</span>
++          <span className="font-semibold text-black">{hat.hat_name || hat.hat_title}</span>
+           {moreCount > 0 && <span className="font-bold text-black/50"> +{moreCount} more</span>}
+         </div>
+ 
+diff --git a/src/components/HatForm.jsx b/src/components/HatForm.jsx
+index 1d8e897..d779c43 100644
+--- a/src/components/HatForm.jsx
++++ b/src/components/HatForm.jsx
+@@ -180,7 +180,7 @@ function HatFormScreen({ editId }) {
+     return shown
+   }, [errors, showAllErrors, touched])
+ 
+-  const basicErrors = useMemo(() => ({ title: visible.title, category: visible.category, categoryCustom: visible.categoryCustom }), [visible.title, visible.category, visible.categoryCustom])
++  const basicErrors = useMemo(() => ({ hatName: visible.hatName, title: visible.title, category: visible.category, categoryCustom: visible.categoryCustom }), [visible.hatName, visible.title, visible.category, visible.categoryCustom])
+   const pricingErrors = useMemo(
+     () => ({ amount: visible.amount, rateUnitCustom: visible.rateUnitCustom, priceMin: visible.priceMin, priceMax: visible.priceMax }),
+     [visible.amount, visible.rateUnitCustom, visible.priceMin, visible.priceMax],
+@@ -318,6 +318,7 @@ function HatFormScreen({ editId }) {
+           roleLocked={editing || !newRole.canChoose}
+           canChooseRole={canChooseRole}
+           onRoleChange={setChosenRole}
++          hatName={form.hatName}
+           title={form.title}
+           category={form.category}
+           customCategory={form.customCategory}
+diff --git a/src/components/hatform/BasicInfoSection.jsx b/src/components/hatform/BasicInfoSection.jsx
+index d46ba3e..118edc0 100644
+--- a/src/components/hatform/BasicInfoSection.jsx
++++ b/src/components/hatform/BasicInfoSection.jsx
+@@ -1,7 +1,7 @@
+ // Path: src/components/hatform/BasicInfoSection.jsx
+ import { memo, useEffect, useId, useRef, useState } from 'react'
+ import { api } from '../../lib/api'
+-import { HAT_DESCRIPTION_MAX, HAT_TITLE_MAX, HAT_TYPES, OTHER_CATEGORY } from '../../lib/hatForm'
++import { HAT_DESCRIPTION_MAX, HAT_NAME_MAX, HAT_TITLE_MAX, HAT_TYPES, OTHER_CATEGORY } from '../../lib/hatForm'
+ import { CharCount, Field, RadioCards, SelectBox, Section, inputClass } from './formParts'
+ 
+ // Title with the app's existing "Seeking" typeahead (GET /api/hats?suggest=1).
+@@ -133,6 +133,7 @@ function BasicInfoSection({
+   roleLocked,
+   canChooseRole,
+   onRoleChange,
++  hatName,
+   title,
+   category,
+   customCategory,
+@@ -174,6 +175,26 @@ function BasicInfoSection({
+         </p>
+       )}
+ 
++      <Field
++        id="hat-name"
++        label={copy.nameQuestion}
++        hint={copy.nameHint}
++        error={errors.hatName}
++        right={<CharCount value={hatName} max={HAT_NAME_MAX} />}
++      >
++        {(a11y) => (
++          <input
++            {...a11y}
++            type="text"
++            className={inputClass(errors.hatName)}
++            value={hatName}
++            maxLength={HAT_NAME_MAX + 20 /* allow pasting a bit over so the error explains itself */}
++            placeholder={copy.namePlaceholder}
++            onChange={(e) => onChange('hatName', e.target.value)}
++          />
++        )}
++      </Field>
++
+       <TitleField value={title} onChange={(v) => onChange('title', v)} copy={copy} error={errors.title} hatRole={hatRole} />
+ 
+       <div className="grid gap-4 md:grid-cols-2">
+diff --git a/src/lib/hatForm.js b/src/lib/hatForm.js
+index 1036923..6b18668 100644
+--- a/src/lib/hatForm.js
++++ b/src/lib/hatForm.js
+@@ -74,6 +74,10 @@ export const OTHER_CATEGORY = '__other__'
+ export const HAT_TITLE_MAX = 80 // keep in sync
+ // The description is stored in hats.motto, which the database caps at 80.
+ export const HAT_DESCRIPTION_MAX = 80 // keep in sync
++// hats.hat_name — a short nickname for the listing, shown as the feed
++// card's headline. Separate question from Title; capped shorter since it's
++// meant to read as a headline, not a sentence.
++export const HAT_NAME_MAX = 60 // keep in sync
+ export const CUSTOM_UNIT_MAX = 24
+ export const CUSTOM_CATEGORY_MIN = 2
+ export const CUSTOM_CATEGORY_MAX = 40
+@@ -104,6 +108,9 @@ export function roleCopy(role) {
+       listingLabel: 'Hiring',
+       accountLabel: 'Client',
+       headerSubtitle: "Tell people who you're looking for",
++      nameQuestion: 'Give this listing a name',
++      namePlaceholder: 'e.g. Weekend Wedding Package',
++      nameHint: 'A short nickname — shown as the headline on your card.',
+       titleQuestion: 'Who are you looking for?',
+       titlePlaceholder: 'e.g. Wedding photographer',
+       titleHint: 'Suggestions come from what talent already offer. Type your own too.',
+@@ -129,6 +136,9 @@ export function roleCopy(role) {
+     listingLabel: 'Seeking',
+     accountLabel: 'Talent',
+     headerSubtitle: "Tell people what you're available for",
++    nameQuestion: 'Give this listing a name',
++    namePlaceholder: 'e.g. Weekend Wedding Package',
++    nameHint: 'A short nickname — shown as the headline on your card.',
+     titleQuestion: 'What service are you available for?',
+     titlePlaceholder: 'e.g. Wedding photographer',
+     titleHint: 'Suggestions come from what clients are seeking. Type your own too.',
+@@ -236,6 +246,7 @@ export function isVerifiedName(name) {
+ export function emptyForm(user) {
+   const profileCountry = COUNTRIES.find((c) => c.name === user?.country)
+   return {
++    hatName: '',
+     title: '',
+     category: '',
+     customCategory: '',
+@@ -267,6 +278,7 @@ export function emptyForm(user) {
+ export function hydrateForm(hat) {
+   const isRange = hat.price_type === 'range'
+   return {
++    hatName: hat.hat_name || '',
+     title: hat.hat_title || '',
+     category: hat.category || '',
+     customCategory: '',
+@@ -345,6 +357,10 @@ export function validateForm(form, ctx) {
+   const currency = countryByName(form.countryName).currency
+   const media = ctx.media || { ready: 0, uploading: 0, failed: 0 }
+ 
++  const hatName = form.hatName.trim()
++  if (!hatName) errors.hatName = 'Give this listing a name.'
++  else if (hatName.length > HAT_NAME_MAX) errors.hatName = `Keep the name to ${HAT_NAME_MAX} characters or fewer.`
++
+   const title = form.title.trim()
+   if (!title) errors.title = 'Title is required.'
+   else if (title.length > HAT_TITLE_MAX) errors.title = `Keep the title to ${HAT_TITLE_MAX} characters or fewer.`
+@@ -393,6 +409,7 @@ export function validateForm(form, ctx) {
+ 
+ // element id to focus for each error key
+ export const FIELD_IDS = {
++  hatName: 'hat-name',
+   title: 'hat-title',
+   category: 'hat-category',
+   categoryCustom: 'hat-category-custom',
+@@ -408,6 +425,7 @@ export const FIELD_IDS = {
+ }
+ 
+ const SUMMARY_LABELS = {
++  hatName: () => 'Name',
+   title: () => 'Title',
+   category: () => 'Category',
+   categoryCustom: () => 'Category',
+@@ -467,6 +485,7 @@ function pricingFields(form) {
+ export function buildPayload(form, { mode, role, media = null }) {
+   const country = countryByName(form.countryName)
+   const body = {
++    hat_name: form.hatName.trim(),
+     hat_title: form.title.trim(),
+     category: finalCategory(form),
+     skills: parseSkills(form.skills),

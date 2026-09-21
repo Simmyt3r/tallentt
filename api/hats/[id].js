@@ -2,7 +2,7 @@ import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
-import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, normalizePricing } from '../_lib/hatFields.js'
+import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing } from '../_lib/hatFields.js'
 import { notifyApplicationReceived, notifyApplicationStatus } from '../_lib/notifications.js'
 
 async function getHat(id, viewerId) {
@@ -253,6 +253,14 @@ export default async function handler(req, res) {
         }
         body.hat_title = nextTitle
       }
+      if (body.hat_name != null) {
+        const nextName = String(body.hat_name).trim()
+        if (!nextName) return json(res, 400, { error: 'A name for this listing is required.' })
+        if (nextName.length > HAT_NAME_MAX) {
+          return json(res, 400, { error: `Name must be ${HAT_NAME_MAX} characters or fewer.` })
+        }
+        body.hat_name = nextName
+      }
       if (body.motto != null && String(body.motto).length > HAT_DESCRIPTION_MAX) {
         return json(res, 400, { error: `Description must be ${HAT_DESCRIPTION_MAX} characters or fewer.` })
       }
@@ -335,32 +343,34 @@ export default async function handler(req, res) {
         await client.query(
           `UPDATE hats SET
             hat_title = COALESCE($1, hat_title),
-            verified_name = COALESCE($2, verified_name),
-            is_verified = $3,
-            category = COALESCE($4, category),
-            skills = COALESCE($5, skills),
-            hat_type = COALESCE($6, hat_type),
-            delivery_mode = COALESCE($7, delivery_mode),
-            country = COALESCE($8, country),
-            country_flag = COALESCE($9, country_flag),
-            currency = COALESCE($10, currency),
-            lga = COALESCE($11, lga),
-            motto = COALESCE($12, motto),
-            price_type = $13,
-            price_min = $14,
-            price_max = $15,
-            price_negotiable = $16,
-            rate = $17,
-            rate_unit = $18,
-            rate_unit_custom = $19,
-            availability = COALESCE($20, availability),
-            active = COALESCE($21, active),
-            available_from = $22,
-            available_to = $23,
-            orbit_score = $24
-          WHERE id = $25`,
+            hat_name = COALESCE($2, hat_name),
+            verified_name = COALESCE($3, verified_name),
+            is_verified = $4,
+            category = COALESCE($5, category),
+            skills = COALESCE($6, skills),
+            hat_type = COALESCE($7, hat_type),
+            delivery_mode = COALESCE($8, delivery_mode),
+            country = COALESCE($9, country),
+            country_flag = COALESCE($10, country_flag),
+            currency = COALESCE($11, currency),
+            lga = COALESCE($12, lga),
+            motto = COALESCE($13, motto),
+            price_type = $14,
+            price_min = $15,
+            price_max = $16,
+            price_negotiable = $17,
+            rate = $18,
+            rate_unit = $19,
+            rate_unit_custom = $20,
+            availability = COALESCE($21, availability),
+            active = COALESCE($22, active),
+            available_from = $23,
+            available_to = $24,
+            orbit_score = $25
+          WHERE id = $26`,
           [
             body.hat_title ?? null,
+            body.hat_name ?? null,
             body.verified_name ?? null,
             verified,
             body.category ?? null,

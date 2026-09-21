@@ -1,7 +1,7 @@
 // Path: src/components/hatform/BasicInfoSection.jsx
 import { memo, useEffect, useId, useRef, useState } from 'react'
 import { api } from '../../lib/api'
-import { HAT_DESCRIPTION_MAX, HAT_TITLE_MAX, HAT_TYPES, OTHER_CATEGORY } from '../../lib/hatForm'
+import { HAT_DESCRIPTION_MAX, HAT_NAME_MAX, HAT_TITLE_MAX, HAT_TYPES, OTHER_CATEGORY } from '../../lib/hatForm'
 import { CharCount, Field, RadioCards, SelectBox, Section, inputClass } from './formParts'
 
 // Title with the app's existing "Seeking" typeahead (GET /api/hats?suggest=1).
@@ -133,6 +133,7 @@ function BasicInfoSection({
   roleLocked,
   canChooseRole,
   onRoleChange,
+  hatName,
   title,
   category,
   customCategory,
@@ -173,6 +174,26 @@ function BasicInfoSection({
           </span>
         </p>
       )}
+
+      <Field
+        id="hat-name"
+        label={copy.nameQuestion}
+        hint={copy.nameHint}
+        error={errors.hatName}
+        right={<CharCount value={hatName} max={HAT_NAME_MAX} />}
+      >
+        {(a11y) => (
+          <input
+            {...a11y}
+            type="text"
+            className={inputClass(errors.hatName)}
+            value={hatName}
+            maxLength={HAT_NAME_MAX + 20 /* allow pasting a bit over so the error explains itself */}
+            placeholder={copy.namePlaceholder}
+            onChange={(e) => onChange('hatName', e.target.value)}
+          />
+        )}
+      </Field>
 
       <TitleField value={title} onChange={(v) => onChange('title', v)} copy={copy} error={errors.title} hatRole={hatRole} />
 

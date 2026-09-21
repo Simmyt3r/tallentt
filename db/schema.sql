@@ -180,6 +180,16 @@ UPDATE hats SET price_type = 'fixed', rate = COALESCE(rate, price_min), rate_uni
 WHERE price_type IS NULL OR (price_max IS NULL OR price_max = price_min);
 UPDATE hats SET price_type = 'range' WHERE price_max IS NOT NULL AND price_max <> price_min;
 
+-- Hat Name: a short nickname for the listing (e.g. "Weekend Wedding
+-- Package"), shown as the feed card's headline. Separate from hat_title,
+-- which stays "what service" / "who you're looking for" — the two answer
+-- different questions on the Create/Edit Hat form. Backfilled from the
+-- existing title so old listings still show something, then locked to
+-- NOT NULL for anything saved from here on (see api/_lib/hatFields.js).
+ALTER TABLE hats ADD COLUMN IF NOT EXISTS hat_name TEXT;
+UPDATE hats SET hat_name = hat_title WHERE hat_name IS NULL;
+ALTER TABLE hats ALTER COLUMN hat_name SET NOT NULL;
+
 ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_hat_type_check;
 ALTER TABLE hats ADD CONSTRAINT hats_hat_type_check CHECK (hat_type IN ('Full-time','Part-time','Freelance','Contract','One-Off'));
 ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_delivery_mode_check;
@@ -190,6 +200,8 @@ ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_rate_unit_check;
 ALTER TABLE hats ADD CONSTRAINT hats_rate_unit_check CHECK (rate_unit IS NULL OR rate_unit IN ('hr','day','week','month','year','custom'));
 ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_role_check;
 ALTER TABLE hats ADD CONSTRAINT hats_role_check CHECK (role IN ('talent','client','dual'));
+ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_hat_name_length_check;
+ALTER TABLE hats ADD CONSTRAINT hats_hat_name_length_check CHECK (char_length(hat_name) <= 60);
 
 DROP INDEX IF EXISTS idx_hats_orbit;
 CREATE INDEX IF NOT EXISTS idx_hats_user ON hats (user_id);

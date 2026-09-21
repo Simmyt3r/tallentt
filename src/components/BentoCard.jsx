@@ -76,7 +76,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
 
         <div className="mt-3 text-[12px] leading-snug">
           <span className="font-bold text-black/70">Hats:</span>{' '}
-          <span className="font-semibold text-black">{hat.hat_title}</span>
+          <span className="font-semibold text-black">{hat.hat_name || hat.hat_title}</span>
           {moreCount > 0 && <span className="font-bold text-black/50"> +{moreCount} more</span>}
         </div>
 

@@ -8,6 +8,7 @@ import {
   DELIVERY_MODES,
   HAT_TITLE_MAX,
   HAT_DESCRIPTION_MAX,
+  HAT_NAME_MAX,
   normalizePricing,
   resolveHatRole,
 } from '../_lib/hatFields.js'
@@ -200,6 +201,7 @@ export default async function handler(req, res) {
 
       const {
         hat_title,
+        hat_name,
         verified_name,
         category,
         skills = [],
@@ -222,6 +224,13 @@ export default async function handler(req, res) {
       }
       if (title.length > HAT_TITLE_MAX) {
         return json(res, 400, { error: `Title must be ${HAT_TITLE_MAX} characters or fewer.` })
+      }
+      const name = String(hat_name ?? '').trim()
+      if (!name) {
+        return json(res, 400, { error: 'A name for this listing is required.' })
+      }
+      if (name.length > HAT_NAME_MAX) {
+        return json(res, 400, { error: `Name must be ${HAT_NAME_MAX} characters or fewer.` })
       }
       if (motto && String(motto).length > HAT_DESCRIPTION_MAX) {
         return json(res, 400, { error: `Description must be ${HAT_DESCRIPTION_MAX} characters or fewer.` })
@@ -255,15 +264,16 @@ export default async function handler(req, res) {
 
       const { rows } = await query(
         `INSERT INTO hats (
-          user_id, hat_title, username, verified_name, is_verified, category, skills,
+          user_id, hat_title, hat_name, username, verified_name, is_verified, category, skills,
           hat_type, delivery_mode, country, country_flag, currency, lga, motto,
           price_type, price_min, price_max, price_negotiable, rate, rate_unit, rate_unit_custom,
           role, availability, available_from, available_to, orbit_score
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
         RETURNING *`,
         [
           session.sub,
           title,
+          name,
           accountUsername,
           verified_name || null,
           verified,

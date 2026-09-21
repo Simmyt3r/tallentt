@@ -74,6 +74,10 @@ export const OTHER_CATEGORY = '__other__'
 export const HAT_TITLE_MAX = 80 // keep in sync
 // The description is stored in hats.motto, which the database caps at 80.
 export const HAT_DESCRIPTION_MAX = 80 // keep in sync
+// hats.hat_name — a short nickname for the listing, shown as the feed
+// card's headline. Separate question from Title; capped shorter since it's
+// meant to read as a headline, not a sentence.
+export const HAT_NAME_MAX = 60 // keep in sync
 export const CUSTOM_UNIT_MAX = 24
 export const CUSTOM_CATEGORY_MIN = 2
 export const CUSTOM_CATEGORY_MAX = 40
@@ -104,6 +108,9 @@ export function roleCopy(role) {
       listingLabel: 'Hiring',
       accountLabel: 'Client',
       headerSubtitle: "Tell people who you're looking for",
+      nameQuestion: 'Give this listing a name',
+      namePlaceholder: 'e.g. Weekend Wedding Package',
+      nameHint: 'A short nickname — shown as the headline on your card.',
       titleQuestion: 'Who are you looking for?',
       titlePlaceholder: 'e.g. Wedding photographer',
       titleHint: 'Suggestions come from what talent already offer. Type your own too.',
@@ -129,6 +136,9 @@ export function roleCopy(role) {
     listingLabel: 'Seeking',
     accountLabel: 'Talent',
     headerSubtitle: "Tell people what you're available for",
+    nameQuestion: 'Give this listing a name',
+    namePlaceholder: 'e.g. Weekend Wedding Package',
+    nameHint: 'A short nickname — shown as the headline on your card.',
     titleQuestion: 'What service are you available for?',
     titlePlaceholder: 'e.g. Wedding photographer',
     titleHint: 'Suggestions come from what clients are seeking. Type your own too.',
@@ -236,6 +246,7 @@ export function isVerifiedName(name) {
 export function emptyForm(user) {
   const profileCountry = COUNTRIES.find((c) => c.name === user?.country)
   return {
+    hatName: '',
     title: '',
     category: '',
     customCategory: '',
@@ -267,6 +278,7 @@ export function emptyForm(user) {
 export function hydrateForm(hat) {
   const isRange = hat.price_type === 'range'
   return {
+    hatName: hat.hat_name || '',
     title: hat.hat_title || '',
     category: hat.category || '',
     customCategory: '',
@@ -345,6 +357,10 @@ export function validateForm(form, ctx) {
   const currency = countryByName(form.countryName).currency
   const media = ctx.media || { ready: 0, uploading: 0, failed: 0 }
 
+  const hatName = form.hatName.trim()
+  if (!hatName) errors.hatName = 'Give this listing a name.'
+  else if (hatName.length > HAT_NAME_MAX) errors.hatName = `Keep the name to ${HAT_NAME_MAX} characters or fewer.`
+
   const title = form.title.trim()
   if (!title) errors.title = 'Title is required.'
   else if (title.length > HAT_TITLE_MAX) errors.title = `Keep the title to ${HAT_TITLE_MAX} characters or fewer.`
@@ -393,6 +409,7 @@ export function validateForm(form, ctx) {
 
 // element id to focus for each error key
 export const FIELD_IDS = {
+  hatName: 'hat-name',
   title: 'hat-title',
   category: 'hat-category',
   categoryCustom: 'hat-category-custom',
@@ -408,6 +425,7 @@ export const FIELD_IDS = {
 }
 
 const SUMMARY_LABELS = {
+  hatName: () => 'Name',
   title: () => 'Title',
   category: () => 'Category',
   categoryCustom: () => 'Category',
@@ -467,6 +485,7 @@ function pricingFields(form) {
 export function buildPayload(form, { mode, role, media = null }) {
   const country = countryByName(form.countryName)
   const body = {
+    hat_name: form.hatName.trim(),
     hat_title: form.title.trim(),
     category: finalCategory(form),
     skills: parseSkills(form.skills),
