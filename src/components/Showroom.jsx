@@ -148,7 +148,6 @@ export default function Showroom() {
       return (
         (h.username || '').toLowerCase().includes(q) ||
         (h.hat_title || '').toLowerCase().includes(q) ||
-        (h.seeking || '').toLowerCase().includes(q) ||
         (h.skills || []).some((s) => s.toLowerCase().includes(q))
       )
     })

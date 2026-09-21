@@ -12,7 +12,6 @@ import {
   useLikeToggle,
 } from './bentoCardShared'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
-import { hatSeeking } from '../lib/hatSeeking.js'
 import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import UserIdentity from './UserIdentity'
 
@@ -264,8 +263,6 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const ownerLocation = loaded ? owner?.location : null
   // Card title — the primary heading for the detail view.
   const titleLine = loaded ? detail.title : hat.hat_title
-  // What the Hat is for ("Seeking" / "Hiring") — its own value, not the title.
-  const seekingLine = (loaded && detail.seeking) || hatSeeking(hat)
   // Full description/content — no truncation and no role gate here; this
   // is the detail view, not the feed preview. Shown whenever the card
   // actually has one.
@@ -341,7 +338,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
             }
             hatId={cardId}
             shareTitle={titleLine}
-            shareContext={`${listingLabel}: ${seekingLine}`}
+            shareContext={`${listingLabel}: ${titleLine}`}
             liked={liked}
             onToggleLike={handleLike}
             likeDisabled={liking}
@@ -349,11 +346,8 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
           />
 
           <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-black/40">{listingLabel}</p>
             <h2 className="text-[19px] md:text-[20px] font-bold leading-snug break-words">{titleLine}</h2>
-            <p className="mt-1 text-[13px] leading-snug break-words">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-black/40">{listingLabel}</span>{' '}
-              <span className="font-semibold text-black/80">{seekingLine}</span>
-            </p>
           </div>
         </div>
 

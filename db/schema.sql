@@ -173,12 +173,6 @@ ALTER TABLE hats ADD COLUMN IF NOT EXISTS views INT DEFAULT 0;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS comments_count INT DEFAULT 0;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS jobs_posted INT DEFAULT 0;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS spent INT DEFAULT 0;
--- "Seeking" (Talent) / "Hiring" (Client) — what a Hat is for, e.g. "Wedding
--- photographer" — is now its own value, separate from hat_title (the name the
--- owner gives the Hat). Hats created before this carried both in hat_title, so
--- they start with the same text in both; the owner can edit either afterwards.
-ALTER TABLE hats ADD COLUMN IF NOT EXISTS seeking TEXT;
-UPDATE hats SET seeking = hat_title WHERE seeking IS NULL;
 ALTER TABLE hats ALTER COLUMN price_min DROP NOT NULL;
 ALTER TABLE hats ALTER COLUMN price_min DROP DEFAULT;
 UPDATE hats SET hat_type = 'Full-time' WHERE hat_type = 'Fulltime';

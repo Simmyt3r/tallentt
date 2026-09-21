@@ -1,15 +1,13 @@
 // Path: src/components/hatform/BasicInfoSection.jsx
 import { memo, useEffect, useId, useRef, useState } from 'react'
 import { api } from '../../lib/api'
-import { HAT_DESCRIPTION_MAX, HAT_SEEKING_MAX, HAT_TITLE_MAX, HAT_TYPES, OTHER_CATEGORY } from '../../lib/hatForm'
+import { HAT_DESCRIPTION_MAX, HAT_TITLE_MAX, HAT_TYPES, OTHER_CATEGORY } from '../../lib/hatForm'
 import { CharCount, Field, RadioCards, SelectBox, Section, inputClass } from './formParts'
 
-// What the Hat is for — "Seeking" on a Talent Hat, "Hiring" on a Client Hat —
-// with the app's existing typeahead (GET /api/hats?suggest=1). This is separate
-// from the Hat's title, which is just the name the owner gives it.
+// Title with the app's existing "Seeking" typeahead (GET /api/hats?suggest=1).
 // Suggestions only load while the person is typing — never on the initial
 // fill of an existing hat — and out-of-order responses are ignored.
-function SeekingField({ value, onChange, copy, error, hatRole }) {
+function TitleField({ value, onChange, copy, error, hatRole }) {
   const listId = useId()
   const [suggestions, setSuggestions] = useState([])
   const [open, setOpen] = useState(false)
@@ -68,11 +66,11 @@ function SeekingField({ value, onChange, copy, error, hatRole }) {
 
   return (
     <Field
-      id="hat-seeking"
-      label={copy.seekingQuestion}
-      hint={copy.seekingHint}
+      id="hat-title"
+      label={copy.titleQuestion}
+      hint={copy.titleHint}
       error={error}
-      right={<CharCount value={value} max={HAT_SEEKING_MAX} />}
+      right={<CharCount value={value} max={HAT_TITLE_MAX} />}
     >
       {(a11y) => (
         <div className="relative">
@@ -86,8 +84,8 @@ function SeekingField({ value, onChange, copy, error, hatRole }) {
             aria-activedescendant={expanded && active >= 0 ? `${listId}-${active}` : undefined}
             className={inputClass(error)}
             value={value}
-            maxLength={HAT_SEEKING_MAX + 20 /* allow pasting a bit over so the error explains itself */}
-            placeholder={copy.seekingPlaceholder}
+            maxLength={HAT_TITLE_MAX + 20 /* allow pasting a bit over so the error explains itself */}
+            placeholder={copy.titlePlaceholder}
             autoComplete="off"
             onChange={(e) => {
               typed.current = true
@@ -136,7 +134,6 @@ function BasicInfoSection({
   canChooseRole,
   onRoleChange,
   title,
-  seeking,
   category,
   customCategory,
   description,
@@ -177,28 +174,7 @@ function BasicInfoSection({
         </p>
       )}
 
-      <Field
-        id="hat-title"
-        label="Hat title"
-        hint="The name you give this Hat, so you can tell your Hats apart."
-        error={errors.title}
-        right={<CharCount value={title} max={HAT_TITLE_MAX} />}
-      >
-        {(a11y) => (
-          <input
-            {...a11y}
-            type="text"
-            className={inputClass(errors.title)}
-            value={title}
-            maxLength={HAT_TITLE_MAX + 20 /* allow pasting a bit over so the error explains itself */}
-            placeholder="e.g. Weekend wedding shoots"
-            autoComplete="off"
-            onChange={(e) => onChange('title', e.target.value)}
-          />
-        )}
-      </Field>
-
-      <SeekingField value={seeking} onChange={(v) => onChange('seeking', v)} copy={copy} error={errors.seeking} hatRole={hatRole} />
+      <TitleField value={title} onChange={(v) => onChange('title', v)} copy={copy} error={errors.title} hatRole={hatRole} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="min-w-0 space-y-3">

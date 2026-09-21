@@ -8,7 +8,6 @@ export const HAT_ROLES = ['talent', 'client']
 // The description shown in the form is stored in `hats.motto`, whose column
 // has CHECK (char_length(motto) <= 80) — see db/schema.sql.
 export const HAT_TITLE_MAX = 80
-export const HAT_SEEKING_MAX = 80
 export const HAT_DESCRIPTION_MAX = 80
 
 // rate / price_min / price_max are 32-bit INT columns. Anything larger (or

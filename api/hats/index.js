@@ -7,7 +7,6 @@ import {
   HAT_TYPES,
   DELIVERY_MODES,
   HAT_TITLE_MAX,
-  HAT_SEEKING_MAX,
   HAT_DESCRIPTION_MAX,
   normalizePricing,
   resolveHatRole,
@@ -79,8 +78,7 @@ export default async function handler(req, res) {
 
       // Seeking-field typeahead: GET /api/hats?suggest=1&role=talent&q=henna
       // Reuses this endpoint instead of a dedicated function (Hobby plan's
-      // 12-function cap) — returns distinct `seeking` values (what a Hat is
-      // for; hat_title only for Hats that predate that field) from the
+      // 12-function cap) — returns distinct hat_title values from the
       // OPPOSITE role, since that's what "seeking" suggestions draw from
       // (a client typing what they want sees phrasing talents already use,
       // and vice versa).
@@ -88,17 +86,16 @@ export default async function handler(req, res) {
         const q = (url.searchParams.get('q') || '').trim()
         const suggestRole = role === 'talent' ? 'client' : 'talent'
         const params = [suggestRole]
-        const listing = `COALESCE(NULLIF(h.seeking, ''), h.hat_title)`
-        let where = `h.active = true AND h.role = $1 AND ${listing} IS NOT NULL`
+        let where = `h.active = true AND h.role = $1 AND h.hat_title IS NOT NULL`
         if (q) {
           params.push(`${q}%`)
-          where += ` AND ${listing} ILIKE $2`
+          where += ` AND h.hat_title ILIKE $2`
         }
         const { rows } = await query(
-          `SELECT DISTINCT ${listing} AS suggestion FROM hats h WHERE ${where} ORDER BY suggestion LIMIT 8`,
+          `SELECT DISTINCT hat_title FROM hats h WHERE ${where} ORDER BY hat_title LIMIT 8`,
           params,
         )
-        return json(res, 200, { suggestions: rows.map((r) => r.suggestion) })
+        return json(res, 200, { suggestions: rows.map((r) => r.hat_title) })
       }
 
       const category = url.searchParams.get('category')
@@ -131,7 +128,7 @@ export default async function handler(req, res) {
         clauses.push('h.availability = true')
       }
       if (search) {
-        clauses.push(`(h.username ILIKE $${i} OR h.hat_title ILIKE $${i} OR h.seeking ILIKE $${i} OR $${i} = ANY(h.skills))`)
+        clauses.push(`(h.username ILIKE $${i} OR h.hat_title ILIKE $${i} OR $${i} = ANY(h.skills))`)
         params.push(`%${search}%`)
         i++
       }
@@ -203,7 +200,6 @@ export default async function handler(req, res) {
 
       const {
         hat_title,
-        seeking,
         verified_name,
         category,
         skills = [],
@@ -222,16 +218,10 @@ export default async function handler(req, res) {
 
       const title = String(hat_title ?? '').trim()
       if (!title || !category) {
-        return json(res, 400, { error: 'A hat title and category are required.' })
+        return json(res, 400, { error: 'A seeking title and category are required.' })
       }
       if (title.length > HAT_TITLE_MAX) {
         return json(res, 400, { error: `Title must be ${HAT_TITLE_MAX} characters or fewer.` })
-      }
-      // What the Hat is for ("Seeking" / "Hiring"). A client that only sends
-      // hat_title (an older cached app) gets the same text in both.
-      const seekingText = String(seeking ?? '').trim() || title
-      if (seekingText.length > HAT_SEEKING_MAX) {
-        return json(res, 400, { error: `Seeking must be ${HAT_SEEKING_MAX} characters or fewer.` })
       }
       if (motto && String(motto).length > HAT_DESCRIPTION_MAX) {
         return json(res, 400, { error: `Description must be ${HAT_DESCRIPTION_MAX} characters or fewer.` })
@@ -268,8 +258,8 @@ export default async function handler(req, res) {
           user_id, hat_title, username, verified_name, is_verified, category, skills,
           hat_type, delivery_mode, country, country_flag, currency, lga, motto,
           price_type, price_min, price_max, price_negotiable, rate, rate_unit, rate_unit_custom,
-          role, availability, available_from, available_to, orbit_score, seeking
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+          role, availability, available_from, available_to, orbit_score
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
         RETURNING *`,
         [
           session.sub,
@@ -298,7 +288,6 @@ export default async function handler(req, res) {
           available_from || null,
           available_to || null,
           orbitScore,
-          seekingText,
         ],
       )
       const hat = rows[0]

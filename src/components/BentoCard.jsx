@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import BentoCardDetailModal from './BentoCardDetailModal'
 import UserIdentity from './UserIdentity'
-import { hatSeeking } from '../lib/hatSeeking.js'
 import { identityFromHat } from '../lib/profile.js'
 import {
   formatAvailabilityWindow,
@@ -83,7 +82,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
 
         <div className="mt-1.5 text-[12px] leading-snug flex items-baseline gap-1">
           <span className="font-bold text-black/70 shrink-0">{isTalent ? 'Available:' : 'Hiring:'}</span>
-          <span className="font-semibold text-black truncate">{hatSeeking(hat)}</span>
+          <span className="font-semibold text-black truncate">{hat.hat_title}</span>
           <span className="text-black/40 font-bold mx-0.5">:</span>
           <span className="font-bold text-[#0A13E6] shrink-0">{formatPrice(hat, currency)}</span>
         </div>

@@ -5,7 +5,6 @@ import { ArrowLeft, BookOpen, Clock, Eye, Heart, MapPin, Send, Star } from 'luci
 import { api } from '../lib/api'
 import AvailabilityBadge from '../components/AvailabilityBadge'
 import UserIdentity from '../components/UserIdentity'
-import { hatSeeking } from '../lib/hatSeeking.js'
 import { identityFromHat } from '../lib/profile.js'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 
@@ -238,9 +237,6 @@ export default function TalentProfile() {
               usernameClassName="text-[13px] font-semibold text-black/55 leading-tight"
             >
               <p className="text-[13px] text-black/60 mt-0.5">{hat.hat_title}</p>
-              <p className="text-[13px] text-black/80 mt-0.5">
-                <span className="font-bold text-black/50">{hat.role === 'client' ? 'Hiring' : 'Seeking'}:</span> {hatSeeking(hat)}
-              </p>
             </UserIdentity>
             <span className="font-bold text-[16px] whitespace-nowrap">{formatPrice(hat, currency)}</span>
           </div>

@@ -1,6 +1,5 @@
 // Path: src/components/profile/ActiveHatsSection.jsx
 import { Link } from 'react-router-dom'
-import { hatSeeking } from '../../lib/hatSeeking.js'
 import { isBusinessIdentity } from '../../lib/profile.js'
 
 function HatChip({ hat }) {
@@ -9,7 +8,7 @@ function HatChip({ hat }) {
       to={`/talent/${hat.id}`}
       className="text-[12px] font-semibold px-3 py-1.5 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 hover:border-black transition"
     >
-      {hatSeeking(hat)}
+      {hat.hat_title}
       {hat.category && <span className="text-black/40 font-medium"> · {hat.category}</span>}
     </Link>
   )

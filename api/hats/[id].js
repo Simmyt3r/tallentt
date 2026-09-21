@@ -2,7 +2,7 @@ import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
-import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_SEEKING_MAX, HAT_DESCRIPTION_MAX, normalizePricing } from '../_lib/hatFields.js'
+import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, normalizePricing } from '../_lib/hatFields.js'
 import { notifyApplicationReceived, notifyApplicationStatus } from '../_lib/notifications.js'
 
 async function getHat(id, viewerId) {
@@ -111,8 +111,6 @@ async function buildCardDetail(hat, viewerId) {
   return {
     id: hat.id,
     title: hat.hat_title,
-    // What the Hat is for ("Seeking" / "Hiring") — separate from its title.
-    seeking: hat.seeking || hat.hat_title,
     // hats has no dedicated long-form description column — motto is the
     // closest existing free-text field tied to the card, so it's reused
     // here rather than adding a new one.
@@ -249,19 +247,11 @@ export default async function handler(req, res) {
       }
       if (body.hat_title != null) {
         const nextTitle = String(body.hat_title).trim()
-        if (!nextTitle) return json(res, 400, { error: 'A hat title is required.' })
+        if (!nextTitle) return json(res, 400, { error: 'A seeking title is required.' })
         if (nextTitle.length > HAT_TITLE_MAX) {
           return json(res, 400, { error: `Title must be ${HAT_TITLE_MAX} characters or fewer.` })
         }
         body.hat_title = nextTitle
-      }
-      if (body.seeking != null) {
-        const nextSeeking = String(body.seeking).trim()
-        if (!nextSeeking) return json(res, 400, { error: 'Say what this Hat is seeking or hiring for.' })
-        if (nextSeeking.length > HAT_SEEKING_MAX) {
-          return json(res, 400, { error: `Seeking must be ${HAT_SEEKING_MAX} characters or fewer.` })
-        }
-        body.seeking = nextSeeking
       }
       if (body.motto != null && String(body.motto).length > HAT_DESCRIPTION_MAX) {
         return json(res, 400, { error: `Description must be ${HAT_DESCRIPTION_MAX} characters or fewer.` })
@@ -367,8 +357,7 @@ export default async function handler(req, res) {
             active = COALESCE($21, active),
             available_from = $22,
             available_to = $23,
-            orbit_score = $24,
-            seeking = COALESCE($26, seeking)
+            orbit_score = $24
           WHERE id = $25`,
           [
             body.hat_title ?? null,
@@ -396,7 +385,6 @@ export default async function handler(req, res) {
             windowValue(body.available_to, existing.available_to),
             orbitScore,
             id,
-            body.seeking ?? null,
           ],
         )
         await client.query('COMMIT')
