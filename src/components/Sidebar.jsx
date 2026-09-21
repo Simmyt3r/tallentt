@@ -123,7 +123,7 @@ function SidebarContent({ collapsed, onNavigate }) {
           onClick={handleLogout}
           title="Log out"
           className={`flex w-full items-center gap-2.5 rounded-[12px] px-3 py-2.5 text-[13.5px] font-semibold text-black/55 transition-colors hover:bg-red-50 hover:text-red-600 ${
-            collapsed ? 'justify-center' : ''
+            collapsed ? 'justify-left' : ''
           }`}
         >
           <LogOut size={18} className="shrink-0" />
