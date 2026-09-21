@@ -96,7 +96,7 @@ export default function Layout({ children }) {
                 logo stays) so the row never has to truncate it. */}
             <div className="flex min-w-0 items-center gap-2 md:hidden">
               <img src="/logo.png" alt="ChombuTar" className="h-10 w-10 shrink-0 rounded-full object-cover" />
-              <h1 className="hidden min-w-0 truncate text-left text-[17px] font-black tracking-tight min-[390px]:block">
+              <h1 className="min-w-0 truncate text-left text-[17px] font-black tracking-tight min-[390px]:block">
                 ChombuTar
               </h1>
             </div>
