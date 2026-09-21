@@ -1,12 +1,10 @@
 // Usage: DATABASE_URL=postgres://... node db/migrate.js
-// (or `npm run db:migrate` if DATABASE_URL is already in your shell/.env)
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import pg from 'pg'
 
 const { Pool } = pg
-
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 async function main() {
@@ -15,16 +13,19 @@ async function main() {
     process.exit(1)
   }
 
-  const file = process.argv.includes('--completion') ? 'booking-completion.sql' : 'schema.sql'
-  const sql = readFileSync(join(__dirname, file), 'utf8')
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  })
+  const files = process.argv.includes('--completion')
+    ? ['booking-completion.sql']
+    : process.argv.includes('--live')
+      ? ['live-support.sql']
+      : ['schema.sql', 'live-support.sql']
 
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
   try {
-    await pool.query(sql)
-    console.log(`✅ Migration applied: ${file}`)
+    for (const file of files) {
+      const sql = readFileSync(join(__dirname, file), 'utf8')
+      await pool.query(sql)
+      console.log(`✅ Migration applied: ${file}`)
+    }
   } catch (err) {
     console.error('❌ Migration failed:', err.message)
     process.exitCode = 1

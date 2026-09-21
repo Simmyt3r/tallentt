@@ -1,307 +1,193 @@
 // Path: src/pages/Live/StageRoom.jsx
-import { useEffect, useState, useCallback } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Mic, Heart, Gift as GiftIcon, Swords, Megaphone, Wifi, Radio } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useLocation, useParams } from 'react-router-dom'
+import { ArrowLeft, Camera, Heart, Maximize, Mic, MicOff, VideoOff, Wifi, Users, Gift as GiftIcon } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
-import UserIdentity, { ProfileLink } from '../../components/UserIdentity'
-import { getPrimaryIdentity, getSecondaryIdentity, identityFromRow, normalizeUsername } from '../../lib/profile.js'
+import UserIdentity from '../../components/UserIdentity'
 
-function fmtCoins(n) {
-  return `${Number(n || 0).toLocaleString()}`
+function money(n) { return `₦${Number(n || 0).toLocaleString()}` }
+function makeKey() { return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}` }
+
+function StreamPlayer({ stream, quality }) {
+  const videoRef = useRef(null)
+  const [fallback, setFallback] = useState(false)
+  const src = useMemo(() => {
+    if (!stream.playback_url) return ''
+    try {
+      const url = new URL(stream.playback_url)
+      if (quality === 'data_saver') url.searchParams.set('clientBandwidthHint', '0.7')
+      if (quality === 'high') url.searchParams.set('clientBandwidthHint', '4.0')
+      return url.toString()
+    } catch { return stream.playback_url }
+  }, [stream.playback_url, quality])
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !src) return
+    const nativeHls = Boolean(video.canPlayType('application/vnd.apple.mpegurl'))
+    setFallback(!nativeHls)
+  }, [src])
+
+  if (fallback) {
+    try {
+      const url = new URL(stream.playback_url)
+      const uid = url.pathname.split('/').filter(Boolean)[0]
+      const iframe = `${url.origin}/${uid}/iframe?autoplay=true`
+      return <iframe src={iframe} title={stream.title} allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowFullScreen className="w-full h-full border-0 bg-black" />
+    } catch {}
+  }
+  return <video ref={videoRef} key={src} src={src} controls autoPlay playsInline className="w-full h-full object-contain bg-black" />
 }
 
-// Preset gift catalog — amounts in Orbit Coins. Kept client-side; the
-// server only validates gift_type is a short string and amount is a
-// positive integer (see api/_lib/live.js sendGift), so this list is purely
-// UI, not a source of truth.
-const GIFTS = [
-  { type: 'clap', label: '👏 Clap', amount: 50 },
-  { type: 'rose', label: '🌹 Rose', amount: 150 },
-  { type: 'crown', label: '👑 Crown', amount: 500 },
-  { type: 'diamond', label: '💎 Diamond', amount: 2000 },
-]
-
-const PLACEMENT_LABELS = {
-  led_ribbon: 'LED ribbon',
-  side_poster_left: 'Left poster',
-  side_poster_right: 'Right poster',
-  roof_screen: 'Roof screen',
-  seats: 'Seats',
-}
 
 export default function StageRoom() {
   const { id } = useParams()
+  const location = useLocation()
   const { user, refreshUser } = useAuth()
+  const shellRef = useRef(null)
   const [room, setRoom] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [quality, setQuality] = useState('auto')
+  const [supportOpen, setSupportOpen] = useState(false)
+  const [selectedGift, setSelectedGift] = useState(null)
+  const [customAmount, setCustomAmount] = useState('')
   const [busy, setBusy] = useState(false)
-  const [sponsorOpen, setSponsorOpen] = useState(false)
-  const [sponsorForm, setSponsorForm] = useState({ placement: 'led_ribbon', brand_name: '', message: '', rain_amount: '' })
+  const [animation, setAnimation] = useState(null)
+  const [localMedia, setLocalMedia] = useState({ mic: true, camera: true })
 
-  const load = useCallback(async () => {
-    const data = await api.getLiveRoom(id)
-    setRoom(data)
-  }, [id])
+  const load = useCallback(async () => setRoom(await api.getLiveRoom(id)), [id])
 
   useEffect(() => {
-    let cancelled = false
-    load()
-      .catch((e) => !cancelled && setError(e.message || 'Failed to load stage'))
-      .finally(() => !cancelled && setLoading(false))
-    const interval = setInterval(() => load().catch(() => {}), 5000)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
+    let dead = false
+    load().catch((e) => !dead && setError(e.message || 'Failed to load Live.')).finally(() => !dead && setLoading(false))
+    const t = setInterval(() => load().catch(() => {}), 6000)
+    return () => { dead = true; clearInterval(t) }
   }, [load])
 
-  async function act(action, extra = {}) {
-    setBusy(true)
-    try {
-      await api.liveAction({ action, room_id: id, ...extra })
-      await load()
-      await refreshUser()
-    } catch (e) {
-      alert(e.message)
-    } finally {
-      setBusy(false)
+  useEffect(() => {
+    if (!room || room.is_owner || room.status === 'ended') return
+    const beat = () => api.liveAction({ action: 'heartbeat_viewer', stream_id: id }).catch(() => {})
+    beat()
+    const t = setInterval(beat, 20000)
+    return () => clearInterval(t)
+  }, [id, room?.is_owner, room?.status])
+
+  useEffect(() => {
+    if (!room?.is_owner || !['live', 'reconnecting', 'starting'].includes(room.status)) return
+    const sync = async () => {
+      try {
+        await api.liveAction({ action: 'refresh_provider_status', stream_id: id })
+        await load()
+      } catch {}
     }
-  }
+    const t = setInterval(sync, 8000)
+    return () => clearInterval(t)
+  }, [id, load, room?.is_owner, room?.status])
 
-  async function handleGift(gift) {
-    await act('send_gift', { gift_type: gift.type, amount: gift.amount })
-  }
-
-  async function handleChallenge() {
-    const username = prompt('Challenge who? Enter their username:')
-    if (!username) return
-    const game = prompt('Which game — chess, draughts, ludo, or codm?', 'chess')
-    if (!game) return
-    const stakeInput = prompt('Stake per player (Orbit Coins):', '500')
-    const stake = Number(stakeInput)
-    if (!Number.isFinite(stake) || stake <= 0) return
-    setBusy(true)
+  async function likeLive() {
+    if (room.liked_by_me) return
     try {
-      const { room: arenaRoom } = await api.liveAction({
-        action: 'challenge', room_id: id, target_username: normalizeUsername(username), game, stake, title: `Challenge from Stage`,
-      })
-      await refreshUser()
-      window.location.href = `/live/arena/${arenaRoom.id}`
-    } catch (e) {
-      alert(e.message)
-      setBusy(false)
-    }
+      const result = await api.liveAction({ action: 'like', stream_id: id })
+      setRoom((current) => ({ ...current, likes: result.likes, liked_by_me: true }))
+    } catch (e) { alert(e.message) }
   }
 
-  async function handleSponsorSubmit(e) {
-    e.preventDefault()
-    if (!sponsorForm.brand_name.trim()) return alert('Enter a brand name.')
+  async function sendSupport() {
+    if (!selectedGift) return
     setBusy(true)
     try {
       await api.liveAction({
-        action: 'rent_sponsor_slot',
-        room_id: id,
-        placement: sponsorForm.placement,
-        brand_name: sponsorForm.brand_name.trim(),
-        message: sponsorForm.message.trim() || undefined,
-        rain_amount: sponsorForm.rain_amount ? Number(sponsorForm.rain_amount) : undefined,
+        action: 'send_support',
+        stream_id: id,
+        gift_id: selectedGift.id,
+        custom_amount: selectedGift.custom_amount ? Number(customAmount) : undefined,
+        idempotency_key: makeKey(),
       })
-      setSponsorOpen(false)
-      setSponsorForm({ placement: 'led_ribbon', brand_name: '', message: '', rain_amount: '' })
-      await load()
-      await refreshUser()
-    } catch (e) {
-      alert(e.message)
-    } finally {
-      setBusy(false)
-    }
+      setAnimation(selectedGift)
+      setTimeout(() => setAnimation(null), 1800)
+      setSupportOpen(false)
+      setSelectedGift(null)
+      setCustomAmount('')
+      await Promise.all([load(), refreshUser()])
+    } catch (e) { alert(e.message) } finally { setBusy(false) }
   }
 
-  if (loading) return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading stage…</p>
-  if (error || !room) return <p className="text-center text-red-600 py-16 text-[13px] font-medium">{error || 'Room not found'}</p>
+  async function endLive() {
+    if (!confirm('End this Live?')) return
+    setBusy(true)
+    try {
+      await api.liveAction({ action: 'end_stream', stream_id: id })
+      window.__chombutarLivePublisher?.stop?.()
+      await load()
+      await refreshUser()
+    } catch (e) { alert(e.message) } finally { setBusy(false) }
+  }
 
-  const isHost = room.host_id === user.id
-  const isLive = room.status === 'live'
-  const host = identityFromRow(room, 'host')
-  const sponsorByPlacement = Object.fromEntries((room.sponsors || []).map((s) => [s.placement, s]))
+  function toggleTrack(kind) {
+    const publisher = window.__chombutarLivePublisher?.peerConnection
+    const sender = publisher?.getSenders?.().find((s) => s.track?.kind === kind)
+    if (!sender?.track) return
+    sender.track.enabled = !sender.track.enabled
+    setLocalMedia((s) => ({ ...s, [kind === 'audio' ? 'mic' : 'camera']: sender.track.enabled }))
+  }
+
+  if (loading) return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading Live…</p>
+  if (error || !room) return <p className="text-center text-red-600 py-16 text-[13px] font-medium">{error || 'Live not found.'}</p>
+
+  const isHost = room.is_owner || location.state?.isHost
+  const isLive = ['live', 'reconnecting'].includes(room.status)
+  const feeRate = Number(room.platform_fee_bps || 0) / 100
+  const giftAmount = selectedGift?.custom_amount ? Number(customAmount || 0) : Number(selectedGift?.amount || 0)
+  const fee = Math.floor((giftAmount * Number(room.platform_fee_bps || 0)) / 10000)
 
   return (
-    <div className="space-y-5 max-w-[700px] mx-auto">
+    <div className="max-w-[780px] mx-auto space-y-4 pb-10" ref={shellRef}>
       <div className="flex items-center gap-3">
-        <Link to="/live/stage" className="w-9 h-9 rounded-full border-[1.5px] border-black grid place-items-center hover:bg-black hover:text-white transition">
-          <ArrowLeft size={15} />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-[17px] font-bold tracking-tight flex items-center gap-2">
-            <Mic size={16} /> {room.title}
-          </h1>
-          <p className="text-[12px] text-black/50 font-medium"><UserIdentity user={host} layout="inline" showAvatar={false} nameClassName="font-medium" usernameClassName="font-medium text-black/40" /> · Orbit Score {room.host_live_orbit_score}</p>
-        </div>
-        {isLive && (
-          <span className="text-[10px] font-bold text-white bg-red-600 px-2.5 py-1 rounded-full flex items-center gap-1">
-            <Wifi size={10} /> LIVE
-          </span>
-        )}
+        <Link to="/live" className="w-9 h-9 rounded-full border-[1.5px] border-black grid place-items-center"><ArrowLeft size={15} /></Link>
+        <div className="min-w-0 flex-1"><h1 className="text-[16px] font-bold truncate">{room.title}</h1><p className="text-[11px] font-semibold text-black/45">{room.category}</p></div>
+        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${isLive ? 'bg-red-600 text-white' : 'bg-black/10 text-black/60'}`}>{room.status === 'reconnecting' ? 'RECONNECTING…' : room.status.toUpperCase()}</span>
       </div>
 
-      {/* Stylized "3D hall" — a real WebGL/3D venue would live here; this is
-          a CSS approximation of the described layout (LED ribbon, side
-          posters, roof screen, seats) with real Sponsor Hall data. */}
-      <div className="relative rounded-[24px] border-[1.5px] border-black overflow-hidden bg-gradient-to-b from-[#0b0b12] to-[#1a1a2b] p-5 text-white" style={{ perspective: '800px' }}>
-        <div className="text-center text-[10px] font-bold tracking-widest uppercase text-white/50 mb-1">
-          {sponsorByPlacement.roof_screen ? `📺 ${sponsorByPlacement.roof_screen.brand_name}` : 'Roof screen — available to sponsor'}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex flex-1 items-center justify-center text-[10px] font-semibold text-white/60 border border-white/10 rounded-[10px] py-8 rotate-y-[-8deg]" style={{ writingMode: 'vertical-rl' }}>
-            {sponsorByPlacement.side_poster_left ? sponsorByPlacement.side_poster_left.brand_name : 'Poster'}
-          </div>
-          <div className="flex-[3] text-center py-6">
-            <ProfileLink user={host} ariaLabel={`View ${getPrimaryIdentity(host)}'s profile`} className="block w-fit mx-auto rounded-full">
-              <img src={room.host_avatar_url || '/logo.png'} alt="" className="w-20 h-20 rounded-full mx-auto border-2 border-white/70 object-cover shadow-lg" />
-            </ProfileLink>
-            <p className="mt-2 text-[13px] font-bold">
-              <ProfileLink user={host} className="hover:underline">{getPrimaryIdentity(host)}</ProfileLink>
-            </p>
-            {getSecondaryIdentity(host) && (
-              <p className="text-[11px] font-semibold text-white/60">
-                <ProfileLink user={host} className="hover:underline">{getSecondaryIdentity(host)}</ProfileLink>
-              </p>
-            )}
-          </div>
-          <div className="hidden sm:flex flex-1 items-center justify-center text-[10px] font-semibold text-white/60 border border-white/10 rounded-[10px] py-8" style={{ writingMode: 'vertical-rl' }}>
-            {sponsorByPlacement.side_poster_right ? sponsorByPlacement.side_poster_right.brand_name : 'Poster'}
-          </div>
-        </div>
-        <div className="mt-2 text-center text-[10px] font-bold tracking-widest uppercase bg-white/10 rounded-full py-1.5 overflow-hidden whitespace-nowrap">
-          {sponsorByPlacement.led_ribbon ? `✨ ${sponsorByPlacement.led_ribbon.brand_name}${sponsorByPlacement.led_ribbon.message ? ` — ${sponsorByPlacement.led_ribbon.message}` : ''} ✨` : 'LED ribbon — available to sponsor'}
-        </div>
-        <div className="mt-3 grid grid-cols-8 gap-1">
-          {Array.from({ length: 24 }).map((_, i) => (
-            <div key={i} className={`h-2 rounded-sm ${sponsorByPlacement.seats ? 'bg-[#0A13E6]/70' : 'bg-white/15'}`} />
-          ))}
-        </div>
-        {sponsorByPlacement.seats && (
-          <p className="text-center text-[10px] text-white/50 mt-1">Seats sponsored by {sponsorByPlacement.seats.brand_name}</p>
-        )}
+      <div className="relative aspect-video rounded-[22px] overflow-hidden bg-black border-[1.5px] border-black">
+        {room.status === 'scheduled' || room.status === 'starting' ? <div className="w-full h-full grid place-items-center text-white/70 text-[13px] font-semibold">Talent is preparing the Live</div>
+          : room.status === 'ended' ? <div className="w-full h-full grid place-items-center text-white/70 text-[13px] font-semibold">Live has ended</div>
+            : room.status === 'failed' ? <div className="w-full h-full grid place-items-center text-red-300 text-[13px] font-semibold">Live stream failed</div>
+              : <StreamPlayer stream={room} quality={quality} />}
+        {animation && <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center motion-reduce:hidden"><div className="rounded-full bg-black/75 text-white px-5 py-2.5 text-[13px] font-bold shadow-xl animate-bounce">{animation.icon} {animation.name}</div></div>}
+        <button onClick={() => shellRef.current?.requestFullscreen?.()} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 text-white grid place-items-center"><Maximize size={15} /></button>
       </div>
 
-      <div className="bg-white rounded-[20px] border-[1.5px] border-black p-4 flex flex-wrap items-center gap-2.5">
-        <button onClick={() => act('like')} disabled={busy || room.liked_by_me} className="h-10 px-4 rounded-full bg-white text-black text-[13px] font-semibold border-[1.5px] border-black flex items-center gap-1.5 disabled:opacity-50">
-          <Heart size={14} className={room.liked_by_me ? 'fill-red-500 text-red-500' : ''} /> {room.likes}
-        </button>
-        {!isHost && isLive && (
-          <>
-            {GIFTS.map((g) => (
-              <button key={g.type} onClick={() => handleGift(g)} disabled={busy} className="h-10 px-3 rounded-full bg-white text-black text-[12px] font-semibold border-[1.5px] border-black/20 hover:border-black disabled:opacity-50">
-                {g.label} · {g.amount}
-              </button>
-            ))}
-          </>
-        )}
-        {isHost && isLive && (
-          <>
-            <button onClick={handleChallenge} disabled={busy} className="h-10 px-4 rounded-full bg-black text-white text-[13px] font-semibold border-[1.5px] border-black flex items-center gap-1.5 disabled:opacity-50">
-              <Swords size={14} /> Challenge a viewer
-            </button>
-            <button onClick={() => act('end_stage')} disabled={busy} className="h-10 px-4 rounded-full bg-white text-red-600 text-[13px] font-semibold border-[1.5px] border-red-300 disabled:opacity-50">
-              End stage
-            </button>
-          </>
-        )}
-        {isLive && (
-          <button onClick={() => setSponsorOpen(true)} disabled={busy} className="h-10 px-4 rounded-full bg-[#0A13E6] text-white text-[13px] font-semibold border-[1.5px] border-black flex items-center gap-1.5 ml-auto disabled:opacity-50">
-            <Megaphone size={14} /> Sponsor this hall
-          </button>
-        )}
+      <div className="bg-white rounded-[20px] border-[1.5px] border-black p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <UserIdentity user={room} />
+          <div className="flex items-center gap-1 text-[11px] font-bold text-black/55"><Users size={13} /> {room.viewer_count || 0} watching</div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={likeLive} disabled={room.liked_by_me || !isLive} className="h-10 px-4 rounded-full border-[1.5px] border-black text-[12px] font-bold flex items-center gap-1.5 disabled:opacity-50"><Heart size={14} className={room.liked_by_me ? 'fill-red-500 text-red-500' : ''} /> {room.likes || 0}</button>
+          {!isHost && isLive && <button onClick={() => setSupportOpen(true)} className="h-10 px-4 rounded-full bg-[#0A13E6] text-white text-[12px] font-bold flex items-center gap-1.5"><GiftIcon size={14} /> Support Talent</button>}
+          {isHost && isLive && <>
+            <button onClick={() => toggleTrack('audio')} className="h-10 px-3 rounded-full border border-black/20 text-[12px] font-bold">{localMedia.mic ? <Mic size={14} /> : <MicOff size={14} />}</button>
+            <button onClick={() => toggleTrack('video')} className="h-10 px-3 rounded-full border border-black/20 text-[12px] font-bold">{localMedia.camera ? <Camera size={14} /> : <VideoOff size={14} />}</button>
+            <button onClick={endLive} disabled={busy} className="h-10 px-4 rounded-full bg-red-600 text-white text-[12px] font-bold">End Live</button>
+          </>}
+        </div>
+        <div className="flex items-center gap-2 text-[11px] font-bold"><Wifi size={13} /><span>Quality</span>{[['auto','Auto'],['data_saver','Data Saver'],['high','High Quality']].map(([v,l]) => <button key={v} onClick={() => setQuality(v)} className={`px-3 py-1.5 rounded-full border ${quality === v ? 'bg-black text-white border-black' : 'border-black/15'}`}>{l}</button>)}</div>
       </div>
 
-      <div className="bg-white rounded-[20px] border-[1.5px] border-black overflow-hidden">
-        <div className="px-4 py-2.5 border-b-[1.5px] border-black flex items-center gap-2">
-          <GiftIcon size={13} />
-          <h3 className="text-[12px] font-bold tracking-tight">Recent gifts</h3>
-        </div>
-        {(room.recent_gifts || []).length === 0 ? (
-          <p className="text-center py-6 text-black/40 text-[12px] font-medium">No gifts yet.</p>
-        ) : (
-          <ul className="divide-y divide-black/10 max-h-[220px] overflow-y-auto">
-            {room.recent_gifts.map((g) => (
-              <li key={g.id} className="flex items-center justify-between px-4 py-2 text-[12px]">
-                <span className="min-w-0 truncate"><UserIdentity user={g} layout="inline" showAvatar={false} nameClassName="font-semibold" usernameClassName="font-semibold text-black/45" /></span>
-                <span className="text-black/50">{g.gift_type} · {fmtCoins(g.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+      {isHost && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{[
+        ['Today’s Live Earnings', money(room.earnings?.today_net_earnings)], ['Total Gifts', room.earnings?.total_gifts || 0], ['Gross Support', money(room.earnings?.gross_support)], ['Platform Fee', money(room.earnings?.platform_fee)]
+      ].map(([l,v]) => <div key={l} className="rounded-[18px] border border-black/10 bg-white p-3"><p className="text-[10px] font-bold text-black/45">{l}</p><p className="text-[16px] font-bold mt-1">{v}</p></div>)}</div>}
+
+      {isHost && room.gift_breakdown?.length > 0 && <section className="bg-white rounded-[20px] border border-black/10 p-4"><h2 className="text-[13px] font-bold mb-3">Gift Breakdown</h2><div className="flex flex-wrap gap-2">{room.gift_breakdown.map((g) => <div key={g.id} className="rounded-full bg-black/[0.04] px-3 py-2 text-[11px] font-semibold">{g.icon} {g.name} × {g.count} · {money(g.gross_amount)}</div>)}</div></section>}
+
+      <div className="grid sm:grid-cols-2 gap-3">
+        <section className="bg-white rounded-[20px] border border-black/10 p-4"><h2 className="text-[13px] font-bold mb-3">Recent Support</h2><div className="space-y-2">{(room.recent_support || []).map((s) => <div key={s.id} className="text-[11px] font-semibold text-black/65"><Link to={`/profile/${s.supporter_username}`} className="font-bold text-black hover:underline">^{s.supporter_username}</Link> sent {s.icon} {s.gift_name} • {money(s.gross_amount)}</div>)}{!room.recent_support?.length && <p className="text-[11px] text-black/40">No support yet.</p>}</div></section>
+        <section className="bg-white rounded-[20px] border border-black/10 p-4"><h2 className="text-[13px] font-bold mb-3">Top Supporters</h2><div className="space-y-2">{(room.top_supporters || []).map((s,i) => <div key={s.id} className="flex justify-between text-[11px] font-semibold"><span>{i+1}. <Link to={`/profile/${s.username}`} className="font-bold hover:underline">^{s.username}</Link></span><span>{money(s.amount)}</span></div>)}{!room.top_supporters?.length && <p className="text-[11px] text-black/40">No supporters yet.</p>}</div></section>
       </div>
 
-      {sponsorOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/45 flex items-center justify-center p-5" onClick={() => setSponsorOpen(false)}>
-          <form
-            onClick={(e) => e.stopPropagation()}
-            onSubmit={handleSponsorSubmit}
-            className="bg-white rounded-[24px] border-[1.5px] border-black p-6 w-full max-w-[420px] shadow-[0_24px_60px_rgba(0,0,0,0.2)] space-y-4"
-          >
-            <div>
-              <h2 className="text-[16px] font-bold tracking-tight flex items-center gap-2"><Radio size={15} /> Sponsor this hall</h2>
-              <p className="text-[12px] text-black/50 font-medium mt-1">Rent a placement, optionally rain Orbit Coins on the audience.</p>
-            </div>
-            <div>
-              <label className="text-[11px] font-bold tracking-widest uppercase text-black/50">Placement</label>
-              <select
-                value={sponsorForm.placement}
-                onChange={(e) => setSponsorForm((f) => ({ ...f, placement: e.target.value }))}
-                className="mt-1.5 w-full h-11 rounded-[12px] border-[1.5px] border-black px-3.5 text-[14px] font-medium outline-none"
-              >
-                {Object.entries(PLACEMENT_LABELS).map(([code, label]) => (
-                  <option key={code} value={code} disabled={Boolean(sponsorByPlacement[code])}>
-                    {label} {sponsorByPlacement[code] ? '(taken)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] font-bold tracking-widest uppercase text-black/50">Brand name</label>
-              <input
-                value={sponsorForm.brand_name}
-                onChange={(e) => setSponsorForm((f) => ({ ...f, brand_name: e.target.value }))}
-                placeholder="e.g. Orbit Sneakers"
-                className="mt-1.5 w-full h-11 rounded-[12px] border-[1.5px] border-black px-3.5 text-[14px] font-medium outline-none focus:ring-2 focus:ring-[#0A13E6]/30"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold tracking-widest uppercase text-black/50">Ribbon / poster message (optional)</label>
-              <input
-                value={sponsorForm.message}
-                onChange={(e) => setSponsorForm((f) => ({ ...f, message: e.target.value }))}
-                placeholder="e.g. 20% off this weekend"
-                className="mt-1.5 w-full h-11 rounded-[12px] border-[1.5px] border-black px-3.5 text-[14px] font-medium outline-none"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold tracking-widest uppercase text-black/50">Rain on audience (optional, Orbit Coins)</label>
-              <input
-                type="number"
-                min="0"
-                value={sponsorForm.rain_amount}
-                onChange={(e) => setSponsorForm((f) => ({ ...f, rain_amount: e.target.value }))}
-                placeholder="0"
-                className="mt-1.5 w-full h-11 rounded-[12px] border-[1.5px] border-black px-3.5 text-[14px] font-medium outline-none"
-              />
-              <p className="mt-1.5 text-[11px] text-black/40 font-medium">Split evenly among everyone who has liked or gifted this stage so far.</p>
-            </div>
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setSponsorOpen(false)} className="flex-1 h-11 rounded-full bg-white text-black text-[13px] font-semibold border-[1.5px] border-black">
-                Cancel
-              </button>
-              <button type="submit" disabled={busy} className="flex-1 h-11 rounded-full bg-[#0A13E6] text-white text-[13px] font-semibold border-[1.5px] border-black disabled:opacity-50">
-                {busy ? 'Renting…' : 'Rent placement'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {supportOpen && <div className="fixed inset-0 z-50 bg-black/45 flex items-end sm:items-center justify-center" onClick={() => setSupportOpen(false)}><div className="w-full sm:max-w-[520px] max-h-[82vh] overflow-y-auto rounded-t-[26px] sm:rounded-[26px] bg-white p-4" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between"><div><h2 className="text-[16px] font-bold">Support Talent</h2><p className="text-[11px] text-black/45 font-medium">Real wallet support, credited to the Talent’s withdrawable balance.</p></div><button onClick={() => setSupportOpen(false)} className="text-[12px] font-bold">Close</button></div><div className="grid grid-cols-2 gap-2 mt-4">{(room.gifts || []).map((g) => <button key={g.id} onClick={() => setSelectedGift(g)} className={`text-left rounded-[16px] border p-3 ${selectedGift?.id === g.id ? 'border-[#0A13E6] bg-blue-50' : 'border-black/10'}`}><div className="text-[20px]">{g.icon}</div><div className="text-[12px] font-bold mt-1">{g.name}</div><div className="text-[10px] text-black/45 mt-0.5">{g.custom_amount ? 'Custom amount' : money(g.amount)}</div></button>)}</div>{selectedGift && <div className="mt-4 rounded-[18px] bg-black/[0.03] p-3 space-y-2"><p className="text-[12px] font-bold">{selectedGift.icon} {selectedGift.name}</p><p className="text-[11px] text-black/55">{selectedGift.description}</p>{selectedGift.custom_amount && <input type="number" min="100" max="10000000" step="100" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="Enter amount" className="w-full h-10 rounded-xl border border-black/15 px-3 text-[12px]" />}<div className="flex justify-between text-[11px]"><span>Amount</span><b>{money(giftAmount)}</b></div><div className="flex justify-between text-[11px]"><span>Platform fee ({feeRate}%)</span><b>{money(fee)}</b></div><div className="flex justify-between text-[11px]"><span>Talent receives</span><b>{money(Math.max(0, giftAmount-fee))}</b></div><button onClick={sendSupport} disabled={busy || giftAmount < 100} className="w-full h-11 rounded-full bg-[#0A13E6] text-white text-[12px] font-bold disabled:opacity-40">Confirm Support</button></div>}</div></div>}
     </div>
   )
 }

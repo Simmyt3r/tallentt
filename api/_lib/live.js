@@ -1,749 +1,417 @@
 // Path: api/_lib/live.js
-// Combutar Live — Arena Hall (1v1 competitions) + Stage Hall (performances).
-// See db/schema.sql for the tables this reads and writes.
+// ChombuTar Live: one-to-many talent livestreaming + real wallet support.
+import crypto from 'node:crypto'
 import { query, getClient } from './db.js'
 import { creditWallet, debitWallet } from './wallet.js'
 import { notifyUser } from './notifications.js'
+import { createLiveInput, disableLiveInput, getLiveInput } from './liveProvider.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const ALLOWED_STATES = new Set(['scheduled', 'starting', 'live', 'reconnecting', 'ended', 'failed'])
 
 export function liveError(status, message) {
   return Object.assign(new Error(message), { status })
 }
 
-export function requireUuid(value, name = 'id') {
-  const clean = String(value ?? '').trim()
+function requireUuid(value, name = 'id') {
+  const clean = String(value || '').trim()
   if (!UUID_RE.test(clean)) throw liveError(400, `A valid ${name} is required.`)
   return clean
 }
 
-export function requirePositiveInt(value, name) {
-  const n = Number(value)
-  if (!Number.isInteger(n) || n < 1 || n > 2147483647) throw liveError(400, `${name} must be a positive whole number.`)
-  return n
+function cleanText(value, max, name) {
+  const clean = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!clean) throw liveError(400, `${name} is required.`)
+  return clean.slice(0, max)
 }
 
-// Fixed Orbit-Coin prices for renting a Sponsor Hall placement. Kept as a
-// constant here rather than a DB-editable table — there's no admin pricing
-// screen yet, so this is the one place to change list prices.
-export const SPONSOR_PRICING = {
-  led_ribbon: 5000,
-  side_poster_left: 3000,
-  side_poster_right: 3000,
-  roof_screen: 8000,
-  seats: 2000,
+function feeBps() {
+  const raw = Number(process.env.LIVE_PLATFORM_FEE_BPS || 0)
+  return Number.isInteger(raw) && raw >= 0 && raw <= 5000 ? raw : 0
 }
 
-export const SPONSOR_PLACEMENT_LABELS = {
-  led_ribbon: 'LED ribbon behind the stage',
-  side_poster_left: 'Left wall poster',
-  side_poster_right: 'Right wall poster',
-  roof_screen: 'Roof-hanging screen',
-  seats: 'Audience seats',
+function calculateFee(gross) {
+  const platformFee = Math.floor((gross * feeBps()) / 10000)
+  return { gross, platformFee, net: gross - platformFee }
 }
 
-// Player pot split on Arena settlement. Must sum to 1.
-const WINNER_CUT = 0.75
-const PLATFORM_CUT = 0.15
-const GAME_OWNER_CUT = 0.10
-
-// Placeholder scoring — easy to retune later, documented so nobody mistakes
-// it for something derived analytically.
-function scoreForGift(amount) {
-  return Math.max(1, Math.round(amount / 50))
-}
-const SCORE_PER_LIKE = 1
-
-async function bumpLiveOrbitScore(client, userId, delta) {
-  await client.query(`UPDATE users SET live_orbit_score = live_orbit_score + $1 WHERE id = $2`, [delta, userId])
-}
-
-// ---------------------------------------------------------------------------
-// Reads
-// ---------------------------------------------------------------------------
-
-export async function listGames() {
-  const { rows } = await query(
-    `SELECT code, name, verification FROM live_games WHERE active = true ORDER BY name`,
+async function activeGiftCatalogue(client = null) {
+  const runner = client || { query }
+  const { rows } = await runner.query(
+    `SELECT id, name, description, amount, icon, animation, active, custom_amount, sort_order
+     FROM live_gift_catalogue WHERE active = true ORDER BY sort_order, amount NULLS LAST, name`,
   )
   return rows
 }
 
-export async function getLeaderboard() {
-  const { rows } = await query(
-    `SELECT id, username, full_name, avatar_url, live_orbit_score
-     FROM users WHERE live_orbit_score > 0
-     ORDER BY live_orbit_score DESC, username ASC LIMIT 20`,
+async function viewerCount(streamId, client = null) {
+  const runner = client || { query }
+  const { rows } = await runner.query(
+    `SELECT COUNT(*)::int AS count FROM live_viewers
+     WHERE stream_id = $1 AND last_seen_at > NOW() - INTERVAL '35 seconds'`,
+    [streamId],
   )
-  return rows
+  return rows[0]?.count || 0
 }
 
-async function attachRoomExtras(rooms, viewerId) {
-  if (!rooms.length) return rooms
-  const ids = rooms.map((r) => r.id)
-
-  const { rows: players } = await query(
-    `SELECT rp.room_id, u.id, u.username, u.full_name, u.avatar_url, u.role, u.company_suffix
-     FROM live_room_players rp JOIN users u ON u.id = rp.user_id
-     WHERE rp.room_id = ANY($1) ORDER BY rp.joined_at ASC`,
-    [ids],
-  )
-  const { rows: betTotals } = await query(
-    `SELECT room_id, COUNT(*)::int as backers, COALESCE(SUM(amount), 0)::int as pool
-     FROM live_bets WHERE room_id = ANY($1) GROUP BY room_id`,
-    [ids],
-  )
-  const { rows: likeTotals } = await query(
-    `SELECT room_id, COUNT(*)::int as likes FROM live_likes WHERE room_id = ANY($1) GROUP BY room_id`,
-    [ids],
-  )
-  const { rows: giftTotals } = await query(
-    `SELECT room_id, COUNT(*)::int as gifts, COALESCE(SUM(amount), 0)::int as gift_total
-     FROM live_gifts WHERE room_id = ANY($1) GROUP BY room_id`,
-    [ids],
-  )
-  const { rows: sponsorRows } = await query(
-    `SELECT room_id, placement, brand_name, message FROM live_sponsor_slots WHERE room_id = ANY($1)`,
-    [ids],
-  )
-
-  let myBets = []
-  let myLikes = []
-  if (viewerId) {
-    ;[{ rows: myBets }, { rows: myLikes }] = await Promise.all([
-      query(`SELECT room_id, backing_user_id, amount, status FROM live_bets WHERE room_id = ANY($1) AND user_id = $2`, [ids, viewerId]),
-      query(`SELECT room_id FROM live_likes WHERE room_id = ANY($1) AND user_id = $2`, [ids, viewerId]),
-    ])
+async function mapStream(row, viewerId) {
+  if (!row) return null
+  const [{ rows: likeRows }, count] = await Promise.all([
+    query(`SELECT COUNT(*)::int AS count, BOOL_OR(user_id = $2) AS liked_by_me FROM live_stream_likes WHERE stream_id = $1`, [row.id, viewerId || null]),
+    viewerCount(row.id),
+  ])
+  return {
+    ...row,
+    viewer_count: count,
+    likes: likeRows[0]?.count || 0,
+    liked_by_me: Boolean(likeRows[0]?.liked_by_me),
+    is_owner: Boolean(viewerId && viewerId === row.talent_id),
   }
-
-  const byRoom = (list, key = 'room_id') => {
-    const map = new Map()
-    for (const row of list) map.set(row[key], row)
-    return map
-  }
-  const playersByRoom = new Map()
-  for (const p of players) {
-    if (!playersByRoom.has(p.room_id)) playersByRoom.set(p.room_id, [])
-    playersByRoom.get(p.room_id).push({ id: p.id, username: p.username, full_name: p.full_name, avatar_url: p.avatar_url, role: p.role, company_suffix: p.company_suffix })
-  }
-  const sponsorsByRoom = new Map()
-  for (const s of sponsorRows) {
-    if (!sponsorsByRoom.has(s.room_id)) sponsorsByRoom.set(s.room_id, [])
-    sponsorsByRoom.get(s.room_id).push(s)
-  }
-  const betMap = byRoom(betTotals)
-  const likeMap = byRoom(likeTotals)
-  const giftMap = byRoom(giftTotals)
-  const myBetMap = byRoom(myBets)
-  const myLikeSet = new Set(myLikes.map((r) => r.room_id))
-
-  return rooms.map((room) => ({
-    ...room,
-    players: playersByRoom.get(room.id) || [],
-    pot: room.hall === 'arena' ? (playersByRoom.get(room.id) || []).length * room.stake : null,
-    backing: { backers: betMap.get(room.id)?.backers || 0, pool: betMap.get(room.id)?.pool || 0 },
-    likes: likeMap.get(room.id)?.likes || 0,
-    gifts: { count: giftMap.get(room.id)?.gifts || 0, total: giftMap.get(room.id)?.gift_total || 0 },
-    sponsors: sponsorsByRoom.get(room.id) || [],
-    my_bet: myBetMap.get(room.id) || null,
-    liked_by_me: myLikeSet.has(room.id),
-  }))
 }
 
-export async function listRooms({ hall, status, viewerId }) {
-  const conditions = []
+export async function listStreams({ viewerId, status }) {
   const params = []
-  if (hall) {
-    params.push(hall)
-    conditions.push(`hall = $${params.length}`)
-  }
-  if (status) {
+  const where = []
+  if (status && ALLOWED_STATES.has(status)) {
     params.push(status)
-    conditions.push(`status = $${params.length}`)
+    where.push(`ls.status = $${params.length}`)
   } else {
-    conditions.push(`status NOT IN ('cancelled')`)
+    where.push(`ls.status IN ('scheduled','starting','live','reconnecting')`)
   }
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
   const { rows } = await query(
-    `SELECT lr.*, h.username as host_username, h.full_name as host_full_name, h.avatar_url as host_avatar_url,
-            h.role as host_role, h.company_suffix as host_company_suffix,
-            h.live_orbit_score as host_live_orbit_score, g.name as game_name
-     FROM live_rooms lr
-     JOIN users h ON h.id = lr.host_id
-     LEFT JOIN live_games g ON g.code = lr.game
-     ${where}
-     ORDER BY (lr.status = 'live') DESC, lr.created_at DESC
+    `SELECT ls.*, u.username, u.full_name, u.avatar_url, u.role
+     FROM live_streams ls JOIN users u ON u.id = ls.talent_id
+     WHERE ${where.join(' AND ')}
+     ORDER BY CASE ls.status WHEN 'live' THEN 0 WHEN 'reconnecting' THEN 1 WHEN 'starting' THEN 2 ELSE 3 END,
+              ls.started_at DESC NULLS LAST, ls.created_at DESC
      LIMIT 60`,
     params,
   )
-  for (const room of rows) await maybeAutoSettle(room)
-  return attachRoomExtras(rows, viewerId)
+  return Promise.all(rows.map((row) => mapStream(row, viewerId)))
 }
 
-export async function getRoomDetail(roomId, viewerId) {
+export async function getStream(streamId, viewerId) {
+  streamId = requireUuid(streamId, 'stream_id')
   const { rows } = await query(
-    `SELECT lr.*, h.username as host_username, h.full_name as host_full_name, h.avatar_url as host_avatar_url,
-            h.role as host_role, h.company_suffix as host_company_suffix,
-            h.live_orbit_score as host_live_orbit_score, g.name as game_name
-     FROM live_rooms lr
-     JOIN users h ON h.id = lr.host_id
-     LEFT JOIN live_games g ON g.code = lr.game
-     WHERE lr.id = $1`,
-    [roomId],
+    `SELECT ls.*, u.username, u.full_name, u.avatar_url, u.role
+     FROM live_streams ls JOIN users u ON u.id = ls.talent_id WHERE ls.id = $1`,
+    [streamId],
   )
-  const room = rows[0]
-  if (!room) throw liveError(404, 'Room not found.')
-  await maybeAutoSettle(room)
-  const [full] = await attachRoomExtras([room], viewerId)
+  if (!rows[0]) throw liveError(404, 'Live stream not found.')
+  const stream = await mapStream(rows[0], viewerId)
 
-  const { rows: recentGifts } = await query(
-    `SELECT lg.id, lg.gift_type, lg.amount, lg.created_at, u.username, u.full_name, u.role, u.company_suffix
-     FROM live_gifts lg JOIN users u ON u.id = lg.sender_id
-     WHERE lg.room_id = $1 ORDER BY lg.created_at DESC LIMIT 25`,
-    [roomId],
-  )
-  return { ...full, recent_gifts: recentGifts }
-}
+  const [gifts, support, top, earnings, breakdown, today] = await Promise.all([
+    activeGiftCatalogue(),
+    query(
+      `SELECT st.id, st.gift_id, st.gross_amount, st.created_at,
+              gc.name AS gift_name, gc.icon,
+              u.id AS supporter_id, u.username AS supporter_username, u.full_name AS supporter_full_name,
+              u.avatar_url AS supporter_avatar_url, u.role AS supporter_role
+       FROM live_support_transactions st
+       JOIN live_gift_catalogue gc ON gc.id = st.gift_id
+       JOIN users u ON u.id = st.supporter_id
+       WHERE st.stream_id = $1 AND st.status = 'success'
+       ORDER BY st.created_at DESC LIMIT 25`,
+      [streamId],
+    ),
+    query(
+      `SELECT u.id, u.username, u.full_name, u.avatar_url, u.role,
+              SUM(st.gross_amount)::int AS amount
+       FROM live_support_transactions st JOIN users u ON u.id = st.supporter_id
+       WHERE st.stream_id = $1 AND st.status = 'success'
+       GROUP BY u.id, u.username, u.full_name, u.avatar_url, u.role
+       ORDER BY amount DESC, MIN(st.created_at) ASC LIMIT 10`,
+      [streamId],
+    ),
+    query(
+      `SELECT COALESCE(SUM(gross_amount),0)::int AS gross_support,
+              COALESCE(SUM(platform_fee),0)::int AS platform_fee,
+              COALESCE(SUM(net_amount),0)::int AS net_earnings,
+              COUNT(*)::int AS total_gifts
+       FROM live_support_transactions WHERE stream_id = $1 AND status = 'success'`,
+      [streamId],
+    ),
+    query(
+      `SELECT gc.id, gc.name, gc.icon, COUNT(*)::int AS count, SUM(st.gross_amount)::int AS gross_amount
+       FROM live_support_transactions st JOIN live_gift_catalogue gc ON gc.id=st.gift_id
+       WHERE st.stream_id=$1 AND st.status='success'
+       GROUP BY gc.id,gc.name,gc.icon ORDER BY gross_amount DESC`,
+      [streamId],
+    ),
+    query(
+      `SELECT COALESCE(SUM(net_amount),0)::int AS today_net_earnings
+       FROM live_support_transactions
+       WHERE talent_id=$1 AND status='success' AND created_at >= date_trunc('day', NOW())`,
+      [stream.talent_id],
+    ),
+  ])
 
-// ---------------------------------------------------------------------------
-// A reported-but-undisputed Arena result auto-settles once the dispute
-// window has passed. There's no cron on this deploy, so this is checked
-// lazily whenever a room is read (see listRooms/getRoomDetail above) —
-// mirrors this codebase's existing "compute on read" style rather than
-// adding a scheduled function.
-// ---------------------------------------------------------------------------
-async function maybeAutoSettle(room) {
-  if (room.status !== 'reported' || !room.dispute_opened_at || !room.winner_id) return
-  const elapsedMs = Date.now() - new Date(room.dispute_opened_at).getTime()
-  if (elapsedMs < room.dispute_window_seconds * 1000) return
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-    const { rows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1 FOR UPDATE`, [room.id])
-    const fresh = rows[0]
-    if (fresh && fresh.status === 'reported') {
-      const settled = await settleRoom(client, fresh, fresh.winner_id)
-      Object.assign(room, settled)
-    }
-    await client.query('COMMIT')
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    console.error('live room auto-settle failed:', err)
-  } finally {
-    client.release()
+  return {
+    ...stream,
+    gifts,
+    recent_support: support.rows,
+    top_supporters: top.rows,
+    earnings: { ...earnings.rows[0], today_net_earnings: today.rows[0]?.today_net_earnings || 0 },
+    gift_breakdown: breakdown.rows,
+    platform_fee_bps: feeBps(),
   }
 }
 
-// ---------------------------------------------------------------------------
-// Writes — Arena
-// ---------------------------------------------------------------------------
+export async function createStream(userId, body) {
+  const title = cleanText(body.title, 120, 'Live title')
+  const category = cleanText(body.category, 80, 'Talent category')
 
-export async function createRoom(userId, body) {
-  const hall = body.hall === 'stage' ? 'stage' : body.hall === 'arena' ? 'arena' : null
-  if (!hall) throw liveError(400, 'hall must be "arena" or "stage".')
-  const title = String(body.title || '').trim().slice(0, 120)
-  if (!title) throw liveError(400, 'Give the room a title.')
+  const { rows: userRows } = await query(`SELECT id, role FROM users WHERE id = $1`, [userId])
+  const user = userRows[0]
+  if (!user) throw liveError(401, 'Unauthorized')
+  if (!['talent', 'dual'].includes(user.role)) throw liveError(403, 'Only Talent accounts can go live.')
 
-  if (hall === 'stage') {
+  const client = await getClient()
+  let stream
+  try {
+    await client.query('BEGIN')
+    const { rows } = await client.query(
+      `INSERT INTO live_streams (talent_id, title, category, status, provider)
+       VALUES ($1,$2,$3,'starting','cloudflare') RETURNING *`,
+      [userId, title, category],
+    )
+    stream = rows[0]
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw err
+  } finally {
+    client.release()
+  }
+
+  try {
+    const provider = await createLiveInput({ streamId: stream.id, title })
     const { rows } = await query(
-      `INSERT INTO live_rooms (hall, host_id, title, status, audio_only, started_at)
-       VALUES ('stage', $1, $2, 'live', $3, NOW()) RETURNING *`,
-      [userId, title, Boolean(body.audio_only)],
+      `UPDATE live_streams
+       SET provider_input_id=$1, playback_url=$2, playback_dash_url=$3, provider_status=$4, updated_at=NOW()
+       WHERE id=$5 RETURNING *`,
+      [provider.providerInputId, provider.playbackUrl, provider.playbackDashUrl, provider.providerStatus, stream.id],
     )
-    return { room: rows[0] }
+    return { stream: rows[0], ingest_url: provider.ingestUrl }
+  } catch (err) {
+    await query(`UPDATE live_streams SET status='failed', updated_at=NOW() WHERE id=$1`, [stream.id]).catch(() => {})
+    throw err
   }
+}
 
-  const stake = requirePositiveInt(body.stake, 'stake')
-  const { rows: gameRows } = await query(`SELECT code, verification FROM live_games WHERE code = $1 AND active = true`, [body.game])
-  const gameRow = gameRows[0]
-  if (!gameRow) throw liveError(400, 'Choose a valid game: chess, draughts, ludo, or codm.')
-  const invitedUserId = body.invited_user_id ? requireUuid(body.invited_user_id, 'invited_user_id') : null
-  if (invitedUserId === userId) throw liveError(400, "You can't invite yourself.")
+async function ownerStreamForUpdate(client, userId, streamId) {
+  const { rows } = await client.query(`SELECT * FROM live_streams WHERE id=$1 FOR UPDATE`, [streamId])
+  const stream = rows[0]
+  if (!stream) throw liveError(404, 'Live stream not found.')
+  if (stream.talent_id !== userId) throw liveError(403, 'Only the Talent who created this Live can manage it.')
+  return stream
+}
 
+export async function markStreamLive(userId, body) {
+  const streamId = requireUuid(body.stream_id, 'stream_id')
   const client = await getClient()
+  let stream
   try {
     await client.query('BEGIN')
+    stream = await ownerStreamForUpdate(client, userId, streamId)
+    if (stream.status === 'ended') throw liveError(409, 'This Live has already ended.')
     const { rows } = await client.query(
-      `INSERT INTO live_rooms (hall, host_id, title, game, stake, verification, invited_user_id, status)
-       VALUES ('arena', $1, $2, $3, $4, $5, $6, 'open') RETURNING *`,
-      [userId, title, gameRow.code, stake, gameRow.verification, invitedUserId],
+      `UPDATE live_streams SET status='live', started_at=COALESCE(started_at,NOW()), updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [streamId],
     )
-    const room = rows[0]
-    await debitWallet(client, { userId, amount: stake, type: 'live_stake', roomId: room.id })
-    await client.query(`INSERT INTO live_room_players (room_id, user_id) VALUES ($1, $2)`, [room.id, userId])
+    stream = rows[0]
     await client.query('COMMIT')
-    return { room }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     throw err
   } finally {
     client.release()
   }
+  return { stream }
 }
 
-export async function joinRoom(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
+export async function refreshProviderStatus(userId, body) {
+  const streamId = requireUuid(body.stream_id, 'stream_id')
+  const { rows } = await query(`SELECT * FROM live_streams WHERE id=$1`, [streamId])
+  const stream = rows[0]
+  if (!stream) throw liveError(404, 'Live stream not found.')
+  if (stream.talent_id !== userId) throw liveError(403, 'Only the Talent who owns this Live can refresh it.')
+  if (!stream.provider_input_id) return { stream }
+  const provider = await getLiveInput(stream.provider_input_id)
+  const mapped = provider.providerStatus === 'connected' ? 'live'
+    : provider.providerStatus === 'reconnecting' ? 'reconnecting'
+      : stream.status
+  const { rows: updated } = await query(
+    `UPDATE live_streams SET provider_status=$1, status=$2, playback_url=COALESCE($3,playback_url),
+     playback_dash_url=COALESCE($4,playback_dash_url), updated_at=NOW() WHERE id=$5 RETURNING *`,
+    [provider.providerStatus, mapped, provider.playbackUrl, provider.playbackDashUrl, streamId],
+  )
+  return { stream: updated[0] }
+}
+
+export async function heartbeatViewer(userId, body) {
+  const streamId = requireUuid(body.stream_id, 'stream_id')
+  const { rows } = await query(`SELECT status FROM live_streams WHERE id=$1`, [streamId])
+  if (!rows[0]) throw liveError(404, 'Live stream not found.')
+  if (rows[0].status === 'ended') return { viewer_count: 0 }
+  await query(
+    `INSERT INTO live_viewers (stream_id,user_id,last_seen_at) VALUES ($1,$2,NOW())
+     ON CONFLICT (stream_id,user_id) DO UPDATE SET last_seen_at=EXCLUDED.last_seen_at`,
+    [streamId, userId],
+  )
+  return { viewer_count: await viewerCount(streamId) }
+}
+
+
+export async function likeStream(userId, body) {
+  const streamId = requireUuid(body.stream_id, 'stream_id')
+  const { rows } = await query(`SELECT status FROM live_streams WHERE id=$1`, [streamId])
+  if (!rows[0]) throw liveError(404, 'Live stream not found.')
+  if (!['live','reconnecting'].includes(rows[0].status)) throw liveError(409, 'This Live is not active.')
+  await query(`INSERT INTO live_stream_likes (stream_id,user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [streamId, userId])
+  const { rows: totals } = await query(`SELECT COUNT(*)::int AS likes FROM live_stream_likes WHERE stream_id=$1`, [streamId])
+  return { likes: totals[0]?.likes || 0, liked_by_me: true }
+}
+
+export async function sendSupport(userId, body) {
+  const streamId = requireUuid(body.stream_id, 'stream_id')
+  const giftId = cleanText(body.gift_id, 64, 'Gift')
+  const idempotencyKey = cleanText(body.idempotency_key, 100, 'Idempotency key')
   const client = await getClient()
+  let result
   try {
     await client.query('BEGIN')
-    const { rows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1 FOR UPDATE`, [roomId])
-    const room = rows[0]
-    if (!room) throw liveError(404, 'Room not found.')
-    if (room.hall !== 'arena') throw liveError(400, 'Only Arena rooms can be joined as a player.')
-    if (room.status !== 'open') throw liveError(409, 'This match already has its two players.')
-    if (room.host_id === userId) throw liveError(400, "You're already in this match.")
-    if (room.invited_user_id && room.invited_user_id !== userId) {
-      throw liveError(403, 'This room is a direct invite to another talent.')
-    }
-    await debitWallet(client, { userId, amount: room.stake, type: 'live_stake', roomId: room.id })
-    await client.query(`INSERT INTO live_room_players (room_id, user_id) VALUES ($1, $2)`, [roomId, userId])
-    const { rows: updated } = await client.query(
-      `UPDATE live_rooms SET status = 'live', started_at = NOW() WHERE id = $1 RETURNING *`,
-      [roomId],
+    const { rows: streamRows } = await client.query(`SELECT * FROM live_streams WHERE id=$1 FOR UPDATE`, [streamId])
+    const stream = streamRows[0]
+    if (!stream) throw liveError(404, 'Live stream not found.')
+    if (!['live', 'reconnecting'].includes(stream.status)) throw liveError(409, 'Support can only be sent while the Talent is live.')
+    if (stream.talent_id === userId) throw liveError(400, 'You cannot support your own Live.')
+
+    const { rows: dupeRows } = await client.query(
+      `SELECT * FROM live_support_transactions WHERE supporter_id=$1 AND idempotency_key=$2`,
+      [userId, idempotencyKey],
     )
-    await client.query('COMMIT')
-    return { room: updated[0] }
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    throw err
-  } finally {
-    client.release()
-  }
-}
-
-export async function cancelRoom(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-    const { rows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1 FOR UPDATE`, [roomId])
-    const room = rows[0]
-    if (!room) throw liveError(404, 'Room not found.')
-    if (room.host_id !== userId) throw liveError(403, 'Only the host can cancel this room.')
-    if (room.hall === 'arena') {
-      if (room.status !== 'open') throw liveError(409, 'A match already in progress cannot be cancelled here — open a dispute if something went wrong.')
-      await creditWallet(client, { userId, amount: room.stake, type: 'live_stake_refund', roomId: room.id })
-    } else if (room.status === 'completed' || room.status === 'cancelled') {
-      throw liveError(409, 'This stage has already ended.')
-    }
-    const { rows: updated } = await client.query(
-      `UPDATE live_rooms SET status = 'cancelled', ended_at = NOW() WHERE id = $1 RETURNING *`,
-      [roomId],
-    )
-    await client.query('COMMIT')
-    return { room: updated[0] }
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    throw err
-  } finally {
-    client.release()
-  }
-}
-
-// A player reports who won. Chess/Draughts ("engine" verification) settle
-// immediately — Combutar plays the moves itself in a real board
-// integration, so a single authoritative report is enough. NOTE: that
-// board integration isn't wired up on this deploy yet; until it is, an
-// "engine" report is really just one player's attestation, same trust
-// level as a referee one — see the code comment on gameRow.verification
-// above. Ludo/CODM ("referee" verification) open a dispute_window_seconds
-// window the opponent can dispute or confirm before it auto-settles.
-export async function reportResult(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  const winnerId = requireUuid(body.winner_id, 'winner_id')
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-    const { rows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1 FOR UPDATE`, [roomId])
-    const room = rows[0]
-    if (!room) throw liveError(404, 'Room not found.')
-    if (room.hall !== 'arena') throw liveError(400, 'Only Arena rooms have a result to report.')
-    if (room.status !== 'live') throw liveError(409, 'This match is not currently live.')
-    const { rows: playerRows } = await client.query(`SELECT user_id FROM live_room_players WHERE room_id = $1`, [roomId])
-    const playerIds = playerRows.map((r) => r.user_id)
-    if (!playerIds.includes(userId)) throw liveError(403, 'Only the two players can report a result.')
-    if (!playerIds.includes(winnerId)) throw liveError(400, 'The winner must be one of the two players.')
-
-    if (room.verification === 'engine') {
-      const settled = await settleRoom(client, room, winnerId)
+    if (dupeRows[0]) {
       await client.query('COMMIT')
-      return { room: settled }
+      return { transaction: dupeRows[0], already_processed: true }
     }
 
-    const { rows: updated } = await client.query(
-      `UPDATE live_rooms SET status = 'reported', winner_id = $1, dispute_opened_at = NOW() WHERE id = $2 RETURNING *`,
-      [winnerId, roomId],
+    const { rows: giftRows } = await client.query(
+      `SELECT * FROM live_gift_catalogue WHERE id=$1 AND active=true FOR SHARE`,
+      [giftId],
     )
-    await client.query('COMMIT')
-    const opponentId = playerIds.find((id) => id !== userId)
-    if (opponentId) {
-      await notifyUser({
-        userId: opponentId,
-        type: 'live_result_reported',
-        title: 'Match result reported',
-        body: `Your opponent reported a result for "${room.title}". You have ${room.dispute_window_seconds}s to dispute it.`,
-        linkUrl: `/live/arena/${roomId}`,
-        metadata: { room_id: roomId },
-      })
-    }
-    return { room: updated[0] }
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    throw err
-  } finally {
-    client.release()
-  }
-}
+    const gift = giftRows[0]
+    if (!gift) throw liveError(400, 'That Talent Support gift is unavailable.')
 
-export async function confirmResult(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-    const { rows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1 FOR UPDATE`, [roomId])
-    const room = rows[0]
-    if (!room) throw liveError(404, 'Room not found.')
-    if (room.status !== 'reported') throw liveError(409, 'No pending result to confirm.')
-    const { rows: playerRows } = await client.query(`SELECT user_id FROM live_room_players WHERE room_id = $1`, [roomId])
-    if (!playerRows.some((r) => r.user_id === userId)) throw liveError(403, 'Only the two players can confirm a result.')
-    const settled = await settleRoom(client, room, room.winner_id)
-    await client.query('COMMIT')
-    return { room: settled }
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    throw err
-  } finally {
-    client.release()
-  }
-}
-
-export async function disputeResult(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  const reason = String(body.reason || '').trim().slice(0, 1000)
-  if (!reason) throw liveError(400, 'Explain what you are disputing.')
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-    const { rows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1 FOR UPDATE`, [roomId])
-    const room = rows[0]
-    if (!room) throw liveError(404, 'Room not found.')
-    if (room.status !== 'reported') throw liveError(409, 'No pending result to dispute.')
-    const { rows: playerRows } = await client.query(`SELECT user_id FROM live_room_players WHERE room_id = $1`, [roomId])
-    if (!playerRows.some((r) => r.user_id === userId)) throw liveError(403, 'Only the two players can dispute a result.')
-    const { rows: updated } = await client.query(
-      `UPDATE live_rooms SET status = 'disputed', dispute_reason = $1 WHERE id = $2 RETURNING *`,
-      [reason, roomId],
-    )
-    await client.query('COMMIT')
-    return { room: updated[0] }
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    throw err
-  } finally {
-    client.release()
-  }
-}
-
-// Called from api/admin — a referee call, resolving a disputed Arena
-// result the two players couldn't agree on themselves.
-export async function resolveDispute(adminId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  const winnerId = requireUuid(body.winner_id, 'winner_id')
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-    const { rows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1 FOR UPDATE`, [roomId])
-    const room = rows[0]
-    if (!room) throw liveError(404, 'Room not found.')
-    if (room.status !== 'disputed') throw liveError(409, 'This room has no open dispute.')
-    const { rows: playerRows } = await client.query(`SELECT user_id FROM live_room_players WHERE room_id = $1`, [roomId])
-    if (!playerRows.some((r) => r.user_id === winnerId)) throw liveError(400, 'The winner must be one of the two players.')
-    const settled = await settleRoom(client, room, winnerId)
-    await client.query(
-      `INSERT INTO admin_audit_logs (admin_id, action, target_type, target_id, metadata)
-       VALUES ($1, 'resolve_live_dispute', 'live_room', $2, $3::jsonb)`,
-      [adminId, roomId, JSON.stringify({ winner_id: winnerId })],
-    )
-    await client.query('COMMIT')
-    return { room: settled }
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    throw err
-  } finally {
-    client.release()
-  }
-}
-
-// Pays out the pot (75/15/10) and settles spectator bets parimutuel-style.
-// Must be called with `client` already inside BEGIN/COMMIT, holding a row
-// lock on `room` (SELECT ... FOR UPDATE) — every caller above does this.
-export async function settleRoom(client, room, winnerId) {
-  const { rows: playerRows } = await client.query(`SELECT user_id FROM live_room_players WHERE room_id = $1`, [room.id])
-  const pot = room.stake * playerRows.length
-  const winnerShare = Math.round(pot * WINNER_CUT)
-  const platformShare = Math.round(pot * PLATFORM_CUT)
-  const ownerShare = pot - winnerShare - platformShare // remainder absorbs rounding
-
-  await creditWallet(client, { userId: winnerId, amount: winnerShare, type: 'live_prize', roomId: room.id })
-  if (ownerShare > 0) {
-    const { rows: gameRows } = await client.query(`SELECT owner_id FROM live_games WHERE code = $1`, [room.game])
-    const ownerId = gameRows[0]?.owner_id
-    if (ownerId) {
-      await creditWallet(client, { userId: ownerId, amount: ownerShare, type: 'live_owner_share', roomId: room.id })
-    }
-    // No owner on file for this game yet — that share simply stays
-    // unallocated with the platform, same as platformShare above.
-  }
-
-  const { rows: bets } = await client.query(
-    `SELECT id, user_id, backing_user_id, amount FROM live_bets WHERE room_id = $1 AND status = 'open'`,
-    [room.id],
-  )
-  const totalPool = bets.reduce((sum, b) => sum + b.amount, 0)
-  const winningBets = bets.filter((b) => b.backing_user_id === winnerId)
-  const winningPool = winningBets.reduce((sum, b) => sum + b.amount, 0)
-  for (const bet of bets) {
-    const won = bet.backing_user_id === winnerId
-    if (won) {
-      const payout = winningPool > 0 ? Math.round((bet.amount / winningPool) * totalPool) : bet.amount
-      if (payout > 0) await creditWallet(client, { userId: bet.user_id, amount: payout, type: 'live_bet_payout', roomId: room.id })
-      await client.query(`UPDATE live_bets SET status = 'won' WHERE id = $1`, [bet.id])
-    } else {
-      await client.query(`UPDATE live_bets SET status = 'lost' WHERE id = $1`, [bet.id])
-    }
-  }
-
-  const { rows: settled } = await client.query(
-    `UPDATE live_rooms SET status = 'completed', winner_id = $1, settled_at = NOW(), ended_at = NOW() WHERE id = $2 RETURNING *`,
-    [winnerId, room.id],
-  )
-
-  for (const p of playerRows) {
-    await notifyUser({
-      userId: p.user_id,
-      type: 'live_match_settled',
-      title: p.user_id === winnerId ? 'You won the match!' : 'Match settled',
-      body: p.user_id === winnerId
-        ? `You won "${room.title}" and earned Orbit Coins in your wallet.`
-        : `"${room.title}" has been settled. Better luck next time.`,
-      linkUrl: `/live/arena/${room.id}`,
-      metadata: { room_id: room.id },
-    })
-  }
-
-  return settled[0]
-}
-
-// ---------------------------------------------------------------------------
-// Writes — Stage
-// ---------------------------------------------------------------------------
-
-export async function endStage(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  const { rows } = await query(
-    `UPDATE live_rooms SET status = 'completed', ended_at = NOW()
-     WHERE id = $1 AND hall = 'stage' AND host_id = $2 AND status = 'live' RETURNING *`,
-    [roomId, userId],
-  )
-  if (!rows[0]) throw liveError(409, 'This stage is not currently live, or you are not the host.')
-  return { room: rows[0] }
-}
-
-// One-way — see the schema comment on live_likes for why this doesn't
-// toggle off the way hat_likes does.
-export async function likeRoom(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-    const { rows: roomRows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1`, [roomId])
-    const room = roomRows[0]
-    if (!room || room.hall !== 'stage') throw liveError(404, 'Stage not found.')
-    const { rowCount } = await client.query(
-      `INSERT INTO live_likes (room_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [roomId, userId],
-    )
-    if (rowCount > 0) await bumpLiveOrbitScore(client, room.host_id, SCORE_PER_LIKE)
-    await client.query('COMMIT')
-    return { already_liked: rowCount === 0 }
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    throw err
-  } finally {
-    client.release()
-  }
-}
-
-export async function sendGift(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  const amount = requirePositiveInt(body.amount, 'amount')
-  const giftType = String(body.gift_type || '').trim().slice(0, 40) || 'gift'
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-    const { rows: roomRows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1 FOR UPDATE`, [roomId])
-    const room = roomRows[0]
-    if (!room || room.hall !== 'stage') throw liveError(404, 'Stage not found.')
-    if (room.status !== 'live') throw liveError(409, 'This stage is not currently live.')
-    if (room.host_id === userId) throw liveError(400, "You can't gift your own stage.")
-
-    await debitWallet(client, { userId, amount, type: 'live_gift_sent', roomId: room.id })
-    await creditWallet(client, { userId: room.host_id, amount, type: 'live_gift_earning', roomId: room.id })
-    await client.query(
-      `INSERT INTO live_gifts (room_id, sender_id, gift_type, amount) VALUES ($1, $2, $3, $4)`,
-      [roomId, userId, giftType, amount],
-    )
-    await bumpLiveOrbitScore(client, room.host_id, scoreForGift(amount))
-    await client.query('COMMIT')
-    return { ok: true }
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    throw err
-  } finally {
-    client.release()
-  }
-}
-
-// Stage → Arena: "I challenge you to a Draught match" — creates a fresh
-// Arena room with the current stage host as host and the picked viewer as
-// the sole invitee (see invited_user_id on live_rooms/joinRoom above).
-export async function challenge(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  let targetUserId = body.target_user_id ? requireUuid(body.target_user_id, 'target_user_id') : null
-  if (!targetUserId && body.target_username) {
-    const { rows } = await query(`SELECT id FROM users WHERE LOWER(username) = LOWER($1)`, [String(body.target_username).trim().replace(/^@/, '')])
-    if (!rows[0]) throw liveError(404, `No talent found with username "${body.target_username}".`)
-    targetUserId = rows[0].id
-  }
-  if (!targetUserId) throw liveError(400, 'target_user_id or target_username is required.')
-  const { rows: stageRows } = await query(`SELECT * FROM live_rooms WHERE id = $1`, [roomId])
-  const stage = stageRows[0]
-  if (!stage || stage.hall !== 'stage') throw liveError(404, 'Stage not found.')
-  if (stage.host_id !== userId) throw liveError(403, 'Only the host can issue a challenge from this stage.')
-  if (targetUserId === userId) throw liveError(400, "You can't challenge yourself.")
-
-  const arena = await createRoom(userId, {
-    hall: 'arena',
-    title: `${body.title || 'Stage challenge'}`.slice(0, 120),
-    game: body.game,
-    stake: body.stake,
-    invited_user_id: targetUserId,
-  })
-
-  await notifyUser({
-    userId: targetUserId,
-    type: 'live_challenge',
-    title: "You've been challenged!",
-    body: `You were challenged to a match. Join the Arena room to accept.`,
-    linkUrl: `/live/arena/${arena.room.id}`,
-    metadata: { room_id: arena.room.id, from_stage_id: roomId },
-  })
-
-  return arena
-}
-
-// ---------------------------------------------------------------------------
-// Writes — Arena spectator backing
-// ---------------------------------------------------------------------------
-
-export async function backPlayer(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  const backingUserId = requireUuid(body.backing_user_id, 'backing_user_id')
-  const amount = requirePositiveInt(body.amount, 'amount')
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-    const { rows: roomRows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1 FOR UPDATE`, [roomId])
-    const room = roomRows[0]
-    if (!room || room.hall !== 'arena') throw liveError(404, 'Arena room not found.')
-    if (!['open', 'live'].includes(room.status)) throw liveError(409, 'Backing has closed for this match.')
-    const { rows: playerRows } = await client.query(`SELECT user_id FROM live_room_players WHERE room_id = $1`, [roomId])
-    const playerIds = playerRows.map((r) => r.user_id)
-    if (playerIds.includes(userId)) throw liveError(400, "Players can't back their own match.")
-    if (!playerIds.includes(backingUserId)) throw liveError(400, 'You can only back one of the two players.')
-
-    await debitWallet(client, { userId, amount, type: 'live_bet_stake', roomId: room.id })
-    const { rows } = await client.query(
-      `INSERT INTO live_bets (room_id, user_id, backing_user_id, amount) VALUES ($1, $2, $3, $4)
-       ON CONFLICT (room_id, user_id) DO NOTHING RETURNING *`,
-      [roomId, userId, backingUserId, amount],
-    )
-    if (!rows[0]) throw liveError(409, "You've already backed a player in this match.")
-    await client.query('COMMIT')
-    return { bet: rows[0] }
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    throw err
-  } finally {
-    client.release()
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Writes — Sponsor Hall
-// ---------------------------------------------------------------------------
-
-export async function rentSponsorSlot(userId, body) {
-  const roomId = requireUuid(body.room_id, 'room_id')
-  const placement = String(body.placement || '')
-  if (!SPONSOR_PRICING[placement]) throw liveError(400, 'Choose a valid placement.')
-  const brandName = String(body.brand_name || '').trim().slice(0, 60)
-  if (!brandName) throw liveError(400, 'A brand name is required.')
-  const message = body.message ? String(body.message).trim().slice(0, 140) : null
-  const rainAmount = body.rain_amount ? requirePositiveInt(body.rain_amount, 'rain_amount') : 0
-  const price = SPONSOR_PRICING[placement]
-
-  const client = await getClient()
-  try {
-    await client.query('BEGIN')
-    const { rows: roomRows } = await client.query(`SELECT * FROM live_rooms WHERE id = $1 FOR UPDATE`, [roomId])
-    const room = roomRows[0]
-    if (!room || room.hall !== 'stage') throw liveError(404, 'Stage not found.')
-    if (room.status !== 'live') throw liveError(409, 'This stage is not currently live.')
-
-    const totalCost = price + rainAmount
-    await debitWallet(client, { userId, amount: totalCost, type: 'live_sponsor_rent', roomId: room.id })
-
-    const { rows } = await client.query(
-      `INSERT INTO live_sponsor_slots (room_id, sponsor_id, placement, brand_name, message, rain_amount, amount_paid)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (room_id, placement) DO UPDATE SET
-         sponsor_id = EXCLUDED.sponsor_id, brand_name = EXCLUDED.brand_name,
-         message = EXCLUDED.message, rain_amount = EXCLUDED.rain_amount, amount_paid = EXCLUDED.amount_paid,
-         created_at = NOW()
-       RETURNING *`,
-      [roomId, userId, placement, brandName, message, rainAmount, totalCost],
-    )
-
-    // "Rain" Orbit Coins on the current audience — the closest proxy this
-    // deploy has for "who's watching" is everyone who has liked or gifted
-    // this room so far (see the schema comment on live_sponsor_slots).
-    // No audience yet? The rain simply isn't distributed — the sponsor
-    // still gets the placement itself, which is the part being paid for.
-    if (rainAmount > 0) {
-      const { rows: audienceRows } = await client.query(
-        `SELECT user_id FROM live_likes WHERE room_id = $1
-         UNION
-         SELECT sender_id FROM live_gifts WHERE room_id = $1`,
-        [roomId],
-      )
-      const audience = audienceRows.map((r) => r.user_id).filter((id) => id !== room.host_id)
-      if (audience.length > 0) {
-        const share = Math.floor(rainAmount / audience.length)
-        if (share > 0) {
-          for (const memberId of audience) {
-            await creditWallet(client, { userId: memberId, amount: share, type: 'live_sponsor_rain', roomId: room.id })
-          }
-        }
+    let gross = Number(gift.amount)
+    if (gift.custom_amount) {
+      gross = Number(body.custom_amount)
+      if (!Number.isInteger(gross) || gross < 100 || gross > 10000000) {
+        throw liveError(400, 'Custom Talent Sponsor amount must be between ₦100 and ₦10,000,000.')
       }
     }
+    if (!Number.isInteger(gross) || gross <= 0) throw liveError(500, 'Gift configuration is invalid.')
 
+    const amounts = calculateFee(gross)
+    await debitWallet(client, {
+      userId,
+      amount: amounts.gross,
+      type: 'live_support_sent',
+      reference: `live:${streamId}:${idempotencyKey}`,
+      roomId: null,
+    })
+    await creditWallet(client, {
+      userId: stream.talent_id,
+      amount: amounts.net,
+      type: 'live_support_earning',
+      reference: `live-earning:${streamId}:${idempotencyKey}`,
+      roomId: null,
+    })
+
+    const { rows } = await client.query(
+      `INSERT INTO live_support_transactions
+       (stream_id,supporter_id,talent_id,gift_id,gross_amount,platform_fee,net_amount,idempotency_key,status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'success') RETURNING *`,
+      [streamId, userId, stream.talent_id, gift.id, amounts.gross, amounts.platformFee, amounts.net, idempotencyKey],
+    )
+    result = { transaction: rows[0], gift }
     await client.query('COMMIT')
-    return { slot: rows[0] }
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    if (err.code === '23505') {
+      const { rows } = await query(
+        `SELECT * FROM live_support_transactions WHERE supporter_id=$1 AND idempotency_key=$2`,
+        [userId, idempotencyKey],
+      )
+      if (rows[0]) return { transaction: rows[0], already_processed: true }
+    }
+    throw err
+  } finally {
+    client.release()
+  }
+
+  const { rows: supporterRows } = await query(`SELECT username,full_name FROM users WHERE id=$1`, [userId])
+  const supporter = supporterRows[0]
+  await notifyUser({
+    userId: result.transaction.talent_id,
+    type: 'live_support_received',
+    title: `You received ${result.gift.name}`,
+    body: `${supporter?.full_name || `^${supporter?.username || 'supporter'}`} supported you with ₦${result.transaction.gross_amount.toLocaleString()}.`,
+    linkUrl: `/live/stage/${streamId}`,
+    metadata: { stream_id: streamId, gift_id: result.gift.id, amount: result.transaction.gross_amount },
+  })
+
+  return { ...result, already_processed: false }
+}
+
+export async function endStream(userId, body) {
+  const streamId = requireUuid(body.stream_id, 'stream_id')
+  const client = await getClient()
+  let stream
+  try {
+    await client.query('BEGIN')
+    stream = await ownerStreamForUpdate(client, userId, streamId)
+    if (stream.status === 'ended') {
+      await client.query('COMMIT')
+      return { stream }
+    }
+    const { rows } = await client.query(
+      `UPDATE live_streams SET status='ended', ended_at=NOW(), updated_at=NOW() WHERE id=$1 RETURNING *`,
+      [streamId],
+    )
+    stream = rows[0]
+    await client.query('COMMIT')
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     throw err
   } finally {
     client.release()
   }
+
+  if (stream.provider_input_id) disableLiveInput(stream.provider_input_id).catch((err) => console.error('disable live input failed:', err))
+  const { rows } = await query(
+    `SELECT COALESCE(SUM(gross_amount),0)::int AS gross, COUNT(*)::int AS gifts
+     FROM live_support_transactions WHERE stream_id=$1 AND status='success'`,
+    [streamId],
+  )
+  await notifyUser({
+    userId,
+    type: 'live_ended',
+    title: 'Your Live ended',
+    body: `You received ₦${Number(rows[0]?.gross || 0).toLocaleString()} in support across ${rows[0]?.gifts || 0} gifts.`,
+    linkUrl: `/live/stage/${streamId}`,
+    metadata: { stream_id: streamId, gross_support: rows[0]?.gross || 0 },
+  })
+  return { stream }
+}
+
+export function makeIdempotencyKey() {
+  return crypto.randomUUID()
+}
+
+// Legacy admin compatibility: Arena disputes are no longer part of ChombuTar Live.
+// Keep the export so the existing consolidated admin endpoint continues to load.
+export async function resolveDispute() {
+  throw liveError(410, 'Arena Live disputes are deprecated.')
 }
