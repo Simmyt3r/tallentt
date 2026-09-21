@@ -1,0 +1,14 @@
+diff --git a/src/styles/auth.css b/src/styles/auth.css
+index 8711159..ff3f94e 100644
+--- a/src/styles/auth.css
++++ b/src/styles/auth.css
+@@ -16,7 +16,8 @@
+   align-items: center;
+   justify-content: center;
+   padding: 24px 16px 40px;
+-  background: #fff;
++  /* Same page background as the rest of the app (Layout, <body>) — the cards stay white on top of it. */
++  background: var(--tw-bg, #F7F3EB);
+   color: var(--v9-ink);
+   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+ }
