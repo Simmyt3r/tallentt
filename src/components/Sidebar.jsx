@@ -1,6 +1,6 @@
 // Path: src/components/Sidebar.jsx
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, ShieldCheck, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { LogOut, ShieldCheck, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { NAV_PRIMARY, NAV_SECONDARY } from '../lib/nav'
 import NotificationsMenu from './NotificationsMenu.jsx'
@@ -147,25 +147,16 @@ export function BrandMark({ className = '' }) {
   )
 }
 
-export function DesktopSidebar({ collapsed, onToggleCollapsed }) {
+export function DesktopSidebar({ collapsed }) {
+  // Sits directly under the fixed header (h-16); the header's menu button
+  // collapses/expands it.
   return (
     <aside
-      className={`hidden md:flex fixed inset-y-0 right-0 z-30 flex-col border-l-[1.5px] border-black bg-[#FAFAF8] transition-[width] duration-200 ease-out ${
+      id="desktop-sidebar"
+      className={`hidden md:flex fixed top-16 bottom-0 right-0 z-30 flex-col border-l-[1.5px] border-black bg-[#FAFAF8] transition-[width] duration-200 ease-out ${
         collapsed ? 'w-[72px]' : 'w-[236px]'
       }`}
     >
-      <div className={`flex items-center h-16 shrink-0 border-b border-black/10 px-3 ${collapsed ? 'justify-center' : 'justify-end'}`}>
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="w-7 h-7 shrink-0 rounded-full border border-black/10 grid place-items-center text-black/50 hover:bg-black/[0.06] hover:text-black transition"
-        >
-          {collapsed ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-        </button>
-      </div>
-
       <SidebarContent collapsed={collapsed} />
     </aside>
   )
@@ -181,6 +172,7 @@ export function MobileDrawer({ open, onClose }) {
         }`}
       />
       <aside
+        id="mobile-drawer"
         role="dialog"
         aria-modal="true"
         aria-label="Navigation"
@@ -189,8 +181,7 @@ export function MobileDrawer({ open, onClose }) {
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between h-16 shrink-0 border-b border-black/10 px-4">
-          <img src="/logo.png" alt="ChombuTar" className="h-11 w-11 rounded-full border-[1.5px] border-black object-cover" />
+        <div className="flex items-center justify-end h-16 shrink-0 border-b border-black/10 px-4">
           <button
             type="button"
             onClick={onClose}

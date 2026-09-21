@@ -1,10 +1,15 @@
 // Path: src/components/Layout.jsx
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { Menu } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
 import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
+
+// Header menu button (icon-only, round, no border — the avatar is the bordered one).
+const MENU_BUTTON =
+  'h-9 w-9 md:h-10 md:w-10 shrink-0 place-items-center rounded-full text-black transition-colors hover:bg-black/[0.06] active:bg-black/[0.1]'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -52,29 +57,58 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-[#F7F3EB] text-black antialiased">
-      <DesktopSidebar collapsed={collapsed} onToggleCollapsed={() => setCollapsed((v) => !v)} />
+      <DesktopSidebar collapsed={collapsed} />
       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      {/* Persistent top strip carrying the brand mark on the left — sits
-          opposite the sidebar now that the sidebar has moved to the right
-          edge of the screen. The sidebar (z-30) draws over its right end. */}
-      <div className="hidden md:flex fixed top-0 inset-x-0 z-20 h-16 items-center px-4 bg-[#F7F3EB]/95 backdrop-blur-xl border-b-[1.5px] border-black">
-        <BrandMark />
-      </div>
+      {/* One responsive header.
+          Left  : menu button, then the brand. The menu button opens the drawer
+                  on mobile and collapses/expands the sidebar on desktop.
+          Right : (mobile only) Talent/Client toggle, then the signed-in user's
+                  avatar — always the far-right item, linking to /profile.
+          Mobile it is sticky and in flow (h-14 + 1.5px border); on desktop it
+          is fixed, full width (h-16) and the sidebar sits underneath it. */}
+      <header className="sticky top-0 z-20 border-b-[1.5px] border-black bg-[#F7F3EB]/95 backdrop-blur-xl md:fixed md:inset-x-0 md:h-16">
+        <div className="flex h-14 items-center justify-between gap-2 px-3 md:h-full md:px-4">
+          <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={drawerOpen}
+              aria-controls="mobile-drawer"
+              className={`${MENU_BUTTON} grid md:hidden`}
+            >
+              <Menu size={22} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollapsed((v) => !v)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-expanded={!collapsed}
+              aria-controls="desktop-sidebar"
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className={`${MENU_BUTTON} hidden md:grid`}
+            >
+              <Menu size={22} />
+            </button>
 
-      {/* Mobile top header — Logo | ChombuTar | Talent/Client toggle + avatar
-          (the avatar opens the drawer, mirroring the sidebar's account row,
-          and sits on the right — the same side the sidebar itself lives on). */}
-      <header className="md:hidden sticky top-0 z-20 bg-[#F7F3EB]/95 backdrop-blur-xl border-b-[1.5px] border-black">
-        <div className="h-14 px-3 flex items-center justify-between gap-2">
-          <img
-            src="/logo.png"
-            alt="ChombuTar"
-            className="h-11 w-11 rounded-full border-[0px] border-black object-cover shrink-0"
-          />
-          <h1 className="flex-1 min-w-0 truncate text-left text-[20px] font-black tracking-tight">ChombuTar</h1>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-bold">
+            {/* Mobile brand: logo + name. Below 390px the name is dropped (the
+                logo stays) so the row never has to truncate it. */}
+            <div className="flex min-w-0 items-center gap-2 md:hidden">
+              <img src="/logo.png" alt="ChombuTar" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+              <h1 className="hidden min-w-0 truncate text-left text-[17px] font-black tracking-tight min-[390px]:block">
+                ChombuTar
+              </h1>
+            </div>
+
+            {/* Desktop brand */}
+            <div className="hidden min-w-0 md:flex">
+              <BrandMark />
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
+            <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-bold md:hidden">
               <button
                 type="button"
                 aria-pressed={browseRole === 'talent'}
@@ -96,18 +130,17 @@ export default function Layout({ children }) {
                 Client
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Open menu"
-              className="w-9 h-9 shrink-0 rounded-full border-[1.5px] border-black overflow-hidden flex items-center justify-center bg-[#0A13E6] text-white text-[12px] font-black"
+            <Link
+              to="/profile"
+              aria-label="Profile"
+              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-black bg-[#0A13E6] text-[12px] font-black text-white md:h-10 md:w-10 md:text-[13px]"
             >
               {user?.avatarUrl ? (
-                <img src={cldImage(user.avatarUrl, { w: 72, h: 72 })} alt="" className="w-full h-full object-cover" />
+                <img src={cldImage(user.avatarUrl, { w: 80, h: 80 })} alt="" className="w-full h-full object-cover" />
               ) : (
                 initial
               )}
-            </button>
+            </Link>
           </div>
         </div>
       </header>

@@ -1,0 +1,188 @@
+diff --git a/src/components/Layout.jsx b/src/components/Layout.jsx
+index c462e26..3201756 100644
+--- a/src/components/Layout.jsx
++++ b/src/components/Layout.jsx
+@@ -1,11 +1,16 @@
+ // Path: src/components/Layout.jsx
+-import { useLocation } from 'react-router-dom'
++import { Link, useLocation } from 'react-router-dom'
++import { Menu } from 'lucide-react'
+ import { useEffect, useState } from 'react'
+ import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
+ import BottomNav from './BottomNav.jsx'
+ import { useAuth } from '../context/AuthContext'
+ import { cldImage } from '../lib/cloudinary'
+ 
++// Header menu button (icon-only, round, no border — the avatar is the bordered one).
++const MENU_BUTTON =
++  'h-9 w-9 md:h-10 md:w-10 shrink-0 place-items-center rounded-full text-black transition-colors hover:bg-black/[0.06] active:bg-black/[0.1]'
++
+ export default function Layout({ children }) {
+   const location = useLocation()
+   const { user } = useAuth()
+@@ -52,29 +57,58 @@ export default function Layout({ children }) {
+ 
+   return (
+     <div className="min-h-screen bg-[#F7F3EB] text-black antialiased">
+-      <DesktopSidebar collapsed={collapsed} onToggleCollapsed={() => setCollapsed((v) => !v)} />
++      <DesktopSidebar collapsed={collapsed} />
+       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+ 
+-      {/* Persistent top strip carrying the brand mark on the left — sits
+-          opposite the sidebar now that the sidebar has moved to the right
+-          edge of the screen. The sidebar (z-30) draws over its right end. */}
+-      <div className="hidden md:flex fixed top-0 inset-x-0 z-20 h-16 items-center px-4 bg-[#F7F3EB]/95 backdrop-blur-xl border-b-[1.5px] border-black">
+-        <BrandMark />
+-      </div>
+-
+-      {/* Mobile top header — Logo | ChombuTar | Talent/Client toggle + avatar
+-          (the avatar opens the drawer, mirroring the sidebar's account row,
+-          and sits on the right — the same side the sidebar itself lives on). */}
+-      <header className="md:hidden sticky top-0 z-20 bg-[#F7F3EB]/95 backdrop-blur-xl border-b-[1.5px] border-black">
+-        <div className="h-14 px-3 flex items-center justify-between gap-2">
+-          <img
+-            src="/logo.png"
+-            alt="ChombuTar"
+-            className="h-11 w-11 rounded-full border-[0px] border-black object-cover shrink-0"
+-          />
+-          <h1 className="flex-1 min-w-0 truncate text-left text-[20px] font-black tracking-tight">ChombuTar</h1>
+-          <div className="flex items-center gap-1.5 shrink-0">
+-            <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-bold">
++      {/* One responsive header.
++          Left  : menu button, then the brand. The menu button opens the drawer
++                  on mobile and collapses/expands the sidebar on desktop.
++          Right : (mobile only) Talent/Client toggle, then the signed-in user's
++                  avatar — always the far-right item, linking to /profile.
++          Mobile it is sticky and in flow (h-14 + 1.5px border); on desktop it
++          is fixed, full width (h-16) and the sidebar sits underneath it. */}
++      <header className="sticky top-0 z-20 border-b-[1.5px] border-black bg-[#F7F3EB]/95 backdrop-blur-xl md:fixed md:inset-x-0 md:h-16">
++        <div className="flex h-14 items-center justify-between gap-2 px-3 md:h-full md:px-4">
++          <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
++            <button
++              type="button"
++              onClick={() => setDrawerOpen(true)}
++              aria-label="Open menu"
++              aria-expanded={drawerOpen}
++              aria-controls="mobile-drawer"
++              className={`${MENU_BUTTON} grid md:hidden`}
++            >
++              <Menu size={22} />
++            </button>
++            <button
++              type="button"
++              onClick={() => setCollapsed((v) => !v)}
++              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
++              aria-expanded={!collapsed}
++              aria-controls="desktop-sidebar"
++              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
++              className={`${MENU_BUTTON} hidden md:grid`}
++            >
++              <Menu size={22} />
++            </button>
++
++            {/* Mobile brand: logo + name. Below 390px the name is dropped (the
++                logo stays) so the row never has to truncate it. */}
++            <div className="flex min-w-0 items-center gap-2 md:hidden">
++              <img src="/logo.png" alt="ChombuTar" className="h-10 w-10 shrink-0 rounded-full object-cover" />
++              <h1 className="hidden min-w-0 truncate text-left text-[17px] font-black tracking-tight min-[390px]:block">
++                ChombuTar
++              </h1>
++            </div>
++
++            {/* Desktop brand */}
++            <div className="hidden min-w-0 md:flex">
++              <BrandMark />
++            </div>
++          </div>
++
++          <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
++            <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-bold md:hidden">
+               <button
+                 type="button"
+                 aria-pressed={browseRole === 'talent'}
+@@ -96,18 +130,17 @@ export default function Layout({ children }) {
+                 Client
+               </button>
+             </div>
+-            <button
+-              type="button"
+-              onClick={() => setDrawerOpen(true)}
+-              aria-label="Open menu"
+-              className="w-9 h-9 shrink-0 rounded-full border-[1.5px] border-black overflow-hidden flex items-center justify-center bg-[#0A13E6] text-white text-[12px] font-black"
++            <Link
++              to="/profile"
++              aria-label="Profile"
++              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-black bg-[#0A13E6] text-[12px] font-black text-white md:h-10 md:w-10 md:text-[13px]"
+             >
+               {user?.avatarUrl ? (
+-                <img src={cldImage(user.avatarUrl, { w: 72, h: 72 })} alt="" className="w-full h-full object-cover" />
++                <img src={cldImage(user.avatarUrl, { w: 80, h: 80 })} alt="" className="w-full h-full object-cover" />
+               ) : (
+                 initial
+               )}
+-            </button>
++            </Link>
+           </div>
+         </div>
+       </header>
+diff --git a/src/components/Sidebar.jsx b/src/components/Sidebar.jsx
+index 1bcb8fa..b8cbd51 100644
+--- a/src/components/Sidebar.jsx
++++ b/src/components/Sidebar.jsx
+@@ -1,6 +1,6 @@
+ // Path: src/components/Sidebar.jsx
+ import { NavLink, useNavigate } from 'react-router-dom'
+-import { LogOut, ShieldCheck, ChevronLeft, ChevronRight, X } from 'lucide-react'
++import { LogOut, ShieldCheck, X } from 'lucide-react'
+ import { useAuth } from '../context/AuthContext'
+ import { NAV_PRIMARY, NAV_SECONDARY } from '../lib/nav'
+ import NotificationsMenu from './NotificationsMenu.jsx'
+@@ -147,25 +147,16 @@ export function BrandMark({ className = '' }) {
+   )
+ }
+ 
+-export function DesktopSidebar({ collapsed, onToggleCollapsed }) {
++export function DesktopSidebar({ collapsed }) {
++  // Sits directly under the fixed header (h-16); the header's menu button
++  // collapses/expands it.
+   return (
+     <aside
+-      className={`hidden md:flex fixed inset-y-0 right-0 z-30 flex-col border-l-[1.5px] border-black bg-[#FAFAF8] transition-[width] duration-200 ease-out ${
++      id="desktop-sidebar"
++      className={`hidden md:flex fixed top-16 bottom-0 right-0 z-30 flex-col border-l-[1.5px] border-black bg-[#FAFAF8] transition-[width] duration-200 ease-out ${
+         collapsed ? 'w-[72px]' : 'w-[236px]'
+       }`}
+     >
+-      <div className={`flex items-center h-16 shrink-0 border-b border-black/10 px-3 ${collapsed ? 'justify-center' : 'justify-end'}`}>
+-        <button
+-          type="button"
+-          onClick={onToggleCollapsed}
+-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+-          className="w-7 h-7 shrink-0 rounded-full border border-black/10 grid place-items-center text-black/50 hover:bg-black/[0.06] hover:text-black transition"
+-        >
+-          {collapsed ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+-        </button>
+-      </div>
+-
+       <SidebarContent collapsed={collapsed} />
+     </aside>
+   )
+@@ -181,6 +172,7 @@ export function MobileDrawer({ open, onClose }) {
+         }`}
+       />
+       <aside
++        id="mobile-drawer"
+         role="dialog"
+         aria-modal="true"
+         aria-label="Navigation"
+@@ -189,8 +181,7 @@ export function MobileDrawer({ open, onClose }) {
+           open ? 'translate-x-0' : 'translate-x-full'
+         }`}
+       >
+-        <div className="flex items-center justify-between h-16 shrink-0 border-b border-black/10 px-4">
+-          <img src="/logo.png" alt="ChombuTar" className="h-11 w-11 rounded-full border-[1.5px] border-black object-cover" />
++        <div className="flex items-center justify-end h-16 shrink-0 border-b border-black/10 px-4">
+           <button
+             type="button"
+             onClick={onClose}
