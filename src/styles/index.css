@@ -72,53 +72,132 @@ img, video { max-width: 100%; }
   gap: 20px;
 }
 
-/* Showroom reel — vertical, snap-scroll, one talent per screen.
-   Capped at a sensible max-width and centered so it reads as a portrait
-   video card with breathing room on either side, instead of stretching
-   edge-to-edge on wide screens. On mobile the cap simply exceeds the
-   viewport, so it fills the column while still respecting the page's
-   own side padding (never touching the true screen edge). */
-.reel-container {
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
-  height: calc(var(--app-vh) - 220px);
-  min-height: 420px;
-  max-height: 780px;
-  overflow-y: auto;
-  scroll-snap-type: y mandatory;
-  border-radius: 20px;
-  border: 1.5px solid #000;
-  background: #000;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+/* ── Showroom ────────────────────────────────────────────────────────────
+   Chrome the feed has to fit around. These mirror Layout.jsx (mobile header =
+   h-14 + 1.5px border, bottom nav = 60px, desktop top strip = h-16); if that
+   shell changes, posts only get a little taller or shorter — nothing breaks. */
+:root {
+  --sr-app-top: 57.5px;
+  --sr-app-bottom: 60px;
+  --sr-header-h: 52px;
+  --sr-gap: 12px;
+  --sr-fab-bottom: calc(var(--sr-app-bottom) + env(safe-area-inset-bottom, 0px) + 16px);
 }
-.reel-container::-webkit-scrollbar { display: none; }
-.reel-container { scrollbar-width: none; }
-
-.reel-slide {
-  position: relative;
-  height: 100%;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-  display: flex;
-  align-items: flex-end;
-  background: #0b0b0b;
-}
-
-@media (max-width: 640px) {
-  .reel-container {
-    /* Extra 40px vs. desktop's budget leaves clear room below the card
-       for the fixed circular Add Spotlight button so it never overlaps
-       the video's own Book/Like/Eye row. */
-    height: calc(var(--app-vh) - 300px);
+@media (min-width: 768px) {
+  :root {
+    --sr-app-top: 64px;
+    --sr-app-bottom: 0px;
+    --sr-gap: 16px;
+    --sr-fab-bottom: 24px;
   }
 }
 
+/* One feed post: roughly the space left under the headers (dynamic viewport
+   height, so mobile browser chrome is accounted for). Fixed on purpose — the
+   feed is windowed and relies on every post being the same height. Scrolling
+   itself is plain and continuous: there is deliberately no scroll-snap. */
+.sr-post {
+  height: calc(var(--app-vh) - var(--sr-app-top) - var(--sr-header-h) - var(--sr-app-bottom) - var(--sr-gap));
+  min-height: 380px;
+  margin-bottom: var(--sr-gap);
+}
+
+/* Detail modal. Mobile: full screen. Tablet/desktop: large, centred. */
+.sr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  overscroll-behavior: contain;
+}
+.sr-panel {
+  --sr-head-h: 60px;
+  --sr-actions-h: 60px;
+  --sr-panel-h: 100vh;
+  --sr-panel-h: 100dvh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: var(--sr-panel-h);
+  background: #fff;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.sr-head { height: var(--sr-head-h); }
+.sr-actions { min-height: var(--sr-actions-h); }
+.sr-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.sr-main { min-width: 0; }
+.sr-rail { border-top: 1.5px solid rgba(0, 0, 0, 0.1); background: #fff; }
+
+/* Stacked (mobile/tablet): the stage takes the media's own shape, capped so
+   the action row stays on screen under it. */
+.sr-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--sr-aspect, 16 / 9);
+  min-height: 200px;
+  max-height: calc(var(--sr-panel-h) - var(--sr-head-h) - var(--sr-actions-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  background: #0b0b0b;
+}
+
 @media (min-width: 768px) {
-  .reel-container {
-    max-height: 720px;
-    box-shadow: 0 24px 50px -22px rgba(0, 0, 0, 0.35);
+  /* Only where the backdrop is actually visible — on phones the panel covers
+     the whole screen and a live blur would just cost frames. */
+  .sr-overlay {
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+  .sr-panel {
+    --sr-panel-h: min(94vh, 1080px);
+    --sr-panel-h: min(94dvh, 1080px);
+    width: 96vw;
+    max-width: 1800px;
+    border: 1.5px solid #000;
+    border-radius: 20px;
+    padding-top: 0;
+    padding-bottom: 0;
+    box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.35);
+  }
+}
+
+@media (min-width: 1024px) {
+  .sr-panel {
+    --sr-panel-h: min(95vh, 1080px);
+    --sr-panel-h: min(95dvh, 1080px);
+    width: 95vw;
+  }
+}
+
+/* Wide: YouTube-style — media + details on the left (about 75%), related
+   posts in their own scrolling column on the right (about 25%). The stage
+   fills the column's height minus the action row. Below this width the
+   related column would squeeze landscape video well under its old size, so
+   the layout stays stacked (related posts under the media) instead. */
+@media (min-width: 1280px) {
+  .sr-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(288px, 25%, 480px);
+    overflow: hidden;
+  }
+  .sr-body--solo { grid-template-columns: minmax(0, 1fr); }
+  .sr-main { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .sr-rail { overflow-y: auto; overscroll-behavior: contain; min-height: 0; border-top: 0; border-left: 1.5px solid rgba(0, 0, 0, 0.1); }
+  .sr-stage {
+    aspect-ratio: auto;
+    max-height: none;
+    min-height: 320px;
+    height: calc(var(--sr-panel-h) - var(--sr-head-h) - var(--sr-actions-h) - 3px);
   }
 }
 

@@ -75,8 +75,11 @@ export default function App() {
       />
       <Route path="/" element={<HomeRoute />} />
       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+      {/* One route with an optional :postId, so /showroom and /showroom/:postId
+          render the very same mounted Showroom — opening or closing a post's
+          detail modal never remounts the feed underneath it. */}
       <Route
-        path="/showroom"
+        path="/showroom/:postId?"
         element={
           <ProtectedRoute>
             <ShowroomPage />
