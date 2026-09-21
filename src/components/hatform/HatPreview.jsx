@@ -79,6 +79,11 @@ export default function HatPreview({ open, onClose, preview, cover, owner }) {
 
             <h3 className={`text-[18px] font-bold leading-snug break-words ${preview.title ? '' : muted}`}>{preview.title || 'Your title'}</h3>
 
+            <p className="text-[13px] font-semibold leading-snug break-words">
+              <span className="font-bold text-black/50">{preview.listingLabel}:</span>{' '}
+              {preview.seeking || <span className={muted}>{preview.role === 'client' ? 'Who you need' : 'Your service'}</span>}
+            </p>
+
             <div className="flex items-center gap-2 text-[11.5px] text-black/60 font-medium flex-wrap">
               {preview.category ? <span className="px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10">{preview.category}</span> : <span className={muted}>Category</span>}
               {preview.delivery && <span className="px-2 py-0.5 rounded-full bg-[#F5F3EF] border border-black/10">{preview.delivery}</span>}

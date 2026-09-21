@@ -15,6 +15,7 @@
 // negotiation already read it), so no second field is introduced.
 //
 // Limits marked "keep in sync" mirror api/_lib/hatFields.js.
+import { hatSeeking } from './hatSeeking.js'
 
 export const COUNTRIES = [
   { name: 'Nigeria', flag: '🇳🇬', currency: 'NGN' },
@@ -72,6 +73,7 @@ export const DEFAULT_CATEGORIES = [
 export const OTHER_CATEGORY = '__other__'
 
 export const HAT_TITLE_MAX = 80 // keep in sync
+export const HAT_SEEKING_MAX = 80 // keep in sync
 // The description is stored in hats.motto, which the database caps at 80.
 export const HAT_DESCRIPTION_MAX = 80 // keep in sync
 export const CUSTOM_UNIT_MAX = 24
@@ -104,9 +106,10 @@ export function roleCopy(role) {
       listingLabel: 'Hiring',
       accountLabel: 'Client',
       headerSubtitle: "Tell people who you're looking for",
-      titleQuestion: 'Who are you looking for?',
-      titlePlaceholder: 'e.g. Wedding photographer',
-      titleHint: 'Suggestions come from what talent already offer. Type your own too.',
+      seekingQuestion: 'Who are you looking for?',
+      seekingPlaceholder: 'e.g. Wedding photographer',
+      seekingHint: 'Suggestions come from what talent already offer. Type your own too.',
+      seekingRequired: 'Say who you are looking for.',
       descriptionHint: 'What you need: requirements, the outcome you expect, useful conditions.',
       descriptionPlaceholder: 'e.g. Full-day coverage, edited photos within a week',
       priceQuestion: 'What is your budget?',
@@ -129,9 +132,10 @@ export function roleCopy(role) {
     listingLabel: 'Seeking',
     accountLabel: 'Talent',
     headerSubtitle: "Tell people what you're available for",
-    titleQuestion: 'What service are you available for?',
-    titlePlaceholder: 'e.g. Wedding photographer',
-    titleHint: 'Suggestions come from what clients are seeking. Type your own too.',
+    seekingQuestion: 'What service are you available for?',
+    seekingPlaceholder: 'e.g. Wedding photographer',
+    seekingHint: 'Suggestions come from what clients are seeking. Type your own too.',
+    seekingRequired: 'Say what service you are available for.',
     descriptionHint: 'What you offer: experience, style, what people can expect.',
     descriptionPlaceholder: 'e.g. Candid, story-led wedding coverage',
     priceQuestion: 'What do you charge?',
@@ -237,6 +241,7 @@ export function emptyForm(user) {
   const profileCountry = COUNTRIES.find((c) => c.name === user?.country)
   return {
     title: '',
+    seeking: '',
     category: '',
     customCategory: '',
     description: '',
@@ -268,6 +273,8 @@ export function hydrateForm(hat) {
   const isRange = hat.price_type === 'range'
   return {
     title: hat.hat_title || '',
+    // Hats made before `seeking` existed only have a title — it stands in.
+    seeking: hatSeeking(hat),
     category: hat.category || '',
     customCategory: '',
     description: hat.motto || '',
@@ -346,8 +353,12 @@ export function validateForm(form, ctx) {
   const media = ctx.media || { ready: 0, uploading: 0, failed: 0 }
 
   const title = form.title.trim()
-  if (!title) errors.title = 'Title is required.'
+  if (!title) errors.title = 'Give your Hat a title.'
   else if (title.length > HAT_TITLE_MAX) errors.title = `Keep the title to ${HAT_TITLE_MAX} characters or fewer.`
+
+  const seeking = form.seeking.trim()
+  if (!seeking) errors.seeking = copy.seekingRequired
+  else if (seeking.length > HAT_SEEKING_MAX) errors.seeking = `Keep this to ${HAT_SEEKING_MAX} characters or fewer.`
 
   if (!form.category) {
     errors.category = 'Choose a category.'
@@ -394,6 +405,7 @@ export function validateForm(form, ctx) {
 // element id to focus for each error key
 export const FIELD_IDS = {
   title: 'hat-title',
+  seeking: 'hat-seeking',
   category: 'hat-category',
   categoryCustom: 'hat-category-custom',
   media: 'hat-media-add',
@@ -408,7 +420,8 @@ export const FIELD_IDS = {
 }
 
 const SUMMARY_LABELS = {
-  title: () => 'Title',
+  title: () => 'Hat title',
+  seeking: (copy) => copy.listingLabel,
   category: () => 'Category',
   categoryCustom: () => 'Category',
   media: () => 'Media',
@@ -468,6 +481,7 @@ export function buildPayload(form, { mode, role, media = null }) {
   const country = countryByName(form.countryName)
   const body = {
     hat_title: form.title.trim(),
+    seeking: form.seeking.trim(),
     category: finalCategory(form),
     skills: parseSkills(form.skills),
     hat_type: form.hatType,
@@ -525,6 +539,7 @@ export function buildPreview(form, { role }) {
     listingLabel: copy.listingLabel,
     priceNoun: copy.priceNoun,
     title: form.title.trim(),
+    seeking: form.seeking.trim(),
     category: finalCategory(form),
     description: form.description.trim(),
     skills: parseSkills(form.skills),

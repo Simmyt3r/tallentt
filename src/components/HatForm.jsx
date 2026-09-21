@@ -180,7 +180,7 @@ function HatFormScreen({ editId }) {
     return shown
   }, [errors, showAllErrors, touched])
 
-  const basicErrors = useMemo(() => ({ title: visible.title, category: visible.category, categoryCustom: visible.categoryCustom }), [visible.title, visible.category, visible.categoryCustom])
+  const basicErrors = useMemo(() => ({ title: visible.title, seeking: visible.seeking, category: visible.category, categoryCustom: visible.categoryCustom }), [visible.title, visible.seeking, visible.category, visible.categoryCustom])
   const pricingErrors = useMemo(
     () => ({ amount: visible.amount, rateUnitCustom: visible.rateUnitCustom, priceMin: visible.priceMin, priceMax: visible.priceMax }),
     [visible.amount, visible.rateUnitCustom, visible.priceMin, visible.priceMax],
@@ -319,6 +319,7 @@ function HatFormScreen({ editId }) {
           canChooseRole={canChooseRole}
           onRoleChange={setChosenRole}
           title={form.title}
+          seeking={form.seeking}
           category={form.category}
           customCategory={form.customCategory}
           description={form.description}

@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     // Capped rather than unbounded: this powers a compact "Active Hats"
     // summary, not a full listing (My Hats/Showroom already own that).
     const { rows: hats } = await query(
-      `SELECT id, hat_title, category, role, is_verified, rating, created_at
+      `SELECT id, hat_title, seeking, category, role, is_verified, rating, created_at
        FROM hats WHERE user_id = $1 AND active = true
        ORDER BY created_at DESC LIMIT 24`,
       [userRow.id],
@@ -113,8 +113,8 @@ export default async function handler(req, res) {
       ratedHatsCount: ratedHats.length,
       portfolio,
       hats: {
-        talent: hats.filter((h) => h.role === 'talent').map((h) => ({ id: h.id, hat_title: h.hat_title, category: h.category })),
-        client: hats.filter((h) => h.role !== 'talent').map((h) => ({ id: h.id, hat_title: h.hat_title, category: h.category })),
+        talent: hats.filter((h) => h.role === 'talent').map((h) => ({ id: h.id, hat_title: h.hat_title, seeking: h.seeking || h.hat_title, category: h.category })),
+        client: hats.filter((h) => h.role !== 'talent').map((h) => ({ id: h.id, hat_title: h.hat_title, seeking: h.seeking || h.hat_title, category: h.category })),
       },
     })
   } catch (err) {
