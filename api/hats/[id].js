@@ -12,6 +12,7 @@ async function getHat(id, viewerId) {
             u.full_name as owner_full_name,
             u.username as owner_username,
             u.role as owner_role,
+            u.company_suffix as owner_company_suffix,
             u.bio as owner_bio,
             u.location as owner_location,
             u.lga as owner_lga,
@@ -186,7 +187,8 @@ export default async function handler(req, res) {
         try {
           const { rows: applications } = await query(
             `SELECT a.id, a.status, a.message, a.created_at,
-                    u.id as applicant_id, u.username, u.full_name, u.avatar_url
+                    u.id as applicant_id, u.username, u.full_name, u.avatar_url,
+                    u.role, u.company_suffix
              FROM applications a
              JOIN users u ON u.id = a.applicant_id
              WHERE a.hat_id = $1
@@ -468,13 +470,14 @@ export default async function handler(req, res) {
         }
         if (application && !alreadyApplied) {
           try {
-            const { rows: applicantRows } = await query(`SELECT username FROM users WHERE id = $1`, [session.sub])
+            const { rows: applicantRows } = await query(`SELECT username, full_name FROM users WHERE id = $1`, [session.sub])
             await notifyApplicationReceived({
               ownerId: existing.user_id,
               hatId: existing.id,
               hatTitle: existing.hat_title,
               applicationId: application.id,
               applicantUsername: applicantRows[0]?.username,
+              applicantName: applicantRows[0]?.full_name,
             })
           } catch (notifyErr) {
             console.error('application received notification failed:', notifyErr)

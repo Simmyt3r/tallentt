@@ -83,7 +83,7 @@ async function attachRoomExtras(rooms, viewerId) {
   const ids = rooms.map((r) => r.id)
 
   const { rows: players } = await query(
-    `SELECT rp.room_id, u.id, u.username, u.full_name, u.avatar_url
+    `SELECT rp.room_id, u.id, u.username, u.full_name, u.avatar_url, u.role, u.company_suffix
      FROM live_room_players rp JOIN users u ON u.id = rp.user_id
      WHERE rp.room_id = ANY($1) ORDER BY rp.joined_at ASC`,
     [ids],
@@ -124,7 +124,7 @@ async function attachRoomExtras(rooms, viewerId) {
   const playersByRoom = new Map()
   for (const p of players) {
     if (!playersByRoom.has(p.room_id)) playersByRoom.set(p.room_id, [])
-    playersByRoom.get(p.room_id).push({ id: p.id, username: p.username, full_name: p.full_name, avatar_url: p.avatar_url })
+    playersByRoom.get(p.room_id).push({ id: p.id, username: p.username, full_name: p.full_name, avatar_url: p.avatar_url, role: p.role, company_suffix: p.company_suffix })
   }
   const sponsorsByRoom = new Map()
   for (const s of sponsorRows) {
@@ -166,6 +166,7 @@ export async function listRooms({ hall, status, viewerId }) {
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
   const { rows } = await query(
     `SELECT lr.*, h.username as host_username, h.full_name as host_full_name, h.avatar_url as host_avatar_url,
+            h.role as host_role, h.company_suffix as host_company_suffix,
             h.live_orbit_score as host_live_orbit_score, g.name as game_name
      FROM live_rooms lr
      JOIN users h ON h.id = lr.host_id
@@ -182,6 +183,7 @@ export async function listRooms({ hall, status, viewerId }) {
 export async function getRoomDetail(roomId, viewerId) {
   const { rows } = await query(
     `SELECT lr.*, h.username as host_username, h.full_name as host_full_name, h.avatar_url as host_avatar_url,
+            h.role as host_role, h.company_suffix as host_company_suffix,
             h.live_orbit_score as host_live_orbit_score, g.name as game_name
      FROM live_rooms lr
      JOIN users h ON h.id = lr.host_id
@@ -195,7 +197,7 @@ export async function getRoomDetail(roomId, viewerId) {
   const [full] = await attachRoomExtras([room], viewerId)
 
   const { rows: recentGifts } = await query(
-    `SELECT lg.id, lg.gift_type, lg.amount, lg.created_at, u.username, u.full_name
+    `SELECT lg.id, lg.gift_type, lg.amount, lg.created_at, u.username, u.full_name, u.role, u.company_suffix
      FROM live_gifts lg JOIN users u ON u.id = lg.sender_id
      WHERE lg.room_id = $1 ORDER BY lg.created_at DESC LIMIT 25`,
     [roomId],

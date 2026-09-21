@@ -122,7 +122,7 @@ async function getDashboard() {
       FROM wallet_transactions GROUP BY type, status ORDER BY type, status
     `),
     query(
-      `SELECT u.id, u.username, u.email, u.role, u.country, u.lga, u.is_admin, u.created_at,
+      `SELECT u.id, u.username, u.full_name, u.company_suffix, u.email, u.role, u.country, u.lga, u.is_admin, u.created_at,
               COALESCE(w.balance, 0)::int as wallet_balance,
               COUNT(h.id)::int as hats_count
        FROM users u
@@ -136,10 +136,12 @@ async function getDashboard() {
     query(
       `SELECT h.id, h.hat_title, h.username, h.role, h.category, h.active, h.is_verified,
               h.likes, h.views, h.bookings, h.orbit_score, h.created_at,
+              u.full_name as owner_full_name, u.role as owner_role, u.company_suffix as owner_company_suffix,
               COUNT(m.id)::int as media_count
        FROM hats h
        LEFT JOIN hat_media m ON m.hat_id = h.id
-       GROUP BY h.id
+       LEFT JOIN users u ON u.id = h.user_id
+       GROUP BY h.id, u.id
        ORDER BY h.created_at DESC
        LIMIT $1`,
       [DASHBOARD_LIMIT],
@@ -147,10 +149,14 @@ async function getDashboard() {
     query(
       `SELECT a.id, a.status, a.message, a.created_at, a.updated_at,
               h.id as hat_id, h.hat_title, h.username as hat_owner_username,
-              applicant.username as applicant_username
+              applicant.username as applicant_username, applicant.full_name as applicant_full_name,
+              applicant.role as applicant_role, applicant.company_suffix as applicant_company_suffix,
+              owner.full_name as hat_owner_full_name, owner.role as hat_owner_role,
+              owner.company_suffix as hat_owner_company_suffix
        FROM applications a
        JOIN hats h ON h.id = a.hat_id
        JOIN users applicant ON applicant.id = a.applicant_id
+       LEFT JOIN users owner ON owner.id = h.user_id
        ORDER BY a.created_at DESC
        LIMIT $1`,
       [DASHBOARD_LIMIT],
@@ -159,8 +165,10 @@ async function getDashboard() {
       `SELECT e.id, e.hat_id, e.amount, e.status, e.contacts_unlocked,
               e.payment_reference, e.checkout_locked_at, e.created_at, e.funded_at, e.released_at,
               h.hat_title,
-              client.username as client_username,
-              talent.username as talent_username
+              client.username as client_username, client.full_name as client_full_name,
+              client.role as client_role, client.company_suffix as client_company_suffix,
+              talent.username as talent_username, talent.full_name as talent_full_name,
+              talent.role as talent_role, talent.company_suffix as talent_company_suffix
        FROM escrows e
        LEFT JOIN hats h ON h.id = e.hat_id
        LEFT JOIN users client ON client.id = e.client_id
@@ -170,7 +178,8 @@ async function getDashboard() {
       [DASHBOARD_LIMIT],
     ),
     query(
-      `SELECT wt.id, wt.user_id, u.username, wt.type, wt.amount, wt.balance_after,
+      `SELECT wt.id, wt.user_id, u.username, u.full_name as user_full_name, u.role as user_role,
+              u.company_suffix as user_company_suffix, wt.type, wt.amount, wt.balance_after,
               wt.status, wt.reference, wt.escrow_id, wt.created_at
        FROM wallet_transactions wt
        LEFT JOIN users u ON u.id = wt.user_id
@@ -180,7 +189,8 @@ async function getDashboard() {
     ),
     query(
       `SELECT l.id, l.action, l.target_type, l.target_id, l.metadata, l.created_at,
-              u.username as admin_username
+              u.username as admin_username, u.full_name as admin_full_name, u.role as admin_role,
+              u.company_suffix as admin_company_suffix
        FROM admin_audit_logs l
        LEFT JOIN users u ON u.id = l.admin_id
        ORDER BY l.created_at DESC

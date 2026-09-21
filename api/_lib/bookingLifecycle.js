@@ -19,7 +19,8 @@ function cursor(value) {
 
 export async function lifecycleHistory(client, escrowId, before) {
   const { rows } = await client.query(
-    `SELECT e.id::text, e.action, e.note, e.created_at, u.username AS actor_username
+    `SELECT e.id::text, e.action, e.note, e.created_at, u.username AS actor_username,
+            u.full_name AS actor_full_name, u.role AS actor_role, u.company_suffix AS actor_company_suffix
      FROM booking_events e JOIN users u ON u.id = e.actor_id
      WHERE e.escrow_id = $1 AND ($2::bigint IS NULL OR e.id < $2)
      ORDER BY e.id DESC LIMIT 51`, [escrowId, cursor(before)],
@@ -142,7 +143,8 @@ export async function listDisputes(status = 'open', before) {
   if (before) requireBookingId(before)
   // The boundary's timestamp/id remain stable even if another admin resolves it.
   const { rows } = await query(
-    `SELECT d.*, e.amount, h.hat_title, c.username AS client_username, t.username AS talent_username
+    `SELECT d.*, e.amount, h.hat_title, c.username AS client_username, c.full_name AS client_full_name, c.role AS client_role, c.company_suffix AS client_company_suffix,
+            t.username AS talent_username, t.full_name AS talent_full_name, t.role AS talent_role, t.company_suffix AS talent_company_suffix
      FROM booking_disputes d JOIN escrows e ON e.id = d.escrow_id
      LEFT JOIN hats h ON h.id = e.hat_id JOIN users c ON c.id = e.client_id JOIN users t ON t.id = e.talent_id
      WHERE d.status = $1 AND ($2::uuid IS NULL OR (d.created_at, d.escrow_id) >
@@ -155,13 +157,15 @@ export async function listDisputes(status = 'open', before) {
 export async function getDispute(escrowId, messagesBefore, eventsBefore) {
   requireBookingId(escrowId)
   const { rows } = await query(
-    `SELECT d.*, e.amount, e.work_version, e.work_status, c.username AS client_username, t.username AS talent_username
+    `SELECT d.*, e.amount, e.work_version, e.work_status, c.username AS client_username, c.full_name AS client_full_name, c.role AS client_role, c.company_suffix AS client_company_suffix,
+            t.username AS talent_username, t.full_name AS talent_full_name, t.role AS talent_role, t.company_suffix AS talent_company_suffix
      FROM booking_disputes d JOIN escrows e ON e.id = d.escrow_id
      JOIN users c ON c.id = e.client_id JOIN users t ON t.id = e.talent_id WHERE d.escrow_id = $1`, [escrowId],
   )
   if (!rows[0]) throw bookingError(404, 'Dispute not found.')
   const { rows: messages } = await query(
-    `SELECT m.id::text, m.kind, m.body, m.amount, m.offer_status, m.created_at, u.username AS sender_username
+    `SELECT m.id::text, m.kind, m.body, m.amount, m.offer_status, m.created_at, u.username AS sender_username,
+            u.full_name AS sender_full_name, u.role AS sender_role, u.company_suffix AS sender_company_suffix
      FROM booking_messages m JOIN users u ON u.id = m.sender_id
      WHERE m.escrow_id = $1 AND ($2::bigint IS NULL OR m.id < $2) ORDER BY m.id DESC LIMIT 51`, [escrowId, cursor(messagesBefore)],
   )

@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Clock, Eye, Heart, MapPin, Send, Star } from 'lucide-react'
 import { api } from '../lib/api'
 import AvailabilityBadge from '../components/AvailabilityBadge'
+import UserIdentity from '../components/UserIdentity'
+import { identityFromHat } from '../lib/profile.js'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 
 const fmtMoney = (n, currency = 'NGN') => {
@@ -226,13 +228,16 @@ export default function TalentProfile() {
 
         <div className="p-5 sm:p-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-[20px] font-bold flex items-center gap-1.5 leading-tight">
-                {hat.username}
-                {hat.is_verified && <span className="text-[#0A13E6]">✓</span>}
-              </h1>
+            <UserIdentity
+              user={identityFromHat(hat)}
+              showAvatar={false}
+              nameAs="h1"
+              nameClassName="text-[20px] font-bold leading-tight"
+              nameBadge={hat.is_verified ? <span className="text-[#0A13E6]">✓</span> : null}
+              usernameClassName="text-[13px] font-semibold text-black/55 leading-tight"
+            >
               <p className="text-[13px] text-black/60 mt-0.5">{hat.hat_title}</p>
-            </div>
+            </UserIdentity>
             <span className="font-bold text-[16px] whitespace-nowrap">{formatPrice(hat, currency)}</span>
           </div>
 

@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Clock } from 'lucide-react'
 import { api } from '../lib/api'
+import UserIdentity from '../components/UserIdentity'
+import { identityFromRow } from '../lib/profile.js'
 
 // Mirrors the pricing display logic used in BentoCard.jsx / TalentProfile.jsx.
 // Co-located here rather than shared, per the codebase's existing pattern.
@@ -117,15 +119,17 @@ export default function MyApplications() {
               <div className="w-12 h-12 rounded-[12px] bg-[#F5F3EF] overflow-hidden shrink-0 border-[1.5px] border-black/10">
                 {a.hat_thumbnail && <img src={a.hat_thumbnail} alt="" className="w-full h-full object-cover" />}
               </div>
-              <Link to={`/talent/${a.hat_id}`} className="min-w-0 flex-1">
-                <p className="font-semibold text-[14px] truncate">{a.hat_title}</p>
+              <div className="min-w-0 flex-1">
+                <Link to={`/talent/${a.hat_id}`} className="block font-semibold text-[14px] truncate">
+                  {a.hat_title}
+                </Link>
                 <p className="text-[12px] text-black/50 truncate">
-                  {a.owner_full_name || a.owner_username} · {a.category}
+                  <UserIdentity user={identityFromRow(a, 'owner')} layout="inline" showAvatar={false} nameClassName="font-semibold text-black/70" usernameClassName="font-semibold text-black/50" /> · {a.category}
                 </p>
                 <p className="text-[11px] text-black/40 flex items-center gap-1 mt-0.5">
                   <Clock size={11} /> Applied {new Date(a.applied_at).toLocaleDateString()}
                 </p>
-              </Link>
+              </div>
               <span className="text-[13px] font-bold shrink-0">{formatPrice(a)}</span>
               <span
                 className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 capitalize ${STATUS_STYLE[a.status] || STATUS_STYLE.withdrawn}`}

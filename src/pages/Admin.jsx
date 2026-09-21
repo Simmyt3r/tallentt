@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api.js'
 import AdminDisputes from '../components/AdminDisputes.jsx'
+import UserIdentity from '../components/UserIdentity'
+import { identityFromHat, identityFromRow, resolveIdentity } from '../lib/profile.js'
 
 const TABS = [
   { id: 'users', label: 'Users' },
@@ -292,7 +294,7 @@ function UsersTable({ rows }) {
         {rows.map((u) => (
           <tr key={u.id} className="border-t border-black/10">
             <Td>
-              <p className="font-bold">@{u.username}</p>
+              <p className="font-bold"><UserIdentity user={u} layout="inline" showAvatar={false} nameClassName="font-bold" usernameClassName="font-semibold text-black/50" /></p>
               <p className="text-black/40">{u.email}</p>
               <p className="text-black/35">{[u.lga, u.country].filter(Boolean).join(', ') || '—'}</p>
             </Td>
@@ -329,7 +331,7 @@ function HatsTable({ rows, busy, runAction }) {
           <tr key={h.id} className="border-t border-black/10">
             <Td>
               <p className="font-bold">{h.hat_title}</p>
-              <p className="text-black/40">@{h.username} · {h.category}</p>
+              <p className="text-black/40"><UserIdentity user={identityFromHat(h)} layout="inline" showAvatar={false} nameClassName="font-semibold text-black/60" usernameClassName="font-semibold text-black/40" /> · {h.category}</p>
               <p className="text-black/35">{h.media_count} media</p>
             </Td>
             <Td>
@@ -382,9 +384,9 @@ function ApplicationsTable({ rows, busy, runAction }) {
         {rows.map((a) => (
           <tr key={a.id} className="border-t border-black/10">
             <Td>
-              <p className="font-bold">@{a.applicant_username}</p>
+              <p className="font-bold"><UserIdentity user={identityFromRow(a, 'applicant')} layout="inline" showAvatar={false} nameClassName="font-bold" usernameClassName="font-semibold text-black/50" /></p>
               <p className="text-black/40">{a.hat_title}</p>
-              <p className="text-black/35">Owner @{a.hat_owner_username}</p>
+              <p className="text-black/35">Owner <UserIdentity user={identityFromRow(a, 'hat_owner')} layout="inline" showAvatar={false} nameClassName="font-semibold text-black/50" usernameClassName="font-semibold text-black/35" /></p>
             </Td>
             <Td>
               <StatusPill status={a.status} />
@@ -442,8 +444,8 @@ function EscrowsTable({ rows, busy, runAction }) {
               <p className="text-black/35">#{shortId(e.id)}</p>
             </Td>
             <Td>
-              <p>Client @{e.client_username || '—'}</p>
-              <p className="text-black/40">Talent @{e.talent_username || '—'}</p>
+              <p>Client {e.client_username ? <UserIdentity user={identityFromRow(e, 'client')} layout="inline" showAvatar={false} nameClassName="font-semibold" usernameClassName="font-semibold text-black/50" /> : '—'}</p>
+              <p className="text-black/40">Talent {e.talent_username ? <UserIdentity user={identityFromRow(e, 'talent')} layout="inline" showAvatar={false} nameClassName="font-semibold text-black/60" usernameClassName="font-semibold text-black/40" /> : '—'}</p>
             </Td>
             <Td>{fmtMoney(e.amount)}</Td>
             <Td>
@@ -499,7 +501,7 @@ function WalletTable({ rows, busy, runAction }) {
           const credit = MONEY_TYPES.has(t.type)
           return (
             <tr key={t.id} className="border-t border-black/10">
-              <Td>@{t.username || '—'}</Td>
+              <Td>{t.username ? <UserIdentity user={resolveIdentity({ username: t.username, fullName: t.user_full_name, role: t.user_role, companySuffix: t.user_company_suffix })} layout="inline" showAvatar={false} nameClassName="font-semibold" usernameClassName="font-semibold text-black/50" /> : '—'}</Td>
               <Td>{cleanLabel(t.type)}</Td>
               <Td className={credit ? 'text-green-700 font-bold' : 'font-bold'}>
                 {credit ? '+' : '-'}
@@ -560,7 +562,7 @@ function AuditTable({ rows }) {
       <tbody>
         {rows.map((log) => (
           <tr key={log.id} className="border-t border-black/10">
-            <Td>@{log.admin_username || 'unknown'}</Td>
+            <Td>{log.admin_username ? <UserIdentity user={identityFromRow(log, 'admin')} layout="inline" showAvatar={false} nameClassName="font-semibold" usernameClassName="font-semibold text-black/50" /> : 'unknown'}</Td>
             <Td>{cleanLabel(log.action)}</Td>
             <Td>
               <p>{cleanLabel(log.target_type)}</p>

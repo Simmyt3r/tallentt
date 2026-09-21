@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { api } from '../lib/api.js'
+import { identityFromRow } from '../lib/profile.js'
+import UserIdentity from './UserIdentity.jsx'
 
 export const workLabels = { in_progress: 'Work in progress', submitted: 'Awaiting delivery review',
   revision_requested: 'Revisions requested', disputed: 'Dispute under review', completed: 'Completed', refunded: 'Refunded to wallet' }
@@ -11,7 +13,7 @@ export const actionButton = 'px-3 py-2 rounded-lg border border-black/20 text-xs
 export function BookingEvents({ events = [] }) {
   return <ol className="space-y-3">
     {events.map((event) => <li key={event.id} className="border-l-2 border-[#0A13E6]/30 pl-3 min-w-0">
-      <p className="text-xs font-semibold">{eventLabels[event.action]} · @{event.actor_username}</p>
+      <p className="text-xs font-semibold">{eventLabels[event.action]} · <UserIdentity user={identityFromRow(event, 'actor')} layout="inline" showAvatar={false} nameClassName="font-semibold" usernameClassName="font-semibold text-black/50" /></p>
       {event.note && <p className="text-xs whitespace-pre-wrap break-words [overflow-wrap:anywhere] mt-1">{event.note}</p>}
       <time dateTime={event.created_at} className="text-[10px] text-black/50">{new Date(event.created_at).toLocaleString()}</time>
     </li>)}

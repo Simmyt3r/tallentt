@@ -1,9 +1,9 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Eye, Heart, Maximize2, Share2 } from 'lucide-react'
+import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import AvailabilityBadge from './AvailabilityBadge'
 import ShowroomMedia from './ShowroomMedia'
-import { Avatar } from './bentoCardShared'
+import UserIdentity from './UserIdentity'
 
 // True when a clamped paragraph is actually cut off, so "More" only shows
 // when there is something more to read. Re-measured on resize because the
@@ -50,7 +50,8 @@ function ShowroomPost({
   const isVideo = media?.type === 'video'
   const truncated = useIsClamped(captionRef, caption)
   const location = [hat.lga, hat.country].filter(Boolean).join(', ')
-  const profilePath = `/talent/${hat.id}`
+  const owner = identityFromHat(hat)
+  const ownerName = getPrimaryIdentity(owner)
 
   // Register with the parent's shared IntersectionObserver so it can tell
   // which single post is in view.
@@ -63,13 +64,13 @@ function ShowroomPost({
     <article
       ref={rootRef}
       data-post-key={postKey}
-      aria-label={`Showroom post by ${hat.username}`}
+      aria-label={`Showroom post by ${ownerName}`}
       className="sr-post flex flex-col overflow-hidden bg-white border-y md:border border-black/15 md:rounded-[20px] md:shadow-[0_6px_20px_-12px_rgba(0,0,0,0.25)]"
     >
       <div className="relative flex-1 min-h-0 bg-[#0b0b0b]">
         <ShowroomMedia
           media={media}
-          alt={caption || `${hat.username}'s Showroom ${isVideo ? 'video' : 'post'}`}
+          alt={caption || `${ownerName}'s Showroom ${isVideo ? 'video' : 'post'}`}
           playing={playing}
           muted={muted}
           onMutedChange={onMutedChange}
@@ -99,7 +100,7 @@ function ShowroomPost({
         <button
           type="button"
           onClick={() => onShare(hat)}
-          aria-label={`Share post by ${hat.username}`}
+          aria-label={`Share post by ${ownerName}`}
           className={actionBtn}
         >
           <Share2 size={17} aria-hidden="true" />
@@ -108,7 +109,7 @@ function ShowroomPost({
         <button
           type="button"
           onClick={() => onView(hat.id)}
-          aria-label={`View post by ${hat.username}`}
+          aria-label={`View post by ${ownerName}`}
           className={`${actionBtn} bg-[#0A13E6] text-white hover:bg-black`}
         >
           <Maximize2 size={15} aria-hidden="true" />
@@ -123,24 +124,22 @@ function ShowroomPost({
         </span>
       </div>
 
-      <div className="shrink-0 flex items-start gap-2.5 px-3 sm:px-4 pt-1.5 pb-3 min-w-0">
-        <Link to={profilePath} aria-label={`${hat.username}'s profile`} className="shrink-0 rounded-full">
-          <Avatar src={hat.owner_avatar} name={hat.username} className="w-10 h-10" />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-1.5 min-w-0">
-            <Link to={profilePath} className="font-bold text-[14px] leading-tight truncate min-w-0 hover:underline">
-              @{hat.username}
-            </Link>
-            {hat.is_verified && (
+      <div className="shrink-0 px-3 sm:px-4 pt-1.5 pb-3 min-w-0">
+        <UserIdentity
+          user={owner}
+          align="start"
+          nameClassName="font-bold text-[14px] leading-tight"
+          nameBadge={
+            hat.is_verified ? (
               <span className="text-[#0A13E6] text-[12px] shrink-0" title="Verified" aria-label="Verified">
                 ✓
               </span>
-            )}
-            {location && <span className="text-[11px] text-black/45 truncate min-w-0 hidden sm:inline">· {location}</span>}
-          </div>
+            ) : null
+          }
+        >
+          {location && <p className="text-[11px] text-black/45 truncate min-w-0 hidden sm:block">{location}</p>}
           {caption && (
-            <div className="flex items-end gap-1.5 mt-0.5">
+            <div className="flex items-end gap-1.5 mt-1">
               <p
                 ref={captionRef}
                 className="text-[13px] leading-snug text-black/80 line-clamp-2 break-words min-w-0"
@@ -151,7 +150,7 @@ function ShowroomPost({
                 <button
                   type="button"
                   onClick={() => onView(hat.id)}
-                  aria-label={`Read the full caption by ${hat.username}`}
+                  aria-label={`Read the full caption by ${ownerName}`}
                   className="shrink-0 text-[13px] font-semibold text-black/55 hover:text-black leading-snug"
                 >
                   More
@@ -159,7 +158,7 @@ function ShowroomPost({
               )}
             </div>
           )}
-        </div>
+        </UserIdentity>
       </div>
     </article>
   )

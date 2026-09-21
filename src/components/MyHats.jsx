@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext'
 import BentoCard from './BentoCard'
 import { Link } from 'react-router-dom'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
+import UserIdentity from './UserIdentity'
+import { identityFromHat } from '../lib/profile.js'
 
 // Inline panel for a single hat's applicants — fetched lazily (only when
 // expanded) via GET /api/hats/:id?include=applications, so MyHats doesn't
@@ -62,13 +64,15 @@ function ApplicantsPanel({ hatId }) {
     <ul className="divide-y divide-black/5">
       {applications.map((a) => (
         <li key={a.id} className="flex items-center gap-3 px-3.5 py-2.5">
-          <div className="w-8 h-8 rounded-full bg-[#F5F3EF] overflow-hidden shrink-0 border border-black/10">
-            {a.avatar_url && <img src={cldImage(a.avatar_url, { w: 64, h: 64 })} alt="" className="w-full h-full object-cover" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold truncate">{a.full_name || a.username}</p>
+          <UserIdentity
+            user={a}
+            className="min-w-0 flex-1"
+            avatarClassName="w-8 h-8"
+            nameClassName="text-[13px] font-semibold"
+            usernameClassName="text-[11px] font-semibold text-black/50 leading-tight"
+          >
             {a.message && <p className="text-[12px] text-black/50 truncate">{a.message}</p>}
-          </div>
+          </UserIdentity>
           {a.status === 'pending' ? (
             <div className="flex gap-1.5 shrink-0">
               <button
@@ -266,7 +270,7 @@ export default function MyHats() {
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[14px] truncate">{h.hat_title}</p>
                   <p className="text-[12px] text-black/50">
-                    {h.username} · {h.category} · {h.role}
+                    <UserIdentity user={identityFromHat(h)} layout="inline" showAvatar={false} nameClassName="font-semibold text-black/70" usernameClassName="font-semibold text-black/50" /> · {h.category} · {h.role}
                   </p>
                 </div>
                 <span className="text-[13px] font-bold">

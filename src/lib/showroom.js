@@ -78,13 +78,13 @@ async function copyText(text) {
 // Shared by the feed's Share button and the detail modal's Share buttons so
 // both hand out the same canonical URL. Resolves to 'shared' | 'copied' |
 // 'cancelled' | 'failed'; the caller decides what feedback to show.
-export async function shareShowroomPost({ id, username }) {
+export async function shareShowroomPost({ id, name }) {
   const url = showroomUrl(id)
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     try {
       // Must be the first await so it still counts as part of the user's click.
       await navigator.share({
-        title: username ? `${username} on the ChombuTar Showroom` : 'ChombuTar Showroom',
+        title: name ? `${name} on the ChombuTar Showroom` : 'ChombuTar Showroom',
         url,
       })
       return 'shared'

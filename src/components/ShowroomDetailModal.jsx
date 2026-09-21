@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { BookOpen, Eye, Heart, MapPin, Play, Share2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 import { useBackdropClose, useDialog, useScrollLock } from '../lib/dialog'
 import { useAuth } from '../context/AuthContext'
+import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import AvailabilityBadge from './AvailabilityBadge'
 import NegotiationNotice from './NegotiationNotice'
 import ShowroomMedia from './ShowroomMedia'
-import { Avatar, formatPrice, relativeTime } from './bentoCardShared'
+import UserIdentity from './UserIdentity'
+import { formatPrice, relativeTime } from './bentoCardShared'
 
 const iconBtn =
   'inline-flex items-center justify-center gap-1.5 h-11 min-w-[44px] px-3 rounded-full text-[13px] font-semibold transition hover:bg-black/[0.06] active:scale-95'
@@ -21,6 +23,7 @@ function timeAgo(value) {
 
 function RelatedItem({ hat, onSelect }) {
   const [broken, setBroken] = useState(false)
+  const owner = identityFromHat(hat)
   const media = hat.media?.[0]
   const isVideo = media?.type === 'video' && !!media?.url
   const thumb = media?.url
@@ -29,15 +32,18 @@ function RelatedItem({ hat, onSelect }) {
       : cldImage(media.url, { w: 320, h: 180 })
     : null
   const title = media?.caption || hat.motto || hat.hat_title || ''
+  // The whole row opens the post, but the owner's name and username are links
+  // to their profile — a link can't live inside a button, so the button is a
+  // transparent layer under the row and only the profile links sit above it.
   return (
-    <li>
+    <li className="relative flex gap-3 p-2 rounded-xl text-left transition hover:bg-black/[0.04] focus-within:bg-black/[0.04]">
       <button
         type="button"
         onClick={() => onSelect(hat.id)}
-        aria-label={`Open ${hat.username}'s post${title ? `: ${title}` : ''}`}
-        className="w-full flex gap-3 p-2 rounded-xl text-left transition hover:bg-black/[0.04] focus-visible:bg-black/[0.04]"
-      >
-        <div className="relative shrink-0 w-[132px] xl:w-[128px] aspect-video rounded-lg overflow-hidden bg-[#0b0b0b] border border-black/10">
+        aria-label={`Open ${getPrimaryIdentity(owner)}'s post${title ? `: ${title}` : ''}`}
+        className="absolute inset-0 rounded-xl"
+      />
+      <div className="pointer-events-none relative shrink-0 w-[132px] xl:w-[128px] aspect-video rounded-lg overflow-hidden bg-[#0b0b0b] border border-black/10">
           {thumb && !broken ? (
             <img
               src={thumb}
@@ -57,14 +63,19 @@ function RelatedItem({ hat, onSelect }) {
             </span>
           )}
         </div>
-        <div className="min-w-0 flex-1 py-0.5">
-          {title && <p className="text-[13px] font-semibold leading-snug line-clamp-2 break-words">{title}</p>}
-          <p className="text-[12px] text-black/55 mt-0.5 truncate">@{hat.username}</p>
-          <p className="text-[11px] text-black/40 mt-0.5 flex items-center gap-1">
-            <Eye size={11} aria-hidden="true" /> {hat.views || 0}
-          </p>
-        </div>
-      </button>
+      <div className="pointer-events-none relative min-w-0 flex-1 py-0.5">
+        {title && <p className="text-[13px] font-semibold leading-snug line-clamp-2 break-words">{title}</p>}
+        <UserIdentity
+          user={owner}
+          showAvatar={false}
+          className="mt-0.5"
+          nameClassName="text-[12px] font-semibold text-black/70 leading-tight"
+          usernameClassName="text-[11px] font-semibold text-black/50 leading-tight"
+        />
+        <p className="text-[11px] text-black/40 mt-0.5 flex items-center gap-1">
+          <Eye size={11} aria-hidden="true" /> {hat.views || 0}
+        </p>
+      </div>
     </li>
   )
 }
@@ -115,7 +126,8 @@ export default function ShowroomDetailModal({
   const caption = media?.caption || hat?.motto || ''
   const location = hat ? [hat.lga, hat.country].filter(Boolean).join(', ') : ''
   const isOwn = !!hat && !!user && hat.user_id === user.id
-  const profilePath = hat ? `/talent/${hat.id}` : null
+  const owner = identityFromHat(hat)
+  const ownerName = getPrimaryIdentity(owner)
   const hasRelated = related.length > 0
 
   // Book. The hat is re-read first: whether the price is negotiable comes from
@@ -165,26 +177,24 @@ export default function ShowroomDetailModal({
           className="sr-panel animate-slide-up outline-none"
         >
           <header className="sr-head shrink-0 flex items-center gap-2 px-3 md:px-4 border-b border-black/10 bg-white">
-            {hat && profilePath ? (
-              <Link to={profilePath} className="flex items-center gap-2.5 min-w-0 min-h-[44px] flex-1 rounded-full">
-                <Avatar src={hat.owner_avatar} name={hat.username} className="w-10 h-10" />
-                <span className="min-w-0">
-                  <span id={labelId} className="block font-bold text-[14px] leading-tight truncate">
-                    @{hat.username}
-                    {hat.is_verified && <span className="text-[#0A13E6] ml-1">✓</span>}
-                  </span>
-                  <span className="block text-[11px] text-black/50 leading-tight truncate">
-                    {[timeAgo(hat.created_at), location].filter(Boolean).join(' · ')}
-                  </span>
-                </span>
-              </Link>
+            {hat ? (
+              <UserIdentity
+                user={owner}
+                className="min-h-[44px] flex-1"
+                nameId={labelId}
+                nameBadge={hat.is_verified ? <span className="text-[#0A13E6] ml-1">✓</span> : null}
+              >
+                <p className="text-[11px] text-black/50 leading-tight truncate">
+                  {[timeAgo(hat.created_at), location].filter(Boolean).join(' · ')}
+                </p>
+              </UserIdentity>
             ) : (
               <h2 id={labelId} className="flex-1 font-bold text-[15px]">
                 Showroom
               </h2>
             )}
             {hat && (
-              <button type="button" onClick={() => onShare(hat)} aria-label={`Share post by ${hat.username}`} className={iconBtn}>
+              <button type="button" onClick={() => onShare(hat)} aria-label={`Share post by ${ownerName}`} className={iconBtn}>
                 <Share2 size={17} aria-hidden="true" />
                 <span className="hidden sm:inline">Share</span>
               </button>
@@ -206,7 +216,7 @@ export default function ShowroomDetailModal({
                 <div className="sr-stage" style={aspect ? { '--sr-aspect': aspect } : undefined}>
                   <ShowroomMedia
                     media={media}
-                    alt={caption || `${hat.username}'s Showroom post`}
+                    alt={caption || `${ownerName}'s Showroom post`}
                     playing
                     muted={muted}
                     onMutedChange={onMutedChange}
@@ -226,7 +236,7 @@ export default function ShowroomDetailModal({
                     <Heart size={18} className={hat.liked_by_me ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} aria-hidden="true" />
                     <span>{hat.likes > 0 ? hat.likes : 'Like'}</span>
                   </button>
-                  <button type="button" onClick={() => onShare(hat)} aria-label={`Share post by ${hat.username}`} className={iconBtn}>
+                  <button type="button" onClick={() => onShare(hat)} aria-label={`Share post by ${ownerName}`} className={iconBtn}>
                     <Share2 size={17} aria-hidden="true" />
                     <span>Share</span>
                   </button>

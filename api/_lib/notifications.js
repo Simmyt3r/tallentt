@@ -32,7 +32,11 @@ function fmtMoney(amount) {
 function nameFrom(row, prefix, fallback = 'Someone') {
   const fullName = row?.[`${prefix}_full_name`]
   const username = row?.[`${prefix}_username`]
-  return fullName || (username ? `@${username}` : fallback)
+  // Same convention as the app's identity display (src/lib/profile.js): Talent
+  // are `^username`, Clients are their plain username. Only a fallback — a name
+  // is always preferred.
+  const handle = username ? (prefix === 'client' ? username : `^${username}`) : null
+  return fullName || handle || fallback
 }
 
 function titleForHat(hatTitle) {
@@ -111,12 +115,12 @@ export async function notifyUser({ userId, type = 'system', title, body = null, 
   }
 }
 
-export async function notifyApplicationReceived({ ownerId, hatId, hatTitle, applicationId, applicantUsername }) {
+export async function notifyApplicationReceived({ ownerId, hatId, hatTitle, applicationId, applicantUsername, applicantName }) {
   return notifyUser({
     userId: ownerId,
     type: 'application_received',
     title: 'New application',
-    body: `${applicantUsername ? `@${applicantUsername}` : 'Someone'} applied to ${titleForHat(hatTitle)}.`,
+    body: `${applicantName || (applicantUsername ? `^${applicantUsername}` : 'Someone')} applied to ${titleForHat(hatTitle)}.`,
     linkUrl: '/my-hats',
     metadata: { hat_id: hatId, application_id: applicationId },
   })

@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import BentoCard from '../components/BentoCard'
 import { useBrowseRole } from '../components/Layout'
 import { bookHat, submitApplication } from '../lib/hatActions'
+import { normalizeUsername } from '../lib/profile.js'
 
 export default function Feed() {
   const navigate = useNavigate()
@@ -14,13 +15,16 @@ export default function Feed() {
   const [hats, setHats] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  // Usernames are stored and searched raw, so a pasted `^simeon` (the Talent
+  // display handle) searches for `simeon`.
+  const searchTerm = normalizeUsername(search)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     ;(async () => {
       try {
-        const data = await api.getHats({ role: hatRole, search: search || undefined })
+        const data = await api.getHats({ role: hatRole, search: searchTerm || undefined })
         if (!cancelled) setHats(data.hats || [])
       } catch (e) {
         console.error(e)
@@ -31,7 +35,7 @@ export default function Feed() {
     return () => {
       cancelled = true
     }
-  }, [hatRole, search])
+  }, [hatRole, searchTerm])
 
   // The feed is one card per USER, not per hat — a user with several
   // active hats gets a single card (their best/most-recent one) plus a

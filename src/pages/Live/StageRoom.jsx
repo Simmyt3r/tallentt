@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Mic, Heart, Gift as GiftIcon, Swords, Megaphone, Wifi, Radio } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
+import UserIdentity, { ProfileLink } from '../../components/UserIdentity'
+import { getPrimaryIdentity, getSecondaryIdentity, identityFromRow, normalizeUsername } from '../../lib/profile.js'
 
 function fmtCoins(n) {
   return `${Number(n || 0).toLocaleString()}`
@@ -73,7 +75,7 @@ export default function StageRoom() {
   }
 
   async function handleChallenge() {
-    const username = prompt('Challenge who? Enter their @username:')
+    const username = prompt('Challenge who? Enter their username:')
     if (!username) return
     const game = prompt('Which game — chess, draughts, ludo, or codm?', 'chess')
     if (!game) return
@@ -83,7 +85,7 @@ export default function StageRoom() {
     setBusy(true)
     try {
       const { room: arenaRoom } = await api.liveAction({
-        action: 'challenge', room_id: id, target_username: username.replace(/^@/, ''), game, stake, title: `Challenge from Stage`,
+        action: 'challenge', room_id: id, target_username: normalizeUsername(username), game, stake, title: `Challenge from Stage`,
       })
       await refreshUser()
       window.location.href = `/live/arena/${arenaRoom.id}`
@@ -122,6 +124,7 @@ export default function StageRoom() {
 
   const isHost = room.host_id === user.id
   const isLive = room.status === 'live'
+  const host = identityFromRow(room, 'host')
   const sponsorByPlacement = Object.fromEntries((room.sponsors || []).map((s) => [s.placement, s]))
 
   return (
@@ -134,7 +137,7 @@ export default function StageRoom() {
           <h1 className="text-[17px] font-bold tracking-tight flex items-center gap-2">
             <Mic size={16} /> {room.title}
           </h1>
-          <p className="text-[12px] text-black/50 font-medium">{room.host_full_name || `@${room.host_username}`} · Orbit Score {room.host_live_orbit_score}</p>
+          <p className="text-[12px] text-black/50 font-medium"><UserIdentity user={host} layout="inline" showAvatar={false} nameClassName="font-medium" usernameClassName="font-medium text-black/40" /> · Orbit Score {room.host_live_orbit_score}</p>
         </div>
         {isLive && (
           <span className="text-[10px] font-bold text-white bg-red-600 px-2.5 py-1 rounded-full flex items-center gap-1">
@@ -155,8 +158,17 @@ export default function StageRoom() {
             {sponsorByPlacement.side_poster_left ? sponsorByPlacement.side_poster_left.brand_name : 'Poster'}
           </div>
           <div className="flex-[3] text-center py-6">
-            <img src={room.host_avatar_url || '/logo.png'} alt="" className="w-20 h-20 rounded-full mx-auto border-2 border-white/70 object-cover shadow-lg" />
-            <p className="mt-2 text-[13px] font-bold">{room.host_full_name || `@${room.host_username}`}</p>
+            <ProfileLink user={host} ariaLabel={`View ${getPrimaryIdentity(host)}'s profile`} className="block w-fit mx-auto rounded-full">
+              <img src={room.host_avatar_url || '/logo.png'} alt="" className="w-20 h-20 rounded-full mx-auto border-2 border-white/70 object-cover shadow-lg" />
+            </ProfileLink>
+            <p className="mt-2 text-[13px] font-bold">
+              <ProfileLink user={host} className="hover:underline">{getPrimaryIdentity(host)}</ProfileLink>
+            </p>
+            {getSecondaryIdentity(host) && (
+              <p className="text-[11px] font-semibold text-white/60">
+                <ProfileLink user={host} className="hover:underline">{getSecondaryIdentity(host)}</ProfileLink>
+              </p>
+            )}
           </div>
           <div className="hidden sm:flex flex-1 items-center justify-center text-[10px] font-semibold text-white/60 border border-white/10 rounded-[10px] py-8" style={{ writingMode: 'vertical-rl' }}>
             {sponsorByPlacement.side_poster_right ? sponsorByPlacement.side_poster_right.brand_name : 'Poster'}
@@ -216,7 +228,7 @@ export default function StageRoom() {
           <ul className="divide-y divide-black/10 max-h-[220px] overflow-y-auto">
             {room.recent_gifts.map((g) => (
               <li key={g.id} className="flex items-center justify-between px-4 py-2 text-[12px]">
-                <span className="font-semibold truncate">{g.full_name || `@${g.username}`}</span>
+                <span className="min-w-0 truncate"><UserIdentity user={g} layout="inline" showAvatar={false} nameClassName="font-semibold" usernameClassName="font-semibold text-black/45" /></span>
                 <span className="text-black/50">{g.gift_type} · {fmtCoins(g.amount)}</span>
               </li>
             ))}

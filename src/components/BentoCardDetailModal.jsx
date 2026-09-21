@@ -12,6 +12,8 @@ import {
   useLikeToggle,
 } from './bentoCardShared'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
+import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
+import UserIdentity from './UserIdentity'
 
 // Publication date, shared by the feed's `created_at` and the detail
 // API's `created_at` — same underlying column either way.
@@ -240,11 +242,20 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const safeMediaIndex = hasMedia ? Math.min(activeMediaIndex, mediaItems.length - 1) : 0
   const activeMedia = hasMedia ? mediaItems[safeMediaIndex] : null
   const activeMediaBroken = brokenMedia.has(safeMediaIndex)
-  // Username is the app's identity — never the owner's full name (see
-  // owner.name in api/hats/[id].js, which is full-name-or-username and is
-  // intentionally not used here).
-  const displayName = owner?.handle || hat.username || null
-  const avatarSrc = owner?.avatar_url || hat.owner_avatar || hat.avatar_url
+  // The owner's identity (full name + handle, or business name + username —
+  // see lib/profile.js) comes from the hat record; once the full detail has
+  // loaded, its owner block only fills in what the record lacked. `owner.name`
+  // is "full name or username" (api/hats/[id].js), so it only counts as a
+  // full name when it differs from the handle.
+  const cardIdentity = identityFromHat(hat)
+  const ownerHandle = owner?.handle || ''
+  const identity = {
+    ...cardIdentity,
+    username: cardIdentity.username || ownerHandle,
+    fullName: cardIdentity.fullName || (owner?.name && owner.name !== ownerHandle ? owner.name : ''),
+    avatarUrl: owner?.avatar_url || cardIdentity.avatarUrl,
+  }
+  const displayName = getPrimaryIdentity(identity) || null
   const isVerified = loaded ? Boolean(owner?.is_verified) : Boolean(hat.is_verified)
   const category = loaded ? detail.category : hat.category
   // Owner-level profile fields — only present once the full detail has
@@ -312,12 +323,19 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
         <div className="max-w-[720px] mx-auto w-full">
         <div className="p-4 md:p-5 pb-3 space-y-3">
           <HatOwnerHeader
-            cardId={cardId}
-            avatarSrc={avatarSrc}
-            avatarClassName="w-11 h-11"
-            displayName={displayName}
-            isVerified={isVerified}
-            metaParts={[isTalent ? 'Talent' : 'Client', ownerLocation || location, postedAgo]}
+            identity={
+              <UserIdentity
+                user={identity}
+                avatarClassName="w-11 h-11"
+                nameClassName="font-semibold text-[14px] leading-tight"
+                nameBadge={isVerified ? <span className="text-[#0A13E6]">✓</span> : null}
+                fallbackLabel="Unknown creator"
+              >
+                <p className="text-[11px] text-black/50 font-medium truncate">
+                  {[isTalent ? 'Talent' : 'Client', ownerLocation || location, postedAgo].filter(Boolean).join(' • ')}
+                </p>
+              </UserIdentity>
+            }
             hatId={cardId}
             shareTitle={titleLine}
             shareContext={`${listingLabel}: ${titleLine}`}

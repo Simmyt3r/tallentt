@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { Clock } from 'lucide-react'
 import { api, payForBooking } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import UserIdentity from '../components/UserIdentity'
+import { identityFromRow } from '../lib/profile.js'
 
 // Co-located per the codebase's existing pattern (see BentoCard.jsx,
 // TalentProfile.jsx) rather than pulled into a shared helper.
@@ -126,15 +128,17 @@ export default function MyBookings() {
                 <div className="w-12 h-12 rounded-[12px] bg-[#F5F3EF] overflow-hidden shrink-0 border-[1.5px] border-black/10">
                   {b.hat_thumbnail && <img src={b.hat_thumbnail} alt="" className="w-full h-full object-cover" />}
                 </div>
-                <Link to={`/talent/${b.hat_id}`} className="min-w-0 flex-1">
-                  <p className="font-semibold text-[14px] truncate">{b.hat_title}</p>
+                <div className="min-w-0 flex-1">
+                  <Link to={`/talent/${b.hat_id}`} className="block font-semibold text-[14px] truncate">
+                    {b.hat_title}
+                  </Link>
                   <p className="text-[12px] text-black/50 truncate">
-                    @{b.talent_username} · {b.category}
+                    <UserIdentity user={identityFromRow(b, 'talent')} layout="inline" showAvatar={false} nameClassName="font-semibold text-black/70" usernameClassName="font-semibold text-black/50" /> · {b.category}
                   </p>
                   <p className="text-[11px] text-black/40 flex items-center gap-1 mt-0.5">
                     <Clock size={11} /> Booked {new Date(b.created_at).toLocaleDateString()}
                   </p>
-                </Link>
+                </div>
                 <span className="text-[13px] font-bold shrink-0">{fmtMoney(b.amount, b.currency)}</span>
                 <Link to={`/messages?escrow=${b.id}`} className="text-[12px] font-semibold underline underline-offset-4">
                   Manage booking

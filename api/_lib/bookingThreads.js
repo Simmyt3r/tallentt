@@ -30,6 +30,7 @@ export async function getConversations(userId, before) {
   const { rows } = await query(
     `SELECT e.id, e.hat_id, e.amount, e.status, e.work_status, e.created_at, h.hat_title,
             u.username AS peer_username, u.avatar_url AS peer_avatar,
+            u.full_name AS peer_full_name, u.role AS peer_role, u.company_suffix AS peer_company_suffix,
             (SELECT COUNT(*)::int FROM booking_messages m
              WHERE m.escrow_id = e.id AND m.recipient_id = $1 AND m.read_at IS NULL) AS unread_count
      FROM escrows e JOIN hats h ON h.id = e.hat_id
@@ -56,7 +57,7 @@ export async function getThread(userId, escrowId, before, eventsBefore) {
        FROM booking_messages WHERE escrow_id = $1 AND offer_status = 'pending'`, [escrowId],
     )
     const { rows: peers } = await client.query(
-      `SELECT username, avatar_url,
+      `SELECT username, full_name, role, company_suffix, avatar_url,
               CASE WHEN $2 THEN email ELSE NULL END AS email,
               CASE WHEN $2 THEN phone ELSE NULL END AS phone
        FROM users WHERE id = $1`,

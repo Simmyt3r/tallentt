@@ -129,7 +129,7 @@ function TitleField({ value, onChange, copy, error, hatRole }) {
 function BasicInfoSection({
   copy,
   hatRole,
-  username,
+  handle,
   roleLocked,
   canChooseRole,
   onRoleChange,
@@ -169,7 +169,7 @@ function BasicInfoSection({
             {copy.listingLabel}
           </span>
           <span className="text-black/60 font-medium">
-            {roleLocked ? `${copy.accountLabel} Hat` : ''} {username ? `· @${username}` : ''}
+            {roleLocked ? `${copy.accountLabel} Hat` : ''} {handle ? `· ${handle}` : ''}
           </span>
         </p>
       )}

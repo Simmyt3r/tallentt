@@ -1,6 +1,5 @@
 // Path: src/components/bentoCardShared.jsx
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Heart, Share2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { cldImage } from '../lib/cloudinary'
@@ -135,25 +134,6 @@ export function Avatar({ src, name, className = 'w-12 h-12' }) {
   )
 }
 
-// Wraps the owner identity (avatar and/or username) in the app's existing
-// hat-detail route (`/talent/:hatId` — see Showroom.jsx's identical
-// `Link to={`/talent/${hat.id}`}`) so clicking either reuses the app's
-// existing profile-navigation mechanism instead of introducing a new one.
-// Falls back to a plain, non-interactive span if there's no valid card id
-// to link to, so an unresolved owner never produces a broken destination.
-// Always stops propagation: this is meant to sit inside a larger
-// click-to-open-modal surface (BentoCard's whole article) or, harmlessly,
-// inside the modal itself — either way a click here should only navigate,
-// never also open/bubble into whatever's listening on an ancestor.
-export function OwnerLink({ cardId, className, ariaLabel, children }) {
-  if (!cardId) return <span className={className}>{children}</span>
-  return (
-    <Link to={`/talent/${cardId}`} className={className} aria-label={ariaLabel} onClick={(e) => e.stopPropagation()}>
-      {children}
-    </Link>
-  )
-}
-
 // The canonical, shareable URL for a hat — built from the current origin
 // rather than a hard-coded production domain, so it works in dev, preview
 // deployments, and production alike.
@@ -190,7 +170,8 @@ export async function shareHat({ hatId, title, context }) {
 // Self-contained: builds the canonical URL, calls the Web Share API or
 // falls back to clipboard, and shows its own transient "Link copied"
 // feedback — no application alert() and no state the parent needs to own.
-// Always stops propagation for the same reason OwnerLink does above.
+// Always stops propagation: it sits inside surfaces that are themselves
+// clickable, and a click here should only ever share.
 export function ShareButton({ hatId, title, context, className = '' }) {
   const [feedback, setFeedback] = useState('')
 
@@ -287,19 +268,13 @@ export function useLikeToggle({ id, liked: initialLiked, count: initialCount, on
   return { liked, count, liking, toggle }
 }
 
-// Shared owner header — avatar, clickable username, a "Role • location •
-// posted" meta line, and the Share/Like (and, in the modal, Close) actions.
-// BentoCard renders this above its media; BentoCardDetailModal renders a
-// larger version of it as the modal's top bar. Keeping one implementation
-// means the two can never quietly drift in what they show or how they
-// handle clicks.
+// Shared owner header — the owner's identity (a <UserIdentity /> handed in by
+// the caller, so avatar, name and username all link to their profile) and the
+// Share/Like (and, in the modal, Close) actions. It is the modal's top bar.
+// Keeping one implementation means every place that shows it can never
+// quietly drift in what it shows or how it handles clicks.
 export function HatOwnerHeader({
-  cardId,
-  avatarSrc,
-  avatarClassName = 'w-10 h-10',
-  displayName,
-  isVerified,
-  metaParts = [],
+  identity,
   hatId,
   shareTitle,
   shareContext,
@@ -308,28 +283,9 @@ export function HatOwnerHeader({
   likeDisabled,
   onClose,
 }) {
-  const meta = metaParts.filter(Boolean).join(' • ')
   return (
     <div className="flex items-start justify-between gap-2">
-      <div className="flex items-center gap-2.5 min-w-0">
-        <OwnerLink cardId={cardId} ariaLabel={displayName ? `View ${displayName}'s profile` : undefined}>
-          <Avatar src={avatarSrc} name={displayName} className={avatarClassName} />
-        </OwnerLink>
-        <div className="min-w-0">
-          {displayName ? (
-            <OwnerLink
-              cardId={cardId}
-              className="font-semibold text-[14px] truncate flex items-center gap-1 hover:underline w-fit"
-            >
-              @{displayName}
-              {isVerified && <span className="text-[#0A13E6]">✓</span>}
-            </OwnerLink>
-          ) : (
-            <p className="font-semibold text-[14px] text-black/40">Unknown creator</p>
-          )}
-          {meta && <p className="text-[11px] text-black/50 font-medium truncate">{meta}</p>}
-        </div>
-      </div>
+      <div className="min-w-0">{identity}</div>
       <div className="flex items-center gap-0.5 shrink-0">
         <ShareButton hatId={hatId} title={shareTitle} context={shareContext} />
         <LikeButton liked={liked} onToggle={onToggleLike} disabled={likeDisabled} />

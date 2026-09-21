@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, LockKeyhole, MessageCircle, RefreshCw, Send, UnlockKeyhole } from 'lucide-react'
+import { ArrowLeft, LockKeyhole, RefreshCw, Send, UnlockKeyhole } from 'lucide-react'
 import { api, payForBooking } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
+import UserIdentity from '../components/UserIdentity.jsx'
+import { getPrimaryIdentity, identityFromRow } from '../lib/profile.js'
 
 const money = (amount) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(amount)
 const statusLabel = { not_funded: 'Awaiting payment', secured: 'Payment secured', released: 'Payment released', cancelled: 'Cancelled', refunded: 'Refunded to wallet' }
@@ -64,19 +66,22 @@ export default function Messages() {
             <p>No booking conversations yet.</p><Link className="underline" to="/showroom">Browse talent</Link>
           </div>}
           <ul className="max-h-[65dvh] overflow-y-auto divide-y divide-black/10">
-            {items.map((item) => <li key={item.id}>
+            {/* The whole row opens the conversation, but the peer's avatar, name and
+                username are links to their profile — a link can't live inside a
+                button, so the button is a transparent layer under the row and only
+                the profile links sit above it. */}
+            {items.map((item) => <li key={item.id} className={`relative ${selected === item.id ? 'bg-[#0A13E6]/5' : ''}`}>
               <button type="button" onClick={() => setParams({ escrow: item.id })} aria-current={selected === item.id ? 'page' : undefined}
-                className={`w-full text-left p-4 flex gap-3 min-w-0 hover:bg-black/5 ${selected === item.id ? 'bg-[#0A13E6]/5 border-l-4 border-[#0A13E6]' : ''}`}>
-                <span className="w-9 h-9 bg-black/5 rounded-full shrink-0 grid place-items-center overflow-hidden">
-                  {item.peer_avatar ? <img src={item.peer_avatar} alt="" className="w-full h-full object-cover" /> : <MessageCircle size={16} />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold truncate">@{item.peer_username}</span>
+                aria-label={`Open conversation with ${getPrimaryIdentity(identityFromRow(item, 'peer')) || 'this booking'} about ${item.hat_title}`}
+                className="absolute inset-0 w-full hover:bg-black/5" />
+              <div className={`pointer-events-none relative p-4 flex gap-3 min-w-0 ${selected === item.id ? 'border-l-4 border-[#0A13E6]' : ''}`}>
+                <UserIdentity user={identityFromRow(item, 'peer')} align="start" gap="gap-3" className="flex-1" avatarClassName="w-9 h-9"
+                  nameClassName="text-sm font-semibold" usernameClassName="text-[11px] font-semibold text-black/50 leading-tight">
                   <span className="block text-xs text-black/60 truncate">{item.hat_title}</span>
                   <span className="block text-[11px] text-black/50 mt-1">{item.status === 'secured' ? workLabels[item.work_status] : statusLabel[item.status]}</span>
-                </span>
+                </UserIdentity>
                 {item.unread_count > 0 && <span aria-label={`${item.unread_count} unread`} className="self-start text-[10px] bg-[#0A13E6] text-white rounded-full px-1.5 py-0.5">{item.unread_count}</span>}
-              </button>
+              </div>
             </li>)}
           </ul>
           {cursor && <button type="button" className={`${button} m-3`} disabled={paging} onClick={moreConversations}>Load more bookings</button>}
@@ -214,7 +219,9 @@ function BookingThread({ id, onBack }) {
     <header className="p-4 border-b border-black/10 space-y-3">
       <div className="flex gap-3 items-start">
         <button type="button" onClick={onBack} title="Back to conversations" aria-label="Back to conversations" className="md:hidden p-1"><ArrowLeft size={20} /></button>
-        <div className="min-w-0 flex-1"><h2 className="text-sm font-bold break-words">@{thread.peer?.username}</h2>
+        <div className="min-w-0 flex-1">
+          <UserIdentity user={thread.peer} avatarClassName="w-9 h-9" nameAs="h2" nameClassName="text-sm font-bold"
+            usernameClassName="text-[11px] font-semibold text-black/50 leading-tight" />
           <Link to={`/talent/${thread.hat_id}`} className="text-xs underline text-black/60 break-words">{thread.hat_title}</Link></div>
         <div className="text-right shrink-0"><p className="text-sm font-bold">{money(thread.amount)}</p><p className="text-[11px] text-black/50">{statusLabel[thread.status]}</p></div>
       </div>
@@ -251,7 +258,7 @@ function BookingThread({ id, onBack }) {
       {data.nextCursor && <div className="text-center"><button type="button" className={button} disabled={paging || busy} onClick={older}>{paging ? 'Loading...' : 'Load older messages'}</button></div>}
       {!data.messages.length && <p className="text-sm text-center text-black/50 py-12">No messages yet.</p>}
       {data.messages.map((message) => <article key={message.id} className={`max-w-[88%] w-fit rounded-lg px-3 py-2 ${message.sender_id === user.id ? 'ml-auto bg-[#0A13E6]/10' : 'bg-black/5'}`}>
-        <p className="text-[10px] font-semibold text-black/50 mb-1">{message.sender_id === user.id ? 'You' : `@${thread.peer?.username}`}</p>
+        <p className="text-[10px] font-semibold text-black/50 mb-1">{message.sender_id === user.id ? 'You' : <UserIdentity user={thread.peer} layout="inline" showAvatar={false} nameClassName="font-semibold" usernameClassName="font-semibold text-black/40" />}</p>
         {message.kind === 'offer' && <p className="text-sm font-semibold mb-1">Offer: {money(message.amount)} <span className="font-normal text-xs capitalize">({message.offer_status})</span></p>}
         {message.body && <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.body}</p>}
         <time dateTime={message.created_at} className="block text-[10px] text-black/40 mt-1">{new Date(message.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time>

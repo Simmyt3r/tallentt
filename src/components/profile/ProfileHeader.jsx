@@ -1,8 +1,8 @@
 // Path: src/components/profile/ProfileHeader.jsx
 import { useState } from 'react'
 import { BadgeCheck, Share2, Star } from 'lucide-react'
-import { Avatar } from '../bentoCardShared.jsx'
-import { formatIdentityLine, isBusinessIdentity } from '../../lib/profile.js'
+import UserIdentity from '../UserIdentity.jsx'
+import { getPrimaryIdentity, getProfilePath, isBusinessIdentity } from '../../lib/profile.js'
 
 export default function ProfileHeader({
   user,
@@ -15,8 +15,8 @@ export default function ProfileHeader({
 }) {
   const [copied, setCopied] = useState(false)
   const isBusiness = isBusinessIdentity(user.role)
-  const identityLine = formatIdentityLine(user)
-  const canonicalUrl = `${window.location.origin}/profile/${user.username}`
+  const identityLine = getPrimaryIdentity(user)
+  const canonicalUrl = `${window.location.origin}${getProfilePath(user) || ''}`
 
   async function handleShare() {
     const shareData = { title: identityLine, url: canonicalUrl }
@@ -45,17 +45,24 @@ export default function ProfileHeader({
   return (
     <header className="rounded-[22px] border-[1.5px] border-black/10 p-4 sm:p-5">
       <div className="flex items-start gap-4">
-        <Avatar src={user.avatarUrl} name={user.fullName || user.username} className="w-16 h-16 sm:w-20 sm:h-20 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <h1 className="text-[17px] font-extrabold tracking-tight truncate">{identityLine}</h1>
-            {isVerified && (
+        <UserIdentity
+          user={user}
+          align="start"
+          gap="gap-4"
+          className="flex-1"
+          avatarClassName="w-16 h-16 sm:w-20 sm:h-20"
+          nameAs="h1"
+          nameClassName="text-[17px] font-extrabold tracking-tight"
+          usernameClassName="text-[13px] font-bold text-[#0A13E6] leading-tight"
+          nameBadge={
+            isVerified ? (
               <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#0A13E6]" title="Has a verified business name on file">
                 <BadgeCheck size={14} className="fill-[#0A13E6]/15" />
                 Verified
               </span>
-            )}
-          </div>
+            ) : null
+          }
+        >
           {user.headline && <p className="text-[13px] font-semibold text-black/70 truncate mt-0.5">{user.headline}</p>}
           {(user.location || user.lga) && (
             <p className="text-[12px] text-black/45 font-medium truncate">{user.location || [user.lga, user.country].filter(Boolean).join(', ')}</p>
@@ -66,7 +73,7 @@ export default function ProfileHeader({
               {ratingSummary.rating} <span className="text-black/40 font-medium">· {ratingSummary.count} rated {ratingSummary.count === 1 ? 'hat' : 'hats'}</span>
             </p>
           )}
-        </div>
+        </UserIdentity>
         <button
           type="button"
           onClick={handleShare}

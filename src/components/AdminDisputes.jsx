@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api.js'
 import { actionButton, BookingEvents } from './BookingProgress.jsx'
+import UserIdentity from './UserIdentity.jsx'
+import { getPrimaryIdentity, identityFromRow } from '../lib/profile.js'
+
+// A party to the booking: name and username, both linking to their profile.
+const Party = ({ row, prefix }) => (
+  <UserIdentity user={identityFromRow(row, prefix)} layout="inline" showAvatar={false} nameClassName="font-semibold" usernameClassName="font-semibold text-black/50" />
+)
 
 const money = (n) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n)
 
@@ -45,7 +52,7 @@ export default function AdminDisputes() {
     {!busy && !items.length && !error && <p className="text-sm text-black/50">No disputes in this queue.</p>}
     <ul className="space-y-3">{items.map((d) => <li key={d.escrow_id} className="p-3 border border-black/15 rounded-lg space-y-2">
       <p className="text-sm font-bold break-words">{d.hat_title} · {money(d.amount)}</p>
-      <p className="text-xs break-words">Client @{d.client_username} · Talent @{d.talent_username}</p>
+      <p className="text-xs break-words">Client <Party row={d} prefix="client" /> · Talent <Party row={d} prefix="talent" /></p>
       <p className="text-xs whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{d.reason}</p>
       <p className="text-[10px] text-black/50">Opened {new Date(d.created_at).toLocaleString()}</p>
       <button type="button" className={actionButton} onClick={() => setSelected(d.escrow_id)}>Review dispute</button>
@@ -97,7 +104,7 @@ function DisputeDetail({ id, onBack }) {
     {!data && !error && <p className="text-sm">Loading case…</p>}
     {d && <>
       <h2 className="text-sm font-bold">Dispute · {money(d.amount)} · {d.status}</h2>
-      <p className="text-xs break-words">Client @{d.client_username} · Talent @{d.talent_username}</p>
+      <p className="text-xs break-words">Client <Party row={d} prefix="client" /> · Talent <Party row={d} prefix="talent" /></p>
       <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{d.reason}</p>
       <h3 className="text-xs font-bold">Booking history</h3>
       {data.eventsCursor && <button type="button" className={actionButton} disabled={busy} onClick={() => older('events')}>Load earlier updates</button>}
@@ -107,7 +114,7 @@ function DisputeDetail({ id, onBack }) {
         {data.messagesCursor && <button type="button" className={actionButton} disabled={busy} onClick={() => older('messages')}>Load older evidence</button>}
         {!data.messages.length && <p className="text-xs text-black/50">No messages in this booking.</p>}
         {data.messages.map((m) => <article key={m.id} className="text-xs space-y-1">
-          <p className="font-semibold">@{m.sender_username} · {new Date(m.created_at).toLocaleString()}</p>
+          <p className="font-semibold"><Party row={m} prefix="sender" /> · {new Date(m.created_at).toLocaleString()}</p>
           {m.kind === 'offer' && <p>Offer {money(m.amount)} · {m.offer_status}</p>}
           <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{m.body}</p>
         </article>)}
@@ -122,7 +129,7 @@ function DisputeDetail({ id, onBack }) {
           <textarea aria-label="Resolution reason" required maxLength={2000} rows={3} disabled={busy || confirming} value={note} onChange={(e) => setNote(e.target.value)} className="block w-full mt-1 p-2 border border-black/20 rounded-lg" />
         </label>
         {confirming ? <div className="p-3 rounded-lg bg-amber-50 space-y-3">
-          <p className="text-xs">Confirm {outcome === 'resolve_release' ? `release of ${money(d.amount)} to @${d.talent_username}` : `refund of ${money(d.amount)} to @${d.client_username}`} in their ChombuTar wallet. This closes the dispute and records your reason for both parties.</p>
+          <p className="text-xs">Confirm {outcome === 'resolve_release' ? `release of ${money(d.amount)} to ${getPrimaryIdentity(identityFromRow(d, 'talent'))}` : `refund of ${money(d.amount)} to ${getPrimaryIdentity(identityFromRow(d, 'client'))}`} in their ChombuTar wallet. This closes the dispute and records your reason for both parties.</p>
           <div className="flex flex-wrap gap-2"><button type="button" className={actionButton} disabled={busy} onClick={resolve}>Confirm settlement</button>
             <button type="button" className={actionButton} disabled={busy} onClick={() => setConfirming(false)}>Edit decision</button></div>
         </div> : <button disabled={busy} className={actionButton}>Review settlement</button>}

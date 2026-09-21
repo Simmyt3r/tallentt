@@ -38,6 +38,7 @@ import LocationSection from './hatform/LocationSection'
 import HatPreview from './hatform/HatPreview'
 import { useHatMedia } from './hatform/useHatMedia'
 import useLeaveGuard from './hatform/useLeaveGuard'
+import { getUsernameLabel } from '../lib/profile.js'
 
 const idToField = Object.fromEntries(Object.entries(FIELD_IDS).map(([field, id]) => [id, field]))
 
@@ -313,7 +314,7 @@ function HatFormScreen({ editId }) {
         <BasicInfoSection
           copy={copy}
           hatRole={hatRole}
-          username={user?.username}
+          handle={getUsernameLabel(user)}
           roleLocked={editing || !newRole.canChoose}
           canChooseRole={canChooseRole}
           onRoleChange={setChosenRole}
@@ -404,8 +405,7 @@ function HatFormScreen({ editId }) {
           onClose={() => setPreviewOpen(false)}
           preview={preview}
           cover={media.items[0] || null}
-          username={user?.username || ''}
-          avatarUrl={user?.avatarUrl || ''}
+          owner={user}
         />
       )}
 

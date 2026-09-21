@@ -1,9 +1,9 @@
 // Path: src/components/BentoCard.jsx
 import { useState } from 'react'
 import BentoCardDetailModal from './BentoCardDetailModal'
+import UserIdentity from './UserIdentity'
+import { identityFromHat } from '../lib/profile.js'
 import {
-  Avatar,
-  OwnerLink,
   formatAvailabilityWindow,
   formatPrice,
   useLikeToggle,
@@ -19,7 +19,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
   const [open, setOpen] = useState(false)
 
   const isTalent = hat.role === 'talent'
-  const displayName = hat.owner_full_name || hat.username
+  const owner = identityFromHat(hat)
   // "N jobs" on a talent hat (completed gigs), "N hires" on a client hat
   // (people they've successfully hired) — same underlying released-escrow
   // count from the API, the label is the only thing that differs by role.
@@ -46,30 +46,27 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
         }`}
         onClick={() => setOpen(true)}
       >
-        <div className="flex items-start gap-3">
-          <OwnerLink cardId={hat.id} className="relative shrink-0" ariaLabel={displayName ? `View ${displayName}'s profile` : undefined}>
-            <Avatar src={hat.owner_avatar || hat.avatar_url} name={displayName} className="w-10 h-10" />
-            {hat.availability && (
+        <UserIdentity
+          user={owner}
+          align="start"
+          gap="gap-3"
+          nameClassName="font-bold text-[14.5px] leading-tight"
+          usernameClassName="text-[#0A13E6] font-extrabold text-[13px] leading-tight"
+          avatarBadge={
+            hat.availability ? (
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+            ) : null
+          }
+        >
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {location && (
+              <span className="bg-[#FFEBE0] text-[10px] font-bold px-2 py-1 rounded-full">{location}</span>
             )}
-          </OwnerLink>
-          <div className="flex-1 min-w-0">
-            <div className="font-bold text-[14.5px] leading-tight truncate">
-              {displayName}{' '}
-              <OwnerLink cardId={hat.id} className="text-[#0A13E6] font-extrabold hover:underline">
-                ^{hat.username}
-              </OwnerLink>
-            </div>
-            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              {location && (
-                <span className="bg-[#FFEBE0] text-[10px] font-bold px-2 py-1 rounded-full">{location}</span>
-              )}
-              <span className="bg-black text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-                {hat.hires || 0} {engagementLabel}
-              </span>
-            </div>
+            <span className="bg-black text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+              {hat.hires || 0} {engagementLabel}
+            </span>
           </div>
-        </div>
+        </UserIdentity>
 
         {motto && (
           <div className="mt-3 border-l-4 pl-3 py-1 bg-[#FFEBE0]/20 rounded-r-xl" style={{ borderLeftColor: '#0A13E6' }}>

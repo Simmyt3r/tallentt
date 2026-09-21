@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Swords, Trophy, ShieldAlert, Users, Timer } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
+import UserIdentity, { ProfileLink } from '../../components/UserIdentity'
+import { getPrimaryIdentity, getSecondaryIdentity } from '../../lib/profile.js'
 
 function fmtCoins(n) {
   return `${Number(n || 0).toLocaleString()} Coins`
@@ -63,17 +65,17 @@ export default function ArenaRoom() {
 
   async function handleReport() {
     if (!otherPlayer) return alert('Waiting for an opponent first.')
-    if (!confirm(`Report ${otherPlayer.full_name || otherPlayer.username} as the winner? Reporting yourself as winner is also possible if you won.`)) return
+    if (!confirm(`Report ${getPrimaryIdentity(otherPlayer)} as the winner? Reporting yourself as winner is also possible if you won.`)) return
     const winnerChoice = confirm('Click OK if the OPPONENT won, or Cancel if YOU won.')
     await act('report_result', { winner_id: winnerChoice ? otherPlayer.id : user.id })
   }
 
   async function handleBack() {
     if (!otherPlayer) return alert('Wait for both players before backing one.')
-    const target = confirm(`Click OK to back ${players[0].full_name || players[0].username}, or Cancel to back ${players[1].full_name || players[1].username}.`)
+    const target = confirm(`Click OK to back ${getPrimaryIdentity(players[0])}, or Cancel to back ${getPrimaryIdentity(players[1])}.`)
       ? players[0]
       : players[1]
-    const input = prompt(`How many Orbit Coins do you want to back ${target.full_name || target.username} with?`)
+    const input = prompt(`How many Orbit Coins do you want to back ${getPrimaryIdentity(target)} with?`)
     const amount = Number(input)
     if (!Number.isFinite(amount) || amount <= 0) return
     await act('back_player', { backing_user_id: target.id, amount })
@@ -107,8 +109,17 @@ export default function ArenaRoom() {
               <div key={slot} className={`rounded-[14px] border-[1.5px] p-3 text-center ${room.winner_id && p?.id === room.winner_id ? 'border-[#0A13E6] bg-[#0A13E6]/5' : 'border-black/10'}`}>
                 {p ? (
                   <>
-                    <img src={p.avatar_url || '/logo.png'} alt="" className="w-12 h-12 rounded-full object-cover mx-auto border-[1.5px] border-black/10" />
-                    <p className="mt-2 text-[13px] font-bold truncate">{p.full_name || `@${p.username}`}</p>
+                    <ProfileLink user={p} ariaLabel={`View ${getPrimaryIdentity(p)}'s profile`} className="block w-fit mx-auto rounded-full">
+                      <img src={p.avatar_url || '/logo.png'} alt="" className="w-12 h-12 rounded-full object-cover mx-auto border-[1.5px] border-black/10" />
+                    </ProfileLink>
+                    <p className="mt-2 text-[13px] font-bold truncate">
+                      <ProfileLink user={p} className="hover:underline">{getPrimaryIdentity(p)}</ProfileLink>
+                    </p>
+                    {getSecondaryIdentity(p) && (
+                      <p className="text-[11px] font-semibold text-black/50 truncate">
+                        <ProfileLink user={p} className="hover:underline">{getSecondaryIdentity(p)}</ProfileLink>
+                      </p>
+                    )}
                     {room.winner_id === p.id && <p className="text-[11px] text-[#0A13E6] font-semibold flex items-center gap-1 justify-center mt-0.5"><Trophy size={11} /> Winner</p>}
                   </>
                 ) : (
@@ -168,7 +179,7 @@ export default function ArenaRoom() {
           )}
           {room.my_bet && (
             <span className="h-10 px-4 rounded-full bg-black/5 text-black/60 text-[12px] font-semibold flex items-center">
-              You backed {players.find((p) => p.id === room.my_bet.backing_user_id)?.full_name || 'a player'} with {fmtCoins(room.my_bet.amount)}
+              You backed <UserIdentity user={players.find((p) => p.id === room.my_bet.backing_user_id)} layout="inline" showAvatar={false} fallbackLabel="a player" nameClassName="font-semibold text-black/70" usernameClassName="font-semibold text-black/50" /> with {fmtCoins(room.my_bet.amount)}
             </span>
           )}
         </div>
@@ -177,7 +188,7 @@ export default function ArenaRoom() {
       {room.status === 'completed' && winner && (
         <div className="bg-white rounded-[20px] border-[1.5px] border-black p-5 text-center">
           <Trophy size={22} className="mx-auto text-[#8A6D00]" />
-          <p className="mt-2 text-[14px] font-bold">{winner.full_name || `@${winner.username}`} won {fmtCoins(room.pot)}!</p>
+          <p className="mt-2 text-[14px] font-bold"><UserIdentity user={winner} layout="inline" showAvatar={false} nameClassName="font-bold" usernameClassName="font-semibold text-black/50" /> won {fmtCoins(room.pot)}!</p>
           <p className="text-[12px] text-black/50 font-medium mt-0.5">75% to the winner, 15% to Combutar, 10% to the game owner.</p>
         </div>
       )}

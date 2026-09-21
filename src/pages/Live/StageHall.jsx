@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Mic, Plus, Heart, Gift as GiftIcon, Wifi } from 'lucide-react'
 import { api } from '../../lib/api'
+import UserIdentity, { ProfileLink } from '../../components/UserIdentity'
+import { getPrimaryIdentity, identityFromRow } from '../../lib/profile.js'
 
 export default function StageHall() {
   const [rooms, setRooms] = useState([])
@@ -78,28 +80,34 @@ export default function StageHall() {
         <ul className="grid sm:grid-cols-2 gap-3">
           {rooms.map((room) => (
             <li key={room.id}>
-              <Link
-                to={`/live/stage/${room.id}`}
-                className="block bg-white rounded-[20px] border-[1.5px] border-black overflow-hidden hover:-translate-y-0.5 transition shadow-[0_6px_18px_rgba(0,0,0,0.05)]"
-              >
-                <div className="h-24 bg-gradient-to-br from-black to-[#0A13E6] relative flex items-center justify-center">
+              {/* The card opens the room; the host's avatar, name and username are
+                  links to their profile. A link can't contain links, so the room
+                  link is a transparent layer under the card and only the profile
+                  links sit above it. */}
+              <div className="relative block bg-white rounded-[20px] border-[1.5px] border-black overflow-hidden hover:-translate-y-0.5 transition shadow-[0_6px_18px_rgba(0,0,0,0.05)]">
+                <Link to={`/live/stage/${room.id}`} aria-label={room.title} className="absolute inset-0" />
+                <div className="pointer-events-none h-24 bg-gradient-to-br from-black to-[#0A13E6] relative flex items-center justify-center">
                   {room.status === 'live' && (
                     <span className="absolute top-2 left-2 text-[10px] font-bold text-white bg-red-600 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <Wifi size={10} /> LIVE
                     </span>
                   )}
-                  <img src={room.host_avatar_url || '/logo.png'} alt="" className="w-12 h-12 rounded-full border-2 border-white object-cover" />
+                  <ProfileLink user={identityFromRow(room, 'host')} ariaLabel={`View ${getPrimaryIdentity(identityFromRow(room, 'host'))}'s profile`} className="rounded-full">
+                    <img src={room.host_avatar_url || '/logo.png'} alt="" className="w-12 h-12 rounded-full border-2 border-white object-cover" />
+                  </ProfileLink>
                 </div>
-                <div className="p-3.5">
+                <div className="pointer-events-none relative p-3.5">
                   <h3 className="text-[14px] font-bold tracking-tight truncate">{room.title}</h3>
-                  <p className="text-[12px] text-black/50 font-medium mt-0.5">{room.host_full_name || `@${room.host_username}`}</p>
+                  <p className="text-[12px] text-black/50 font-medium mt-0.5">
+                    <UserIdentity user={identityFromRow(room, 'host')} layout="inline" showAvatar={false} nameClassName="font-medium" usernameClassName="font-medium text-black/40" />
+                  </p>
                   <div className="mt-2 flex items-center gap-3 text-[11px] text-black/50 font-medium">
                     <span className="flex items-center gap-1"><Heart size={11} /> {room.likes}</span>
                     <span className="flex items-center gap-1"><GiftIcon size={11} /> {room.gifts?.count || 0}</span>
                     <span className="ml-auto font-bold text-[#0A13E6]">Orbit {room.host_live_orbit_score}</span>
                   </div>
                 </div>
-              </Link>
+              </div>
             </li>
           ))}
         </ul>

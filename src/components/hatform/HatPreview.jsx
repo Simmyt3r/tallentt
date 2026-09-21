@@ -1,7 +1,7 @@
 // Path: src/components/hatform/HatPreview.jsx
 import { useRef } from 'react'
 import { Clock, MapPin, Music, X } from 'lucide-react'
-import { Avatar } from '../bentoCardShared'
+import UserIdentity from '../UserIdentity'
 import { cldImage, cldVideoPoster } from '../../lib/cloudinary'
 import Dialog from './Dialog'
 
@@ -32,7 +32,7 @@ const muted = 'text-black/35 font-medium'
 
 // Read-only picture of how the Hat will look to someone browsing. Purely
 // presentational: no API calls, nothing is created or published from here.
-export default function HatPreview({ open, onClose, preview, cover, username, avatarUrl }) {
+export default function HatPreview({ open, onClose, preview, cover, owner }) {
   const closeRef = useRef(null)
   const pillBg = preview.role === 'talent' ? 'bg-[#0A13E6]' : 'bg-black'
   const uploadingCover = cover && cover.status !== 'ready'
@@ -62,20 +62,20 @@ export default function HatPreview({ open, onClose, preview, cover, username, av
           </div>
 
           <div className="p-3.5 space-y-2.5">
-            <div className="flex items-center gap-2.5">
-              <Avatar src={avatarUrl} name={username} className="w-11 h-11" />
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[14px] truncate leading-tight">
-                  @{username}
-                  {preview.verified && (
-                    <span className="ml-1 text-[#0A13E6] text-[12px]" title="Verified">
-                      ✓
-                    </span>
-                  )}
-                </p>
-                <p className="text-[12px] font-semibold text-black/75">{preview.listingLabel}</p>
-              </div>
-            </div>
+            <UserIdentity
+              user={owner}
+              avatarClassName="w-11 h-11"
+              nameClassName="font-semibold text-[14px] leading-tight"
+              nameBadge={
+                preview.verified ? (
+                  <span className="ml-1 text-[#0A13E6] text-[12px]" title="Verified">
+                    ✓
+                  </span>
+                ) : null
+              }
+            >
+              <p className="text-[12px] font-semibold text-black/75">{preview.listingLabel}</p>
+            </UserIdentity>
 
             <h3 className={`text-[18px] font-bold leading-snug break-words ${preview.title ? '' : muted}`}>{preview.title || 'Your title'}</h3>
 

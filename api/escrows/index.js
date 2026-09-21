@@ -32,8 +32,16 @@ export default async function handler(req, res) {
       if (url.searchParams.get('wallet') === '1') {
         const balance = await getWalletBalance(session.sub)
         const { rows: transactions } = await query(
-          `SELECT id, type, amount, balance_after, status, reference, escrow_id, created_at
-           FROM wallet_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
+          `SELECT wt.id, wt.type, wt.amount, wt.balance_after, wt.status, wt.reference, wt.escrow_id, wt.created_at,
+                  -- The other side of a booking payment (display only): the talent when the
+                  -- viewer is the client, the client when the viewer is the talent.
+                  cp.username as counterparty_username, cp.full_name as counterparty_full_name,
+                  cp.role as counterparty_role, cp.company_suffix as counterparty_company_suffix,
+                  cp.avatar_url as counterparty_avatar
+           FROM wallet_transactions wt
+           LEFT JOIN escrows e ON e.id = wt.escrow_id
+           LEFT JOIN users cp ON cp.id = CASE WHEN e.client_id = wt.user_id THEN e.talent_id ELSE e.client_id END
+           WHERE wt.user_id = $1 ORDER BY wt.created_at DESC LIMIT 100`,
           [session.sub],
         )
         return json(res, 200, { wallet: { balance, transactions } })
@@ -49,6 +57,7 @@ export default async function handler(req, res) {
                 h.hat_title, h.category, h.role as hat_role, h.currency,
                 u.id as talent_user_id, u.username as talent_username,
                 u.full_name as talent_full_name, u.avatar_url as talent_avatar,
+                u.role as talent_role, u.company_suffix as talent_company_suffix,
                 (SELECT m.url FROM hat_media m WHERE m.hat_id = h.id ORDER BY m.created_at LIMIT 1) as hat_thumbnail
          FROM escrows e
          JOIN hats h ON h.id = e.hat_id

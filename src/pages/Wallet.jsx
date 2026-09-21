@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { ArrowDownToLine, ArrowUpFromLine, Landmark, Wallet as WalletIcon } from 'lucide-react'
 import { api, payWithPaystack } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import UserIdentity from '../components/UserIdentity'
+import { identityFromRow } from '../lib/profile.js'
 
 // Co-located per the codebase's existing pattern (see MyBookings.jsx,
 // TalentProfile.jsx) rather than pulled into a shared helper.
@@ -201,6 +203,11 @@ export default function Wallet() {
               <li key={t.id} className="flex items-center gap-3 p-4">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[13px]">{t.type === 'refund' && t.escrow_id ? 'Booking refund' : TYPE_LABEL[t.type] || t.type}</p>
+                  {t.counterparty_username && (
+                    <p className="text-[11px] text-black/50 mt-0.5 truncate">
+                      With <UserIdentity user={identityFromRow(t, 'counterparty')} layout="inline" showAvatar={false} nameClassName="font-semibold text-black/70" usernameClassName="font-semibold text-black/50" />
+                    </p>
+                  )}
                   <p className="text-[11px] text-black/40 mt-0.5">{new Date(t.created_at).toLocaleString()}</p>
                 </div>
                 <span

@@ -4,6 +4,7 @@ import { Plus, Search } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { UUID_RE, getScroller, nextLap, shareShowroomPost, showroomPath } from '../lib/showroom'
+import { getPrimaryIdentity, identityFromHat, normalizeUsername } from '../lib/profile.js'
 import AddShowroomMedia from './AddShowroomMedia'
 import ShowroomDetailModal from './ShowroomDetailModal'
 import ShowroomPost from './ShowroomPost'
@@ -138,7 +139,8 @@ export default function Showroom() {
 
   // ── search ────────────────────────────────────────────────────────────
   const filteredIds = useMemo(() => {
-    const q = search.trim().toLowerCase()
+    // `^simeon` (the Talent display handle) searches the raw username `simeon`.
+    const q = normalizeUsername(search).toLowerCase()
     return listIds.filter((id) => {
       const h = hatMap[id]
       if (!h) return false
@@ -357,7 +359,7 @@ export default function Showroom() {
   // Feed and modal both come through here → the same canonical URL.
   const handleShare = useCallback(
     async (hat) => {
-      const result = await shareShowroomPost({ id: hat.id, username: hat.username })
+      const result = await shareShowroomPost({ id: hat.id, name: getPrimaryIdentity(identityFromHat(hat)) })
       if (result === 'copied') notify('Link copied')
       else if (result === 'failed') notify("Couldn't copy the link")
     },

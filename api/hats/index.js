@@ -60,6 +60,7 @@ export default async function handler(req, res) {
                     h.rate_unit, h.rate_unit_custom,
                     u.id as owner_id, u.username as owner_username,
                     u.full_name as owner_full_name, u.avatar_url as owner_avatar,
+                    u.role as owner_role, u.company_suffix as owner_company_suffix,
                     (SELECT m.url FROM hat_media m WHERE m.hat_id = h.id ORDER BY m.created_at LIMIT 1) as hat_thumbnail
              FROM applications a
              JOIN hats h ON h.id = a.hat_id
@@ -135,6 +136,7 @@ export default async function handler(req, res) {
       const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
       const { rows } = await query(
         `SELECT h.*, u.avatar_url as owner_avatar, u.full_name as owner_full_name, u.role as owner_role,
+                u.company_suffix as owner_company_suffix,
                 -- "N jobs" (talent hats) / "N hires" (client hats) badge — reuses
                 -- the existing escrows system exactly like getHat()'s has_booked
                 -- check does (see api/hats/[id].js): a released escrow is a
