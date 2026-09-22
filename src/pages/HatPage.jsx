@@ -83,7 +83,7 @@ export default function HatPage() {
       hat={hat}
       onClose={handleClose}
       onBook={(h) => bookHat(h, navigate)}
-      onApply={(h) => submitApplication(h, handleHatChange)}
+      onApply={(h) => submitApplication(h, handleHatChange, navigate)}
       onHatChange={handleHatChange}
     />
   )

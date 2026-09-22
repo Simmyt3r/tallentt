@@ -7,6 +7,7 @@ import AvailabilityBadge from '../components/AvailabilityBadge'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromHat } from '../lib/profile.js'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
+import { bookHat, submitApplication } from '../lib/hatActions'
 
 const fmtMoney = (n, currency = 'NGN') => {
   if (n == null) return null
@@ -112,10 +113,7 @@ export default function TalentProfile() {
     if (!hat) return
     setBooking(true)
     try {
-      const { escrow } = await api.createEscrow({ hat_id: hat.id })
-      navigate(`/messages?escrow=${escrow.id}`)
-    } catch (e) {
-      alert(e.message)
+      await bookHat(hat, navigate)
     } finally {
       setBooking(false)
     }
@@ -125,11 +123,12 @@ export default function TalentProfile() {
     if (!hat) return
     setApplying(true)
     try {
-      const { application, already_applied } = await api.applyToHat(hat.id)
-      setAppliedStatus(application?.status || 'pending')
-      alert(already_applied ? 'You already applied to this hat.' : 'Application sent!')
-    } catch (e) {
-      alert(e.message)
+      const result = await submitApplication(
+        hat,
+        (patch) => setAppliedStatus(patch.my_application?.status || 'pending'),
+        navigate,
+      )
+      if (result?.application) setAppliedStatus(result.application.status || 'pending')
     } finally {
       setApplying(false)
     }
