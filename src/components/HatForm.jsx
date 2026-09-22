@@ -182,8 +182,8 @@ function HatFormScreen({ editId }) {
 
   const basicErrors = useMemo(() => ({ hatName: visible.hatName, title: visible.title, category: visible.category, categoryCustom: visible.categoryCustom }), [visible.hatName, visible.title, visible.category, visible.categoryCustom])
   const pricingErrors = useMemo(
-    () => ({ amount: visible.amount, rateUnitCustom: visible.rateUnitCustom, priceMin: visible.priceMin, priceMax: visible.priceMax }),
-    [visible.amount, visible.rateUnitCustom, visible.priceMin, visible.priceMax],
+    () => ({ amount: visible.amount, rateUnitCustom: visible.rateUnitCustom }),
+    [visible.amount, visible.rateUnitCustom],
   )
   const availabilityErrors = useMemo(() => ({ availableFrom: visible.availableFrom, availableTo: visible.availableTo }), [visible.availableFrom, visible.availableTo])
   const locationErrors = useMemo(() => ({ deliveryMode: visible.deliveryMode, city: visible.city }), [visible.deliveryMode, visible.city])
@@ -353,9 +353,6 @@ function HatFormScreen({ editId }) {
           amount={form.amount}
           rateUnit={form.rateUnit}
           rateUnitCustom={form.rateUnitCustom}
-          priceMin={form.priceMin}
-          priceMax={form.priceMax}
-          rangeNegotiable={form.rangeNegotiable}
           errors={pricingErrors}
           onChange={setField}
         />

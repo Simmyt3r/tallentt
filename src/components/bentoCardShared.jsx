@@ -23,22 +23,21 @@ export const fmtMoney = (n, currency = 'NGN') => {
   }
 }
 
-// Mirrors api/_lib/hatFields.js's formatPrice — fixed (rate + unit) vs
-// range (min–max, optionally negotiable). Used for the feed's partial
-// hat shape (price_type/rate/rate_unit/...). The negotiable suffix uses
-// "• Negotiable" (not a plain word) so it reads as a distinct, scannable
-// badge rather than part of the price string itself.
+// New Hats use Fixed or Range. Range is stored as a starting rate with
+// price_negotiable=true. Legacy min/max records are still rendered so old
+// data remains readable while no new min/max Hats are produced.
 export function formatPrice(hat, currency) {
   if (hat.price_type === 'range' && hat.price_min != null) {
     const base =
       hat.price_max != null && hat.price_max !== hat.price_min
         ? `${fmtMoney(hat.price_min, currency)} – ${fmtMoney(hat.price_max, currency)}`
         : fmtMoney(hat.price_min, currency)
-    return hat.price_negotiable ? `${base} • Negotiable` : base
+    return base
   }
   if (hat.rate != null) {
     const unit = hat.rate_unit === 'custom' ? hat.rate_unit_custom : hat.rate_unit ? `/${hat.rate_unit}` : ''
-    return `${fmtMoney(hat.rate, currency)}${unit ? ` ${unit}` : ''}`
+    const base = `${fmtMoney(hat.rate, currency)}${unit ? ` ${unit}` : ''}`
+    return hat.price_negotiable ? `${base} • Range` : base
   }
   return '—'
 }
@@ -54,11 +53,12 @@ export function formatBudget(budget) {
       budget.max != null && budget.max !== budget.min
         ? `${fmtMoney(budget.min, currency)} – ${fmtMoney(budget.max, currency)}`
         : fmtMoney(budget.min, currency)
-    return budget.negotiable ? `${base} • Negotiable` : base
+    return base
   }
   if (budget.amount != null) {
     const unitText = budget.unit ? (budget.unit.includes(' ') ? ` ${budget.unit}` : ` /${budget.unit}`) : ''
-    return `${fmtMoney(budget.amount, currency)}${unitText}`
+    const base = `${fmtMoney(budget.amount, currency)}${unitText}`
+    return budget.negotiable ? `${base} • Range` : base
   }
   return '—'
 }

@@ -26,7 +26,8 @@ function formatPrice(a) {
   }
   if (a.rate != null) {
     const unit = a.rate_unit === 'custom' ? a.rate_unit_custom : a.rate_unit ? `/${a.rate_unit}` : ''
-    return `${fmtMoney(a.rate, currency)}${unit ? ` ${unit}` : ''}`
+    const base = `${fmtMoney(a.rate, currency)}${unit ? ` ${unit}` : ''}`
+    return a.price_negotiable ? `${base} · Range` : base
   }
   return '—'
 }
