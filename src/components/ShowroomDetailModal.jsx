@@ -12,6 +12,7 @@ import NegotiationNotice from './NegotiationNotice'
 import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
 import { formatPrice, relativeTime } from './bentoCardShared'
+import { bookHat } from '../lib/hatActions'
 
 const iconBtn =
   'inline-flex items-center justify-center gap-1.5 h-11 min-w-[44px] px-3 rounded-full text-[13px] font-semibold transition hover:bg-black/[0.06] active:scale-95'
@@ -107,6 +108,7 @@ export default function ShowroomDetailModal({
   const [aspect, setAspect] = useState(null)
   const [noticeOpen, setNoticeOpen] = useState(false)
   const [checking, setChecking] = useState(false)
+  const [bookCandidate, setBookCandidate] = useState(null)
   const checkingRef = useRef(false) // synchronous guard: state alone can't stop clicks in the same tick
 
   useScrollLock()
@@ -118,6 +120,7 @@ export default function ShowroomDetailModal({
   useEffect(() => {
     setAspect(null)
     setNoticeOpen(false)
+    setBookCandidate(null)
     bodyRef.current?.scrollTo?.(0, 0)
     mainRef.current?.scrollTo?.(0, 0)
   }, [hatId])
@@ -144,8 +147,9 @@ export default function ShowroomDetailModal({
         onNotify?.('This talent is no longer available to book.')
         return
       }
+      setBookCandidate(fresh)
       if (fresh.price_negotiable) setNoticeOpen(true)
-      else navigate(`/talent/${fresh.id}`)
+      else await bookHat(fresh, navigate)
     } catch {
       onNotify?.("Couldn't check this price. Please try again.")
     } finally {
@@ -154,13 +158,14 @@ export default function ShowroomDetailModal({
     }
   }
 
-  // Continue: nothing is created or charged here — the user simply proceeds
-  // to the same booking page the old Book button led to, where the existing
-  // booking / negotiation flow takes over.
-  function handleContinue() {
-    if (!hat) return
+  // Negotiable hats keep the existing confirmation notice. The booking is
+  // only created after the user presses Continue, then My Bookings becomes
+  // the management surface.
+  async function handleContinue() {
+    const target = bookCandidate || hat
+    if (!target) return
     setNoticeOpen(false)
-    navigate(`/talent/${hat.id}`)
+    await bookHat(target, navigate)
   }
 
   const labelId = 'sr-detail-title'

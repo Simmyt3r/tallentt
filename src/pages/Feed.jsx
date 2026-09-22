@@ -106,7 +106,7 @@ export default function Feed() {
               hat={primary}
               moreCount={moreCount}
               onBook={(hat) => bookHat(hat, navigate)}
-              onApply={(hat) => submitApplication(hat, handleHatChange)}
+              onApply={(hat) => submitApplication(hat, handleHatChange, navigate)}
               fullWidth
               onHatChange={handleHatChange}
             />

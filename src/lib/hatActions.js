@@ -1,25 +1,25 @@
 // Path: src/lib/hatActions.js
 import { api } from './api'
 
-// Book a talent hat: create the escrow, then hand off to the existing
-// messages/negotiation flow. Identical to what Feed.jsx did inline before
-// — extracted so HatPage.jsx (the direct /hat/:hatId route) can trigger
-// the exact same booking behavior without a second copy of this logic.
+// Final booking action shared by Feed, Showroom and direct Hat surfaces.
+// Discovery/detail modals stay in place until this function is called.
+// After the escrow exists, My Bookings becomes the canonical place to
+// manage payment, status and the booking conversation.
 export async function bookHat(hat, navigate) {
   try {
     const { escrow } = await api.createEscrow({ hat_id: hat.id })
-    navigate(`/messages?escrow=${escrow.id}`)
+    navigate('/my-bookings', { state: { bookingId: escrow.id } })
+    return { escrow }
   } catch (e) {
     alert(e.message)
+    return null
   }
 }
 
-// Apply to a client hat. `onHatChange`, if given, patches the caller's own
-// hat state with the returned application (same as Feed.jsx's
-// handleHatChange) so an "Applied" state shows immediately without a
-// refetch. Named distinctly from api.applyToHat (the raw request) to keep
-// the two easy to tell apart at a glance.
-export async function submitApplication(hat, onHatChange) {
+// Final application action shared by every client-hat surface.
+// Once the application exists, My Applications is the canonical place
+// to track its status or withdraw it.
+export async function submitApplication(hat, onHatChange, navigate) {
   try {
     const { application, already_applied } = await api.applyToHat(hat.id)
     onHatChange?.({ id: hat.id, my_application: application })
@@ -28,7 +28,10 @@ export async function submitApplication(hat, onHatChange) {
         ? `You already applied for “${hat.hat_title}”.`
         : `Application sent for “${hat.hat_title}”.`,
     )
+    navigate?.('/my-applications', { state: { applicationId: application?.id || null } })
+    return { application, already_applied }
   } catch (e) {
     alert(e.message)
+    return null
   }
 }
