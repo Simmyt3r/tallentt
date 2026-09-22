@@ -1,8 +1,10 @@
 // Path: api/_lib/liveMedia.js
-// MediaMTX adapter for ChombuTar Live. Media URLs remain environment-driven.
+// MediaMTX adapter for ChombuTar Live. Missing/unreachable media infrastructure
+// automatically degrades to the temporary serverless fallback mode.
 
 const HTTP_PROTOCOLS = new Set(['http:', 'https:'])
 const STREAM_PATH_RE = /^[a-zA-Z0-9_-]{1,160}$/
+const MEDIA_ENV_KEYS = ['LIVE_MEDIA_SERVER_URL', 'LIVE_WHIP_URL', 'LIVE_HLS_BASE_URL']
 
 function mediaError(message, status = 503) {
   return Object.assign(new Error(message), { status })
@@ -24,6 +26,17 @@ function requiredHttpBase(name) {
   url.search = ''
   url.pathname = url.pathname.replace(/\/+$/, '')
   return url.toString().replace(/\/$/, '')
+}
+
+export function getLiveMediaMode() {
+  const present = MEDIA_ENV_KEYS.filter((name) => String(process.env[name] || '').trim())
+  if (present.length === 0) return 'fallback'
+  if (present.length !== MEDIA_ENV_KEYS.length) {
+    throw mediaError('Live media server configuration is incomplete. Set LIVE_MEDIA_SERVER_URL, LIVE_WHIP_URL and LIVE_HLS_BASE_URL together.', 500)
+  }
+  // Validate all configured URLs before advertising MediaMTX mode.
+  getLiveMediaConfig()
+  return 'mediamtx'
 }
 
 export function getLiveMediaConfig() {
@@ -51,7 +64,16 @@ export function buildLiveMediaEndpoints(streamPath) {
   }
 }
 
-export async function assertLiveMediaReachable() {
+export function publicLiveMediaEndpoints(streamPath) {
+  if (getLiveMediaMode() === 'fallback') return { ingestUrl: null, hlsUrl: null }
+  return buildLiveMediaEndpoints(streamPath)
+}
+
+export async function resolveLiveMediaAvailability() {
+  if (getLiveMediaMode() === 'fallback') {
+    return { mode: 'fallback', reason: 'unconfigured' }
+  }
+
   const { serverUrl } = getLiveMediaConfig()
   try {
     const response = await fetch(serverUrl, {
@@ -61,9 +83,9 @@ export async function assertLiveMediaReachable() {
       signal: AbortSignal.timeout(3000),
     })
     if (response.status >= 500) throw new Error(`HTTP ${response.status}`)
+    return { mode: 'mediamtx', reason: null }
   } catch (error) {
-    const err = mediaError('The Live media server is unreachable. Please try again shortly.', 503)
-    err.cause = error
-    throw err
+    console.error('Live media server unreachable; using fallback mode:', error.message)
+    return { mode: 'fallback', reason: 'unreachable' }
   }
 }

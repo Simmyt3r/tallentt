@@ -135,6 +135,46 @@ function StreamPlayer({ src, quality, onState }) {
   return <video ref={videoRef} controls autoPlay playsInline className="w-full h-full object-contain bg-black" />
 }
 
+function FallbackStage({ mediaStream, isHost }) {
+  const videoRef = useRef(null)
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !mediaStream) return
+    video.srcObject = mediaStream
+    video.play().catch(() => {})
+    return () => {
+      if (video.srcObject === mediaStream) video.srcObject = null
+    }
+  }, [mediaStream])
+
+  return (
+    <div className="relative w-full h-full overflow-hidden bg-[#070713] text-white">
+      <div className="absolute -left-[12%] -top-[20%] w-[58%] h-[78%] rounded-full bg-[#0A13E6]/45 blur-3xl animate-pulse" />
+      <div className="absolute -right-[10%] top-[5%] w-[48%] h-[68%] rounded-full bg-fuchsia-500/30 blur-3xl animate-pulse" />
+      <div className="absolute left-[28%] -bottom-[30%] w-[48%] h-[72%] rounded-full bg-cyan-400/20 blur-3xl animate-pulse" />
+      <div className="absolute inset-[12%] rounded-full border border-white/15 shadow-[0_0_80px_rgba(255,255,255,0.08)]" />
+      <div className="absolute inset-[22%] rounded-full border border-white/10" />
+      {mediaStream ? (
+        <video ref={videoRef} muted autoPlay playsInline className="absolute inset-0 w-full h-full object-cover opacity-70" />
+      ) : (
+        <div className="absolute inset-0 grid place-items-center">
+          <div className="w-24 h-24 rounded-full border border-white/20 bg-white/[0.04] backdrop-blur-md animate-pulse" />
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30" />
+      <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-white/15 bg-black/45 backdrop-blur-md px-4 py-3">
+        <p className="text-[11px] font-bold tracking-wide">{isHost ? 'SERVERLESS FALLBACK • PRIVATE CAMERA PREVIEW' : 'SERVERLESS FALLBACK • LIVE ROOM ACTIVE'}</p>
+        <p className="mt-1 text-[10px] leading-relaxed text-white/65">
+          {isHost
+            ? 'Your camera stays on this device. Viewers can interact and support you, but they cannot see this video until the Live media server is connected.'
+            : 'The Talent is live for interaction and support. Video transmission is temporarily unavailable until ChombuTar Live moves to its media server.'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function supportIdentity(support) {
   return {
     username: support.supporter_username,
@@ -255,6 +295,7 @@ export default function StageRoom() {
     }
     return publisher.subscribeConnection((state) => {
       setPublisherConnection(state)
+      if (room?.media_mode === 'fallback') return
       if (!['connected', 'disconnected', 'failed'].includes(state) || lastPublisherStateRef.current === state) return
       lastPublisherStateRef.current = state
       api.liveAction({ action: 'publisher_state', stream_id: id, state }).then(() => load()).catch(() => {})
@@ -307,14 +348,14 @@ export default function StageRoom() {
   }
 
   function toggleTrack(kind) {
-    const publisher = getLivePublisher(id)?.peerConnection
-    const sender = publisher?.getSenders?.().find((item) => item.track?.kind === kind)
-    if (!sender?.track) {
+    const publisher = getLivePublisher(id)
+    const track = publisher?.mediaStream?.getTracks?.().find((item) => item.kind === kind)
+    if (!track) {
       setError('This browser no longer has the active Live capture session. Return to Live and start a new broadcast.')
       return
     }
-    sender.track.enabled = !sender.track.enabled
-    setLocalMedia((state) => ({ ...state, [kind === 'audio' ? 'mic' : 'camera']: sender.track.enabled }))
+    track.enabled = !track.enabled
+    setLocalMedia((state) => ({ ...state, [kind === 'audio' ? 'mic' : 'camera']: track.enabled }))
   }
 
   if (loading) return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading Live…</p>
@@ -322,6 +363,8 @@ export default function StageRoom() {
   if (!room) return <p className="text-center text-red-600 py-16 text-[13px] font-medium">Live not found.</p>
 
   const isLive = ['live', 'reconnecting'].includes(room.status)
+  const isFallback = room.media_mode === 'fallback' || room.media_status === 'fallback'
+  const fallbackMedia = isHost && isFallback ? getLivePublisher(id)?.mediaStream || null : null
   const feeRate = Number(room.platform_fee_bps || 0) / 100
   const giftAmount = selectedGift?.custom_amount ? Number(customAmount || 0) : Number(selectedGift?.amount || 0)
   const fee = Math.floor((giftAmount * Number(room.platform_fee_bps || 0)) / 10000)
@@ -341,8 +384,9 @@ export default function StageRoom() {
         {room.status === 'scheduled' || room.status === 'starting' ? <div className="w-full h-full grid place-items-center text-white/70 text-[13px] font-semibold">Talent is preparing the Live</div>
           : room.status === 'ended' ? <div className="w-full h-full grid place-items-center text-white/70 text-[13px] font-semibold">Live has ended</div>
             : room.status === 'failed' ? <div className="w-full h-full grid place-items-center text-red-300 text-[13px] font-semibold">Live stream failed</div>
-              : <StreamPlayer src={room.hls_url} quality={quality} onState={setPlaybackState} />}
-        {playerMessage && isLive && <div className="absolute left-3 bottom-3 rounded-full bg-black/70 text-white px-3 py-1.5 text-[10px] font-bold">{playerMessage}</div>}
+              : isFallback ? <FallbackStage mediaStream={fallbackMedia} isHost={isHost} />
+                : <StreamPlayer src={room.hls_url} quality={quality} onState={setPlaybackState} />}
+        {playerMessage && isLive && !isFallback && <div className="absolute left-3 bottom-3 rounded-full bg-black/70 text-white px-3 py-1.5 text-[10px] font-bold">{playerMessage}</div>}
         {animation && <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center motion-reduce:hidden"><div className="rounded-full bg-black/75 text-white px-5 py-2.5 text-[13px] font-bold shadow-xl animate-bounce">{animation.icon} {animation.name}</div></div>}
         <button onClick={() => shellRef.current?.requestFullscreen?.()} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 text-white grid place-items-center"><Maximize size={15} /></button>
       </div>
@@ -361,8 +405,12 @@ export default function StageRoom() {
             <button onClick={endLive} disabled={busy} className="h-10 px-4 rounded-full bg-red-600 text-white text-[12px] font-bold">End Live</button>
           </>}
         </div>
-        {isHost && <p className={`text-[11px] font-bold ${publisherConnection === 'failed' ? 'text-red-600' : 'text-black/50'}`}>{publisherLabel(publisherConnection)}</p>}
-        <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold"><Wifi size={13} /><span>Quality</span>{[['auto','Auto'],['data_saver','Data Saver'],['high','High Quality']].map(([value,label]) => <button key={value} onClick={() => setQuality(value)} className={`px-3 py-1.5 rounded-full border ${quality === value ? 'bg-black text-white border-black' : 'border-black/15'}`}>{label}</button>)}<span className="text-[9px] text-black/35 ml-auto">{realtimeState === 'connected' ? 'Live updates connected' : 'Live updates via polling'}</span></div>
+        {isHost && <p className={`text-[11px] font-bold ${publisherConnection === 'failed' ? 'text-red-600' : 'text-black/50'}`}>{isFallback ? 'Serverless fallback • camera stays on this device' : publisherLabel(publisherConnection)}</p>}
+        {isFallback ? (
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold"><Wifi size={13} /><span className="rounded-full border border-black/15 px-3 py-1.5">Temporary preview mode</span><span className="text-[9px] text-black/35 ml-auto">{realtimeState === 'connected' ? 'Live updates connected' : 'Live updates via polling'}</span></div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold"><Wifi size={13} /><span>Quality</span>{[['auto','Auto'],['data_saver','Data Saver'],['high','High Quality']].map(([value,label]) => <button key={value} onClick={() => setQuality(value)} className={`px-3 py-1.5 rounded-full border ${quality === value ? 'bg-black text-white border-black' : 'border-black/15'}`}>{label}</button>)}<span className="text-[9px] text-black/35 ml-auto">{realtimeState === 'connected' ? 'Live updates connected' : 'Live updates via polling'}</span></div>
+        )}
       </div>
 
       {isHost && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{[

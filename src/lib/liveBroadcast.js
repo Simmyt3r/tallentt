@@ -102,6 +102,40 @@ function mediaAccessError(error) {
   return normalized
 }
 
+
+export function startFallbackBroadcast({ mediaStream, onConnectionState }) {
+  if (!mediaStream?.getTracks?.().length) throw new Error('Camera and microphone media is not available.')
+
+  const listeners = new Set()
+  if (onConnectionState) listeners.add(onConnectionState)
+  let stopped = false
+  const notify = (state) => {
+    for (const listener of listeners) {
+      try { listener(state) } catch {}
+    }
+  }
+
+  queueMicrotask(() => notify('connected'))
+
+  return {
+    mode: 'fallback',
+    mediaStream,
+    peerConnection: null,
+    get connectionState() { return stopped ? 'closed' : 'connected' },
+    subscribeConnection(listener) {
+      listeners.add(listener)
+      listener(stopped ? 'closed' : 'connected')
+      return () => listeners.delete(listener)
+    },
+    async stop() {
+      if (stopped) return
+      stopped = true
+      for (const track of mediaStream.getTracks()) track.stop()
+      notify('closed')
+    },
+  }
+}
+
 export async function startWhipBroadcast({ ingestUrl, publishToken, mediaStream, onConnectionState }) {
   if (!ingestUrl) throw new Error('Live WHIP URL is missing.')
   if (!publishToken) throw new Error('Live publish authorization is missing.')

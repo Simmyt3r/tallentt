@@ -5,7 +5,7 @@ import crypto from 'node:crypto'
 import { query, getClient } from './db.js'
 import { creditWallet, debitWallet } from './wallet.js'
 import { notifyUser } from './notifications.js'
-import { assertLiveMediaReachable, buildLiveMediaEndpoints, streamPathForId } from './liveMedia.js'
+import { buildLiveMediaEndpoints, getLiveMediaMode, publicLiveMediaEndpoints, resolveLiveMediaAvailability, streamPathForId } from './liveMedia.js'
 import { emitLiveEvent } from './liveRealtime.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -53,8 +53,11 @@ function safeTokenMatch(token, expectedHex) {
 function publicStream(row) {
   if (!row) return null
   const { publish_token_hash: _publishTokenHash, ...safe } = row
-  const endpoints = row.stream_path ? buildLiveMediaEndpoints(row.stream_path) : { hlsUrl: null }
-  return { ...safe, hls_url: endpoints.hlsUrl || null }
+  const mediaMode = row.media_status === 'fallback' ? 'fallback' : getLiveMediaMode()
+  const endpoints = mediaMode === 'mediamtx' && row.stream_path
+    ? publicLiveMediaEndpoints(row.stream_path)
+    : { hlsUrl: null }
+  return { ...safe, media_mode: mediaMode, hls_url: endpoints.hlsUrl || null }
 }
 
 async function activeGiftCatalogue(client = null) {
@@ -188,10 +191,28 @@ export async function createStream(userId, body) {
   if (!user) throw liveError(401, 'Unauthorized')
   if (!['talent', 'dual'].includes(user.role)) throw liveError(403, 'Only Talent accounts can go live.')
 
-  await assertLiveMediaReachable()
-
+  const availability = await resolveLiveMediaAvailability()
   const streamId = crypto.randomUUID()
   const streamPath = streamPathForId(streamId)
+
+  if (availability.mode === 'fallback') {
+    const { rows } = await query(
+      `INSERT INTO live_streams
+         (id,talent_id,title,category,status,stream_path,publish_token_hash,media_status,last_media_event_at,started_at)
+       VALUES ($1,$2,$3,$4,'live',$5,NULL,'fallback',NOW(),NOW())
+       RETURNING *`,
+      [streamId, userId, title, category, streamPath],
+    )
+    emitLiveEvent(streamId, 'stream_status', { status: 'live', media_status: 'fallback' })
+    return {
+      stream: publicStream(rows[0]),
+      media_mode: 'fallback',
+      fallback_reason: availability.reason,
+      ingest_url: null,
+      publish_token: null,
+    }
+  }
+
   const publishToken = crypto.randomBytes(32).toString('base64url')
   const tokenHash = hashPublishToken(publishToken).toString('hex')
   const endpoints = buildLiveMediaEndpoints(streamPath)
@@ -206,6 +227,7 @@ export async function createStream(userId, body) {
 
   return {
     stream: publicStream(rows[0]),
+    media_mode: 'mediamtx',
     ingest_url: endpoints.ingestUrl,
     publish_token: publishToken,
   }
