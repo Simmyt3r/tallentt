@@ -1,6 +1,6 @@
 // Path: api/_lib/liveMedia.js
-// MediaMTX adapter for ChombuTar Live. Missing/unreachable media infrastructure
-// automatically degrades to the temporary serverless fallback mode.
+// MediaMTX adapter for ChombuTar Live. Missing, partial, invalid or unreachable
+// media infrastructure automatically degrades to the temporary serverless fallback.
 
 const HTTP_PROTOCOLS = new Set(['http:', 'https:'])
 const STREAM_PATH_RE = /^[a-zA-Z0-9_-]{1,160}$/
@@ -28,15 +28,22 @@ function requiredHttpBase(name) {
   return url.toString().replace(/\/$/, '')
 }
 
-export function getLiveMediaMode() {
+function detectLiveMediaConfiguration() {
   const present = MEDIA_ENV_KEYS.filter((name) => String(process.env[name] || '').trim())
-  if (present.length === 0) return 'fallback'
-  if (present.length !== MEDIA_ENV_KEYS.length) {
-    throw mediaError('Live media server configuration is incomplete. Set LIVE_MEDIA_SERVER_URL, LIVE_WHIP_URL and LIVE_HLS_BASE_URL together.', 500)
+  if (present.length === 0) return { mode: 'fallback', reason: 'unconfigured' }
+  if (present.length !== MEDIA_ENV_KEYS.length) return { mode: 'fallback', reason: 'incomplete' }
+
+  try {
+    getLiveMediaConfig()
+    return { mode: 'mediamtx', reason: null }
+  } catch (error) {
+    console.error('Invalid Live media configuration; using fallback mode:', error.message)
+    return { mode: 'fallback', reason: 'invalid' }
   }
-  // Validate all configured URLs before advertising MediaMTX mode.
-  getLiveMediaConfig()
-  return 'mediamtx'
+}
+
+export function getLiveMediaMode() {
+  return detectLiveMediaConfiguration().mode
 }
 
 export function getLiveMediaConfig() {
@@ -70,9 +77,8 @@ export function publicLiveMediaEndpoints(streamPath) {
 }
 
 export async function resolveLiveMediaAvailability() {
-  if (getLiveMediaMode() === 'fallback') {
-    return { mode: 'fallback', reason: 'unconfigured' }
-  }
+  const detected = detectLiveMediaConfiguration()
+  if (detected.mode === 'fallback') return detected
 
   const { serverUrl } = getLiveMediaConfig()
   try {
