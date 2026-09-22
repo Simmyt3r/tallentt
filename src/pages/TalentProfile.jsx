@@ -23,12 +23,12 @@ function formatPrice(hat, currency) {
   if (hat.price_type === 'range' && hat.price_min != null) {
     const min = fmtMoney(hat.price_min, currency)
     const max = fmtMoney(hat.price_max, currency)
-    const base = max && hat.price_max !== hat.price_min ? `${min} – ${max}` : min
-    return hat.price_negotiable ? `${base} · negotiable` : base
+    return max && hat.price_max !== hat.price_min ? `${min} – ${max}` : min
   }
   if (hat.rate != null) {
     const unit = hat.rate_unit === 'custom' ? hat.rate_unit_custom : hat.rate_unit ? `/${hat.rate_unit}` : ''
-    return `${fmtMoney(hat.rate, currency)}${unit ? ` ${unit}` : ''}`
+    const base = `${fmtMoney(hat.rate, currency)}${unit ? ` ${unit}` : ''}`
+    return hat.price_negotiable ? `${base} · Range` : base
   }
   return '—'
 }

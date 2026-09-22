@@ -57,7 +57,7 @@ export default async function handler(req, res) {
           const { rows } = await query(
             `SELECT a.id as application_id, a.status, a.message, a.created_at as applied_at,
                     h.id as hat_id, h.hat_title, h.category, h.role as hat_role,
-                    h.price_type, h.rate, h.price_min, h.price_max, h.currency,
+                    h.price_type, h.rate, h.price_min, h.price_max, h.price_negotiable, h.currency,
                     h.rate_unit, h.rate_unit_custom,
                     u.id as owner_id, u.username as owner_username,
                     u.full_name as owner_full_name, u.avatar_url as owner_avatar,

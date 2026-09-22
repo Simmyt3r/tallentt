@@ -36,11 +36,10 @@ function validateAmount(value, missingMessage) {
  * side of fixed/range isn't active) so callers can spread it straight into
  * an INSERT/UPDATE without extra branching.
  *
- * `price_negotiable` is the single canonical "this price can be negotiated"
- * flag — booking/negotiation (api/_lib/bookingRules.js) already keys off it.
- * It is honoured for BOTH price types: a fixed hat with price_negotiable set
- * is "a starting price, open to negotiation"; the amount stays in `rate`,
- * which escrow creation already reads for non-range hats.
+ * New Create/Edit clients expose only Fixed and Range. Range is encoded as
+ * a fixed starting rate with price_negotiable=true, because the booking and
+ * offer system already keys off that flag. The old price_type='range' min/max
+ * shape remains accepted here only for legacy records/older clients.
  */
 export function normalizePricing(body) {
   const price_type = PRICE_TYPES.includes(body.price_type) ? body.price_type : 'fixed'
@@ -127,10 +126,9 @@ export function resolveHatRole(accountRole, requestedRole) {
 export function formatPrice(hat, currency) {
   const fmt = (n) => `${currency === 'NGN' ? '₦' : currency + ' '}${Number(n).toLocaleString()}`
   if (hat.price_type === 'range') {
-    const base = `${fmt(hat.price_min)} – ${fmt(hat.price_max)}`
-    return hat.price_negotiable ? `${base} (negotiable)` : base
+    return `${fmt(hat.price_min)} – ${fmt(hat.price_max)}`
   }
   const unit = hat.rate_unit === 'custom' ? hat.rate_unit_custom : `/${hat.rate_unit}`
   const base = `${fmt(hat.rate)} ${unit || ''}`.trim()
-  return hat.price_negotiable ? `${base} (negotiable)` : base
+  return hat.price_negotiable ? `${base} (Range)` : base
 }
