@@ -25,6 +25,13 @@ test('Live migration is idempotent and replaces managed-provider columns with Me
       assert.equal(names.has(obsolete), false, `obsolete column remains: ${obsolete}`)
     }
 
+    const { rows: statusConstraint } = await database.pool.query(
+      `SELECT pg_get_constraintdef(oid) AS definition
+       FROM pg_constraint
+       WHERE conname='live_streams_media_status_check'`,
+    )
+    assert.match(statusConstraint[0]?.definition || '', /fallback/)
+
     const { rows: gifts } = await database.pool.query(
       `SELECT id,name FROM live_gift_catalogue WHERE active=true ORDER BY sort_order`,
     )

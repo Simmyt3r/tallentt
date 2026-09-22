@@ -5,7 +5,7 @@ import { Camera, Mic, Radio, Users, Wifi, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import UserIdentity from '../../components/UserIdentity'
-import { getLiveMedia, startWhipBroadcast } from '../../lib/liveBroadcast'
+import { getLiveMedia, startFallbackBroadcast, startWhipBroadcast } from '../../lib/liveBroadcast'
 import { clearLivePublisher, setLivePublisher } from '../../lib/liveSession'
 
 const CATEGORIES = ['Music', 'Dance', 'Comedy', 'Fashion', 'Acting', 'Modeling', 'Art & Design', 'Writing', 'Photography', 'Content Creation', 'Sports', 'Other']
@@ -110,17 +110,21 @@ export default function LiveHub() {
       setConnectionStatus('connecting')
       const created = await api.liveAction({ action: 'create_stream', title: form.title, category: form.category })
       streamId = created.stream.id
-      publisher = await startWhipBroadcast({
-        ingestUrl: created.ingest_url,
-        publishToken: created.publish_token,
-        mediaStream: media,
-        onConnectionState: setConnectionStatus,
-      })
+      publisher = created.media_mode === 'fallback'
+        ? startFallbackBroadcast({ mediaStream: media, onConnectionState: setConnectionStatus })
+        : await startWhipBroadcast({
+            ingestUrl: created.ingest_url,
+            publishToken: created.publish_token,
+            mediaStream: media,
+            onConnectionState: setConnectionStatus,
+          })
       setLivePublisher(streamId, publisher)
-      await api.liveAction({ action: 'mark_live', stream_id: streamId })
+      if (created.media_mode !== 'fallback') {
+        await api.liveAction({ action: 'mark_live', stream_id: streamId })
+      }
       handedOffRef.current = true
-      sessionStorage.setItem(`chombutar-live-publisher:${streamId}`, 'active')
-      navigate(`/live/stage/${streamId}`, { state: { isHost: true } })
+      sessionStorage.setItem(`chombutar-live-publisher:${streamId}`, created.media_mode || 'mediamtx')
+      navigate(`/live/stage/${streamId}`, { state: { isHost: true, mediaMode: created.media_mode } })
     } catch (err) {
       if (streamId) {
         api.liveAction({ action: 'publisher_state', stream_id: streamId, state: 'failed' }).catch(() => {})
@@ -174,7 +178,7 @@ export default function LiveHub() {
             <Link key={room.id} to={`/live/stage/${room.id}`} className="bg-white rounded-[22px] border-[1.5px] border-black p-4 hover:-translate-y-0.5 transition">
               <div className="flex items-center justify-between gap-3">
                 <UserIdentity user={room} />
-                <span className={`text-[10px] font-bold text-white px-2 py-1 rounded-full ${room.status === 'live' ? 'bg-red-600' : 'bg-black/60'}`}>{room.status === 'live' ? 'LIVE' : room.status.toUpperCase()}</span>
+                <span className={`text-[10px] font-bold text-white px-2 py-1 rounded-full ${room.status === 'live' ? 'bg-red-600' : 'bg-black/60'}`}>{room.media_mode === 'fallback' && room.status === 'live' ? 'LIVE • PREVIEW' : room.status === 'live' ? 'LIVE' : room.status.toUpperCase()}</span>
               </div>
               <h3 className="mt-4 text-[15px] font-bold line-clamp-2">{room.title}</h3>
               <div className="mt-2 flex items-center justify-between text-[11px] text-black/50 font-semibold"><span>{room.category}</span><span className="flex items-center gap-1"><Users size={12} /> {room.viewer_count || 0}</span></div>

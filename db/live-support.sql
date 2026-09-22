@@ -29,12 +29,12 @@ ALTER TABLE live_streams ADD CONSTRAINT live_streams_stream_path_check CHECK (st
 ALTER TABLE live_streams DROP CONSTRAINT IF EXISTS live_streams_publish_token_hash_check;
 ALTER TABLE live_streams ADD CONSTRAINT live_streams_publish_token_hash_check CHECK (publish_token_hash IS NULL OR publish_token_hash ~ '^[0-9a-f]{64}$');
 ALTER TABLE live_streams DROP CONSTRAINT IF EXISTS live_streams_media_status_check;
-ALTER TABLE live_streams ADD CONSTRAINT live_streams_media_status_check CHECK (media_status IN ('idle','authorizing','connecting','connected','disconnected','failed','ended'));
+ALTER TABLE live_streams ADD CONSTRAINT live_streams_media_status_check CHECK (media_status IN ('idle','authorizing','connecting','connected','disconnected','fallback','failed','ended'));
 
 -- Existing managed-provider sessions cannot be resumed through MediaMTX.
 UPDATE live_streams
 SET status='failed', media_status='failed', publish_token_hash=NULL, updated_at=NOW()
-WHERE status IN ('scheduled','starting','live','reconnecting') AND publish_token_hash IS NULL;
+WHERE status IN ('scheduled','starting','live','reconnecting') AND publish_token_hash IS NULL AND media_status <> 'fallback';
 
 DROP INDEX IF EXISTS idx_live_streams_provider_input;
 ALTER TABLE live_streams DROP COLUMN IF EXISTS provider_input_id;
