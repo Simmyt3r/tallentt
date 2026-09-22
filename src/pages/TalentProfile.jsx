@@ -8,6 +8,7 @@ import UserIdentity from '../components/UserIdentity'
 import { identityFromHat } from '../lib/profile.js'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 import { bookHat, submitApplication } from '../lib/hatActions'
+import { formatAvailabilityWindow } from '../components/bentoCardShared'
 
 const fmtMoney = (n, currency = 'NGN') => {
   if (n == null) return null
@@ -33,21 +34,6 @@ function formatPrice(hat, currency) {
   return '—'
 }
 
-function formatTime(t) {
-  if (!t) return ''
-  const [hStr, mStr] = String(t).split(':')
-  let h = Number(hStr)
-  const m = Number(mStr || 0)
-  const suffix = h >= 12 ? 'PM' : 'AM'
-  h = h % 12 || 12
-  return `${h}:${String(m).padStart(2, '0')} ${suffix}`
-}
-
-function formatAvailabilityWindow(hat) {
-  if (!hat.available_from && !hat.available_to) return ''
-  if (hat.available_from && hat.available_to) return `${formatTime(hat.available_from)} – ${formatTime(hat.available_to)}`
-  return formatTime(hat.available_from || hat.available_to)
-}
 
 // Reached from the Showroom's "Book Now" — shows the full card/profile for
 // one hat, with the actual booking (escrow) action.

@@ -49,6 +49,38 @@ export const PRICE_MODES = [
   { value: 'range', label: 'Range', hint: 'A starting price with room to adjust' },
 ]
 
+export const WEEKDAYS = [
+  { value: 'mon', label: 'Monday', short: 'Mon' },
+  { value: 'tue', label: 'Tuesday', short: 'Tue' },
+  { value: 'wed', label: 'Wednesday', short: 'Wed' },
+  { value: 'thu', label: 'Thursday', short: 'Thu' },
+  { value: 'fri', label: 'Friday', short: 'Fri' },
+  { value: 'sat', label: 'Saturday', short: 'Sat' },
+  { value: 'sun', label: 'Sunday', short: 'Sun' },
+]
+
+export const ALL_WEEKDAYS = WEEKDAYS.map((day) => day.value)
+
+export function normalizeAvailableDays(days) {
+  if (!Array.isArray(days)) return [...ALL_WEEKDAYS]
+  const selected = new Set(days)
+  return ALL_WEEKDAYS.filter((day) => selected.has(day))
+}
+
+export function formatAvailableDays(days) {
+  const selected = normalizeAvailableDays(days)
+  if (!selected.length) return ''
+  const labels = new Map(WEEKDAYS.map((day) => [day.value, day.short]))
+  if (selected.length === 7) return 'Mon–Sun'
+
+  const indexes = selected.map((day) => ALL_WEEKDAYS.indexOf(day))
+  const contiguous = indexes.every((value, index) => index === 0 || value === indexes[index - 1] + 1)
+  if (contiguous && selected.length >= 2) {
+    return `${labels.get(selected[0])}–${labels.get(selected[selected.length - 1])}`
+  }
+  return selected.map((day) => labels.get(day)).join(', ')
+}
+
 // Fallback shown until /api/hats?categories=1 responds — the database's
 // categories table is the source of truth (see db/patch-hats-v2.sql).
 export const DEFAULT_CATEGORIES = [
@@ -123,7 +155,7 @@ export function roleCopy(role) {
       maxLabel: 'Highest budget',
       rangeNote: 'Set a starting budget. Talent can propose a different amount before booking.',
       whenQuestion: 'When do you need them?',
-      whenHint: 'The daily hours you need this talent or service.',
+      whenHint: 'Choose the days and hours you need this talent or service.',
       openSwitch: 'Open for applications',
       openSwitchHint: 'Turn off if you are not taking applications right now.',
       mediaHint: 'Optional. Add reference images or video if it helps.',
@@ -151,7 +183,7 @@ export function roleCopy(role) {
     maxLabel: 'Highest price',
     rangeNote: 'Set a starting price. Clients can propose a different amount before booking.',
     whenQuestion: 'When are you available?',
-    whenHint: 'The daily hours you can take work.',
+    whenHint: 'Choose the days and hours you can take work.',
     openSwitch: 'Open for bookings',
     openSwitchHint: 'Turn off if you are not taking bookings right now.',
     mediaHint: 'Required for Talent Hats. Show your work.',
@@ -259,6 +291,7 @@ export function emptyForm(user) {
     rateUnit: 'hr',
     rateUnitCustom: '',
     available: true,
+    availableDays: [...ALL_WEEKDAYS],
     flexibleHours: true,
     availableFrom: '',
     availableTo: '',
@@ -290,6 +323,7 @@ export function hydrateForm(hat) {
     rateUnitCustom: hat.rate_unit_custom || '',
 
     available: Boolean(hat.availability),
+    availableDays: normalizeAvailableDays(hat.available_days),
     flexibleHours: !hat.available_from && !hat.available_to,
     availableFrom: hat.available_from ? String(hat.available_from).slice(0, 5) : '',
     availableTo: hat.available_to ? String(hat.available_to).slice(0, 5) : '',
@@ -379,6 +413,10 @@ export function validateForm(form, ctx) {
     else if (label.length > CUSTOM_UNIT_MAX) errors.rateUnitCustom = `Keep the label to ${CUSTOM_UNIT_MAX} characters or fewer.`
   }
 
+  if (!Array.isArray(form.availableDays) || form.availableDays.length === 0) {
+    errors.availableDays = 'Choose at least one available day.'
+  }
+
   if (!form.flexibleHours) {
     if (!form.availableFrom) errors.availableFrom = 'Select a start time.'
     if (!form.availableTo) errors.availableTo = 'Select an end time.'
@@ -402,6 +440,7 @@ export const FIELD_IDS = {
   media: 'hat-media-add',
   amount: 'hat-amount',
   rateUnitCustom: 'hat-rate-unit-custom',
+  availableDays: 'hat-available-day-mon',
   availableFrom: 'hat-available-from',
   availableTo: 'hat-available-to',
   deliveryMode: 'hat-delivery-0',
@@ -416,6 +455,7 @@ const SUMMARY_LABELS = {
   media: () => 'Media',
   amount: (copy) => (copy.priceNoun === 'budget' ? 'Budget' : 'Price'),
   rateUnitCustom: (copy) => (copy.priceNoun === 'budget' ? 'Budget' : 'Price'),
+  availableDays: () => 'Availability',
   availableFrom: () => 'Availability',
   availableTo: () => 'Availability',
   deliveryMode: () => 'How this will work',
@@ -471,6 +511,7 @@ export function buildPayload(form, { mode, role, media = null }) {
     lga: form.city.trim(),
     motto: form.description.trim().slice(0, HAT_DESCRIPTION_MAX),
     availability: Boolean(form.available),
+    available_days: normalizeAvailableDays(form.availableDays),
     // null clears the daily window on edit; the server keeps "absent" as "unchanged".
     available_from: form.flexibleHours ? null : form.availableFrom || null,
     available_to: form.flexibleHours ? null : form.availableTo || null,
@@ -496,11 +537,16 @@ export function priceLine(form) {
 }
 
 export function hoursLine(form) {
-  if (form.flexibleHours) return 'Flexible hours'
-  const from = formatClock(form.availableFrom)
-  const to = formatClock(form.availableTo)
-  if (from && to) return `Daily, ${from} – ${to}`
-  return from || to ? `Daily, ${from || to}` : ''
+  const days = formatAvailableDays(form.availableDays)
+  const time = form.flexibleHours
+    ? 'Flexible hours'
+    : (() => {
+        const from = formatClock(form.availableFrom)
+        const to = formatClock(form.availableTo)
+        if (from && to) return `${from} – ${to}`
+        return from || to || ''
+      })()
+  return [days, time].filter(Boolean).join(' · ')
 }
 
 export function buildPreview(form, { role }) {

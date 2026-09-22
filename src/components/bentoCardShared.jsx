@@ -64,6 +64,27 @@ export function formatBudget(budget) {
 }
 
 // "15:00:00" (DB TIME) or "15:00" (HTML time input) -> "3:00 PM"
+const AVAILABILITY_DAYS = [
+  ['mon', 'Mon'], ['tue', 'Tue'], ['wed', 'Wed'], ['thu', 'Thu'],
+  ['fri', 'Fri'], ['sat', 'Sat'], ['sun', 'Sun'],
+]
+
+export function formatAvailableDays(days) {
+  const order = AVAILABILITY_DAYS.map(([value]) => value)
+  const selected = Array.isArray(days) && days.length
+    ? order.filter((day) => days.includes(day))
+    : order
+  const labels = new Map(AVAILABILITY_DAYS)
+  if (selected.length === 7) return 'Mon–Sun'
+
+  const indexes = selected.map((day) => order.indexOf(day))
+  const contiguous = indexes.every((value, index) => index === 0 || value === indexes[index - 1] + 1)
+  if (contiguous && selected.length >= 2) {
+    return `${labels.get(selected[0])}–${labels.get(selected[selected.length - 1])}`
+  }
+  return selected.map((day) => labels.get(day)).join(', ')
+}
+
 export function formatTime(t) {
   if (!t) return ''
   const [hStr, mStr] = String(t).split(':')
@@ -75,11 +96,14 @@ export function formatTime(t) {
 }
 
 export function formatAvailabilityWindow(hat) {
-  if (!hat.available_from && !hat.available_to) return ''
+  const days = formatAvailableDays(hat.available_days)
+  let time = 'Flexible hours'
   if (hat.available_from && hat.available_to) {
-    return `${formatTime(hat.available_from)} – ${formatTime(hat.available_to)}`
+    time = `${formatTime(hat.available_from)} – ${formatTime(hat.available_to)}`
+  } else if (hat.available_from || hat.available_to) {
+    time = formatTime(hat.available_from || hat.available_to)
   }
-  return formatTime(hat.available_from || hat.available_to)
+  return [days, time].filter(Boolean).join(' · ')
 }
 
 // "2024-05-01T12:00:00Z" -> "2h", "3d", etc. Mirrors the relative-time

@@ -10,6 +10,7 @@ import {
   HAT_DESCRIPTION_MAX,
   HAT_NAME_MAX,
   normalizePricing,
+  normalizeAvailableDays,
   resolveHatRole,
 } from '../_lib/hatFields.js'
 
@@ -214,6 +215,7 @@ export default async function handler(req, res) {
         motto,
         media = [],
         availability = true,
+        available_days,
         available_from,
         available_to,
       } = body
@@ -247,6 +249,8 @@ export default async function handler(req, res) {
 
       const pricing = normalizePricing(body)
       if (!pricing.ok) return json(res, 400, { error: pricing.error })
+      const days = normalizeAvailableDays(available_days)
+      if (!days.ok) return json(res, 400, { error: days.error })
 
       const verified = isVerifiedName(verified_name)
       const skillList = Array.isArray(skills) ? skills : []
@@ -267,8 +271,8 @@ export default async function handler(req, res) {
           user_id, hat_title, hat_name, username, verified_name, is_verified, category, skills,
           hat_type, delivery_mode, country, country_flag, currency, lga, motto,
           price_type, price_min, price_max, price_negotiable, rate, rate_unit, rate_unit_custom,
-          role, availability, available_from, available_to, orbit_score
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+          role, availability, available_days, available_from, available_to, orbit_score
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
         RETURNING *`,
         [
           session.sub,
@@ -295,6 +299,7 @@ export default async function handler(req, res) {
           pricing.fields.rate_unit_custom,
           role,
           availability,
+          days.days,
           available_from || null,
           available_to || null,
           orbitScore,

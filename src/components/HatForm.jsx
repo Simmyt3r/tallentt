@@ -185,7 +185,10 @@ function HatFormScreen({ editId }) {
     () => ({ amount: visible.amount, rateUnitCustom: visible.rateUnitCustom }),
     [visible.amount, visible.rateUnitCustom],
   )
-  const availabilityErrors = useMemo(() => ({ availableFrom: visible.availableFrom, availableTo: visible.availableTo }), [visible.availableFrom, visible.availableTo])
+  const availabilityErrors = useMemo(
+    () => ({ availableDays: visible.availableDays, availableFrom: visible.availableFrom, availableTo: visible.availableTo }),
+    [visible.availableDays, visible.availableFrom, visible.availableTo],
+  )
   const locationErrors = useMemo(() => ({ deliveryMode: visible.deliveryMode, city: visible.city }), [visible.deliveryMode, visible.city])
 
   const summary = useMemo(() => (showAllErrors ? summarizeErrors(errors, hatRole) : []), [showAllErrors, errors, hatRole])
@@ -360,6 +363,7 @@ function HatFormScreen({ editId }) {
         <AvailabilitySection
           copy={copy}
           available={form.available}
+          availableDays={form.availableDays}
           flexibleHours={form.flexibleHours}
           availableFrom={form.availableFrom}
           availableTo={form.availableTo}
