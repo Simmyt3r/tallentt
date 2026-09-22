@@ -30,8 +30,8 @@ beforeEach(async () => {
     await pool.query(`INSERT INTO users (id, full_name, username, email, phone, password_hash)
       VALUES ($1, $2, $2, $3, '08012345678', 'test')`, [id, name, `${name}@example.test`])
   }
-  await pool.query(`INSERT INTO hats (id, user_id, username, hat_title, category, rate, price_negotiable)
-    VALUES ($1, $2, 'talent', 'Video editing', 'Film', 10000, true)`, [hatId, talentId])
+  await pool.query(`INSERT INTO hats (id, user_id, username, hat_title, hat_name, category, rate, price_negotiable)
+    VALUES ($1, $2, 'talent', 'Video editing', 'Video editing', 'Film', 10000, true)`, [hatId, talentId])
   await pool.query(`INSERT INTO escrows (id, hat_id, client_id, talent_id, amount)
     VALUES ($1, $2, $3, $4, 10000)`, [escrowId, hatId, clientId, talentId])
   await pool.query(`INSERT INTO wallets (user_id, balance) VALUES ($1, 100000)`, [clientId])
