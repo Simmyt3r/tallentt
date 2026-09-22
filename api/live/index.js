@@ -6,7 +6,8 @@ import {
   getStream,
   createStream,
   markStreamLive,
-  refreshProviderStatus,
+  publisherState,
+  authorizeMediaPublish,
   heartbeatViewer,
   likeStream,
   sendSupport,
@@ -16,7 +17,7 @@ import {
 const POST_ACTIONS = {
   create_stream: createStream,
   mark_live: markStreamLive,
-  refresh_provider_status: refreshProviderStatus,
+  publisher_state: publisherState,
   heartbeat_viewer: heartbeatViewer,
   like: likeStream,
   send_support: sendSupport,
@@ -26,11 +27,21 @@ const POST_ACTIONS = {
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store')
   try {
+    const url = new URL(req.url, `http://${req.headers.host}`)
+
+    // MediaMTX external HTTP authentication. This endpoint does not use the
+    // browser session cookie; the one-time publish token is validated instead.
+    if (url.searchParams.get('media_auth') === '1') {
+      if (req.method !== 'POST') return methodNotAllowed(res, ['POST'])
+      const body = await readBody(req)
+      const allowed = await authorizeMediaPublish(body)
+      return json(res, allowed ? 200 : 401, { ok: allowed })
+    }
+
     const session = getSessionUser(req)
     if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
     if (req.method === 'GET') {
-      const url = new URL(req.url, `http://${req.headers.host}`)
       const streamId = url.searchParams.get('room_id') || url.searchParams.get('stream_id')
       if (streamId) return json(res, 200, await getStream(streamId, session.sub))
       const status = url.searchParams.get('status')

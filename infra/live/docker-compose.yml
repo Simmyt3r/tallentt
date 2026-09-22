@@ -1,0 +1,38 @@
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:1
+    restart: unless-stopped
+    ports:
+      - "${LIVE_HLS_PORT:-8888}:8888"
+      - "${LIVE_WHIP_PORT:-8889}:8889"
+      - "${LIVE_ICE_UDP_PORT:-8189}:8189/udp"
+    environment:
+      MTX_LOGLEVEL: info
+      MTX_RTSP: "false"
+      MTX_RTMP: "false"
+      MTX_SRT: "false"
+      MTX_HLS: "true"
+      MTX_HLSADDRESS: ":8888"
+      MTX_HLSVARIANT: lowLatency
+      MTX_HLSALWAYSREMUX: "true"
+      MTX_HLSALLOWORIGINS: "${LIVE_APP_ORIGIN:?set LIVE_APP_ORIGIN}"
+      MTX_WEBRTC: "true"
+      MTX_WEBRTCADDRESS: ":8889"
+      MTX_WEBRTCALLOWORIGINS: "${LIVE_APP_ORIGIN:?set LIVE_APP_ORIGIN}"
+      MTX_WEBRTCLOCALUDPADDRESS: ":8189"
+      MTX_WEBRTCADDITIONALHOSTS: "${LIVE_WEBRTC_ADDITIONAL_HOSTS:?set LIVE_WEBRTC_ADDITIONAL_HOSTS}"
+      MTX_AUTHMETHOD: http
+      MTX_AUTHHTTPADDRESS: "${LIVE_MEDIA_AUTH_URL:?set LIVE_MEDIA_AUTH_URL}"
+      MTX_AUTHHTTPEXCLUDE_0_ACTION: read
+      MTX_AUTHHTTPEXCLUDE_1_ACTION: playback
+
+  realtime:
+    build:
+      context: ../../services/live-realtime
+    restart: unless-stopped
+    ports:
+      - "${LIVE_REALTIME_PORT:-8787}:8787"
+    environment:
+      PORT: 8787
+      LIVE_REALTIME_SECRET: "${LIVE_REALTIME_SECRET:?set LIVE_REALTIME_SECRET}"
+      LIVE_ALLOWED_ORIGIN: "${LIVE_APP_ORIGIN:?set LIVE_APP_ORIGIN}"

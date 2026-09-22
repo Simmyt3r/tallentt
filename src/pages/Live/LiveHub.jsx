@@ -6,57 +6,73 @@ import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import UserIdentity from '../../components/UserIdentity'
 import { getLiveMedia, startWhipBroadcast } from '../../lib/liveBroadcast'
+import { clearLivePublisher, setLivePublisher } from '../../lib/liveSession'
 
 const CATEGORIES = ['Music', 'Dance', 'Comedy', 'Fashion', 'Acting', 'Modeling', 'Art & Design', 'Writing', 'Photography', 'Content Creation', 'Sports', 'Other']
+
+function connectionLabel(state) {
+  if (state === 'connected') return 'Connected'
+  if (state === 'connecting' || state === 'new') return 'Connecting…'
+  if (state === 'disconnected') return 'Reconnecting…'
+  if (state === 'failed') return 'Connection failed'
+  return 'Preview'
+}
 
 export default function LiveHub() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const previewRef = useRef(null)
+  const handedOffRef = useRef(false)
   const [rooms, setRooms] = useState([])
   const [creating, setCreating] = useState(false)
+  const [starting, setStarting] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState('idle')
   const [media, setMedia] = useState(null)
   const [devices, setDevices] = useState({ cameras: [], microphones: [] })
   const [form, setForm] = useState({ title: '', category: CATEGORIES[0], camera: '', microphone: '' })
   const [error, setError] = useState('')
 
   async function load() {
-    const data = await api.getLiveRooms('stage')
+    const data = await api.getLiveRooms()
     setRooms(data.rooms || [])
   }
 
   useEffect(() => {
     load().catch(() => {})
-    const t = setInterval(() => load().catch(() => {}), 12000)
-    return () => clearInterval(t)
+    const timer = setInterval(() => load().catch(() => {}), 12000)
+    return () => clearInterval(timer)
   }, [])
 
-  useEffect(() => () => media?.getTracks().forEach((track) => track.stop()), [media])
+  useEffect(() => () => {
+    if (!handedOffRef.current) media?.getTracks().forEach((track) => track.stop())
+  }, [media])
 
   useEffect(() => {
     if (previewRef.current && media) previewRef.current.srcObject = media
   }, [media, creating])
 
+  async function refreshDevices() {
+    if (!navigator.mediaDevices?.enumerateDevices) return
+    try {
+      const list = await navigator.mediaDevices.enumerateDevices()
+      setDevices({
+        cameras: list.filter((device) => device.kind === 'videoinput'),
+        microphones: list.filter((device) => device.kind === 'audioinput'),
+      })
+    } catch {}
+  }
+
   async function openPreview() {
     setError('')
+    setConnectionStatus('preview')
+    handedOffRef.current = false
     try {
       const stream = await getLiveMedia()
       setMedia(stream)
       setCreating(true)
-      if (previewRef.current) previewRef.current.srcObject = stream
-      let list = []
-      if (navigator.mediaDevices?.enumerateDevices) {
-        try {
-          list = await navigator.mediaDevices.enumerateDevices()
-        } catch {
-          // Device enumeration is optional; the browser can still use its default camera/microphone.
-        }
-      }
-      setDevices({
-        cameras: list.filter((d) => d.kind === 'videoinput'),
-        microphones: list.filter((d) => d.kind === 'audioinput'),
-      })
+      await refreshDevices()
     } catch (err) {
+      setConnectionStatus('failed')
       setError(err?.message || 'Could not access the camera or microphone.')
     }
   }
@@ -64,29 +80,58 @@ export default function LiveHub() {
   async function switchDevices(next) {
     setForm(next)
     if (!creating) return
+    setError('')
     try {
-      media?.getTracks().forEach((track) => track.stop())
       const stream = await getLiveMedia({ videoDeviceId: next.camera, audioDeviceId: next.microphone })
+      media?.getTracks().forEach((track) => track.stop())
       setMedia(stream)
-      if (previewRef.current) previewRef.current.srcObject = stream
     } catch (err) {
-      setError(err.message || 'Could not switch device.')
+      setError(err?.message || 'Could not switch camera or microphone.')
     }
   }
 
-  async function goLive(e) {
-    e.preventDefault()
-    if (!media) return
+  function closePreview() {
+    media?.getTracks().forEach((track) => track.stop())
+    setMedia(null)
+    setCreating(false)
+    setStarting(false)
+    setConnectionStatus('idle')
     setError('')
+  }
+
+  async function goLive(event) {
+    event.preventDefault()
+    if (!media || starting) return
+    setError('')
+    setStarting(true)
+    let streamId = null
+    let publisher = null
     try {
-      const { stream, ingest_url: ingestUrl } = await api.liveAction({ action: 'create_stream', title: form.title, category: form.category })
-      const publisher = await startWhipBroadcast({ ingestUrl, mediaStream: media })
-      sessionStorage.setItem(`chombutar-live-publisher:${stream.id}`, 'active')
-      window.__chombutarLivePublisher = publisher
-      await api.liveAction({ action: 'mark_live', stream_id: stream.id })
-      navigate(`/live/stage/${stream.id}`, { state: { isHost: true } })
+      setConnectionStatus('connecting')
+      const created = await api.liveAction({ action: 'create_stream', title: form.title, category: form.category })
+      streamId = created.stream.id
+      publisher = await startWhipBroadcast({
+        ingestUrl: created.ingest_url,
+        publishToken: created.publish_token,
+        mediaStream: media,
+        onConnectionState: setConnectionStatus,
+      })
+      setLivePublisher(streamId, publisher)
+      await api.liveAction({ action: 'mark_live', stream_id: streamId })
+      handedOffRef.current = true
+      sessionStorage.setItem(`chombutar-live-publisher:${streamId}`, 'active')
+      navigate(`/live/stage/${streamId}`, { state: { isHost: true } })
     } catch (err) {
-      setError(err.message || 'Could not start Live.')
+      if (streamId) {
+        api.liveAction({ action: 'publisher_state', stream_id: streamId, state: 'failed' }).catch(() => {})
+        await clearLivePublisher(streamId).catch(() => {})
+      } else if (publisher) {
+        await publisher.stop().catch(() => {})
+      }
+      setConnectionStatus('failed')
+      setError(err?.message || 'Could not start Live.')
+    } finally {
+      setStarting(false)
     }
   }
 
@@ -108,14 +153,15 @@ export default function LiveHub() {
         <form onSubmit={goLive} className="bg-white border-[1.5px] border-black rounded-[24px] overflow-hidden">
           <div className="relative aspect-video bg-black">
             <video ref={previewRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-            <button type="button" onClick={() => { media?.getTracks().forEach((t) => t.stop()); setMedia(null); setCreating(false) }} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/65 text-white grid place-items-center"><X size={16} /></button>
+            <div className="absolute top-3 left-3 rounded-full bg-black/65 text-white px-3 py-1.5 text-[10px] font-bold">{connectionLabel(connectionStatus)}</div>
+            <button type="button" disabled={starting} onClick={closePreview} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/65 text-white grid place-items-center disabled:opacity-50"><X size={16} /></button>
           </div>
           <div className="p-4 grid sm:grid-cols-2 gap-3">
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Live title" maxLength={120} required className="h-11 rounded-xl border border-black/20 px-3 text-[13px] outline-none focus:border-black" />
-            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="h-11 rounded-xl border border-black/20 px-3 text-[13px] bg-white">{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select>
-            <label className="text-[11px] font-bold text-black/55"><span className="flex items-center gap-1 mb-1"><Camera size={12} /> Camera</span><select value={form.camera} onChange={(e) => switchDevices({ ...form, camera: e.target.value })} className="w-full h-10 rounded-xl border border-black/20 px-2 bg-white text-[12px]"><option value="">Default camera</option>{devices.cameras.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Camera'}</option>)}</select></label>
-            <label className="text-[11px] font-bold text-black/55"><span className="flex items-center gap-1 mb-1"><Mic size={12} /> Microphone</span><select value={form.microphone} onChange={(e) => switchDevices({ ...form, microphone: e.target.value })} className="w-full h-10 rounded-xl border border-black/20 px-2 bg-white text-[12px]"><option value="">Default microphone</option>{devices.microphones.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Microphone'}</option>)}</select></label>
-            <button className="sm:col-span-2 h-11 rounded-full bg-[#0A13E6] text-white text-[13px] font-bold flex items-center justify-center gap-2"><Wifi size={14} /> Start Live</button>
+            <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Live title" maxLength={120} required className="h-11 rounded-xl border border-black/20 px-3 text-[13px] outline-none focus:border-black" />
+            <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="h-11 rounded-xl border border-black/20 px-3 text-[13px] bg-white">{CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select>
+            <label className="text-[11px] font-bold text-black/55"><span className="flex items-center gap-1 mb-1"><Camera size={12} /> Camera</span><select disabled={starting} value={form.camera} onChange={(event) => switchDevices({ ...form, camera: event.target.value })} className="w-full h-10 rounded-xl border border-black/20 px-2 bg-white text-[12px] disabled:opacity-50"><option value="">Default camera</option>{devices.cameras.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || 'Camera'}</option>)}</select></label>
+            <label className="text-[11px] font-bold text-black/55"><span className="flex items-center gap-1 mb-1"><Mic size={12} /> Microphone</span><select disabled={starting} value={form.microphone} onChange={(event) => switchDevices({ ...form, microphone: event.target.value })} className="w-full h-10 rounded-xl border border-black/20 px-2 bg-white text-[12px] disabled:opacity-50"><option value="">Default microphone</option>{devices.microphones.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || 'Microphone'}</option>)}</select></label>
+            <button disabled={starting} className="sm:col-span-2 h-11 rounded-full bg-[#0A13E6] text-white text-[13px] font-bold flex items-center justify-center gap-2 disabled:opacity-60"><Wifi size={14} /> {starting ? 'Connecting to Live…' : 'Start Live'}</button>
           </div>
         </form>
       )}
