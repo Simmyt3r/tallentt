@@ -16,8 +16,8 @@ for (const role of ['client', 'talent', 'admin']) {
     VALUES ($1, $2, $2, $3, '08012345678', 'local-test-only', $4)`,
   [ids[role], role === 'client' ? 'studio_client' : role === 'talent' ? 'amara_edits' : 'case_reviewer', `${role}@example.test`, role !== 'talent'])
 }
-await database.pool.query(`INSERT INTO hats (id, user_id, hat_title, username, category, rate, price_negotiable)
-  VALUES ($1, $2, 'Event video editing', 'amara_edits', 'Film', 10000, true)`, [ids.hat, ids.talent])
+await database.pool.query(`INSERT INTO hats (id, user_id, hat_title, hat_name, username, category, rate, price_negotiable)
+  VALUES ($1, $2, 'Event video editing', 'Event video editing', 'amara_edits', 'Film', 10000, true)`, [ids.hat, ids.talent])
 await database.pool.query(`INSERT INTO escrows (id, hat_id, client_id, talent_id, amount) VALUES ($1, $2, $3, $4, 10000)`,
   [ids.escrow, ids.hat, ids.client, ids.talent])
 await database.pool.query(`INSERT INTO wallets (user_id, balance) VALUES ($1, 50000)`, [ids.client])
