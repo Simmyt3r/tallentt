@@ -44,13 +44,20 @@ export default function LiveHub() {
       setMedia(stream)
       setCreating(true)
       if (previewRef.current) previewRef.current.srcObject = stream
-      const list = await navigator.mediaDevices.enumerateDevices()
+      let list = []
+      if (navigator.mediaDevices?.enumerateDevices) {
+        try {
+          list = await navigator.mediaDevices.enumerateDevices()
+        } catch {
+          // Device enumeration is optional; the browser can still use its default camera/microphone.
+        }
+      }
       setDevices({
         cameras: list.filter((d) => d.kind === 'videoinput'),
         microphones: list.filter((d) => d.kind === 'audioinput'),
       })
     } catch (err) {
-      setError(err?.name === 'NotAllowedError' ? 'Camera or microphone permission was denied.' : 'No usable camera/microphone was found.')
+      setError(err?.message || 'Could not access the camera or microphone.')
     }
   }
 
