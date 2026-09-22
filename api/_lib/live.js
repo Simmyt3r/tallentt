@@ -1,13 +1,16 @@
 // Path: api/_lib/live.js
-// ChombuTar Live: one-to-many talent livestreaming + real wallet support.
+// ChombuTar Live: MediaMTX-backed livestreaming + real-wallet Talent Support.
+
 import crypto from 'node:crypto'
 import { query, getClient } from './db.js'
 import { creditWallet, debitWallet } from './wallet.js'
 import { notifyUser } from './notifications.js'
-import { createLiveInput, disableLiveInput, getLiveInput } from './liveProvider.js'
+import { assertLiveMediaReachable, buildLiveMediaEndpoints, streamPathForId } from './liveMedia.js'
+import { emitLiveEvent } from './liveRealtime.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const ALLOWED_STATES = new Set(['scheduled', 'starting', 'live', 'reconnecting', 'ended', 'failed'])
+const PUBLISH_STATES = new Set(['starting', 'live', 'reconnecting'])
 
 export function liveError(status, message) {
   return Object.assign(new Error(message), { status })
@@ -33,6 +36,25 @@ function feeBps() {
 function calculateFee(gross) {
   const platformFee = Math.floor((gross * feeBps()) / 10000)
   return { gross, platformFee, net: gross - platformFee }
+}
+
+function hashPublishToken(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest()
+}
+
+function safeTokenMatch(token, expectedHex) {
+  if (!token || !expectedHex) return false
+  let expected
+  try { expected = Buffer.from(expectedHex, 'hex') } catch { return false }
+  const actual = hashPublishToken(token)
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected)
+}
+
+function publicStream(row) {
+  if (!row) return null
+  const { publish_token_hash: _publishTokenHash, ...safe } = row
+  const endpoints = row.stream_path ? buildLiveMediaEndpoints(row.stream_path) : { hlsUrl: null }
+  return { ...safe, hls_url: endpoints.hlsUrl || null }
 }
 
 async function activeGiftCatalogue(client = null) {
@@ -61,7 +83,7 @@ async function mapStream(row, viewerId) {
     viewerCount(row.id),
   ])
   return {
-    ...row,
+    ...publicStream(row),
     viewer_count: count,
     likes: likeRows[0]?.count || 0,
     liked_by_me: Boolean(likeRows[0]?.liked_by_me),
@@ -79,7 +101,7 @@ export async function listStreams({ viewerId, status }) {
     where.push(`ls.status IN ('scheduled','starting','live','reconnecting')`)
   }
   const { rows } = await query(
-    `SELECT ls.*, u.username, u.full_name, u.avatar_url, u.role
+    `SELECT ls.*, u.username, u.full_name, u.avatar_url, u.role, u.company_suffix
      FROM live_streams ls JOIN users u ON u.id = ls.talent_id
      WHERE ${where.join(' AND ')}
      ORDER BY CASE ls.status WHEN 'live' THEN 0 WHEN 'reconnecting' THEN 1 WHEN 'starting' THEN 2 ELSE 3 END,
@@ -93,7 +115,7 @@ export async function listStreams({ viewerId, status }) {
 export async function getStream(streamId, viewerId) {
   streamId = requireUuid(streamId, 'stream_id')
   const { rows } = await query(
-    `SELECT ls.*, u.username, u.full_name, u.avatar_url, u.role
+    `SELECT ls.*, u.username, u.full_name, u.avatar_url, u.role, u.company_suffix
      FROM live_streams ls JOIN users u ON u.id = ls.talent_id WHERE ls.id = $1`,
     [streamId],
   )
@@ -103,10 +125,10 @@ export async function getStream(streamId, viewerId) {
   const [gifts, support, top, earnings, breakdown, today] = await Promise.all([
     activeGiftCatalogue(),
     query(
-      `SELECT st.id, st.gift_id, st.gross_amount, st.created_at,
+      `SELECT st.id, st.gift_id, st.gross_amount, st.platform_fee, st.net_amount, st.created_at,
               gc.name AS gift_name, gc.icon,
               u.id AS supporter_id, u.username AS supporter_username, u.full_name AS supporter_full_name,
-              u.avatar_url AS supporter_avatar_url, u.role AS supporter_role
+              u.avatar_url AS supporter_avatar_url, u.role AS supporter_role, u.company_suffix AS supporter_company_suffix
        FROM live_support_transactions st
        JOIN live_gift_catalogue gc ON gc.id = st.gift_id
        JOIN users u ON u.id = st.supporter_id
@@ -115,11 +137,11 @@ export async function getStream(streamId, viewerId) {
       [streamId],
     ),
     query(
-      `SELECT u.id, u.username, u.full_name, u.avatar_url, u.role,
+      `SELECT u.id, u.username, u.full_name, u.avatar_url, u.role, u.company_suffix,
               SUM(st.gross_amount)::int AS amount
        FROM live_support_transactions st JOIN users u ON u.id = st.supporter_id
        WHERE st.stream_id = $1 AND st.status = 'success'
-       GROUP BY u.id, u.username, u.full_name, u.avatar_url, u.role
+       GROUP BY u.id, u.username, u.full_name, u.avatar_url, u.role, u.company_suffix
        ORDER BY amount DESC, MIN(st.created_at) ASC LIMIT 10`,
       [streamId],
     ),
@@ -166,36 +188,26 @@ export async function createStream(userId, body) {
   if (!user) throw liveError(401, 'Unauthorized')
   if (!['talent', 'dual'].includes(user.role)) throw liveError(403, 'Only Talent accounts can go live.')
 
-  const client = await getClient()
-  let stream
-  try {
-    await client.query('BEGIN')
-    const { rows } = await client.query(
-      `INSERT INTO live_streams (talent_id, title, category, status, provider)
-       VALUES ($1,$2,$3,'starting','cloudflare') RETURNING *`,
-      [userId, title, category],
-    )
-    stream = rows[0]
-    await client.query('COMMIT')
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {})
-    throw err
-  } finally {
-    client.release()
-  }
+  await assertLiveMediaReachable()
 
-  try {
-    const provider = await createLiveInput({ streamId: stream.id, title })
-    const { rows } = await query(
-      `UPDATE live_streams
-       SET provider_input_id=$1, playback_url=$2, playback_dash_url=$3, provider_status=$4, updated_at=NOW()
-       WHERE id=$5 RETURNING *`,
-      [provider.providerInputId, provider.playbackUrl, provider.playbackDashUrl, provider.providerStatus, stream.id],
-    )
-    return { stream: rows[0], ingest_url: provider.ingestUrl }
-  } catch (err) {
-    await query(`UPDATE live_streams SET status='failed', updated_at=NOW() WHERE id=$1`, [stream.id]).catch(() => {})
-    throw err
+  const streamId = crypto.randomUUID()
+  const streamPath = streamPathForId(streamId)
+  const publishToken = crypto.randomBytes(32).toString('base64url')
+  const tokenHash = hashPublishToken(publishToken).toString('hex')
+  const endpoints = buildLiveMediaEndpoints(streamPath)
+
+  const { rows } = await query(
+    `INSERT INTO live_streams
+       (id,talent_id,title,category,status,stream_path,publish_token_hash,media_status,last_media_event_at)
+     VALUES ($1,$2,$3,$4,'starting',$5,$6,'authorizing',NOW())
+     RETURNING *`,
+    [streamId, userId, title, category, streamPath, tokenHash],
+  )
+
+  return {
+    stream: publicStream(rows[0]),
+    ingest_url: endpoints.ingestUrl,
+    publish_token: publishToken,
   }
 }
 
@@ -215,8 +227,11 @@ export async function markStreamLive(userId, body) {
     await client.query('BEGIN')
     stream = await ownerStreamForUpdate(client, userId, streamId)
     if (stream.status === 'ended') throw liveError(409, 'This Live has already ended.')
+    if (stream.status === 'failed') throw liveError(409, 'This Live publish session has failed.')
     const { rows } = await client.query(
-      `UPDATE live_streams SET status='live', started_at=COALESCE(started_at,NOW()), updated_at=NOW()
+      `UPDATE live_streams
+       SET status='live', media_status='connected', started_at=COALESCE(started_at,NOW()),
+           last_media_event_at=NOW(), updated_at=NOW()
        WHERE id=$1 RETURNING *`,
       [streamId],
     )
@@ -228,26 +243,74 @@ export async function markStreamLive(userId, body) {
   } finally {
     client.release()
   }
-  return { stream }
+  emitLiveEvent(streamId, 'stream_status', { status: 'live', media_status: 'connected' })
+  return { stream: publicStream(stream) }
 }
 
-export async function refreshProviderStatus(userId, body) {
+export async function publisherState(userId, body) {
   const streamId = requireUuid(body.stream_id, 'stream_id')
-  const { rows } = await query(`SELECT * FROM live_streams WHERE id=$1`, [streamId])
-  const stream = rows[0]
-  if (!stream) throw liveError(404, 'Live stream not found.')
-  if (stream.talent_id !== userId) throw liveError(403, 'Only the Talent who owns this Live can refresh it.')
-  if (!stream.provider_input_id) return { stream }
-  const provider = await getLiveInput(stream.provider_input_id)
-  const mapped = provider.providerStatus === 'connected' ? 'live'
-    : provider.providerStatus === 'reconnecting' ? 'reconnecting'
-      : stream.status
-  const { rows: updated } = await query(
-    `UPDATE live_streams SET provider_status=$1, status=$2, playback_url=COALESCE($3,playback_url),
-     playback_dash_url=COALESCE($4,playback_dash_url), updated_at=NOW() WHERE id=$5 RETURNING *`,
-    [provider.providerStatus, mapped, provider.playbackUrl, provider.playbackDashUrl, streamId],
+  const state = cleanText(body.state, 30, 'Publisher state').toLowerCase()
+  const allowed = new Set(['new', 'connecting', 'connected', 'disconnected', 'failed'])
+  if (!allowed.has(state)) throw liveError(400, 'Unsupported publisher state.')
+
+  const client = await getClient()
+  let stream
+  try {
+    await client.query('BEGIN')
+    stream = await ownerStreamForUpdate(client, userId, streamId)
+    if (stream.status === 'ended') {
+      await client.query('COMMIT')
+      return { stream: publicStream(stream) }
+    }
+
+    let status = stream.status
+    if (state === 'connected') status = 'live'
+    else if (state === 'disconnected') status = stream.started_at ? 'reconnecting' : 'starting'
+    else if (state === 'failed') status = 'failed'
+    else if (!stream.started_at) status = 'starting'
+
+    const { rows } = await client.query(
+      `UPDATE live_streams
+       SET status=$2, media_status=$3,
+           started_at=CASE WHEN $2='live' THEN COALESCE(started_at,NOW()) ELSE started_at END,
+           publish_token_hash=CASE WHEN $2='failed' THEN NULL ELSE publish_token_hash END,
+           last_media_event_at=NOW(), updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [streamId, status, state],
+    )
+    stream = rows[0]
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw err
+  } finally {
+    client.release()
+  }
+
+  emitLiveEvent(streamId, 'stream_status', { status: stream.status, media_status: state })
+  return { stream: publicStream(stream) }
+}
+
+export async function authorizeMediaPublish(body) {
+  const action = String(body?.action || '').trim()
+  const protocol = String(body?.protocol || '').trim().toLowerCase()
+  const path = String(body?.path || '').trim()
+  const token = String(body?.token || '')
+  if (action !== 'publish' || protocol !== 'webrtc' || !path || !token) return false
+
+  const { rows } = await query(
+    `SELECT id, status, publish_token_hash FROM live_streams
+     WHERE stream_path=$1 LIMIT 1`,
+    [path],
   )
-  return { stream: updated[0] }
+  const stream = rows[0]
+  if (!stream || !PUBLISH_STATES.has(stream.status) || !safeTokenMatch(token, stream.publish_token_hash)) return false
+
+  await query(
+    `UPDATE live_streams SET media_status='connecting', last_media_event_at=NOW(), updated_at=NOW() WHERE id=$1`,
+    [stream.id],
+  )
+  return true
 }
 
 export async function heartbeatViewer(userId, body) {
@@ -260,9 +323,10 @@ export async function heartbeatViewer(userId, body) {
      ON CONFLICT (stream_id,user_id) DO UPDATE SET last_seen_at=EXCLUDED.last_seen_at`,
     [streamId, userId],
   )
-  return { viewer_count: await viewerCount(streamId) }
+  const count = await viewerCount(streamId)
+  emitLiveEvent(streamId, 'viewer_count', { viewer_count: count })
+  return { viewer_count: count }
 }
-
 
 export async function likeStream(userId, body) {
   const streamId = requireUuid(body.stream_id, 'stream_id')
@@ -271,7 +335,9 @@ export async function likeStream(userId, body) {
   if (!['live','reconnecting'].includes(rows[0].status)) throw liveError(409, 'This Live is not active.')
   await query(`INSERT INTO live_stream_likes (stream_id,user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [streamId, userId])
   const { rows: totals } = await query(`SELECT COUNT(*)::int AS likes FROM live_stream_likes WHERE stream_id=$1`, [streamId])
-  return { likes: totals[0]?.likes || 0, liked_by_me: true }
+  const likes = totals[0]?.likes || 0
+  emitLiveEvent(streamId, 'likes', { likes })
+  return { likes, liked_by_me: true }
 }
 
 export async function sendSupport(userId, body) {
@@ -351,8 +417,25 @@ export async function sendSupport(userId, body) {
     client.release()
   }
 
-  const { rows: supporterRows } = await query(`SELECT username,full_name FROM users WHERE id=$1`, [userId])
+  const { rows: supporterRows } = await query(
+    `SELECT id,username,full_name,avatar_url,role,company_suffix FROM users WHERE id=$1`,
+    [userId],
+  )
   const supporter = supporterRows[0]
+
+  emitLiveEvent(streamId, 'support', {
+    transaction: {
+      id: result.transaction.id,
+      gift_id: result.transaction.gift_id,
+      gross_amount: result.transaction.gross_amount,
+      platform_fee: result.transaction.platform_fee,
+      net_amount: result.transaction.net_amount,
+      created_at: result.transaction.created_at,
+    },
+    gift: { id: result.gift.id, name: result.gift.name, icon: result.gift.icon },
+    supporter,
+  })
+
   await notifyUser({
     userId: result.transaction.talent_id,
     type: 'live_support_received',
@@ -374,10 +457,13 @@ export async function endStream(userId, body) {
     stream = await ownerStreamForUpdate(client, userId, streamId)
     if (stream.status === 'ended') {
       await client.query('COMMIT')
-      return { stream }
+      return { stream: publicStream(stream) }
     }
     const { rows } = await client.query(
-      `UPDATE live_streams SET status='ended', ended_at=NOW(), updated_at=NOW() WHERE id=$1 RETURNING *`,
+      `UPDATE live_streams
+       SET status='ended', media_status='ended', publish_token_hash=NULL,
+           ended_at=NOW(), last_media_event_at=NOW(), updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
       [streamId],
     )
     stream = rows[0]
@@ -389,7 +475,8 @@ export async function endStream(userId, body) {
     client.release()
   }
 
-  if (stream.provider_input_id) disableLiveInput(stream.provider_input_id).catch((err) => console.error('disable live input failed:', err))
+  emitLiveEvent(streamId, 'stream_status', { status: 'ended', media_status: 'ended' })
+
   const { rows } = await query(
     `SELECT COALESCE(SUM(gross_amount),0)::int AS gross, COUNT(*)::int AS gifts
      FROM live_support_transactions WHERE stream_id=$1 AND status='success'`,
@@ -403,7 +490,7 @@ export async function endStream(userId, body) {
     linkUrl: `/live/stage/${streamId}`,
     metadata: { stream_id: streamId, gross_support: rows[0]?.gross || 0 },
   })
-  return { stream }
+  return { stream: publicStream(stream) }
 }
 
 export function makeIdempotencyKey() {
@@ -411,7 +498,6 @@ export function makeIdempotencyKey() {
 }
 
 // Legacy admin compatibility: Arena disputes are no longer part of ChombuTar Live.
-// Keep the export so the existing consolidated admin endpoint continues to load.
 export async function resolveDispute() {
   throw liveError(410, 'Arena Live disputes are deprecated.')
 }

@@ -125,12 +125,8 @@ export const api = {
   getLiveDisputes: () => request('/api/admin?action=live_disputes'),
   adminAction: (body) => request('/api/admin', { method: 'POST', body: JSON.stringify(body) }),
 
-  // Combutar Live — Arena Hall + Stage Hall. One consolidated endpoint,
-  // same 12-function-cap reasoning as escrows/admin above (see
-  // api/live/index.js).
-  getLiveGames: () => request('/api/live?games=1'),
-  getLiveLeaderboard: () => request('/api/live?leaderboard=1'),
-  getLiveRooms: (hall, status) => request(`/api/live?hall=${encodeURIComponent(hall)}${status ? `&status=${encodeURIComponent(status)}` : ''}`),
+  // ChombuTar Live — MediaMTX media transport + Vercel metadata/actions.
+  getLiveRooms: (status) => request(`/api/live${status ? `?status=${encodeURIComponent(status)}` : ''}`),
   getLiveRoom: (roomId) => request(`/api/live?room_id=${encodeURIComponent(roomId)}`),
   liveAction: (body) => request('/api/live', { method: 'POST', body: JSON.stringify(body) }),
 }

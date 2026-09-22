@@ -6,19 +6,46 @@ CREATE TABLE IF NOT EXISTS live_streams (
   title TEXT NOT NULL CHECK (char_length(btrim(title)) BETWEEN 1 AND 120),
   category TEXT NOT NULL CHECK (char_length(btrim(category)) BETWEEN 1 AND 80),
   status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','starting','live','reconnecting','ended','failed')),
-  provider TEXT NOT NULL DEFAULT 'cloudflare',
-  provider_input_id TEXT,
-  provider_status TEXT,
-  playback_url TEXT,
-  playback_dash_url TEXT,
+  stream_path TEXT,
+  publish_token_hash TEXT,
+  media_status TEXT NOT NULL DEFAULT 'idle',
+  last_media_event_at TIMESTAMPTZ,
   started_at TIMESTAMPTZ,
   ended_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE live_streams ADD COLUMN IF NOT EXISTS stream_path TEXT;
+ALTER TABLE live_streams ADD COLUMN IF NOT EXISTS publish_token_hash TEXT;
+ALTER TABLE live_streams ADD COLUMN IF NOT EXISTS media_status TEXT NOT NULL DEFAULT 'idle';
+ALTER TABLE live_streams ADD COLUMN IF NOT EXISTS last_media_event_at TIMESTAMPTZ;
+
+UPDATE live_streams SET stream_path = 'live-' || id::text WHERE stream_path IS NULL;
+ALTER TABLE live_streams ALTER COLUMN stream_path SET NOT NULL;
+
+ALTER TABLE live_streams DROP CONSTRAINT IF EXISTS live_streams_stream_path_check;
+ALTER TABLE live_streams ADD CONSTRAINT live_streams_stream_path_check CHECK (stream_path ~ '^[A-Za-z0-9_-]{1,160}$');
+ALTER TABLE live_streams DROP CONSTRAINT IF EXISTS live_streams_publish_token_hash_check;
+ALTER TABLE live_streams ADD CONSTRAINT live_streams_publish_token_hash_check CHECK (publish_token_hash IS NULL OR publish_token_hash ~ '^[0-9a-f]{64}$');
+ALTER TABLE live_streams DROP CONSTRAINT IF EXISTS live_streams_media_status_check;
+ALTER TABLE live_streams ADD CONSTRAINT live_streams_media_status_check CHECK (media_status IN ('idle','authorizing','connecting','connected','disconnected','failed','ended'));
+
+-- Existing managed-provider sessions cannot be resumed through MediaMTX.
+UPDATE live_streams
+SET status='failed', media_status='failed', publish_token_hash=NULL, updated_at=NOW()
+WHERE status IN ('scheduled','starting','live','reconnecting') AND publish_token_hash IS NULL;
+
+DROP INDEX IF EXISTS idx_live_streams_provider_input;
+ALTER TABLE live_streams DROP COLUMN IF EXISTS provider_input_id;
+ALTER TABLE live_streams DROP COLUMN IF EXISTS provider_status;
+ALTER TABLE live_streams DROP COLUMN IF EXISTS playback_dash_url;
+ALTER TABLE live_streams DROP COLUMN IF EXISTS playback_url;
+ALTER TABLE live_streams DROP COLUMN IF EXISTS provider;
+
 CREATE INDEX IF NOT EXISTS idx_live_streams_status_created ON live_streams(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_live_streams_talent_created ON live_streams(talent_id, created_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_live_streams_provider_input ON live_streams(provider, provider_input_id) WHERE provider_input_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_live_streams_path ON live_streams(stream_path);
 
 CREATE TABLE IF NOT EXISTS live_gift_catalogue (
   id TEXT PRIMARY KEY,
