@@ -2,7 +2,7 @@ import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
-import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing } from '../_lib/hatFields.js'
+import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing, normalizeAvailableDays } from '../_lib/hatFields.js'
 import { notifyApplicationReceived, notifyApplicationStatus } from '../_lib/notifications.js'
 
 async function getHat(id, viewerId) {
@@ -298,6 +298,8 @@ export default async function handler(req, res) {
       const nextSkills = body.skills ?? existing.skills ?? []
       const nextMotto = body.motto ?? existing.motto
       const nextAvail = body.availability != null ? body.availability : existing.availability
+      const days = normalizeAvailableDays(body.available_days, existing.available_days)
+      if (!days.ok) return json(res, 400, { error: days.error })
 
       // `media` is only replaced when the client actually sends it — a text-only
       // edit leaves existing media untouched. When it is sent, the array order
@@ -364,10 +366,11 @@ export default async function handler(req, res) {
             rate_unit_custom = $20,
             availability = COALESCE($21, availability),
             active = COALESCE($22, active),
-            available_from = $23,
-            available_to = $24,
-            orbit_score = $25
-          WHERE id = $26`,
+            available_days = $23,
+            available_from = $24,
+            available_to = $25,
+            orbit_score = $26
+          WHERE id = $27`,
           [
             body.hat_title ?? null,
             body.hat_name ?? null,
@@ -391,6 +394,7 @@ export default async function handler(req, res) {
             pricingFields.rate_unit_custom,
             body.availability ?? null,
             body.active ?? null,
+            days.days,
             windowValue(body.available_from, existing.available_from),
             windowValue(body.available_to, existing.available_to),
             orbitScore,

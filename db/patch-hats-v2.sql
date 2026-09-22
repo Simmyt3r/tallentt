@@ -61,7 +61,22 @@ UPDATE hats
 SET price_type = 'range'
 WHERE price_max IS NOT NULL AND price_max <> price_min;
 
--- 6. Reseed the 14 MECE categories (additive — old custom categories some
+-- 6. Weekly availability --------------------------------------------------
+ALTER TABLE hats
+  ADD COLUMN IF NOT EXISTS available_days TEXT[] NOT NULL
+  DEFAULT ARRAY['mon','tue','wed','thu','fri','sat','sun']::TEXT[];
+
+UPDATE hats
+SET available_days = ARRAY['mon','tue','wed','thu','fri','sat','sun']::TEXT[]
+WHERE available_days IS NULL OR cardinality(available_days) = 0;
+
+ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_available_days_check;
+ALTER TABLE hats ADD CONSTRAINT hats_available_days_check CHECK (
+  cardinality(available_days) BETWEEN 1 AND 7
+  AND available_days <@ ARRAY['mon','tue','wed','thu','fri','sat','sun']::TEXT[]
+);
+
+-- 7. Reseed the 14 MECE categories (additive — old custom categories some
 --    users already created are left in place, not replaced) --------------
 INSERT INTO categories (name) VALUES
   ('Beauty & Grooming'),

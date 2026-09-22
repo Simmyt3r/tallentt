@@ -3,6 +3,7 @@ export const DELIVERY_MODES = ['Physical', 'Remote', 'Hybrid']
 export const RATE_UNITS = ['hr', 'day', 'week', 'month', 'year', 'custom']
 export const PRICE_TYPES = ['fixed', 'range']
 export const HAT_ROLES = ['talent', 'client']
+export const AVAILABLE_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
 // Text limits shared with the Create/Edit Hat form (src/lib/hatForm.js).
 // The description shown in the form is stored in `hats.motto`, whose column
@@ -20,6 +21,17 @@ export const HAT_NAME_MAX = 60
 // rate / price_min / price_max are 32-bit INT columns. Anything larger (or
 // fractional) used to surface as a raw database error; reject it up front.
 export const MAX_PRICE = 2_000_000_000
+
+export function normalizeAvailableDays(value, fallback = AVAILABLE_DAYS) {
+  const source = value == null ? (Array.isArray(fallback) ? fallback : AVAILABLE_DAYS) : value
+  if (!Array.isArray(source)) return { ok: false, error: 'Available days must be a list.' }
+  const invalid = source.filter((day) => !AVAILABLE_DAYS.includes(day))
+  if (invalid.length) return { ok: false, error: 'Choose valid available days from Monday to Sunday.' }
+  const selected = new Set(source)
+  const days = AVAILABLE_DAYS.filter((day) => selected.has(day))
+  if (!days.length) return { ok: false, error: 'Choose at least one available day.' }
+  return { ok: true, days }
+}
 
 function validateAmount(value, missingMessage) {
   const amount = Number(value)

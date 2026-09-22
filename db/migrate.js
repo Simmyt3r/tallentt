@@ -17,7 +17,9 @@ async function main() {
     ? ['booking-completion.sql']
     : process.argv.includes('--live')
       ? ['live-support.sql']
-      : ['schema.sql', 'live-support.sql']
+      : process.argv.includes('--hat-days')
+        ? ['hat-availability-days.sql']
+        : ['schema.sql', 'live-support.sql']
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
   try {

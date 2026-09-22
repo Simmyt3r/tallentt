@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS hats (
   rate_unit_custom TEXT,
   active BOOLEAN DEFAULT true,
   availability BOOLEAN DEFAULT true,
+  available_days TEXT[] NOT NULL DEFAULT ARRAY['mon','tue','wed','thu','fri','sat','sun']::TEXT[],
   available_from TIME,
   available_to TIME,
   role TEXT CHECK (role IN ('talent','client','dual')) DEFAULT 'talent',
@@ -167,8 +168,17 @@ ALTER TABLE hats ADD COLUMN IF NOT EXISTS price_negotiable BOOLEAN DEFAULT false
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS rate INT;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS rate_unit TEXT;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS rate_unit_custom TEXT;
+ALTER TABLE hats ADD COLUMN IF NOT EXISTS available_days TEXT[] NOT NULL DEFAULT ARRAY['mon','tue','wed','thu','fri','sat','sun']::TEXT[];
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS available_from TIME;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS available_to TIME;
+UPDATE hats
+SET available_days = ARRAY['mon','tue','wed','thu','fri','sat','sun']::TEXT[]
+WHERE available_days IS NULL OR cardinality(available_days) = 0;
+ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_available_days_check;
+ALTER TABLE hats ADD CONSTRAINT hats_available_days_check CHECK (
+  cardinality(available_days) BETWEEN 1 AND 7
+  AND available_days <@ ARRAY['mon','tue','wed','thu','fri','sat','sun']::TEXT[]
+);
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS views INT DEFAULT 0;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS comments_count INT DEFAULT 0;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS jobs_posted INT DEFAULT 0;

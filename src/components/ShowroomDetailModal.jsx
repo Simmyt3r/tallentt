@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Eye, Heart, MapPin, Play, Share2, X } from 'lucide-react'
+import { BookOpen, Clock, Eye, Heart, MapPin, Play, Share2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 import { useBackdropClose, useDialog, useScrollLock } from '../lib/dialog'
@@ -11,7 +11,7 @@ import AvailabilityBadge from './AvailabilityBadge'
 import NegotiationNotice from './NegotiationNotice'
 import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
-import { formatPrice, relativeTime } from './bentoCardShared'
+import { formatAvailabilityWindow, formatPrice, relativeTime } from './bentoCardShared'
 import { bookHat } from '../lib/hatActions'
 
 const iconBtn =
@@ -128,6 +128,7 @@ export default function ShowroomDetailModal({
   const media = hat?.media?.[0]
   const caption = media?.caption || hat?.motto || ''
   const location = hat ? [hat.lga, hat.country].filter(Boolean).join(', ') : ''
+  const availabilityWindow = hat ? formatAvailabilityWindow(hat) : ''
   const isOwn = !!hat && !!user && hat.user_id === user.id
   const owner = identityFromHat(hat)
   const ownerName = getPrimaryIdentity(owner)
@@ -268,6 +269,11 @@ export default function ShowroomDetailModal({
                       available={hat.availability}
                       className={hat.availability ? '' : '!bg-transparent !text-black/55 !border-black/25'}
                     />
+                    {availabilityWindow && (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock size={12} aria-hidden="true" /> {availabilityWindow}
+                      </span>
+                    )}
                     <span className="inline-flex items-center gap-1">
                       <Eye size={13} aria-hidden="true" /> {hat.views || 0} views
                     </span>
