@@ -94,9 +94,6 @@ function SidebarContent({ collapsed, onNavigate }) {
       </nav>
 
       <div className="border-t border-black/10 px-2.5 py-3 space-y-1">
-        <div className="px-1 mb-1">
-          <NotificationsMenu />
-        </div>
         <NavLink
           to="/profile"
           onClick={onNavigate}
@@ -133,9 +130,8 @@ function SidebarContent({ collapsed, onNavigate }) {
   )
 }
 
-// Small persistent brand mark, shown independently of the sidebar now that
-// the sidebar lives on the right. Rendered by Layout on the opposite
-// (left) side of the screen on desktop. The logo graphic already carries
+// Small persistent brand mark rendered in the header beside the menu control.
+// The logo graphic already carries
 // the "ChombuTar" wordmark, so no separate text label is rendered next to
 // it — that was redundant and crowded any title sitting near it.
 export function BrandMark({ className = '' }) {
