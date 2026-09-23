@@ -12,9 +12,8 @@ import {
 
 // Discovery card — matches the owner's TWorld reference mockup: a compact,
 // text-only card (no media; portfolio browsing lives in Showroom instead)
-// that answers "is this hat interesting enough to open?". Tapping anywhere
-// on the card that isn't the avatar/username/like opens the detail modal.
-// Feed action buttons open that same modal before the final Book/Apply.
+// that answers "is this hat interesting enough to open?". Only the explicit
+// View/Book or View/Apply button opens details before the final action.
 export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, fullWidth = false, moreCount = 0, showFeedAction = false }) {
   const [open, setOpen] = useState(false)
 
@@ -41,10 +40,9 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
   return (
     <>
       <article
-        className={`bg-white rounded-[24px] p-4 border border-black/5 shadow-[0_8px_24px_rgba(0,0,0,0.04)] cursor-pointer hover:shadow-[0_12px_36px_rgba(0,0,0,0.08)] transition-all min-h-[264px] flex flex-col w-full ${
+        className={`bg-white rounded-[24px] p-4 border border-black/5 shadow-[0_8px_24px_rgba(0,0,0,0.04)] min-h-[264px] flex flex-col w-full ${
           fullWidth ? '' : 'max-w-[300px]'
         }`}
-        onClick={() => setOpen(true)}
       >
         <UserIdentity
           user={owner}
@@ -138,7 +136,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
               className={`min-h-[44px] px-4 rounded-full inline-flex items-center justify-center gap-2 text-[12px] font-semibold text-white border border-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6] transition-colors ${isTalent ? 'bg-[#0A13E6] hover:bg-black' : 'bg-black hover:bg-[#0A13E6]'}`}
             >
               {isTalent ? <BookOpen size={15} aria-hidden="true" /> : <Send size={15} aria-hidden="true" />}
-              {isTalent ? 'Book Talent' : 'Apply'}
+              {isTalent ? 'View/Book' : 'View/Apply'}
             </button>
           )}
         </div>
