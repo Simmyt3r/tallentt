@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { BookOpen, Send } from 'lucide-react'
 import BentoCardDetailModal from './BentoCardDetailModal'
 import UserIdentity from './UserIdentity'
+import RoleCardBadge from './RoleCardBadge'
 import { identityFromHat } from '../lib/profile.js'
 import {
   formatAvailabilityWindow,
@@ -40,12 +41,14 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
   return (
     <>
       <article
-        className={`bg-white rounded-[24px] p-4 border border-black/5 shadow-[0_8px_24px_rgba(0,0,0,0.04)] min-h-[264px] flex flex-col w-full ${
+        className={`relative bg-white rounded-[24px] p-4 border border-black/5 shadow-[0_8px_24px_rgba(0,0,0,0.04)] min-h-[264px] flex flex-col w-full ${
           fullWidth ? '' : 'max-w-[300px]'
         }`}
       >
+        <RoleCardBadge role={hat.role} className="absolute top-3 right-3 z-10" />
         <UserIdentity
           user={owner}
+          className="pr-11"
           align="start"
           gap="gap-3"
           nameClassName="font-bold text-[14.5px] leading-tight"
