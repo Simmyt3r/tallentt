@@ -8,11 +8,10 @@
 // existing ones — this file only decides how the form presents them:
 //
 //   priceMode 'fixed' -> price_type 'fixed', rate, price_negotiable false
-//   priceMode 'range' -> price_type 'fixed', rate (starting), price_negotiable true
+//   priceMode 'range' -> price_type 'range', price_min/max, price_negotiable true
 //
-// The old min/max range shape remains supported by the API for legacy Hats,
-// but the Create/Edit form no longer produces it. Range now means the existing
-// flexible starting-price flow, using price_negotiable as the canonical flag.
+// Range is a real minimum-to-maximum amount. It automatically uses the
+// existing offer/negotiation flow; there is no separate Negotiable price mode.
 //
 // Limits marked "keep in sync" mirror api/_lib/hatFields.js.
 
@@ -54,7 +53,7 @@ export const RATE_UNITS = [
 
 export const PRICE_MODES = [
   { value: 'fixed', label: 'Fixed', hint: 'One set price' },
-  { value: 'range', label: 'Range', hint: 'A starting price with room to adjust' },
+  { value: 'range', label: 'Range', hint: 'From a minimum to a maximum' },
 ]
 
 export const WEEKDAYS = [
@@ -161,7 +160,7 @@ export function roleCopy(role) {
       startingLabel: 'Starting budget',
       minLabel: 'Lowest budget',
       maxLabel: 'Highest budget',
-      rangeNote: 'Set a starting budget. Talent can propose a different amount before booking.',
+      rangeNote: 'Set the lowest and highest budget you are willing to consider.',
       whenQuestion: 'When do you need them?',
       whenHint: 'Choose the days and hours you need this talent or service.',
       openSwitch: 'Open for applications',
@@ -189,7 +188,7 @@ export function roleCopy(role) {
     startingLabel: 'Starting price',
     minLabel: 'Lowest price',
     maxLabel: 'Highest price',
-    rangeNote: 'Set a starting price. Clients can propose a different amount before booking.',
+    rangeNote: 'Set the lowest and highest price you are willing to accept.',
     whenQuestion: 'When are you available?',
     whenHint: 'Choose the days and hours you can take work.',
     openSwitch: 'Open for bookings',
@@ -297,6 +296,8 @@ export function emptyForm(user) {
 
     priceMode: 'fixed',
     amount: '',
+    priceMin: '',
+    priceMax: '',
     rateUnit: 'hr',
     rateUnitCustom: '',
     available: true,
@@ -326,9 +327,13 @@ export function hydrateForm(hat) {
     verifiedName: hat.verified_name || '',
 
     priceMode: isLegacyRange || hat.price_negotiable ? 'range' : 'fixed',
-    amount: isLegacyRange
+    amount: !isLegacyRange && !hat.price_negotiable && hat.rate != null ? String(hat.rate) : '',
+    priceMin: isLegacyRange
       ? (hat.price_min != null ? String(hat.price_min) : '')
-      : (hat.rate != null ? String(hat.rate) : ''),
+      : (hat.price_negotiable && hat.rate != null ? String(hat.rate) : ''),
+    priceMax: isLegacyRange
+      ? (hat.price_max != null ? String(hat.price_max) : '')
+      : (hat.price_negotiable && hat.rate != null ? String(hat.rate) : ''),
     rateUnit: RATE_UNITS.some((u) => u.value === hat.rate_unit) ? hat.rate_unit : 'hr',
     rateUnitCustom: hat.rate_unit_custom || '',
 
@@ -419,12 +424,22 @@ export function validateForm(form, ctx) {
   else if (media.failed > 0) errors.media = 'Retry or remove the files that failed to upload.'
   else if (copy.mediaRequired && media.ready === 0) errors.media = 'Add at least one photo, video or audio file. Talent Hats need media.'
 
-  const msg = amountError(form.amount, copy.priceNoun, currency)
-  if (msg) errors.amount = msg
-  if (form.rateUnit === 'custom') {
-    const label = form.rateUnitCustom.trim()
-    if (!label) errors.rateUnitCustom = 'Enter a label, like “per event”.'
-    else if (label.length > CUSTOM_UNIT_MAX) errors.rateUnitCustom = `Keep the label to ${CUSTOM_UNIT_MAX} characters or fewer.`
+  if (form.priceMode === 'range') {
+    const minMsg = amountError(form.priceMin, 'minimum', currency)
+    if (minMsg) errors.priceMin = minMsg
+    const maxMsg = amountError(form.priceMax, 'maximum', currency)
+    if (maxMsg) errors.priceMax = maxMsg
+    else if (!minMsg && Number(form.priceMax) < Number(form.priceMin)) {
+      errors.priceMax = 'Maximum must be at least the minimum.'
+    }
+  } else {
+    const msg = amountError(form.amount, copy.priceNoun, currency)
+    if (msg) errors.amount = msg
+    if (form.rateUnit === 'custom') {
+      const label = form.rateUnitCustom.trim()
+      if (!label) errors.rateUnitCustom = 'Enter a label, like “per event”.'
+      else if (label.length > CUSTOM_UNIT_MAX) errors.rateUnitCustom = `Keep the label to ${CUSTOM_UNIT_MAX} characters or fewer.`
+    }
   }
 
   if (!Array.isArray(form.availableDays) || form.availableDays.length === 0) {
@@ -454,6 +469,8 @@ export const FIELD_IDS = {
   hiringDuration: 'hat-hiring-duration',
   media: 'hat-media-add',
   amount: 'hat-amount',
+  priceMin: 'hat-price-min',
+  priceMax: 'hat-price-max',
   rateUnitCustom: 'hat-rate-unit-custom',
   availableDays: 'hat-available-day-mon',
   availableFrom: 'hat-available-from',
@@ -470,6 +487,8 @@ const SUMMARY_LABELS = {
   hiringDuration: () => 'Hiring duration',
   media: () => 'Media',
   amount: (copy) => (copy.priceNoun === 'budget' ? 'Budget' : 'Price'),
+  priceMin: (copy) => (copy.priceNoun === 'budget' ? 'Budget' : 'Price'),
+  priceMax: (copy) => (copy.priceNoun === 'budget' ? 'Budget' : 'Price'),
   rateUnitCustom: (copy) => (copy.priceNoun === 'budget' ? 'Budget' : 'Price'),
   availableDays: () => 'Availability',
   availableFrom: () => 'Availability',
@@ -495,12 +514,20 @@ export function summarizeErrors(errors, role) {
 /* ── Payload (form -> existing Hat API) ──────────────────────────────── */
 
 function pricingFields(form) {
+  if (form.priceMode === 'range') {
+    return {
+      price_type: 'range',
+      price_min: Number(form.priceMin),
+      price_max: Number(form.priceMax),
+      price_negotiable: true,
+    }
+  }
   return {
     price_type: 'fixed',
     rate: Number(form.amount),
     rate_unit: form.rateUnit,
     rate_unit_custom: form.rateUnit === 'custom' ? form.rateUnitCustom.trim() : undefined,
-    price_negotiable: form.priceMode === 'range',
+    price_negotiable: false,
   }
 }
 
@@ -546,11 +573,16 @@ export function buildPayload(form, { mode, role, media = null }) {
 
 export function priceLine(form) {
   const currency = countryByName(form.countryName).currency
+  if (form.priceMode === 'range') {
+    const min = formatMoney(form.priceMin, currency)
+    const max = formatMoney(form.priceMax, currency)
+    if (!min) return ''
+    return max && form.priceMax !== form.priceMin ? `${min} – ${max}` : min
+  }
   const amount = formatMoney(form.amount, currency)
   if (!amount) return ''
   const unit = form.rateUnit === 'custom' ? form.rateUnitCustom.trim() : RATE_UNITS.find((u) => u.value === form.rateUnit)?.short || ''
-  const base = unit ? `${amount} ${unit}` : amount
-  return form.priceMode === 'range' ? `${base} • Range` : base
+  return unit ? `${amount} ${unit}` : amount
 }
 
 export function hoursLine(form) {

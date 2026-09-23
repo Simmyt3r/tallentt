@@ -192,8 +192,13 @@ function HatFormScreen({ editId }) {
     [visible.hatName, visible.title, visible.category, visible.categoryCustom, visible.hiringDuration],
   )
   const pricingErrors = useMemo(
-    () => ({ amount: visible.amount, rateUnitCustom: visible.rateUnitCustom }),
-    [visible.amount, visible.rateUnitCustom],
+    () => ({
+      amount: visible.amount,
+      priceMin: visible.priceMin,
+      priceMax: visible.priceMax,
+      rateUnitCustom: visible.rateUnitCustom,
+    }),
+    [visible.amount, visible.priceMin, visible.priceMax, visible.rateUnitCustom],
   )
   const availabilityErrors = useMemo(
     () => ({ availableDays: visible.availableDays, availableFrom: visible.availableFrom, availableTo: visible.availableTo }),
@@ -365,6 +370,8 @@ function HatFormScreen({ editId }) {
           symbol={symbol}
           priceMode={form.priceMode}
           amount={form.amount}
+          priceMin={form.priceMin}
+          priceMax={form.priceMax}
           rateUnit={form.rateUnit}
           rateUnitCustom={form.rateUnitCustom}
           errors={pricingErrors}

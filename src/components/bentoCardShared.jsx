@@ -23,9 +23,8 @@ export const fmtMoney = (n, currency = 'NGN') => {
   }
 }
 
-// New Hats use Fixed or Range. Range is stored as a starting rate with
-// price_negotiable=true. Legacy min/max records are still rendered so old
-// data remains readable while no new min/max Hats are produced.
+// Hats use Fixed or Range. Range is a real minimum-to-maximum amount and
+// automatically uses the existing offer/negotiation flow.
 export function formatPrice(hat, currency) {
   if (hat.price_type === 'range' && hat.price_min != null) {
     const base =

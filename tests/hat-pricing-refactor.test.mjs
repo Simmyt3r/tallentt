@@ -30,24 +30,32 @@ test('Hat setup exposes only Fixed and Range pricing choices', async () => {
   assert.deepEqual(PRICE_MODES.map((mode) => mode.label), ['Fixed', 'Range'])
 
   const source = await readFile(new URL('../src/components/hatform/PricingSection.jsx', import.meta.url), 'utf8')
-  assert.doesNotMatch(source, /Minimum to maximum/)
-  assert.doesNotMatch(source, /rangeNegotiable/)
-  assert.doesNotMatch(source, /hat-price-min|hat-price-max/)
+  assert.match(source, /hat-price-min/)
+  assert.match(source, /hat-price-max/)
+  assert.match(source, /From/)
+  assert.match(source, /To/)
   assert.doesNotMatch(source, /label: 'Negotiable'|value: 'negotiable'/)
 })
 
-test('Range is the old flexible starting-price behavior', () => {
-  const form = validForm({ priceMode: 'range' })
+test('Range requires and stores a real minimum and maximum', () => {
+  const form = validForm({ priceMode: 'range', priceMin: '25000', priceMax: '50000' })
   assert.deepEqual(validateForm(form, { role: 'talent', media }), {})
 
   const payload = buildPayload(form, { mode: 'create', role: 'talent' })
-  assert.equal(payload.price_type, 'fixed')
-  assert.equal(payload.rate, 25000)
-  assert.equal(payload.rate_unit, 'hr')
+  assert.equal(payload.price_type, 'range')
+  assert.equal(payload.price_min, 25000)
+  assert.equal(payload.price_max, 50000)
   assert.equal(payload.price_negotiable, true)
-  assert.equal('price_min' in payload, false)
-  assert.equal('price_max' in payload, false)
-  assert.equal(priceLine(form), '₦25,000 /hr • Range')
+  assert.equal('rate' in payload, false)
+  assert.equal(priceLine(form), '₦25,000 – ₦50,000')
+})
+
+test('Range rejects an inverted interval', () => {
+  const form = validForm({ priceMode: 'range', priceMin: '50000', priceMax: '25000' })
+  assert.equal(
+    validateForm(form, { role: 'talent', media }).priceMax,
+    'Maximum must be at least the minimum.',
+  )
 })
 
 test('Fixed stays fixed and does not enter the offer flow', () => {
@@ -57,7 +65,7 @@ test('Fixed stays fixed and does not enter the offer flow', () => {
   assert.equal(payload.rate, 25000)
 })
 
-test('existing flexible and legacy min-max Hats hydrate into the new Range choice', () => {
+test('existing single-starting-price Range Hats hydrate safely as equal bounds', () => {
   const flexible = hydrateForm({
     price_type: 'fixed',
     rate: 15000,
@@ -66,8 +74,8 @@ test('existing flexible and legacy min-max Hats hydrate into the new Range choic
     availability: true,
   })
   assert.equal(flexible.priceMode, 'range')
-  assert.equal(flexible.amount, '15000')
-  assert.equal(flexible.rateUnit, 'day')
+  assert.equal(flexible.priceMin, '15000')
+  assert.equal(flexible.priceMax, '15000')
 
   const legacy = hydrateForm({
     price_type: 'range',
@@ -77,29 +85,31 @@ test('existing flexible and legacy min-max Hats hydrate into the new Range choic
     availability: true,
   })
   assert.equal(legacy.priceMode, 'range')
-  assert.equal(legacy.amount, '10000')
+  assert.equal(legacy.priceMin, '10000')
+  assert.equal(legacy.priceMax, '40000')
 })
 
-test('server keeps legacy min-max compatibility while new Range uses the negotiable flag', () => {
-  const modern = normalizePricing({
+test('server enforces fixed versus range semantics', () => {
+  const fixed = normalizePricing({
     price_type: 'fixed',
     rate: 25000,
     rate_unit: 'hr',
     price_negotiable: true,
   })
-  assert.equal(modern.ok, true)
-  assert.equal(modern.fields.price_type, 'fixed')
-  assert.equal(modern.fields.price_negotiable, true)
-  assert.equal(formatServerPrice(modern.fields, 'NGN'), '₦25,000 /hr (Range)')
+  assert.equal(fixed.ok, true)
+  assert.equal(fixed.fields.price_type, 'fixed')
+  assert.equal(fixed.fields.price_negotiable, false)
+  assert.equal(formatServerPrice(fixed.fields, 'NGN'), '₦25,000 /hr')
 
-  const legacy = normalizePricing({
+  const range = normalizePricing({
     price_type: 'range',
     price_min: 10000,
     price_max: 40000,
-    price_negotiable: true,
   })
-  assert.equal(legacy.ok, true)
-  assert.equal(legacy.fields.price_type, 'range')
-  assert.equal(legacy.fields.price_min, 10000)
-  assert.equal(legacy.fields.price_max, 40000)
+  assert.equal(range.ok, true)
+  assert.equal(range.fields.price_type, 'range')
+  assert.equal(range.fields.price_min, 10000)
+  assert.equal(range.fields.price_max, 40000)
+  assert.equal(range.fields.price_negotiable, true)
+  assert.equal(formatServerPrice(range.fields, 'NGN'), '₦10,000 – ₦40,000')
 })
