@@ -323,6 +323,41 @@ UPDATE escrows SET request_kind = CASE WHEN application_id IS NULL THEN 'booking
 WHERE request_kind IS NULL OR request_kind NOT IN ('booking','application');
 ALTER TABLE escrows DROP CONSTRAINT IF EXISTS escrows_request_kind_check;
 ALTER TABLE escrows ADD CONSTRAINT escrows_request_kind_check CHECK (request_kind IN ('booking','application'));
+-- Link legacy Client-Hat application deals to their original application.
+UPDATE escrows e
+SET application_id = a.id,
+    request_kind = 'application'
+FROM applications a
+JOIN hats h ON h.id = a.hat_id
+WHERE e.application_id IS NULL
+  AND h.role = 'client'
+  AND e.hat_id = a.hat_id
+  AND e.client_id = h.user_id
+  AND e.talent_id = a.applicant_id;
+
+-- Pending Range applications created before negotiation v1 need a thread
+-- before they can be accepted. Create the provisional deal record once.
+INSERT INTO escrows
+  (hat_id, client_id, talent_id, amount, application_id, request_kind, currency, pay_unit, contacts_unlocked)
+SELECT h.id, h.user_id, a.applicant_id, h.price_min, a.id, 'application',
+       COALESCE(h.currency, 'NGN'),
+       CASE WHEN h.rate_unit = 'custom' THEN h.rate_unit_custom ELSE h.rate_unit END,
+       false
+FROM applications a
+JOIN hats h ON h.id = a.hat_id
+LEFT JOIN escrows e ON e.application_id = a.id
+WHERE a.status = 'pending'
+  AND h.role = 'client'
+  AND h.price_type = 'range'
+  AND e.id IS NULL;
+
+-- Deals accepted before negotiation v1 already had a final operational
+-- amount under the legacy rules. Mark those as agreed so deployment does
+-- not push completed decisions back into negotiation.
+UPDATE escrows
+SET agreed_at = COALESCE(agreed_at, created_at)
+WHERE contacts_unlocked = true AND agreed_at IS NULL;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_escrows_application ON escrows (application_id) WHERE application_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_escrows_checkout_reference ON escrows (checkout_reference) WHERE checkout_reference IS NOT NULL;
 
