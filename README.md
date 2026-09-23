@@ -199,8 +199,10 @@ Before deploying the feed toggle update to an existing database, run
 `npm run db:migrate:hat-feed` with `DATABASE_URL` set. Fresh installations get
 the column from `db/schema.sql`. The migration is safe to repeat.
 
-All existing and new Hats start with **Show in feed** off. Owners enable it
-in My Hats (grid or list view). Range-priced Hats require confirmation of
+The Create Hat form ends with **Show in Bento feeds**, off by default.
+Owners can enable it before publishing and change it later using **Show in feed**
+in My Hats (grid or list view). Existing Hats start hidden when the migration
+first adds the column. Range-priced Hats require confirmation of
 “A negotiation fee applies” before publication; cancelling leaves the Hat
 hidden. This notice does not charge a wallet or define a new fee amount.
 Changing a published Fixed Hat to Range turns feed visibility off until the

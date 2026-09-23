@@ -129,12 +129,50 @@ test('ordinary editing cannot bypass opt-in and changing Fixed to Range unpublis
   assert.equal((await state(fixed)).feed_visible, true)
 })
 
-test('create ignores browser-supplied publication flags', async () => {
-  const res = await request(hatsHandler, '/api/hats', { method: 'POST', body: {
+const create = (fields = {}, who = owner) => request(hatsHandler, '/api/hats', { method: 'POST', who, body: {
     hat_title: 'Photographer', hat_name: 'Event photos', category: 'Film', role: 'client',
     hiring_duration: '6 months', price_type: 'range', price_min: 10000, price_max: 20000,
-    feed_visible: true, negotiation_fee_confirmed: true,
+    ...fields,
   } })
+
+test('create defaults to hidden and permits hidden Range Hats without confirmation', async () => {
+  for (const fields of [{}, { feed_visible: false }]) {
+    const res = await create(fields)
+    assert.equal(res.statusCode, 201, JSON.stringify(res.body))
+    assert.equal(res.body.hat.feed_visible, false)
+  }
+  assert.deepEqual(await feed(), [])
+})
+
+test('create publishes confirmed Range Hats with their owner and feed choice saved together', async () => {
+  const res = await create({ feed_visible: true, negotiation_fee_confirmed: true, user_id: other })
   assert.equal(res.statusCode, 201, JSON.stringify(res.body))
-  assert.equal(res.body.hat.feed_visible, false)
+  assert.equal(res.body.hat.feed_visible, true)
+  assert.equal(res.body.hat.user_id, owner)
+  assert.deepEqual((await feed()).map((h) => h.id), [res.body.hat.id])
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM wallet_transactions')).rows[0].n, 0)
+})
+
+test('create rejects unconfirmed Range publication and malformed toggles before inserting', async () => {
+  for (const confirmed of [undefined, false, 'true', 1]) {
+    const res = await create({ feed_visible: true, negotiation_fee_confirmed: confirmed })
+    assert.equal(res.statusCode, 409)
+    assert.equal(res.body.code, 'NEGOTIATION_FEE_CONFIRMATION_REQUIRED')
+  }
+  for (const value of ['true', 'false', 1, null]) {
+    assert.equal((await create({ feed_visible: value, negotiation_fee_confirmed: true })).statusCode, 400)
+  }
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM hats')).rows[0].n, 3)
+})
+
+test('create publishes Fixed Hats without a fee confirmation, for clients and talents', async () => {
+  for (const role of ['client', 'talent']) {
+    const res = await create({ feed_visible: true, price_type: 'fixed', rate: 10000, rate_unit: 'day', role,
+      media: role === 'talent' ? [{ url: 'https://example.test/photo.jpg', public_id: 'portfolio', type: 'image' }] : [],
+    })
+    assert.equal(res.statusCode, 201, JSON.stringify(res.body))
+    assert.equal(res.body.hat.feed_visible, true)
+    assert.equal(res.body.hat.role, role)
+  }
+  assert.equal((await create({ feed_visible: true }, null)).statusCode, 401)
 })

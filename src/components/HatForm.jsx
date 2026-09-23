@@ -36,6 +36,7 @@ import PricingSection from './hatform/PricingSection'
 import AvailabilityStatusSection from './hatform/AvailabilityStatusSection'
 import AvailabilitySection from './hatform/AvailabilitySection'
 import LocationSection from './hatform/LocationSection'
+import FeedVisibilitySection from './hatform/FeedVisibilitySection'
 import HatPreview from './hatform/HatPreview'
 import { useHatMedia } from './hatform/useHatMedia'
 import useLeaveGuard from './hatform/useLeaveGuard'
@@ -107,6 +108,7 @@ function HatFormScreen({ editId }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [pendingNav, setPendingNav] = useState(null)
   const [leaving, setLeaving] = useState(false)
+  const [feedChoice, setFeedChoice] = useState({ visible: false, confirmed: false })
 
   const media = useHatMedia()
   const submittingRef = useRef(false)
@@ -166,6 +168,8 @@ function HatFormScreen({ editId }) {
 
   // ── Field state ────────────────────────────────────────────────────────
   const setField = useCallback((name, value) => {
+    // A new price type needs a fresh publication choice and fee confirmation.
+    if (name === 'priceMode') setFeedChoice({ visible: false, confirmed: false })
     setForm((f) => (f[name] === value ? f : { ...f, [name]: value }))
   }, [])
 
@@ -222,7 +226,7 @@ function HatFormScreen({ editId }) {
   }
 
   // ── Unsaved changes ────────────────────────────────────────────────────
-  const dirty = baseline.current !== null && formSignature(form, hatRole, media.signature) !== baseline.current
+  const dirty = (!editing && feedChoice.visible) || (baseline.current !== null && formSignature(form, hatRole, media.signature) !== baseline.current)
   useLeaveGuard(dirty && !leaving, setPendingNav)
 
   function requestLeave(path) {
@@ -268,11 +272,15 @@ function HatFormScreen({ editId }) {
       if (targetId) {
         await api.updateHat(targetId, body)
       } else {
-        const created = await api.createHat(body)
+        const created = await api.createHat({
+          ...body,
+          feed_visible: feedChoice.visible,
+          negotiation_fee_confirmed: feedChoice.confirmed,
+        })
         savedIdRef.current = created?.hat?.id || 'created'
       }
       setLeaving(true) // saved: nothing left to guard
-      showToast(editing ? 'Changes saved. Manage feed visibility in My Hats.' : 'Hat created. Turn on Show in feed in My Hats to publish it to the feed.')
+      showToast(editing ? 'Changes saved. Manage feed visibility in My Hats.' : feedChoice.visible ? 'Hat created and shown in Bento feeds.' : 'Hat created. Hidden from Bento feeds.')
       navigate('/my-hats')
     } catch (err) {
       setSubmitError(describeSaveError(err, editing ? 'save' : 'publish'))
@@ -392,6 +400,10 @@ function HatFormScreen({ editId }) {
         />
 
         <LocationSection countryName={form.countryName} currency={country.currency} city={form.city} deliveryMode={form.deliveryMode} errors={locationErrors} onChange={setField} />
+
+        {!editing && (
+          <FeedVisibilitySection visible={feedChoice.visible} priceMode={form.priceMode} onChange={setFeedChoice} disabled={submitting} />
+        )}
 
         <div className="sticky bottom-[60px] z-10 -mx-4 px-4 py-3 space-y-2 bg-[#F7F3EB]/95 backdrop-blur border-t-[1.5px] border-black md:static md:mx-0 md:px-0 md:pt-1 md:pb-6 md:bg-transparent md:border-0 md:backdrop-blur-none">
           {submitError && (

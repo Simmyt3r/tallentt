@@ -284,6 +284,16 @@ export default async function handler(req, res) {
 
       const pricing = normalizePricing(body)
       if (!pricing.ok) return json(res, 400, { error: pricing.error })
+      if (body.feed_visible !== undefined && typeof body.feed_visible !== 'boolean') {
+        return json(res, 400, { error: 'feed_visible must be true or false.' })
+      }
+      const feedVisible = body.feed_visible === true
+      if (feedVisible && pricing.fields.price_type === 'range' && body.negotiation_fee_confirmed !== true) {
+        return json(res, 409, {
+          error: 'A negotiation fee applies. Confirm before showing this Hat in the feed.',
+          code: 'NEGOTIATION_FEE_CONFIRMATION_REQUIRED',
+        })
+      }
       const duration = normalizeHiringDuration(hiring_duration, role)
       if (!duration.ok) return json(res, 400, { error: duration.error })
       const days = normalizeAvailableDays(available_days)
@@ -308,8 +318,8 @@ export default async function handler(req, res) {
           user_id, hat_title, hat_name, username, verified_name, is_verified, category, skills,
           hat_type, hiring_duration, delivery_mode, country, country_flag, currency, lga, motto,
           price_type, price_min, price_max, price_negotiable, rate, rate_unit, rate_unit_custom,
-          role, availability, available_days, available_from, available_to, orbit_score
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
+          role, availability, available_days, available_from, available_to, orbit_score, feed_visible
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
         RETURNING *`,
         [
           session.sub,
@@ -341,6 +351,7 @@ export default async function handler(req, res) {
           available_from || null,
           available_to || null,
           orbitScore,
+          feedVisible,
         ],
       )
       const hat = rows[0]
