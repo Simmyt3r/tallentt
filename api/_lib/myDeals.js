@@ -407,8 +407,9 @@ export async function createApplicationRequest(applicantId, hatId, message, prop
     }
 
     if (!alreadyApplied && hat.price_type === 'range') {
-      const proposedAmount = requireAmount(Number(proposal.proposedAmount))
-      if (proposedAmount < Number(hat.price_min) || proposedAmount > Number(hat.price_max)) {
+      const hasInitialProposal = proposal.proposedAmount != null
+      const proposedAmount = hasInitialProposal ? requireAmount(Number(proposal.proposedAmount)) : null
+      if (hasInitialProposal && (proposedAmount < Number(hat.price_min) || proposedAmount > Number(hat.price_max))) {
         throw bookingError(409, 'Your proposal must stay within the Hat price range.')
       }
       const payUnit = hat.rate_unit === 'custom' ? hat.rate_unit_custom : hat.rate_unit
@@ -440,13 +441,15 @@ export async function createApplicationRequest(applicantId, hatId, message, prop
         )
         escrow = rows[0]
       }
-      const proposalText = messageText(typeof proposal.proposalMessage === 'string' ? proposal.proposalMessage : '', escrow, false)
-      await client.query(
-        `INSERT INTO booking_messages
-           (escrow_id, sender_id, recipient_id, kind, body, amount, currency, pay_unit, offer_status, client_token)
-         VALUES ($1,$2,$3,'offer',$4,$5,$6,$7,'pending',$8)`,
-        [escrow.id, applicantId, hat.user_id, proposalText, proposedAmount, hat.currency || 'NGN', payUnit || null, randomUUID()],
-      )
+      if (hasInitialProposal) {
+        const proposalText = messageText(typeof proposal.proposalMessage === 'string' ? proposal.proposalMessage : '', escrow, false)
+        await client.query(
+          `INSERT INTO booking_messages
+             (escrow_id, sender_id, recipient_id, kind, body, amount, currency, pay_unit, offer_status, client_token)
+           VALUES ($1,$2,$3,'offer',$4,$5,$6,$7,'pending',$8)`,
+          [escrow.id, applicantId, hat.user_id, proposalText, proposedAmount, hat.currency || 'NGN', payUnit || null, randomUUID()],
+        )
+      }
     }
 
     await client.query('COMMIT')
