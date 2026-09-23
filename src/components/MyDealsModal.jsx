@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { api, payForBooking } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
+import RoleCardBadge from './RoleCardBadge.jsx'
 
 const FILTERS = ['All', 'Freelance', 'Contract']
 
@@ -31,6 +32,7 @@ function bookingPeer(item, role) {
     name: item[`${prefix}_full_name`],
     avatar: item[`${prefix}_avatar`],
     lga: item[`${prefix}_lga`] || item.hat_lga,
+    role: prefix === 'client' ? 'client' : 'talent',
   }
 }
 
@@ -41,6 +43,7 @@ function applicationPeer(item, role) {
     name: item[`${prefix}_full_name`],
     avatar: item[`${prefix}_avatar`],
     lga: item[`${prefix}_lga`] || item.hat_lga,
+    role: prefix === 'owner' ? 'client' : 'talent',
   }
 }
 
@@ -435,9 +438,10 @@ export default function MyDealsModal() {
                   return (
                     <article
                       key={`${isApplication ? 'app' : 'booking'}-${id}`}
-                      className="rounded-[20px] border-[1.5px] border-black bg-white overflow-hidden"
+                      className="relative rounded-[20px] border-[1.5px] border-black bg-white overflow-hidden"
                     >
-                      <div className="p-4 sm:p-5 flex gap-3">
+                      <RoleCardBadge role={peer.role} className="absolute top-3 right-3 z-10" />
+                      <div className="p-4 sm:p-5 flex gap-3 pr-14">
                         <div className="w-12 h-12 rounded-[13px] border border-black/10 bg-[#F5F3EF] overflow-hidden shrink-0">
                           {peer.avatar || item.hat_thumbnail ? (
                             <img
@@ -461,7 +465,7 @@ export default function MyDealsModal() {
                                 {peer.username ? `^${peer.username}` : ''}
                               </p>
                             </div>
-                            <span className="shrink-0 rounded-full bg-[#F5F3EF] px-2.5 py-1 text-[10px] font-black">
+                            <span className="shrink-0 mr-1 rounded-full bg-[#F5F3EF] px-2.5 py-1 text-[10px] font-black">
                               {niceStatus(status)}
                             </span>
                           </div>
