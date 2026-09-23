@@ -1,5 +1,6 @@
 // Path: src/components/BentoCard.jsx
 import { useState } from 'react'
+import { BookOpen, Send } from 'lucide-react'
 import BentoCardDetailModal from './BentoCardDetailModal'
 import UserIdentity from './UserIdentity'
 import { identityFromHat } from '../lib/profile.js'
@@ -12,10 +13,9 @@ import {
 // Discovery card — matches the owner's TWorld reference mockup: a compact,
 // text-only card (no media; portfolio browsing lives in Showroom instead)
 // that answers "is this hat interesting enough to open?". Tapping anywhere
-// on the card that isn't the avatar/username/like opens
-// BentoCardDetailModal, which owns the actual Book/Apply decision — this
-// card deliberately has no primary-action button of its own.
-export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, fullWidth = false, moreCount = 0 }) {
+// on the card that isn't the avatar/username/like opens the detail modal.
+// Feed action buttons open that same modal before the final Book/Apply.
+export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, fullWidth = false, moreCount = 0, showFeedAction = false }) {
   const [open, setOpen] = useState(false)
 
   const isTalent = hat.role === 'talent'
@@ -113,7 +113,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           </>
         )}
 
-        <div className="mt-auto pt-4 flex items-center justify-between">
+        <div className="mt-auto pt-4 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={(e) => {
@@ -127,6 +127,20 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           >
             <span className="text-[13px]">{liked ? '❤' : '♡'}</span> {likeCount || 0}
           </button>
+          {showFeedAction && (
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={(e) => {
+                e.stopPropagation()
+                setOpen(true)
+              }}
+              className={`min-h-[44px] px-4 rounded-full inline-flex items-center justify-center gap-2 text-[12px] font-semibold text-white border border-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6] transition-colors ${isTalent ? 'bg-[#0A13E6] hover:bg-black' : 'bg-black hover:bg-[#0A13E6]'}`}
+            >
+              {isTalent ? <BookOpen size={15} aria-hidden="true" /> : <Send size={15} aria-hidden="true" />}
+              {isTalent ? 'Book Talent' : 'Apply'}
+            </button>
+          )}
         </div>
       </article>
 

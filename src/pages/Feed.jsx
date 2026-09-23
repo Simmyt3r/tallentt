@@ -7,9 +7,11 @@ import BentoCard from '../components/BentoCard'
 import { useBrowseRole } from '../components/Layout'
 import { bookHat, submitApplication } from '../lib/hatActions'
 import { normalizeUsername } from '../lib/profile.js'
+import { useAuth } from '../context/AuthContext'
 
 export default function Feed() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const browseRole = useBrowseRole()
   const hatRole = browseRole === 'talent' ? 'client' : 'talent'
   const [hats, setHats] = useState([])
@@ -106,6 +108,7 @@ export default function Feed() {
               key={primary.id}
               hat={primary}
               moreCount={moreCount}
+              showFeedAction={primary.user_id !== user?.id}
               onBook={(hat) => bookHat(hat, navigate)}
               onApply={(hat) => submitApplication(hat, handleHatChange, navigate)}
               fullWidth
