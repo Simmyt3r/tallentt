@@ -8,6 +8,7 @@ import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from 
 import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notifications.js'
 import { getConversations, getThread, threadAction } from '../_lib/bookingThreads.js'
 import { bookingError, requireBookingId } from '../_lib/bookingRules.js'
+import { getMyDeals, notifyBookingCreated, respondBookingRequest } from '../_lib/myDeals.js'
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store')
@@ -27,6 +28,9 @@ export default async function handler(req, res) {
       }
       if (url.searchParams.get('messages') === '1') {
         return json(res, 200, await getThread(session.sub, url.searchParams.get('escrow_id'), url.searchParams.get('before'), url.searchParams.get('events_before')))
+      }
+      if (url.searchParams.get('deals') === '1') {
+        return json(res, 200, await getMyDeals(session.sub))
       }
 
       if (url.searchParams.get('wallet') === '1') {
@@ -95,6 +99,9 @@ export default async function handler(req, res) {
     if (['send_message', 'make_offer', 'respond_offer', 'read_messages'].includes(body.action)) {
       return json(res, 200, await threadAction(session.sub, body))
     }
+    if (body.action === 'respond_booking') {
+      return json(res, 200, await respondBookingRequest(session.sub, body.escrow_id, body.status))
+    }
 
     // Wallet actions — dispatched by body.action, same pattern as the
     // fund/release split in api/escrows/[id]/[action].js, kept in this
@@ -139,8 +146,10 @@ async function createBooking(userId, hatId) {
       )
       escrow = rows[0]
     }
+    const alreadyExists = Boolean(existing[0])
     await client.query('COMMIT')
-    return { escrow, already_exists: Boolean(existing[0]) }
+    if (!alreadyExists) await notifyBookingCreated(escrow.id)
+    return { escrow, already_exists: alreadyExists }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     throw err
