@@ -8,6 +8,7 @@ export async function prepareCheckout(userId, escrowId, expectedAmount) {
   return withBooking(userId, escrowId, async (client, escrow) => {
     if (escrow.client_id !== userId) throw bookingError(403, 'Only the client can fund this booking.')
     if (escrow.status !== 'not_funded') throw bookingError(409, 'This booking is no longer awaiting payment.')
+    if (!escrow.contacts_unlocked) throw bookingError(409, 'The talent must accept this booking request before payment.')
     assertExpectedAmount(escrow, expectedAmount)
     await assertNoPendingOffer(client, escrow.id)
     const { rows } = await client.query(
@@ -23,6 +24,7 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
   const result = await withBooking(userId, escrowId, async (client, escrow) => {
     if (escrow.client_id !== userId) throw bookingError(403, 'Only the client can fund this booking.')
     if (escrow.status !== 'not_funded') throw bookingError(409, 'This booking is no longer awaiting payment.')
+    if (!escrow.contacts_unlocked) throw bookingError(409, 'The talent must accept this booking request before payment.')
     assertExpectedAmount(escrow, expectedAmount)
     if (escrow.checkout_reference) {
       throw bookingError(409, 'Card checkout has already started. Complete that checkout to avoid paying twice.')
