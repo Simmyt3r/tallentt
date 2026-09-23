@@ -37,7 +37,7 @@ try {
     async function fillForm() {
       await page.locator('#hat-name').fill('Event photos')
       await page.locator('#hat-title').fill('Photographer')
-      await page.locator('#hat-category').selectOption('Film')
+      await page.locator('#hat-category').fill('Film')
       await page.locator('#hat-hiring-duration').selectOption('6 months')
       await page.locator('#hat-amount').fill('10000')
       await page.locator('label').filter({ has: page.locator('input[name="hat-delivery"][value="Remote"]') }).click()
