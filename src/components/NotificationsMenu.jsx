@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bell, CheckCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 
 function relativeTime(value) {
   if (!value) return ''
@@ -20,6 +22,7 @@ function relativeTime(value) {
 
 export default function NotificationsMenu({ panelPosition = 'down', className = '', buttonClassName = '', iconSize = 16 }) {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const rootRef = useRef(null)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -47,6 +50,12 @@ export default function NotificationsMenu({ panelPosition = 'down', className = 
     const id = setInterval(() => load({ quiet: true }), 60_000)
     return () => clearInterval(id)
   }, [load])
+
+  useEffect(() => {
+    if (!user?.id) return undefined
+    const connection = connectMyDealsRealtime(user.id, { onChange: () => load({ quiet: true }) })
+    return () => connection.close()
+  }, [load, user?.id])
 
   useEffect(() => {
     if (!open) return undefined
