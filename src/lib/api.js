@@ -115,6 +115,7 @@ export const api = {
   // endpoints with a query param rather than dedicated ones (see
   // api/hats/index.js and api/escrows/index.js for the 12-function-cap note).
   getMyApplications: () => request('/api/hats?applied=1'),
+  getReceivedApplications: () => request('/api/hats?received_applications=1'),
   getMyBookings: () => request('/api/escrows?mine=1'),
 
   // Admin — one consolidated endpoint to stay within Vercel Hobby's

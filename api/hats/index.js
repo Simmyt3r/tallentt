@@ -79,6 +79,36 @@ export default async function handler(req, res) {
         }
       }
 
+      // GET /api/hats?received_applications=1 — applications received
+      // on Client Hats owned by the signed-in user. This is the owner-side
+      // half of My Applications; applicant review no longer lives under My Hats.
+      if (url.searchParams.get('received_applications') === '1') {
+        const session = getSessionUser(req)
+        if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
+        try {
+          const { rows } = await query(
+            `SELECT a.id as application_id, a.status, a.message, a.created_at as applied_at,
+                    h.id as hat_id, h.hat_title, h.hat_name, h.category, h.hiring_duration,
+                    h.price_type, h.rate, h.price_min, h.price_max, h.price_negotiable, h.currency,
+                    h.rate_unit, h.rate_unit_custom,
+                    u.id as applicant_id, u.username as applicant_username,
+                    u.full_name as applicant_full_name, u.avatar_url as applicant_avatar,
+                    u.role as applicant_role, u.company_suffix as applicant_company_suffix,
+                    (SELECT m.url FROM hat_media m WHERE m.hat_id = h.id ORDER BY m.created_at LIMIT 1) as hat_thumbnail
+             FROM applications a
+             JOIN hats h ON h.id = a.hat_id
+             JOIN users u ON u.id = a.applicant_id
+             WHERE h.user_id = $1 AND h.role = 'client'
+             ORDER BY a.created_at DESC`,
+            [session.sub],
+          )
+          return json(res, 200, { applications: rows })
+        } catch (appErr) {
+          console.error('received applications lookup failed:', appErr)
+          return json(res, 200, { applications: [] })
+        }
+      }
+
       // Seeking-field typeahead: GET /api/hats?suggest=1&role=talent&q=henna
       // Reuses this endpoint instead of a dedicated function (Hobby plan's
       // 12-function cap) — returns distinct hat_title values from the
