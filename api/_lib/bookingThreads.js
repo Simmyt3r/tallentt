@@ -1,5 +1,5 @@
 import { query, getClient } from './db.js'
-import { bookingError, requireBookingId, requireAmount, assertNegotiable, assertPriceEditable, messageText, canShareContacts } from './bookingRules.js'
+import { bookingError, requireBookingId, requireAmount, assertNegotiable, assertOfferWithinRange, assertPriceEditable, messageText, canShareContacts } from './bookingRules.js'
 import { lifecycleHistory } from './bookingLifecycle.js'
 
 export async function withBooking(userId, escrowId, operation) {
@@ -8,7 +8,8 @@ export async function withBooking(userId, escrowId, operation) {
   try {
     await client.query('BEGIN')
     const { rows } = await client.query(
-      `SELECT e.*, h.hat_title, h.price_negotiable
+      `SELECT e.*, h.hat_title, h.price_negotiable, h.price_type, h.price_min, h.price_max,
+              h.currency AS hat_currency, h.rate_unit, h.rate_unit_custom
        FROM escrows e JOIN hats h ON h.id = e.hat_id
        WHERE e.id = $1 AND ($2 = e.client_id OR $2 = e.talent_id) FOR UPDATE OF e`,
       [escrowId, userId],
@@ -28,7 +29,8 @@ export async function withBooking(userId, escrowId, operation) {
 export async function getConversations(userId, before) {
   if (before) requireBookingId(before)
   const { rows } = await query(
-    `SELECT e.id, e.hat_id, e.amount, e.status, e.work_status, e.created_at, h.hat_title,
+    `SELECT e.id, e.hat_id, e.amount, e.currency, e.pay_unit, e.agreed_at, e.request_kind, e.application_id,
+            e.status, e.work_status, e.created_at, h.hat_title,
             u.username AS peer_username, u.avatar_url AS peer_avatar,
             u.full_name AS peer_full_name, u.role AS peer_role, u.company_suffix AS peer_company_suffix,
             (SELECT COUNT(*)::int FROM booking_messages m
@@ -48,12 +50,12 @@ export async function getThread(userId, escrowId, before, eventsBefore) {
   if (before && !/^[1-9]\d{0,18}$/.test(before)) throw bookingError(400, 'Invalid message cursor.')
   return withBooking(userId, escrowId, async (client, escrow) => {
     const { rows } = await client.query(
-      `SELECT id::text, sender_id, kind, body, amount, offer_status, read_at, created_at, updated_at
+      `SELECT id::text, sender_id, kind, body, amount, currency, pay_unit, offer_status, read_at, created_at, updated_at
        FROM booking_messages WHERE escrow_id = $1 AND ($2::bigint IS NULL OR id < $2)
        ORDER BY booking_messages.id DESC LIMIT 51`, [escrowId, before || null],
     )
     const { rows: offers } = await client.query(
-      `SELECT id::text, sender_id, kind, body, amount, offer_status, created_at, updated_at
+      `SELECT id::text, sender_id, kind, body, amount, currency, pay_unit, offer_status, created_at, updated_at
        FROM booking_messages WHERE escrow_id = $1 AND offer_status = 'pending'`, [escrowId],
     )
     const { rows: peers } = await client.query(
@@ -66,7 +68,10 @@ export async function getThread(userId, escrowId, before, eventsBefore) {
     // Explicit fields keep provider references and other internal metadata private.
     return {
       thread: { id: escrow.id, hat_id: escrow.hat_id, hat_title: escrow.hat_title,
-        amount: escrow.amount, status: escrow.status, is_client: userId === escrow.client_id,
+        amount: escrow.amount, currency: escrow.currency || escrow.hat_currency || 'NGN',
+        pay_unit: escrow.pay_unit || (escrow.rate_unit === 'custom' ? escrow.rate_unit_custom : escrow.rate_unit) || null,
+        agreed_at: escrow.agreed_at, request_kind: escrow.request_kind, application_id: escrow.application_id,
+        price_type: escrow.price_type, status: escrow.status, is_client: userId === escrow.client_id,
         work_status: escrow.work_status, work_version: escrow.work_version,
         contacts_unlocked: canShareContacts(escrow), price_negotiable: escrow.price_negotiable,
         checkout_locked_at: escrow.checkout_locked_at, card_checkout_started: Boolean(escrow.checkout_reference),
@@ -123,7 +128,7 @@ export async function threadAction(userId, body) {
       const text = messageText(body.body, escrow, !isOffer)
       if (isOffer) {
         assertNegotiable(escrow)
-        requireAmount(body.amount)
+        assertOfferWithinRange(escrow, body.amount)
         const { rows: pending } = await client.query(
           `SELECT id::text FROM booking_messages WHERE escrow_id = $1 AND offer_status = 'pending'`, [escrow.id],
         )
@@ -141,10 +146,13 @@ export async function threadAction(userId, body) {
       )
       if (rate[0].count >= 20) throw bookingError(429, 'Too many messages. Please wait a minute.')
       const { rows } = await client.query(
-        `INSERT INTO booking_messages (escrow_id, sender_id, kind, body, amount, offer_status, client_token, recipient_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id::text`,
+        `INSERT INTO booking_messages (escrow_id, sender_id, kind, body, amount, currency, pay_unit, offer_status, client_token, recipient_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id::text`,
         [escrow.id, userId, isOffer ? 'offer' : 'message', text,
-          isOffer ? body.amount : null, isOffer ? 'pending' : null, body.client_token,
+          isOffer ? body.amount : null,
+          isOffer ? (escrow.currency || escrow.hat_currency || 'NGN') : null,
+          isOffer ? (escrow.pay_unit || (escrow.rate_unit === 'custom' ? escrow.rate_unit_custom : escrow.rate_unit) || null) : null,
+          isOffer ? 'pending' : null, body.client_token,
           userId === escrow.client_id ? escrow.talent_id : escrow.client_id],
       )
       await notifyThread(client, escrow, userId, isOffer ? 'New price offer' : 'New booking message')
@@ -175,7 +183,11 @@ export async function threadAction(userId, body) {
         [body.status, body.offer_id, userId === escrow.client_id ? escrow.talent_id : escrow.client_id],
       )
       if (body.status === 'accepted') {
-        await client.query(`UPDATE escrows SET amount = $1 WHERE id = $2`, [offer.amount, escrow.id])
+        await client.query(
+          `UPDATE escrows SET amount = $1, currency = COALESCE($3, currency),
+           pay_unit = COALESCE($4, pay_unit), agreed_at = NOW() WHERE id = $2`,
+          [offer.amount, escrow.id, offer.currency, offer.pay_unit],
+        )
       }
       await notifyThread(client, escrow, userId, `Price offer ${body.status}`)
       await client.query(`UPDATE escrows SET messages_updated_at = NOW() WHERE id = $1`, [escrow.id])

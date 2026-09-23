@@ -28,7 +28,23 @@ export function assertPriceEditable(escrow) {
 
 export function assertNegotiable(escrow) {
   assertPriceEditable(escrow)
-  if (!escrow.price_negotiable) throw bookingError(409, 'This hat has a fixed, non-negotiable price.')
+  if (!(escrow.price_type === 'range' || escrow.price_negotiable)) {
+    throw bookingError(409, 'This Hat has a fixed, non-negotiable price.')
+  }
+  if (escrow.agreed_at) {
+    throw bookingError(409, 'The price is already agreed. Accept the request or continue to payment.')
+  }
+}
+
+export function assertOfferWithinRange(escrow, amount) {
+  requireAmount(amount)
+  if (escrow.price_type !== 'range') return amount
+  const min = Number(escrow.price_min)
+  const max = Number(escrow.price_max)
+  if ((Number.isFinite(min) && amount < min) || (Number.isFinite(max) && amount > max)) {
+    throw bookingError(409, `Offer must stay within the Hat range of ${min.toLocaleString()} – ${max.toLocaleString()}.`)
+  }
+  return amount
 }
 
 export function assertExpectedAmount(escrow, expected) {

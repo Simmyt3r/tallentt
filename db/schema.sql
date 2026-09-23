@@ -306,6 +306,24 @@ BEGIN
 END $$;
 ALTER TABLE escrows ADD COLUMN IF NOT EXISTS checkout_reference TEXT;
 ALTER TABLE escrows ADD COLUMN IF NOT EXISTS messages_updated_at TIMESTAMPTZ;
+
+-- Negotiation v1: every flexible-price request gets a durable deal thread.
+-- Application-origin escrows are provisional until the application is accepted.
+ALTER TABLE escrows ADD COLUMN IF NOT EXISTS application_id UUID REFERENCES applications(id) ON DELETE SET NULL;
+ALTER TABLE escrows ADD COLUMN IF NOT EXISTS request_kind TEXT NOT NULL DEFAULT 'booking';
+ALTER TABLE escrows ADD COLUMN IF NOT EXISTS currency TEXT;
+ALTER TABLE escrows ADD COLUMN IF NOT EXISTS pay_unit TEXT;
+ALTER TABLE escrows ADD COLUMN IF NOT EXISTS agreed_at TIMESTAMPTZ;
+UPDATE escrows e
+SET currency = COALESCE(e.currency, h.currency, 'NGN'),
+    pay_unit = COALESCE(e.pay_unit, CASE WHEN h.rate_unit = 'custom' THEN h.rate_unit_custom ELSE h.rate_unit END)
+FROM hats h
+WHERE h.id = e.hat_id AND (e.currency IS NULL OR e.pay_unit IS NULL);
+UPDATE escrows SET request_kind = CASE WHEN application_id IS NULL THEN 'booking' ELSE 'application' END
+WHERE request_kind IS NULL OR request_kind NOT IN ('booking','application');
+ALTER TABLE escrows DROP CONSTRAINT IF EXISTS escrows_request_kind_check;
+ALTER TABLE escrows ADD CONSTRAINT escrows_request_kind_check CHECK (request_kind IN ('booking','application'));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_escrows_application ON escrows (application_id) WHERE application_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_escrows_checkout_reference ON escrows (checkout_reference) WHERE checkout_reference IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS booking_messages (
@@ -316,6 +334,8 @@ CREATE TABLE IF NOT EXISTS booking_messages (
   kind TEXT NOT NULL CHECK (kind IN ('message', 'offer')),
   body TEXT NOT NULL CHECK (char_length(body) <= 2000),
   amount INT,
+  currency TEXT,
+  pay_unit TEXT,
   offer_status TEXT,
   client_token UUID NOT NULL,
   read_at TIMESTAMPTZ,
@@ -329,6 +349,13 @@ CREATE TABLE IF NOT EXISTS booking_messages (
 CREATE INDEX IF NOT EXISTS idx_booking_messages_thread ON booking_messages (escrow_id, id DESC);
 CREATE INDEX IF NOT EXISTS idx_booking_messages_unread ON booking_messages (escrow_id, recipient_id) WHERE read_at IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_messages_pending_offer ON booking_messages (escrow_id) WHERE offer_status = 'pending';
+ALTER TABLE booking_messages ADD COLUMN IF NOT EXISTS currency TEXT;
+ALTER TABLE booking_messages ADD COLUMN IF NOT EXISTS pay_unit TEXT;
+UPDATE booking_messages m
+SET currency = COALESCE(m.currency, e.currency),
+    pay_unit = COALESCE(m.pay_unit, e.pay_unit)
+FROM escrows e
+WHERE e.id = m.escrow_id AND (m.currency IS NULL OR m.pay_unit IS NULL);
 
 CREATE TABLE IF NOT EXISTS wallets (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

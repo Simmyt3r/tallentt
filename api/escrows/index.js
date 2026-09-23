@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 // Path: api/escrows/index.js
 import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
@@ -7,7 +8,7 @@ import { applyVerifiedPayment } from '../_lib/escrowPayments.js'
 import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from '../_lib/wallet.js'
 import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notifications.js'
 import { getConversations, getThread, threadAction } from '../_lib/bookingThreads.js'
-import { bookingError, requireBookingId } from '../_lib/bookingRules.js'
+import { bookingError, requireBookingId, requireAmount, messageText } from '../_lib/bookingRules.js'
 import { getMyDeals, notifyBookingCreated, respondBookingRequest } from '../_lib/myDeals.js'
 
 export default async function handler(req, res) {
@@ -113,7 +114,10 @@ export default async function handler(req, res) {
 
     const { hat_id } = body
     requireBookingId(hat_id)
-    const result = await createBooking(session.sub, hat_id)
+    const result = await createBooking(session.sub, hat_id, {
+      proposedAmount: body.proposed_amount,
+      proposalMessage: body.proposal_message,
+    })
     return json(res, result.already_exists ? 200 : 201, result)
   } catch (err) {
     if (!err.status) console.error(err)
@@ -121,7 +125,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function createBooking(userId, hatId) {
+async function createBooking(userId, hatId, proposal = {}) {
   const client = await getClient()
   try {
     await client.query('BEGIN')
@@ -139,12 +143,30 @@ async function createBooking(userId, hatId) {
     let escrow = existing[0]
     if (!escrow) {
       const amount = Number(hat.price_type === 'range' ? hat.price_min : hat.rate)
-      if (!Number.isInteger(amount) || amount <= 0) throw bookingError(400, 'This hat has no price set yet.')
+      if (!Number.isInteger(amount) || amount <= 0) throw bookingError(400, 'This Hat has no price set yet.')
+      const payUnit = hat.rate_unit === 'custom' ? hat.rate_unit_custom : hat.rate_unit
+      const agreedAt = hat.price_type === 'range' ? null : new Date()
       const { rows } = await client.query(
-        `INSERT INTO escrows (hat_id, client_id, talent_id, amount) VALUES ($1, $2, $3, $4) RETURNING *`,
-        [hatId, userId, hat.user_id, amount],
+        `INSERT INTO escrows (hat_id, client_id, talent_id, amount, request_kind, currency, pay_unit, agreed_at)
+         VALUES ($1, $2, $3, $4, 'booking', $5, $6, $7) RETURNING *`,
+        [hatId, userId, hat.user_id, amount, hat.currency || 'NGN', payUnit || null, agreedAt],
       )
       escrow = rows[0]
+
+      if (hat.price_type === 'range') {
+        const proposedAmount = requireAmount(Number(proposal.proposedAmount))
+        if (proposedAmount < Number(hat.price_min) || proposedAmount > Number(hat.price_max)) {
+          throw bookingError(409, 'Your proposal must stay within the Hat price range.')
+        }
+        const proposalText = messageText(typeof proposal.proposalMessage === 'string' ? proposal.proposalMessage : '', escrow, false)
+        await client.query(
+          `INSERT INTO booking_messages
+             (escrow_id, sender_id, recipient_id, kind, body, amount, currency, pay_unit, offer_status, client_token)
+           VALUES ($1,$2,$3,'offer',$4,$5,$6,$7,'pending',$8)`,
+          [escrow.id, userId, hat.user_id, proposalText, proposedAmount, hat.currency || 'NGN', payUnit || null, randomUUID()],
+        )
+        await client.query('UPDATE escrows SET messages_updated_at = NOW() WHERE id = $1', [escrow.id])
+      }
     }
     const alreadyExists = Boolean(existing[0])
     await client.query('COMMIT')

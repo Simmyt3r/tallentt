@@ -3,7 +3,7 @@ import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
 import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing, normalizeAvailableDays, normalizeHiringDuration } from '../_lib/hatFields.js'
-import { notifyApplicationCreated, notifyApplicationState, respondApplicationDeal } from '../_lib/myDeals.js'
+import { createApplicationRequest, notifyApplicationState, respondApplicationDeal } from '../_lib/myDeals.js'
 
 async function getHat(id, viewerId) {
   const { rows } = await query(
@@ -479,42 +479,19 @@ export default async function handler(req, res) {
           await query(`UPDATE hats SET likes = likes + 1 WHERE id = $1`, [id])
         }
       } else if (body.action === 'apply') {
-        // Applying to your own hat makes no sense.
         if (existing.user_id === session.sub) {
-          return json(res, 400, { error: "You can't apply to your own hat." })
+          return json(res, 400, { error: "You can't apply to your own Hat." })
         }
         if (existing.role !== 'client') {
-          return json(res, 400, { error: 'Talent hats are booked, not applied to.' })
+          return json(res, 400, { error: 'Talent Hats are booked, not applied to.' })
         }
         const message = typeof body.message === 'string' ? body.message.slice(0, 500) : null
-        const { rows: existingApp } = await query(
-          `SELECT id, status FROM applications WHERE hat_id = $1 AND applicant_id = $2`,
-          [id, session.sub],
-        )
-        if (existingApp[0] && ['pending', 'accepted'].includes(existingApp[0].status)) {
-          // Already have a live application — idempotent, not an error.
-          application = existingApp[0]
-          alreadyApplied = true
-        } else if (existingApp[0]) {
-          // Re-applying after a withdrawal/rejection — reuse the row (the
-          // hat_id+applicant_id unique constraint means we can't insert
-          // a second one) instead of erroring.
-          const { rows } = await query(
-            `UPDATE applications SET status = 'pending', message = COALESCE($1, message), created_at = NOW(), updated_at = NOW()
-             WHERE id = $2 RETURNING *`,
-            [message, existingApp[0].id],
-          )
-          application = rows[0]
-        } else {
-          const { rows } = await query(
-            `INSERT INTO applications (hat_id, applicant_id, message) VALUES ($1,$2,$3) RETURNING *`,
-            [id, session.sub, message],
-          )
-          application = rows[0]
-        }
-        if (application && !alreadyApplied) {
-          await notifyApplicationCreated(application.id)
-        }
+        const result = await createApplicationRequest(session.sub, id, message, {
+          proposedAmount: body.proposed_amount,
+          proposalMessage: body.proposal_message,
+        })
+        application = result.application
+        alreadyApplied = result.alreadyApplied
       } else if (body.action === 'withdraw') {
         const { rows } = await query(
           `UPDATE applications SET status = 'withdrawn', updated_at = NOW()
@@ -523,7 +500,14 @@ export default async function handler(req, res) {
           [id, session.sub],
         )
         application = rows[0] || null
-        if (application) await notifyApplicationState(application.id, 'withdrawn', 'applicant')
+        if (application) {
+          await query(
+            `UPDATE escrows SET status = 'cancelled', contacts_unlocked = false
+             WHERE application_id = $1 AND status = 'not_funded' AND contacts_unlocked = false`,
+            [application.id],
+          )
+          await notifyApplicationState(application.id, 'withdrawn', 'applicant')
+        }
       } else if (body.action === 'respond_application') {
         if (existing.user_id !== session.sub) return json(res, 403, { error: 'Forbidden' })
         const { application_id, status } = body
