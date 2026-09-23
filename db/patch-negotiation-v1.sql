@@ -21,16 +21,27 @@ WHERE request_kind IS NULL OR request_kind NOT IN ('booking','application');
 ALTER TABLE escrows DROP CONSTRAINT IF EXISTS escrows_request_kind_check;
 ALTER TABLE escrows ADD CONSTRAINT escrows_request_kind_check CHECK (request_kind IN ('booking','application'));
 
+WITH legacy_application_deals AS (
+  SELECT DISTINCT ON (a.id)
+         a.id AS application_id,
+         e.id AS escrow_id
+  FROM applications a
+  JOIN hats h ON h.id = a.hat_id
+  JOIN escrows e
+    ON e.hat_id = a.hat_id
+   AND e.client_id = h.user_id
+   AND e.talent_id = a.applicant_id
+  WHERE e.application_id IS NULL
+    AND h.role = 'client'
+  ORDER BY a.id,
+           CASE WHEN e.status IN ('not_funded','secured') THEN 0 ELSE 1 END,
+           e.created_at DESC
+)
 UPDATE escrows e
-SET application_id = a.id,
+SET application_id = legacy.application_id,
     request_kind = 'application'
-FROM applications a
-JOIN hats h ON h.id = a.hat_id
-WHERE e.application_id IS NULL
-  AND h.role = 'client'
-  AND e.hat_id = a.hat_id
-  AND e.client_id = h.user_id
-  AND e.talent_id = a.applicant_id;
+FROM legacy_application_deals legacy
+WHERE e.id = legacy.escrow_id;
 
 INSERT INTO escrows
   (hat_id, client_id, talent_id, amount, application_id, request_kind, currency, pay_unit, contacts_unlocked)
