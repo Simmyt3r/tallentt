@@ -3,7 +3,7 @@ import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
 import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing, normalizeAvailableDays, normalizeHiringDuration } from '../_lib/hatFields.js'
-import { notifyApplicationReceived, notifyApplicationStatus } from '../_lib/notifications.js'
+import { notifyApplicationCreated, notifyApplicationState, respondApplicationDeal } from '../_lib/myDeals.js'
 
 async function getHat(id, viewerId) {
   const { rows } = await query(
@@ -513,42 +513,25 @@ export default async function handler(req, res) {
           application = rows[0]
         }
         if (application && !alreadyApplied) {
-          try {
-            const { rows: applicantRows } = await query(`SELECT username, full_name FROM users WHERE id = $1`, [session.sub])
-            await notifyApplicationReceived({
-              ownerId: existing.user_id,
-              hatId: existing.id,
-              hatTitle: existing.hat_title,
-              applicationId: application.id,
-              applicantUsername: applicantRows[0]?.username,
-              applicantName: applicantRows[0]?.full_name,
-            })
-          } catch (notifyErr) {
-            console.error('application received notification failed:', notifyErr)
-          }
+          await notifyApplicationCreated(application.id)
         }
       } else if (body.action === 'withdraw') {
         const { rows } = await query(
           `UPDATE applications SET status = 'withdrawn', updated_at = NOW()
-           WHERE hat_id = $1 AND applicant_id = $2 AND status IN ('pending','accepted')
+           WHERE hat_id = $1 AND applicant_id = $2 AND status = 'pending'
            RETURNING *`,
           [id, session.sub],
         )
         application = rows[0] || null
+        if (application) await notifyApplicationState(application.id, 'withdrawn', 'applicant')
       } else if (body.action === 'respond_application') {
-        // Hat owner accepting/rejecting one of their applicants.
         if (existing.user_id !== session.sub) return json(res, 403, { error: 'Forbidden' })
         const { application_id, status } = body
-        if (!application_id || !['accepted', 'rejected'].includes(status)) {
-          return json(res, 400, { error: 'application_id and a valid status (accepted/rejected) are required.' })
+        if (!application_id || !['accepted', 'rejected', 'pending'].includes(status)) {
+          return json(res, 400, { error: 'application_id and a valid status are required.' })
         }
-        const { rows } = await query(
-          `UPDATE applications SET status = $1, updated_at = NOW() WHERE id = $2 AND hat_id = $3 RETURNING *`,
-          [status, application_id, id],
-        )
-        if (!rows[0]) return json(res, 404, { error: 'Application not found' })
-        application = rows[0]
-        await notifyApplicationStatus({ applicationId: application.id, status })
+        const result = await respondApplicationDeal(session.sub, id, application_id, status)
+        application = result.application
       } else {
         return json(res, 400, { error: 'Unknown action' })
       }
@@ -556,8 +539,8 @@ export default async function handler(req, res) {
       const hat = await getHat(id, session.sub)
       return json(res, 200, { hat, application, already_applied: alreadyApplied })
     } catch (err) {
-      console.error(err)
-      return json(res, 500, { error: 'Failed to update engagement' })
+      if (!err.status) console.error(err)
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to update engagement' })
     }
   }
 
