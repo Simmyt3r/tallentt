@@ -1,4 +1,5 @@
 export const HAT_TYPES = ['Full-time', 'Part-time', 'Freelance', 'Contract', 'One-Off']
+export const HIRING_DURATIONS = ['1 month', '3 months', '6 months', '1 year', '1 year (renewable)', 'Permanent job']
 export const DELIVERY_MODES = ['Physical', 'Remote', 'Hybrid']
 export const RATE_UNITS = ['hr', 'day', 'week', 'month', 'year', 'custom']
 export const PRICE_TYPES = ['fixed', 'range']
@@ -31,6 +32,15 @@ export function normalizeAvailableDays(value, fallback = AVAILABLE_DAYS) {
   const days = AVAILABLE_DAYS.filter((day) => selected.has(day))
   if (!days.length) return { ok: false, error: 'Choose at least one available day.' }
   return { ok: true, days }
+}
+
+export function normalizeHiringDuration(value, role, fallback = null) {
+  if (role !== 'client') return { ok: true, value: null }
+  const selected = value == null ? fallback : value
+  if (!HIRING_DURATIONS.includes(selected)) {
+    return { ok: false, error: 'Choose a valid hiring duration.' }
+  }
+  return { ok: true, value: selected }
 }
 
 function validateAmount(value, missingMessage) {

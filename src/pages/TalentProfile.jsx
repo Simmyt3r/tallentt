@@ -244,6 +244,11 @@ export default function TalentProfile() {
                 <Clock size={11} /> {availabilityWindow}
               </span>
             )}
+            {hat.role === 'client' && hat.hiring_duration && (
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10">
+                {hat.hiring_duration}
+              </span>
+            )}
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 flex items-center gap-1">
               <Star size={11} className="text-amber-400 fill-amber-400" /> {Number(hat.rating || 0).toFixed(1)}
             </span>

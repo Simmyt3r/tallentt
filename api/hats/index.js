@@ -11,6 +11,7 @@ import {
   HAT_NAME_MAX,
   normalizePricing,
   normalizeAvailableDays,
+  normalizeHiringDuration,
   resolveHatRole,
 } from '../_lib/hatFields.js'
 
@@ -57,7 +58,7 @@ export default async function handler(req, res) {
         try {
           const { rows } = await query(
             `SELECT a.id as application_id, a.status, a.message, a.created_at as applied_at,
-                    h.id as hat_id, h.hat_title, h.category, h.role as hat_role,
+                    h.id as hat_id, h.hat_title, h.category, h.role as hat_role, h.hiring_duration,
                     h.price_type, h.rate, h.price_min, h.price_max, h.price_negotiable, h.currency,
                     h.rate_unit, h.rate_unit_custom,
                     u.id as owner_id, u.username as owner_username,
@@ -207,6 +208,7 @@ export default async function handler(req, res) {
         category,
         skills = [],
         hat_type = 'Freelance',
+        hiring_duration,
         delivery_mode,
         country,
         country_flag,
@@ -249,6 +251,8 @@ export default async function handler(req, res) {
 
       const pricing = normalizePricing(body)
       if (!pricing.ok) return json(res, 400, { error: pricing.error })
+      const duration = normalizeHiringDuration(hiring_duration, role)
+      if (!duration.ok) return json(res, 400, { error: duration.error })
       const days = normalizeAvailableDays(available_days)
       if (!days.ok) return json(res, 400, { error: days.error })
 
@@ -269,10 +273,10 @@ export default async function handler(req, res) {
       const { rows } = await query(
         `INSERT INTO hats (
           user_id, hat_title, hat_name, username, verified_name, is_verified, category, skills,
-          hat_type, delivery_mode, country, country_flag, currency, lga, motto,
+          hat_type, hiring_duration, delivery_mode, country, country_flag, currency, lga, motto,
           price_type, price_min, price_max, price_negotiable, rate, rate_unit, rate_unit_custom,
           role, availability, available_days, available_from, available_to, orbit_score
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
         RETURNING *`,
         [
           session.sub,
@@ -284,6 +288,7 @@ export default async function handler(req, res) {
           category,
           skillList,
           hat_type,
+          duration.value,
           delivery_mode || null,
           country || null,
           country_flag || null,

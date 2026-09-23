@@ -274,6 +274,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const location = loaded ? detail.location : [hat.lga, hat.country].filter(Boolean).join(', ')
   // No equivalent in the normalized detail — always sourced from the feed card.
   const availabilityWindow = formatAvailabilityWindow(hat)
+  const hiringDuration = loaded ? detail.hiring_duration : hat.hiring_duration
   const priceDisplay = loaded ? formatBudget(detail.budget) : formatPrice(hat, currency)
   const isNegotiable = loaded ? Boolean(detail.budget?.negotiable) : Boolean(hat.price_negotiable)
   const publishedLabel = formatDate(loaded ? detail.created_at : hat.created_at)
@@ -485,6 +486,8 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
             </DetailSection>
             <DetailSection label="Delivery">{hat.delivery_mode}</DetailSection>
           </div>
+
+          {!isTalent && hiringDuration && <DetailSection label="Hiring duration">{hiringDuration}</DetailSection>}
 
           <DetailSection label="Location">{location}</DetailSection>
 

@@ -26,6 +26,14 @@ export const COUNTRIES = [
 ]
 
 export const HAT_TYPES = ['Full-time', 'Part-time', 'Freelance', 'Contract', 'One-Off'] // keep in sync
+export const HIRING_DURATIONS = [
+  '1 month',
+  '3 months',
+  '6 months',
+  '1 year',
+  '1 year (renewable)',
+  'Permanent job',
+] // keep in sync
 export const DELIVERY_MODES = ['Physical', 'Remote', 'Hybrid'] // keep in sync
 
 // Stored values stay Physical / Remote / Hybrid; only the wording changes.
@@ -284,6 +292,7 @@ export function emptyForm(user) {
     description: '',
     skills: '',
     hatType: 'Freelance',
+    hiringDuration: '',
     verifiedName: '',
 
     priceMode: 'fixed',
@@ -313,6 +322,7 @@ export function hydrateForm(hat) {
     description: hat.motto || '',
     skills: (hat.skills || []).join(', '),
     hatType: HAT_TYPES.includes(hat.hat_type) ? hat.hat_type : 'Freelance',
+    hiringDuration: HIRING_DURATIONS.includes(hat.hiring_duration) ? hat.hiring_duration : '',
     verifiedName: hat.verified_name || '',
 
     priceMode: isLegacyRange || hat.price_negotiable ? 'range' : 'fixed',
@@ -401,6 +411,10 @@ export function validateForm(form, ctx) {
     else if (custom.length > CUSTOM_CATEGORY_MAX) errors.categoryCustom = `Keep the category to ${CUSTOM_CATEGORY_MAX} characters or fewer.`
   }
 
+  if (role === 'client' && !HIRING_DURATIONS.includes(form.hiringDuration)) {
+    errors.hiringDuration = 'Choose how long this hiring is expected to last.'
+  }
+
   if (media.uploading > 0) errors.media = 'Wait for uploads to finish.'
   else if (media.failed > 0) errors.media = 'Retry or remove the files that failed to upload.'
   else if (copy.mediaRequired && media.ready === 0) errors.media = 'Add at least one photo, video or audio file. Talent Hats need media.'
@@ -437,6 +451,7 @@ export const FIELD_IDS = {
   title: 'hat-title',
   category: 'hat-category',
   categoryCustom: 'hat-category-custom',
+  hiringDuration: 'hat-hiring-duration',
   media: 'hat-media-add',
   amount: 'hat-amount',
   rateUnitCustom: 'hat-rate-unit-custom',
@@ -452,6 +467,7 @@ const SUMMARY_LABELS = {
   title: () => 'Title',
   category: () => 'Category',
   categoryCustom: () => 'Category',
+  hiringDuration: () => 'Hiring duration',
   media: () => 'Media',
   amount: (copy) => (copy.priceNoun === 'budget' ? 'Budget' : 'Price'),
   rateUnitCustom: (copy) => (copy.priceNoun === 'budget' ? 'Budget' : 'Price'),
@@ -504,6 +520,7 @@ export function buildPayload(form, { mode, role, media = null }) {
     category: finalCategory(form),
     skills: parseSkills(form.skills),
     hat_type: form.hatType,
+    hiring_duration: normalizeHatRole(role) === 'client' ? form.hiringDuration : null,
     delivery_mode: form.deliveryMode,
     country: country.name,
     country_flag: country.flag,
@@ -561,6 +578,7 @@ export function buildPreview(form, { role }) {
     description: form.description.trim(),
     skills: parseSkills(form.skills),
     hatType: form.hatType,
+    hiringDuration: normalizeHatRole(role) === 'client' ? form.hiringDuration : '',
     verified: isVerifiedName(form.verifiedName),
     available: Boolean(form.available),
     openLabel: copy.openSwitch,

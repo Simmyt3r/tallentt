@@ -1,7 +1,7 @@
 // Path: src/components/hatform/AvailabilitySection.jsx
 import { memo } from 'react'
 import { WEEKDAYS } from '../../lib/hatForm'
-import { Field, Section, Switch, inputClass } from './formParts'
+import { Field, Section, inputClass } from './formParts'
 
 const QUICK_DAYS = [
   { label: 'Weekdays', days: ['mon', 'tue', 'wed', 'thu', 'fri'] },
@@ -24,9 +24,7 @@ function AvailabilitySection({ copy, available, availableDays, flexibleHours, av
   }
 
   return (
-    <Section id="hat-section-availability" title="Availability" description={copy.whenQuestion}>
-      <Switch id="hat-available" checked={available} onChange={(v) => onChange('available', v)} label={copy.openSwitch} hint={copy.openSwitchHint} />
-
+    <Section id="hat-section-availability" title="Schedule" description={copy.whenQuestion}>
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[12px] font-bold text-black/70">Days</p>

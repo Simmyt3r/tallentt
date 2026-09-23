@@ -33,6 +33,7 @@ import Dialog from './hatform/Dialog'
 import BasicInfoSection from './hatform/BasicInfoSection'
 import MediaSection from './hatform/MediaSection'
 import PricingSection from './hatform/PricingSection'
+import AvailabilityStatusSection from './hatform/AvailabilityStatusSection'
 import AvailabilitySection from './hatform/AvailabilitySection'
 import LocationSection from './hatform/LocationSection'
 import HatPreview from './hatform/HatPreview'
@@ -180,7 +181,16 @@ function HatFormScreen({ editId }) {
     return shown
   }, [errors, showAllErrors, touched])
 
-  const basicErrors = useMemo(() => ({ hatName: visible.hatName, title: visible.title, category: visible.category, categoryCustom: visible.categoryCustom }), [visible.hatName, visible.title, visible.category, visible.categoryCustom])
+  const basicErrors = useMemo(
+    () => ({
+      hatName: visible.hatName,
+      title: visible.title,
+      category: visible.category,
+      categoryCustom: visible.categoryCustom,
+      hiringDuration: visible.hiringDuration,
+    }),
+    [visible.hatName, visible.title, visible.category, visible.categoryCustom, visible.hiringDuration],
+  )
   const pricingErrors = useMemo(
     () => ({ amount: visible.amount, rateUnitCustom: visible.rateUnitCustom }),
     [visible.amount, visible.rateUnitCustom],
@@ -328,6 +338,7 @@ function HatFormScreen({ editId }) {
           description={form.description}
           skills={form.skills}
           hatType={form.hatType}
+          hiringDuration={form.hiringDuration}
           verifiedName={form.verifiedName}
           categories={categories}
           errors={basicErrors}
@@ -359,6 +370,8 @@ function HatFormScreen({ editId }) {
           errors={pricingErrors}
           onChange={setField}
         />
+
+        <AvailabilityStatusSection copy={copy} available={form.available} onChange={setField} />
 
         <AvailabilitySection
           copy={copy}

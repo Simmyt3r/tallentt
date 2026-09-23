@@ -96,6 +96,9 @@ export default function HatPreview({ open, onClose, preview, cover, owner }) {
                   {preview.hours ? ` · ${preview.hours}` : ''}
                 </span>
               </p>
+              {preview.role === 'client' && preview.hiringDuration && (
+                <p className="text-[12.5px] font-semibold text-black/70">Duration: {preview.hiringDuration}</p>
+              )}
             </div>
 
             <p className={`text-[16px] font-bold ${preview.price ? '' : muted}`}>{preview.price || `Add a ${preview.priceNoun}`}</p>

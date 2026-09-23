@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS hats (
   category TEXT NOT NULL,
   skills TEXT[],
   hat_type TEXT CHECK (hat_type IN ('Full-time','Part-time','Freelance','Contract','One-Off')) DEFAULT 'Freelance',
+  hiring_duration TEXT,
   delivery_mode TEXT CHECK (delivery_mode IN ('Physical','Remote','Hybrid')),
   country TEXT,
   country_flag TEXT,
@@ -162,6 +163,7 @@ END $$;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS category TEXT;
 UPDATE hats SET category = 'Tech & Digital Services' WHERE category IS NULL;
 ALTER TABLE hats ALTER COLUMN category SET NOT NULL;
+ALTER TABLE hats ADD COLUMN IF NOT EXISTS hiring_duration TEXT;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS delivery_mode TEXT;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS price_type TEXT DEFAULT 'fixed';
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS price_negotiable BOOLEAN DEFAULT false;
@@ -202,6 +204,10 @@ ALTER TABLE hats ALTER COLUMN hat_name SET NOT NULL;
 
 ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_hat_type_check;
 ALTER TABLE hats ADD CONSTRAINT hats_hat_type_check CHECK (hat_type IN ('Full-time','Part-time','Freelance','Contract','One-Off'));
+ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_hiring_duration_check;
+ALTER TABLE hats ADD CONSTRAINT hats_hiring_duration_check CHECK (
+  hiring_duration IS NULL OR hiring_duration IN ('1 month','3 months','6 months','1 year','1 year (renewable)','Permanent job')
+);
 ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_delivery_mode_check;
 ALTER TABLE hats ADD CONSTRAINT hats_delivery_mode_check CHECK (delivery_mode IS NULL OR delivery_mode IN ('Physical','Remote','Hybrid'));
 ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_price_type_check;
