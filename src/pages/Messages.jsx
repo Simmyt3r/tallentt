@@ -7,7 +7,7 @@ import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
 import { getPrimaryIdentity, identityFromRow } from '../lib/profile.js'
 
-const money = (amount) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(amount)
+const money = (amount, currency = 'NGN') => new Intl.NumberFormat('en-NG', { style: 'currency', currency: currency || 'NGN', maximumFractionDigits: 0 }).format(amount)
 const statusLabel = { not_funded: 'Awaiting payment', secured: 'Payment secured', released: 'Payment released', cancelled: 'Cancelled', refunded: 'Refunded to wallet' }
 const button = 'px-3 py-2 rounded-lg border border-black/20 text-xs font-semibold disabled:opacity-40 hover:bg-black/5'
 
@@ -138,7 +138,7 @@ function BookingThread({ id, onBack }) {
   }, [])
 
   useEffect(() => {
-    if (data && (data.thread.status !== 'not_funded' || data.thread.checkout_locked_at || !data.thread.price_negotiable)) setOfferMode(false)
+    if (data && (data.thread.status !== 'not_funded' || data.thread.checkout_locked_at || data.thread.agreed_at || !(data.thread.price_type === 'range' || data.thread.price_negotiable))) setOfferMode(false)
   }, [data?.thread.status, data?.thread.checkout_locked_at, data?.thread.price_negotiable])
 
   function toggleOffer() {
@@ -210,7 +210,7 @@ function BookingThread({ id, onBack }) {
 
   const thread = data.thread
   const pending = thread.pending_offer
-  const negotiable = thread.price_negotiable && thread.status === 'not_funded' && !thread.checkout_locked_at
+  const negotiable = (thread.price_type === 'range' || thread.price_negotiable) && thread.status === 'not_funded' && !thread.checkout_locked_at && !thread.agreed_at
   const closed = ['cancelled', 'refunded'].includes(thread.status)
   const priceEditable = thread.status === 'not_funded' && !thread.checkout_locked_at
   const respond = (status) => run(() => api.messageAction({ action: 'respond_offer', escrow_id: id, offer_id: pending.id, status }))
@@ -222,32 +222,38 @@ function BookingThread({ id, onBack }) {
         <div className="min-w-0 flex-1">
           <UserIdentity user={thread.peer} avatarClassName="w-9 h-9" nameAs="h2" nameClassName="text-sm font-bold"
             usernameClassName="text-[11px] font-semibold text-black/50 leading-tight" />
-          <Link to={`/talent/${thread.hat_id}`} className="text-xs underline text-black/60 break-words">{thread.hat_title}</Link></div>
-        <div className="text-right shrink-0"><p className="text-sm font-bold">{money(thread.amount)}</p><p className="text-[11px] text-black/50">{statusLabel[thread.status]}</p></div>
+          <Link to={`/hat/${thread.hat_id}`} className="text-xs underline text-black/60 break-words">{thread.hat_title}</Link></div>
+        <div className="text-right shrink-0">
+          <p className="text-sm font-bold">{money(thread.amount, thread.currency)}{thread.pay_unit ? ` /${thread.pay_unit}` : ''}</p>
+          <p className="text-[11px] text-black/50">
+            {!thread.contacts_unlocked ? (thread.agreed_at ? 'Price agreed • Awaiting acceptance' : 'Negotiating terms') : statusLabel[thread.status]}
+          </p>
+        </div>
       </div>
       <p className="flex items-start gap-2 text-xs text-black/60">
         {thread.contacts_unlocked ? <UnlockKeyhole size={14} className="shrink-0" /> : <LockKeyhole size={14} className="shrink-0" />}
-        {thread.contacts_unlocked ? 'Contact sharing unlocked.' : closed ? 'Contact fields are hidden for this closed booking.' : 'Contact details and external links stay blocked until payment is secured.'}
+        {thread.contacts_unlocked ? 'Contact sharing unlocked.' : closed ? 'Contact fields are hidden for this closed deal.' : 'Contact details and external links stay blocked until the request is accepted.'}
       </p>
       {thread.contacts_unlocked && <div className="text-xs space-y-1 break-all">
         {thread.peer?.email && <p>{thread.peer.email}</p>}{thread.peer?.phone && <p>{thread.peer.phone}</p>}
       </div>}
+      {thread.agreed_at && !thread.contacts_unlocked && <p className="text-xs font-semibold text-emerald-700">Price agreed. Return to My Deals to accept the request.</p>}
       {thread.checkout_locked_at && thread.status === 'not_funded' && <p className="text-xs text-black/60">Price locked for checkout. Closing the payment window keeps this price locked.</p>}
-      {thread.is_client && thread.status === 'not_funded' && <div className="flex flex-wrap gap-2 items-center">
+      {thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' && <div className="flex flex-wrap gap-2 items-center">
         <button type="button" className={button} disabled={busy || Boolean(pending)} onClick={() => run(() => payForBooking(thread, user.email))}>Pay {money(thread.amount)} by card</button>
         {!thread.card_checkout_started && (user.walletBalance || 0) >= thread.amount && <button type="button" className={button} disabled={busy || Boolean(pending)}
           onClick={() => run(async () => { await api.fundEscrowWithWallet(id, thread.amount); await refreshUser() })}>Pay from wallet</button>}
         {pending && <p className="text-xs text-black/50">Resolve the pending offer before paying.</p>}
       </div>}
     </header>
-    {thread.status !== 'cancelled' && <BookingProgress thread={thread} events={data.events} eventsCursor={data.eventsCursor}
+    {thread.contacts_unlocked && thread.status !== 'cancelled' && <BookingProgress thread={thread} events={data.events} eventsCursor={data.eventsCursor}
       busy={busy} run={run} refreshUser={refreshUser} />}
     {pending && <div className="p-4 bg-[#0A13E6]/5 border-b border-black/10 space-y-2">
-      <p className="text-sm font-semibold">{pending.sender_id === user.id ? 'Your offer' : 'Received offer'}: {money(pending.amount)}</p>
+      <p className="text-sm font-semibold">{pending.sender_id === user.id ? 'Your offer' : 'Received offer'}: {money(pending.amount, pending.currency || thread.currency)}</p>
       {pending.body && <p className="text-xs whitespace-pre-wrap break-words">{pending.body}</p>}
       <div className="flex flex-wrap gap-2">
         {pending.sender_id === user.id ? <button type="button" className={button} disabled={busy || !priceEditable} onClick={() => respond('withdrawn')}>Withdraw offer</button> : <>
-          <button type="button" className={`${button} bg-[#0A13E6] text-white`} disabled={busy || !priceEditable} onClick={() => respond('accepted')}>Accept {money(pending.amount)}</button>
+          <button type="button" className={`${button} bg-[#0A13E6] text-white`} disabled={busy || !priceEditable} onClick={() => respond('accepted')}>Accept {money(pending.amount, pending.currency || thread.currency)}</button>
           <button type="button" className={button} disabled={busy || !priceEditable} onClick={() => respond('declined')}>Decline</button>
         </>}
         <button type="button" className={button} disabled={busy || !negotiable} onClick={() => { setOfferBaseId(pending.id); setOfferMode(true) }}>Counteroffer</button>
@@ -259,7 +265,7 @@ function BookingThread({ id, onBack }) {
       {!data.messages.length && <p className="text-sm text-center text-black/50 py-12">No messages yet.</p>}
       {data.messages.map((message) => <article key={message.id} className={`max-w-[88%] w-fit rounded-lg px-3 py-2 ${message.sender_id === user.id ? 'ml-auto bg-[#0A13E6]/10' : 'bg-black/5'}`}>
         <p className="text-[10px] font-semibold text-black/50 mb-1">{message.sender_id === user.id ? 'You' : <UserIdentity user={thread.peer} layout="inline" showAvatar={false} nameClassName="font-semibold" usernameClassName="font-semibold text-black/40" />}</p>
-        {message.kind === 'offer' && <p className="text-sm font-semibold mb-1">Offer: {money(message.amount)} <span className="font-normal text-xs capitalize">({message.offer_status})</span></p>}
+        {message.kind === 'offer' && <p className="text-sm font-semibold mb-1">Offer: {money(message.amount, message.currency || thread.currency)}{message.pay_unit || thread.pay_unit ? ` /${message.pay_unit || thread.pay_unit}` : ''} <span className="font-normal text-xs capitalize">({message.offer_status})</span></p>}
         {message.body && <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.body}</p>}
         <time dateTime={message.created_at} className="block text-[10px] text-black/40 mt-1">{new Date(message.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time>
       </article>)}
@@ -272,7 +278,7 @@ function BookingThread({ id, onBack }) {
           <label htmlFor={`message-${id}`} className="text-xs font-semibold">{offerMode && negotiable ? 'Offer note' : 'Message'}</label>
           {negotiable && <button type="button" disabled={busy} className="text-xs underline" onClick={toggleOffer}>{offerMode ? 'Cancel offer' : 'Make an offer'}</button>}
         </div>
-        {offerMode && negotiable && <label className="block text-xs">Offer amount (NGN)
+        {offerMode && negotiable && <label className="block text-xs">Offer amount ({thread.currency || 'NGN'})
           <input aria-label="Offer amount (NGN)" type="number" min="1" max="2147483647" step="1" required value={amount} onChange={(event) => setAmount(event.target.value)} disabled={busy}
             className="block mt-1 w-full rounded-lg border border-black/20 p-2 text-sm" />
         </label>}
