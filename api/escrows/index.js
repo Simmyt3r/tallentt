@@ -153,7 +153,7 @@ async function createBooking(userId, hatId, proposal = {}) {
       )
       escrow = rows[0]
 
-      if (hat.price_type === 'range') {
+      if (hat.price_type === 'range' && proposal.proposedAmount != null) {
         const proposedAmount = requireAmount(Number(proposal.proposedAmount))
         if (proposedAmount < Number(hat.price_min) || proposedAmount > Number(hat.price_max)) {
           throw bookingError(409, 'Your proposal must stay within the Hat price range.')
