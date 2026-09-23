@@ -380,3 +380,117 @@ export function NegotiationFeeNotice({ open, fee, onCancel, onContinue }) {
     </div>
   )
 }
+
+export function NegotiationProposalModal({
+  open,
+  min,
+  max,
+  currency = 'NGN',
+  payUnit,
+  actionLabel = 'Continue',
+  onCancel,
+  onSubmit,
+}) {
+  const [amount, setAmount] = useState('')
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setAmount('')
+    setMessage('')
+    setError('')
+  }, [open])
+
+  if (!open) return null
+
+  function submit(e) {
+    e.preventDefault()
+    e.stopPropagation()
+    const value = Number(amount)
+    if (!Number.isInteger(value) || value <= 0) {
+      setError('Enter a valid whole-number proposal.')
+      return
+    }
+    if (Number.isFinite(Number(min)) && value < Number(min)) {
+      setError(`Proposal must be at least ${fmtMoney(min, currency)}.`)
+      return
+    }
+    if (Number.isFinite(Number(max)) && value > Number(max)) {
+      setError(`Proposal must not exceed ${fmtMoney(max, currency)}.`)
+      return
+    }
+    onSubmit?.({ amount: value, message: message.trim() })
+  }
+
+  const range = [
+    min != null ? fmtMoney(min, currency) : null,
+    max != null ? fmtMoney(max, currency) : null,
+  ].filter(Boolean).join(' – ')
+
+  return (
+    <div
+      className="fixed inset-0 z-[61] flex items-center justify-center bg-black/45 backdrop-blur-[2px] p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Make your first proposal"
+      onClick={(e) => {
+        e.stopPropagation()
+        onCancel?.()
+      }}
+    >
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[390px] rounded-[22px] border-[1.5px] border-black bg-white p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] space-y-4"
+      >
+        <div>
+          <h3 className="text-[17px] font-black">Make your proposal</h3>
+          <p className="mt-1 text-[12px] font-medium text-black/55">
+            Range: {range || 'Flexible'}{payUnit ? ` / ${payUnit}` : ''}
+          </p>
+        </div>
+
+        <label className="block text-[12px] font-bold">
+          Proposed amount
+          <div className="mt-1.5 flex items-center rounded-[13px] border-[1.5px] border-black bg-[#F7F3EB] px-3">
+            <span className="shrink-0 text-[12px] font-black text-black/45">{currency}</span>
+            <input
+              autoFocus
+              type="number"
+              min={min || 1}
+              max={max || 2147483647}
+              step="1"
+              value={amount}
+              onChange={(e) => {
+                setAmount(e.target.value)
+                setError('')
+              }}
+              placeholder={min ? String(min) : '50000'}
+              className="h-11 min-w-0 flex-1 bg-transparent px-2 text-[14px] font-bold outline-none"
+            />
+          </div>
+        </label>
+
+        <label className="block text-[12px] font-bold">
+          Message <span className="font-medium text-black/35">Optional</span>
+          <textarea
+            rows={3}
+            maxLength={500}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Add context for your offer"
+            className="mt-1.5 w-full resize-none rounded-[13px] border-[1.5px] border-black bg-white p-3 text-[13px] outline-none focus:ring-4 focus:ring-black/[0.04]"
+          />
+        </label>
+
+        {error && <p role="alert" className="text-[11.5px] font-semibold text-red-600">{error}</p>}
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onCancel} className="tw-btn-ghost flex-1 h-11">Cancel</button>
+          <button type="submit" className="tw-btn-primary flex-1 h-11">{actionLabel}</button>
+        </div>
+      </form>
+    </div>
+  )
+}
