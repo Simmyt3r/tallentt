@@ -1,20 +1,31 @@
 // Path: src/components/BottomNav.jsx
+import { useCallback, useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, Store, Radio } from 'lucide-react'
+import { Handshake, Home, Radio, Store } from 'lucide-react'
 import NotificationsMenu from './NotificationsMenu.jsx'
+import { api } from '../lib/api.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 
-function BottomNavLink({ to, end, icon: Icon, label }) {
+function BottomNavLink({ to, end, icon: Icon, label, badge = 0 }) {
   return (
     <NavLink
       to={to}
       end={end}
       className={({ isActive }) =>
-        `flex flex-col items-center justify-center gap-0.5 flex-1 h-full text-[10.5px] font-bold transition-colors ${
+        `relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full text-[10.5px] font-bold transition-colors ${
           isActive ? 'text-[#0A13E6]' : 'text-black/45'
         }`
       }
     >
-      <Icon size={20} />
+      <span className="relative">
+        <Icon size={20} />
+        {badge > 0 && (
+          <span className="absolute -top-2 -right-3 min-w-5 h-5 px-1 rounded-full bg-[#FF5A1F] text-white text-[9px] font-black grid place-items-center border border-black">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </span>
       <span>{label}</span>
     </NavLink>
   )
@@ -22,7 +33,36 @@ function BottomNavLink({ to, end, icon: Icon, label }) {
 
 export default function BottomNav() {
   const { pathname } = useLocation()
+  const { user } = useAuth()
+  const [pendingDeals, setPendingDeals] = useState(0)
   const alertsActive = pathname.startsWith('/notifications')
+
+  const loadCount = useCallback(async () => {
+    if (!user?.id) return
+    try {
+      const data = await api.getMyDeals()
+      setPendingDeals(Number(data.pendingCount || 0))
+    } catch (error) {
+      console.error('my deals count failed:', error)
+    }
+  }, [user?.id])
+
+  useEffect(() => {
+    loadCount()
+    const id = setInterval(loadCount, 60_000)
+    const onLocalChange = () => loadCount()
+    window.addEventListener('mydeals:changed', onLocalChange)
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('mydeals:changed', onLocalChange)
+    }
+  }, [loadCount])
+
+  useEffect(() => {
+    if (!user?.id) return undefined
+    const connection = connectMyDealsRealtime(user.id, { onChange: loadCount })
+    return () => connection.close()
+  }, [loadCount, user?.id])
 
   return (
     <nav
@@ -32,7 +72,8 @@ export default function BottomNav() {
     >
       <BottomNavLink to="/" end icon={Home} label="Home" />
       <BottomNavLink to="/showroom" icon={Store} label="Showroom" />
-      <BottomNavLink to="/live" icon={Radio} label="Go Live" />
+      <BottomNavLink to="/deals" icon={Handshake} label="My Deals" badge={pendingDeals} />
+      <BottomNavLink to="/live" icon={Radio} label="Live" />
       <div
         className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full text-[10.5px] font-bold ${
           alertsActive ? 'text-[#0A13E6]' : 'text-black/45'
