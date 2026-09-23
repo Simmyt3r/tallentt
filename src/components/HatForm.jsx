@@ -349,10 +349,8 @@ function HatFormScreen({ editId }) {
           category={form.category}
           customCategory={form.customCategory}
           description={form.description}
-          skills={form.skills}
           hatType={form.hatType}
           hiringDuration={form.hiringDuration}
-          verifiedName={form.verifiedName}
           categories={categories}
           errors={basicErrors}
           onChange={setField}
@@ -374,7 +372,6 @@ function HatFormScreen({ editId }) {
 
         <PricingSection
           copy={copy}
-          currency={country.currency}
           symbol={symbol}
           priceMode={form.priceMode}
           amount={form.amount}
@@ -386,10 +383,7 @@ function HatFormScreen({ editId }) {
           onChange={setField}
         />
 
-        <AvailabilityStatusSection copy={copy} available={form.available} onChange={setField} />
-
         <AvailabilitySection
-          copy={copy}
           available={form.available}
           availableDays={form.availableDays}
           flexibleHours={form.flexibleHours}
@@ -399,7 +393,9 @@ function HatFormScreen({ editId }) {
           onChange={setField}
         />
 
-        <LocationSection countryName={form.countryName} currency={country.currency} city={form.city} deliveryMode={form.deliveryMode} errors={locationErrors} onChange={setField} />
+        <LocationSection countryName={form.countryName} city={form.city} deliveryMode={form.deliveryMode} errors={locationErrors} onChange={setField} />
+
+        <AvailabilityStatusSection copy={copy} available={form.available} onChange={setField} />
 
         {!editing && (
           <FeedVisibilitySection visible={feedChoice.visible} priceMode={form.priceMode} onChange={setFeedChoice} disabled={submitting} />

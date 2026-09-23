@@ -13,7 +13,7 @@ function sameDays(a, b) {
   return a.length === b.length && a.every((day, index) => day === b[index])
 }
 
-function AvailabilitySection({ copy, available, availableDays, flexibleHours, availableFrom, availableTo, errors, onChange }) {
+function AvailabilitySection({ availableDays, flexibleHours, availableFrom, availableTo, errors, onChange }) {
   const selected = Array.isArray(availableDays) ? availableDays : []
 
   function toggleDay(day) {
@@ -24,7 +24,7 @@ function AvailabilitySection({ copy, available, availableDays, flexibleHours, av
   }
 
   return (
-    <Section id="hat-section-availability" title="Schedule" description={copy.whenQuestion}>
+    <Section id="hat-section-availability" title="Schedule">
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[12px] font-bold text-black/70">Days</p>
@@ -81,19 +81,31 @@ function AvailabilitySection({ copy, available, availableDays, flexibleHours, av
       </label>
 
       {!flexibleHours && (
-        <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-3">
-            <Field id="hat-available-from" label="From" error={errors.availableFrom}>
-              {(a11y) => <input {...a11y} type="time" className={`${inputClass(errors.availableFrom)} min-w-0`} value={availableFrom} onChange={(e) => onChange('availableFrom', e.target.value)} />}
-            </Field>
-            <Field id="hat-available-to" label="To" error={errors.availableTo}>
-              {(a11y) => <input {...a11y} type="time" className={`${inputClass(errors.availableTo)} min-w-0`} value={availableTo} onChange={(e) => onChange('availableTo', e.target.value)} />}
-            </Field>
-          </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field id="hat-available-from" label="From" error={errors.availableFrom}>
+            {(a11y) => (
+              <input
+                {...a11y}
+                type="time"
+                className={`${inputClass(errors.availableFrom)} min-w-0`}
+                value={availableFrom}
+                onChange={(e) => onChange('availableFrom', e.target.value)}
+              />
+            )}
+          </Field>
+          <Field id="hat-available-to" label="To" error={errors.availableTo}>
+            {(a11y) => (
+              <input
+                {...a11y}
+                type="time"
+                className={`${inputClass(errors.availableTo)} min-w-0`}
+                value={availableTo}
+                onChange={(e) => onChange('availableTo', e.target.value)}
+              />
+            )}
+          </Field>
         </div>
       )}
-
-      <p className="text-[11.5px] font-medium text-black/50">{copy.whenHint}</p>
     </Section>
   )
 }

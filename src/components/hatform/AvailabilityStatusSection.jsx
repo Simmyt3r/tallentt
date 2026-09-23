@@ -10,7 +10,6 @@ function AvailabilityStatusSection({ copy, available, onChange }) {
         checked={available}
         onChange={(v) => onChange('available', v)}
         label={copy.openSwitch}
-        hint={copy.openSwitchHint}
       />
     </Section>
   )

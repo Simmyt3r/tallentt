@@ -11,14 +11,13 @@ export default function FeedVisibilitySection({ visible, priceMode, onChange, di
   }
 
   return (
-    <Section id="hat-section-feed" title="Bento feed visibility" description="You can change this later in My Hats.">
+    <Section id="hat-section-feed" title="Visibility">
       <fieldset disabled={disabled} className="disabled:opacity-60">
         <Switch
           id="hat-feed-visible"
           checked={visible}
           onChange={toggle}
           label="Show in Bento feeds"
-          hint={visible ? 'This Hat will appear in Bento feeds after you publish it.' : 'This Hat will stay out of Bento feeds. Range pricing requires fee confirmation before enabling.'}
         />
       </fieldset>
       <Dialog open={noticeOpen} onClose={() => setNoticeOpen(false)} variant="alert" role="alertdialog" labelledBy="hat-create-feed-title" describedBy="hat-create-feed-description">
@@ -28,10 +27,16 @@ export default function FeedVisibilitySection({ visible, priceMode, onChange, di
         </p>
         <div className="flex flex-wrap justify-end gap-2 mt-5">
           <button type="button" onClick={() => setNoticeOpen(false)} className="tw-btn-ghost h-11 px-4">Cancel</button>
-          <button type="button" onClick={() => {
-            onChange({ visible: true, confirmed: true })
-            setNoticeOpen(false)
-          }} className="tw-btn-primary h-11 px-4">Confirm and show</button>
+          <button
+            type="button"
+            onClick={() => {
+              onChange({ visible: true, confirmed: true })
+              setNoticeOpen(false)
+            }}
+            className="tw-btn-primary h-11 px-4"
+          >
+            Confirm and show
+          </button>
         </div>
       </Dialog>
     </Section>

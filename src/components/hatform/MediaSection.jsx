@@ -197,7 +197,7 @@ function MediaSection({ items, error, copy, rejected, announcement, onAddFiles, 
   }
 
   return (
-    <Section id="hat-section-media" title="Media" description="Show people what this Hat is about.">
+    <Section id="hat-section-media" title={copy.mediaRequired ? "Media * Required" : "Media · Optional"}>
       <div
         onDragOver={(e) => {
           e.preventDefault()
@@ -227,17 +227,14 @@ function MediaSection({ items, error, copy, rejected, announcement, onAddFiles, 
           id="hat-media-add"
           type="button"
           onClick={() => inputRef.current?.click()}
-          aria-describedby={['hat-media-hint', error ? 'hat-media-error' : ''].filter(Boolean).join(' ')}
+          aria-describedby={error ? 'hat-media-error' : undefined}
           aria-invalid={error ? true : undefined}
           className={`w-full min-h-[64px] rounded-[16px] border-[1.5px] border-dashed px-4 py-3 flex items-center justify-center gap-2 text-[14px] font-semibold transition ${
             error ? 'border-red-400 bg-red-50/40 text-red-700' : dragging ? 'border-[#0A13E6] bg-[#0A13E6]/5 text-[#0A13E6]' : 'border-black/25 bg-[#F5F3EF]/60 text-black/75 hover:border-black'
           }`}
         >
-          <Plus size={18} aria-hidden="true" /> Add photos or video
+          <Plus size={18} aria-hidden="true" /> Add photos, video or audio
         </button>
-        <p id="hat-media-hint" className="text-[11.5px] font-medium text-black/50">
-          {copy.mediaHint} Photos, video or audio, up to 20 MB each.
-        </p>
         {error && (
           <p id="hat-media-error" className="text-[12px] font-semibold text-red-600">
             {error}
@@ -266,10 +263,6 @@ function MediaSection({ items, error, copy, rejected, announcement, onAddFiles, 
                 <Tile key={it.key} item={it} index={i} total={items.length} onPreview={setViewKey} onMove={handleMove} onRemove={onRemove} onRetry={onRetry} />
               ))}
             </ul>
-            <p className="text-[11.5px] font-medium text-black/50">
-              The first item is the Cover. It represents this Hat when people browse.
-              {items[0].kind === 'audio' ? ' A photo or video makes a better cover.' : ''}
-            </p>
           </>
         )}
         <p className="sr-only" role="status" aria-live="polite">

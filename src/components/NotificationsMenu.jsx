@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, CheckCheck } from 'lucide-react'
+import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, WalletCards, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -18,6 +18,42 @@ function relativeTime(value) {
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d`
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function notificationVisual(type = '') {
+  const value = String(type).toLowerCase()
+  if (value.includes('rejected') || value.includes('cancelled') || value.includes('failed')) {
+    return { Icon: XCircle, className: 'bg-red-50 text-red-600 border-red-200' }
+  }
+  if (value.includes('accepted') || value.includes('secured') || value.includes('released') || value.includes('success')) {
+    return { Icon: CheckCircle2, className: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+  }
+  if (value.includes('booking') || value.includes('deal') || value.includes('escrow')) {
+    return { Icon: Handshake, className: 'bg-[#EEF0FF] text-[#0A13E6] border-[#0A13E6]/15' }
+  }
+  if (value.includes('application') || value.includes('sent')) {
+    return { Icon: Send, className: 'bg-[#F7F3EB] text-black border-black/10' }
+  }
+  if (value.includes('wallet') || value.includes('withdrawal') || value.includes('topup')) {
+    return { Icon: WalletCards, className: 'bg-[#FFF4E8] text-[#9A4F00] border-[#9A4F00]/15' }
+  }
+  return { Icon: Info, className: 'bg-[#F7F3EB] text-black/65 border-black/10' }
+}
+
+function LoadingRows() {
+  return (
+    <div className="p-2 space-y-1.5" aria-label="Loading notifications">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="flex gap-3 rounded-[16px] p-3 animate-pulse">
+          <div className="w-10 h-10 rounded-[12px] bg-black/[0.06] shrink-0" />
+          <div className="flex-1 space-y-2 pt-1">
+            <div className="h-3.5 w-1/2 rounded bg-black/[0.08]" />
+            <div className="h-3 w-4/5 rounded bg-black/[0.05]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function NotificationsMenu({ panelPosition = 'down', className = '', buttonClassName = '', iconSize = 16 }) {
@@ -111,11 +147,13 @@ export default function NotificationsMenu({ panelPosition = 'down', className = 
           'relative w-9 h-9 rounded-full border-[1.5px] border-black bg-white flex items-center justify-center text-black/70 hover:bg-black hover:text-white transition'
         }
         title="Notifications"
+        aria-expanded={open}
+        aria-haspopup="dialog"
         aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
       >
         <Bell size={iconSize} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-[#FF5A1F] text-white text-[10px] font-black grid place-items-center border border-black">
+          <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-[#FF5A1F] text-white text-[10px] font-black grid place-items-center border-[1.5px] border-black shadow-sm">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -123,57 +161,97 @@ export default function NotificationsMenu({ panelPosition = 'down', className = 
 
       {open && (
         <div
+          role="dialog"
+          aria-label="Notifications"
           className={`absolute right-0 ${
-            panelPosition === 'up' ? 'bottom-11' : 'top-11'
-          } w-[min(22rem,calc(100vw-1rem))] bg-white border-[1.5px] border-black rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.18)] overflow-hidden z-50`}
+            panelPosition === 'up' ? 'bottom-12' : 'top-12'
+          } w-[min(24rem,calc(100vw-1rem))] bg-[#F7F3EB] border-[1.5px] border-black rounded-[22px] shadow-[0_20px_50px_rgba(0,0,0,0.22)] overflow-hidden z-50`}
         >
-          <div className="px-4 py-3 border-b border-black/10 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[13px] font-black">Notifications</p>
-              <p className="text-[11px] text-black/45 font-medium">{unreadCount} unread</p>
+          <div className="px-4 py-3.5 border-b-[1.5px] border-black bg-white flex items-center justify-between gap-3">
+            <div className="min-w-0 flex items-center gap-3">
+              <span className="w-9 h-9 shrink-0 rounded-[11px] bg-black text-white grid place-items-center">
+                <Bell size={16} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[14px] font-black leading-tight">Notifications</p>
+                <p className="text-[11px] text-black/45 font-semibold mt-0.5" aria-live="polite">
+                  {unreadCount ? `${unreadCount} unread` : 'You’re all caught up'}
+                </p>
+              </div>
             </div>
             <button
               type="button"
               onClick={markAll}
               disabled={!unreadCount}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-black/15 text-[11px] font-bold disabled:opacity-35 disabled:cursor-not-allowed hover:bg-[#F7F3EB]"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border-[1.5px] border-black/15 bg-[#F7F3EB] text-[11px] font-black disabled:opacity-35 disabled:cursor-not-allowed hover:border-black transition"
             >
-              <CheckCheck size={13} />
-              Mark all
+              <CheckCheck size={14} />
+              Mark all read
             </button>
           </div>
 
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[min(65vh,560px)] overflow-y-auto">
             {loading ? (
-              <p className="px-4 py-6 text-[12px] text-black/45 font-medium">Loading...</p>
+              <LoadingRows />
             ) : error ? (
-              <p className="px-4 py-6 text-[12px] text-red-600 font-medium">{error}</p>
-            ) : notifications.length === 0 ? (
-              <p className="px-4 py-6 text-[12px] text-black/45 font-medium">No notifications yet.</p>
-            ) : (
-              notifications.map((notification) => (
-                <button
-                  type="button"
-                  key={notification.id}
-                  onClick={() => openNotification(notification)}
-                  className="w-full text-left px-4 py-3 border-b border-black/5 last:border-b-0 hover:bg-[#F7F3EB] transition flex gap-3"
-                >
-                  <span
-                    className={`mt-1 w-2 h-2 rounded-full shrink-0 ${
-                      notification.unread ? 'bg-[#0A13E6]' : 'bg-black/15'
-                    }`}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-start justify-between gap-3">
-                      <span className="text-[12px] font-black leading-tight text-black">{notification.title}</span>
-                      <span className="text-[10px] text-black/40 font-bold shrink-0">{relativeTime(notification.created_at)}</span>
-                    </span>
-                    {notification.body && (
-                      <span className="block text-[12px] text-black/55 leading-snug mt-1 break-words">{notification.body}</span>
-                    )}
-                  </span>
+              <div className="m-3 rounded-[16px] border-[1.5px] border-red-200 bg-red-50 p-4">
+                <p className="text-[12px] text-red-700 font-semibold">{error}</p>
+                <button type="button" onClick={() => load()} className="mt-3 h-9 px-4 rounded-full border-[1.5px] border-red-300 bg-white text-[11px] font-black text-red-700">
+                  Try again
                 </button>
-              ))
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="min-h-[220px] grid place-items-center px-6 text-center">
+                <div>
+                  <span className="mx-auto w-12 h-12 rounded-[16px] bg-white border-[1.5px] border-black/10 grid place-items-center text-black/30">
+                    <Bell size={20} />
+                  </span>
+                  <p className="mt-3 text-[13px] font-black text-black/65">No notifications yet</p>
+                  <p className="mt-1 text-[11px] font-medium text-black/40">Updates about deals, applications and activity will appear here.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-2 space-y-1.5">
+                {notifications.map((notification) => {
+                  const { Icon, className: iconClass } = notificationVisual(notification.type)
+                  return (
+                    <button
+                      type="button"
+                      key={notification.id}
+                      onClick={() => openNotification(notification)}
+                      className={`w-full text-left rounded-[16px] border p-3 transition flex gap-3 ${
+                        notification.unread
+                          ? 'bg-white border-[#0A13E6]/20 shadow-[0_4px_14px_rgba(10,19,230,0.06)]'
+                          : 'bg-transparent border-transparent hover:bg-white hover:border-black/10'
+                      }`}
+                    >
+                      <span className={`w-10 h-10 rounded-[12px] border grid place-items-center shrink-0 ${iconClass}`}>
+                        <Icon size={17} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-start gap-2">
+                          <span className="text-[12.5px] font-black leading-tight text-black flex-1">{notification.title}</span>
+                          <span className="text-[10px] text-black/35 font-bold shrink-0">{relativeTime(notification.created_at)}</span>
+                        </span>
+                        {notification.body && (
+                          <span className="block text-[11.5px] text-black/55 leading-snug mt-1 break-words">{notification.body}</span>
+                        )}
+                        <span className="mt-2 flex items-center justify-between gap-2">
+                          {notification.unread ? (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-[#0A13E6]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#0A13E6]" />
+                              New
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+                          {notification.link_url && <ArrowRight size={14} className="text-black/30" />}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             )}
           </div>
         </div>

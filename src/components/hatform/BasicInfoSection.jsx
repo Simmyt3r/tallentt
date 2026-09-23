@@ -4,9 +4,6 @@ import { api } from '../../lib/api'
 import { HAT_DESCRIPTION_MAX, HAT_NAME_MAX, HAT_TITLE_MAX, HAT_TYPES, HIRING_DURATIONS, OTHER_CATEGORY } from '../../lib/hatForm'
 import { CharCount, Field, RadioCards, SelectBox, Section, inputClass } from './formParts'
 
-// Title with the app's existing "Seeking" typeahead (GET /api/hats?suggest=1).
-// Suggestions only load while the person is typing — never on the initial
-// fill of an existing hat — and out-of-order responses are ignored.
 function TitleField({ value, onChange, copy, error, hatRole }) {
   const listId = useId()
   const [suggestions, setSuggestions] = useState([])
@@ -68,7 +65,6 @@ function TitleField({ value, onChange, copy, error, hatRole }) {
     <Field
       id="hat-title"
       label={copy.titleQuestion}
-      hint={copy.titleHint}
       error={error}
       right={<CharCount value={value} max={HAT_TITLE_MAX} />}
     >
@@ -84,7 +80,7 @@ function TitleField({ value, onChange, copy, error, hatRole }) {
             aria-activedescendant={expanded && active >= 0 ? `${listId}-${active}` : undefined}
             className={inputClass(error)}
             value={value}
-            maxLength={HAT_TITLE_MAX + 20 /* allow pasting a bit over so the error explains itself */}
+            maxLength={HAT_TITLE_MAX + 20}
             placeholder={copy.titlePlaceholder}
             autoComplete="off"
             onChange={(e) => {
@@ -101,7 +97,7 @@ function TitleField({ value, onChange, copy, error, hatRole }) {
               id={listId}
               role="listbox"
               aria-label="Suggestions"
-              className="absolute z-10 mt-1.5 w-full max-h-52 overflow-auto rounded-[14px] border-[1.5px] border-black bg-white shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
+              className="absolute z-20 mt-1.5 w-full max-h-52 overflow-auto rounded-[14px] border-[1.5px] border-black bg-white shadow-[0_8px_20px_rgba(0,0,0,0.1)]"
             >
               {suggestions.map((s, i) => (
                 <li key={s} id={`${listId}-${i}`} role="option" aria-selected={i === active}>
@@ -126,6 +122,48 @@ function TitleField({ value, onChange, copy, error, hatRole }) {
   )
 }
 
+function CategoryField({ category, customCategory, categories, error, onChange }) {
+  const listId = useId()
+  const value = category === OTHER_CATEGORY ? customCategory : category
+
+  function update(next) {
+    const clean = next.trim()
+    const exact = categories.find((item) => item.name.toLowerCase() === clean.toLowerCase())
+    if (exact) {
+      onChange('category', exact.name)
+      onChange('customCategory', '')
+      return
+    }
+    onChange('category', OTHER_CATEGORY)
+    onChange('customCategory', next)
+  }
+
+  return (
+    <Field id="hat-category" label="Category" error={error}>
+      {(a11y) => (
+        <>
+          <input
+            {...a11y}
+            type="search"
+            list={listId}
+            className={inputClass(error)}
+            value={value}
+            maxLength={60}
+            placeholder="Search or type a category"
+            autoComplete="off"
+            onChange={(e) => update(e.target.value)}
+          />
+          <datalist id={listId}>
+            {categories.map((item) => (
+              <option key={item.name} value={item.name} />
+            ))}
+          </datalist>
+        </>
+      )}
+    </Field>
+  )
+}
+
 function BasicInfoSection({
   copy,
   hatRole,
@@ -138,18 +176,12 @@ function BasicInfoSection({
   category,
   customCategory,
   description,
-  skills,
   hatType,
   hiringDuration,
-  verifiedName,
   categories,
   errors,
   onChange,
 }) {
-  const [moreOpen, setMoreOpen] = useState(Boolean(skills || verifiedName))
-  const known = categories.some((c) => c.name === category)
-  const options = !category || category === OTHER_CATEGORY || known ? categories : [...categories, { name: category }]
-
   return (
     <Section id="hat-section-basic" title="Basic information">
       {canChooseRole ? (
@@ -178,8 +210,7 @@ function BasicInfoSection({
 
       <Field
         id="hat-name"
-        label={copy.nameQuestion}
-        hint={copy.nameHint}
+        label="Name of Hat"
         error={errors.hatName}
         right={<CharCount value={hatName} max={HAT_NAME_MAX} />}
       >
@@ -189,7 +220,7 @@ function BasicInfoSection({
             type="text"
             className={inputClass(errors.hatName)}
             value={hatName}
-            maxLength={HAT_NAME_MAX + 20 /* allow pasting a bit over so the error explains itself */}
+            maxLength={HAT_NAME_MAX + 20}
             placeholder={copy.namePlaceholder}
             onChange={(e) => onChange('hatName', e.target.value)}
           />
@@ -199,36 +230,13 @@ function BasicInfoSection({
       <TitleField value={title} onChange={(v) => onChange('title', v)} copy={copy} error={errors.title} hatRole={hatRole} />
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="min-w-0 space-y-3">
-          <Field id="hat-category" label="Category" error={errors.category}>
-            {(a11y) => (
-              <SelectBox {...a11y} error={errors.category} value={category} onChange={(e) => onChange('category', e.target.value)}>
-                <option value="">Choose a category…</option>
-                {options.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-                <option value={OTHER_CATEGORY}>Other (type your own)</option>
-              </SelectBox>
-            )}
-          </Field>
-          {category === OTHER_CATEGORY && (
-            <Field id="hat-category-custom" label="Your category" error={errors.categoryCustom}>
-              {(a11y) => (
-                <input
-                  {...a11y}
-                  type="text"
-                  className={inputClass(errors.categoryCustom)}
-                  value={customCategory}
-                  maxLength={60}
-                  placeholder="e.g. Drone pilots"
-                  onChange={(e) => onChange('customCategory', e.target.value)}
-                />
-              )}
-            </Field>
-          )}
-        </div>
+        <CategoryField
+          category={category}
+          customCategory={customCategory}
+          categories={categories}
+          error={errors.category || errors.categoryCustom}
+          onChange={onChange}
+        />
         <Field id="hat-type" label="Hat type">
           {(a11y) => (
             <SelectBox {...a11y} value={hatType} onChange={(e) => onChange('hatType', e.target.value)}>
@@ -243,12 +251,7 @@ function BasicInfoSection({
       </div>
 
       {hatRole === 'client' && (
-        <Field
-          id="hat-hiring-duration"
-          label="Hiring duration"
-          hint="How long should this job or contract last?"
-          error={errors.hiringDuration}
-        >
+        <Field id="hat-hiring-duration" label="Hiring duration" error={errors.hiringDuration}>
           {(a11y) => (
             <SelectBox
               {...a11y}
@@ -269,9 +272,8 @@ function BasicInfoSection({
 
       <Field
         id="hat-description"
-        label="Description"
+        label="Tagline"
         optional
-        hint={copy.descriptionHint}
         right={<CharCount value={description} max={HAT_DESCRIPTION_MAX} alwaysShow />}
       >
         {(a11y) => (
@@ -286,32 +288,6 @@ function BasicInfoSection({
           />
         )}
       </Field>
-
-      <div>
-        <button
-          type="button"
-          aria-expanded={moreOpen}
-          aria-controls="hat-more-details"
-          onClick={() => setMoreOpen((v) => !v)}
-          className="text-[13px] font-semibold text-[#0A13E6] underline underline-offset-2 min-h-[44px]"
-        >
-          {moreOpen ? 'Hide more details' : 'Add skills or a business name (optional)'}
-        </button>
-        {moreOpen && (
-          <div id="hat-more-details" className="grid gap-4 md:grid-cols-2 mt-1">
-            <Field id="hat-skills" label="Skills" optional hint="Separate with commas.">
-              {(a11y) => (
-                <input {...a11y} type="text" className={inputClass(false)} value={skills} placeholder="Photo editing, Lighting" onChange={(e) => onChange('skills', e.target.value)} />
-              )}
-            </Field>
-            <Field id="hat-verified-name" label="Business name" optional hint="Ending in Ltd, Plc, Corp, Inc or LLC earns a verified badge.">
-              {(a11y) => (
-                <input {...a11y} type="text" className={inputClass(false)} value={verifiedName} placeholder="e.g. Acme Studios Ltd" onChange={(e) => onChange('verifiedName', e.target.value)} />
-              )}
-            </Field>
-          </div>
-        )}
-      </div>
     </Section>
   )
 }

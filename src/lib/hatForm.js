@@ -465,7 +465,7 @@ export const FIELD_IDS = {
   hatName: 'hat-name',
   title: 'hat-title',
   category: 'hat-category',
-  categoryCustom: 'hat-category-custom',
+  categoryCustom: 'hat-category',
   hiringDuration: 'hat-hiring-duration',
   media: 'hat-media-add',
   amount: 'hat-amount',

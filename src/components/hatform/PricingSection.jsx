@@ -5,7 +5,6 @@ import { Field, MoneyInput, RadioCards, SelectBox, Section, inputClass } from '.
 
 function PricingSection({
   copy,
-  currency,
   symbol,
   priceMode,
   amount,
@@ -16,48 +15,48 @@ function PricingSection({
   errors,
   onChange,
 }) {
+  const priceOptions = PRICE_MODES.map(({ value, label }) => ({ value, label }))
+
   return (
-    <Section id="hat-section-pricing" title="Pricing" description={copy.priceQuestion}>
+    <Section id="hat-section-pricing" title="Pricing">
       <RadioCards
         name="hat-price-mode"
         idPrefix="hat-price-mode"
         legend="Price type"
         value={priceMode}
         onChange={(v) => onChange('priceMode', v)}
-        options={PRICE_MODES}
+        options={priceOptions}
+        columns={2}
       />
 
       {priceMode === 'range' ? (
-        <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field id="hat-price-min" label={`From (${copy.minLabel})`} error={errors.priceMin}>
-              {(a11y) => (
-                <MoneyInput
-                  id={a11y.id}
-                  value={priceMin}
-                  onChange={(v) => onChange('priceMin', v)}
-                  symbol={symbol}
-                  error={errors.priceMin}
-                  describedBy={a11y['aria-describedby']}
-                  placeholder="25,000"
-                />
-              )}
-            </Field>
-            <Field id="hat-price-max" label={`To (${copy.maxLabel})`} error={errors.priceMax}>
-              {(a11y) => (
-                <MoneyInput
-                  id={a11y.id}
-                  value={priceMax}
-                  onChange={(v) => onChange('priceMax', v)}
-                  symbol={symbol}
-                  error={errors.priceMax}
-                  describedBy={a11y['aria-describedby']}
-                  placeholder="50,000"
-                />
-              )}
-            </Field>
-          </div>
-          <p className="text-[12px] font-medium text-black/60">{copy.rangeNote}</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field id="hat-price-min" label={`From (${copy.minLabel})`} error={errors.priceMin}>
+            {(a11y) => (
+              <MoneyInput
+                id={a11y.id}
+                value={priceMin}
+                onChange={(v) => onChange('priceMin', v)}
+                symbol={symbol}
+                error={errors.priceMin}
+                describedBy={a11y['aria-describedby']}
+                placeholder="25,000"
+              />
+            )}
+          </Field>
+          <Field id="hat-price-max" label={`To (${copy.maxLabel})`} error={errors.priceMax}>
+            {(a11y) => (
+              <MoneyInput
+                id={a11y.id}
+                value={priceMax}
+                onChange={(v) => onChange('priceMax', v)}
+                symbol={symbol}
+                error={errors.priceMax}
+                describedBy={a11y['aria-describedby']}
+                placeholder="50,000"
+              />
+            )}
+          </Field>
         </div>
       ) : (
         <div className="space-y-3">
@@ -75,7 +74,7 @@ function PricingSection({
                 />
               )}
             </Field>
-            <Field id="hat-rate-unit" label="Per">
+            <Field id="hat-rate-unit" label="Pay unit">
               {(a11y) => (
                 <SelectBox {...a11y} value={rateUnit} onChange={(e) => onChange('rateUnit', e.target.value)}>
                   {RATE_UNITS.map((u) => (
@@ -105,10 +104,6 @@ function PricingSection({
           )}
         </div>
       )}
-
-      <p className="text-[11.5px] font-medium text-black/50">
-        Amounts are in {currency}. The currency follows the country you choose under Location.
-      </p>
     </Section>
   )
 }

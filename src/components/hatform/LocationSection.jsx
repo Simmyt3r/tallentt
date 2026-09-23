@@ -3,14 +3,8 @@ import { memo } from 'react'
 import { COUNTRIES, DELIVERY_OPTIONS } from '../../lib/hatForm'
 import { Field, RadioCards, SelectBox, Section, inputClass } from './formParts'
 
-function LocationSection({ countryName, currency, city, deliveryMode, errors, onChange }) {
+function LocationSection({ countryName, city, deliveryMode, errors, onChange }) {
   const onSite = deliveryMode === 'Physical'
-  const cityHint =
-    deliveryMode === 'Hybrid'
-      ? 'Where would on-site work happen? A city or area is enough.'
-      : onSite
-        ? 'The city or area where the work happens. No street address needed.'
-        : 'Where you are based. A city or area is enough.'
 
   return (
     <Section id="hat-section-location" title="Location & delivery">
@@ -31,7 +25,7 @@ function LocationSection({ countryName, currency, city, deliveryMode, errors, on
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="hat-country" label="Country" hint={`Sets your currency (${currency}).`}>
+        <Field id="hat-country" label="Country">
           {(a11y) => (
             <SelectBox {...a11y} value={countryName} onChange={(e) => onChange('countryName', e.target.value)}>
               {COUNTRIES.map((c) => (
@@ -42,9 +36,17 @@ function LocationSection({ countryName, currency, city, deliveryMode, errors, on
             </SelectBox>
           )}
         </Field>
-        <Field id="hat-city" label="City or area" optional={!onSite} hint={cityHint} error={errors.city}>
+        <Field id="hat-city" label="City or area" optional={!onSite} error={errors.city}>
           {(a11y) => (
-            <input {...a11y} type="text" className={inputClass(errors.city)} value={city} placeholder="e.g. Wuse 2, Abuja" autoComplete="address-level2" onChange={(e) => onChange('city', e.target.value)} />
+            <input
+              {...a11y}
+              type="text"
+              className={inputClass(errors.city)}
+              value={city}
+              placeholder="e.g. Wuse 2, Abuja"
+              autoComplete="address-level2"
+              onChange={(e) => onChange('city', e.target.value)}
+            />
           )}
         </Field>
       </div>
