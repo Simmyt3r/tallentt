@@ -46,8 +46,9 @@ test('Range requires and stores a real minimum and maximum', () => {
   assert.equal(payload.price_min, 25000)
   assert.equal(payload.price_max, 50000)
   assert.equal(payload.price_negotiable, true)
+  assert.equal(payload.rate_unit, 'hr')
   assert.equal('rate' in payload, false)
-  assert.equal(priceLine(form), '₦25,000 – ₦50,000')
+  assert.equal(priceLine(form), '₦25,000 – ₦50,000 /hr')
 })
 
 test('Range rejects an inverted interval', () => {
@@ -105,11 +106,13 @@ test('server enforces fixed versus range semantics', () => {
     price_type: 'range',
     price_min: 10000,
     price_max: 40000,
+    rate_unit: 'month',
   })
   assert.equal(range.ok, true)
   assert.equal(range.fields.price_type, 'range')
   assert.equal(range.fields.price_min, 10000)
   assert.equal(range.fields.price_max, 40000)
   assert.equal(range.fields.price_negotiable, true)
-  assert.equal(formatServerPrice(range.fields, 'NGN'), '₦10,000 – ₦40,000')
+  assert.equal(range.fields.rate_unit, 'month')
+  assert.equal(formatServerPrice(range.fields, 'NGN'), '₦10,000 – ₦40,000 /month')
 })
