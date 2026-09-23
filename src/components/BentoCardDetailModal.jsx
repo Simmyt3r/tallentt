@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import {
   HatOwnerHeader,
   NegotiationFeeNotice,
+  NegotiationProposalModal,
   formatAvailabilityWindow,
   formatBudget,
   formatPrice,
