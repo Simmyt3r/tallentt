@@ -98,13 +98,18 @@ export function normalizePricing(body) {
   if (price_max < price_min) {
     return { ok: false, error: 'Enter a maximum price greater than or equal to the minimum.' }
   }
+  const rate_unit = RATE_UNITS.includes(body.rate_unit) ? body.rate_unit : null
+  if (!rate_unit) return { ok: false, error: 'Select a rate unit (per hour, day, etc).' }
+  if (rate_unit === 'custom' && !String(body.rate_unit_custom || '').trim()) {
+    return { ok: false, error: 'Enter a label for the custom rate unit.' }
+  }
   return {
     ok: true,
     fields: {
       price_type,
       rate: null,
-      rate_unit: null,
-      rate_unit_custom: null,
+      rate_unit,
+      rate_unit_custom: rate_unit === 'custom' ? String(body.rate_unit_custom).trim().slice(0, 24) : null,
       price_min,
       price_max,
       price_negotiable: true,
@@ -147,7 +152,8 @@ export function resolveHatRole(accountRole, requestedRole) {
 export function formatPrice(hat, currency) {
   const fmt = (n) => `${currency === 'NGN' ? '₦' : currency + ' '}${Number(n).toLocaleString()}`
   if (hat.price_type === 'range') {
-    return `${fmt(hat.price_min)} – ${fmt(hat.price_max)}`
+    const unit = hat.rate_unit === 'custom' ? hat.rate_unit_custom : hat.rate_unit ? `/${hat.rate_unit}` : ''
+    return `${fmt(hat.price_min)} – ${fmt(hat.price_max)}${unit ? ` ${unit}` : ''}`
   }
   const unit = hat.rate_unit === 'custom' ? hat.rate_unit_custom : `/${hat.rate_unit}`
   const base = `${fmt(hat.rate)} ${unit || ''}`.trim()
