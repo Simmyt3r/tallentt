@@ -105,8 +105,15 @@ export const api = {
 
   // Applications — same PATCH-action pattern as toggleLike/recordView
   // above, on the same /api/hats/:id endpoint (see api/hats/[id].js).
-  applyToHat: (id, message) =>
-    request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'apply', message }) }),
+  applyToHat: (id, message, proposal = null) =>
+    request(`/api/hats/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        action: 'apply',
+        message,
+        ...(proposal ? { proposed_amount: proposal.amount, proposal_message: proposal.message || '' } : {}),
+      }),
+    }),
   withdrawApplication: (id) =>
     request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'withdraw' }) }),
   respondToApplication: (id, applicationId, status) =>
