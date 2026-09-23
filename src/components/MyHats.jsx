@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, LayoutGrid, List, Pencil, Trash2, Users } from 'lucide-react'
+import { LayoutGrid, List, Pencil, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import BentoCard from './BentoCard'
@@ -8,118 +8,11 @@ import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 import UserIdentity from './UserIdentity'
 import { identityFromHat } from '../lib/profile.js'
 
-// Inline panel for a single hat's applicants — fetched lazily (only when
-// expanded) via GET /api/hats/:id?include=applications, so MyHats doesn't
-// have to fetch every hat's applicants up front. Owner-only accept/reject
-// uses the same PATCH action endpoint the rest of the app already uses
-// for engagement (see api/hats/[id].js's respond_application action).
-function ApplicantsPanel({ hatId }) {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [applications, setApplications] = useState([])
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError('')
-    api
-      .getHatApplicants(hatId)
-      .then((data) => {
-        if (!cancelled) setApplications(data.applications || [])
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message || 'Failed to load applicants')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [hatId])
-
-  async function respond(applicationId, status) {
-    // Optimistic — flip the row now, roll back if the server disagrees.
-    const prev = applications
-    setApplications((list) => list.map((a) => (a.id === applicationId ? { ...a, status } : a)))
-    try {
-      await api.respondToApplication(hatId, applicationId, status)
-    } catch (e) {
-      setApplications(prev)
-      alert(e.message)
-    }
-  }
-
-  if (loading) {
-    return <p className="text-[12px] text-black/40 font-medium px-3.5 py-3">Loading applicants…</p>
-  }
-  if (error) {
-    return <p className="text-[12px] text-red-600 font-medium px-3.5 py-3">{error}</p>
-  }
-  if (applications.length === 0) {
-    return <p className="text-[12px] text-black/40 font-medium px-3.5 py-3">No applicants yet.</p>
-  }
-
-  return (
-    <ul className="divide-y divide-black/5">
-      {applications.map((a) => (
-        <li key={a.id} className="flex items-center gap-3 px-3.5 py-2.5">
-          <UserIdentity
-            user={a}
-            className="min-w-0 flex-1"
-            avatarClassName="w-8 h-8"
-            nameClassName="text-[13px] font-semibold"
-            usernameClassName="text-[11px] font-semibold text-black/50 leading-tight"
-          >
-            {a.message && <p className="text-[12px] text-black/50 truncate">{a.message}</p>}
-          </UserIdentity>
-          {a.status === 'pending' ? (
-            <div className="flex gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => respond(a.id, 'accepted')}
-                className="h-7 px-3 rounded-full bg-[#0A13E6] text-white text-[11px] font-semibold"
-              >
-                Accept
-              </button>
-              <button
-                type="button"
-                onClick={() => respond(a.id, 'rejected')}
-                className="h-7 px-3 rounded-full border border-black/20 text-black/60 text-[11px] font-semibold"
-              >
-                Reject
-              </button>
-            </div>
-          ) : (
-            <span
-              className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 capitalize ${
-                a.status === 'accepted'
-                  ? 'bg-[#E8FFE6] text-[#0A7A00]'
-                  : a.status === 'rejected'
-                  ? 'bg-red-50 text-red-600'
-                  : 'bg-[#F5F3EF] text-black/50'
-              }`}
-            >
-              {a.status}
-            </span>
-          )}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 export default function MyHats() {
   const { user } = useAuth()
   const [hats, setHats] = useState([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('chombutar_viewMode') || 'grid')
-  const [expandedHatId, setExpandedHatId] = useState(null)
-
-  function toggleApplicants(id) {
-    setExpandedHatId((prev) => (prev === id ? null : id))
-  }
-
   useEffect(() => {
     if (!user?.id) return
     let cancelled = false
@@ -227,30 +120,6 @@ export default function MyHats() {
                 </div>
               </div>
 
-              {/* Applications come in on client hats only — talent hats
-                  get booked (via escrow), not applied to. */}
-              {h.role === 'client' && (
-                <div className="bg-white rounded-[16px] border-[1.5px] border-black/10 overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => toggleApplicants(h.id)}
-                    className="w-full flex items-center justify-between px-3.5 py-2.5 text-[12px] font-semibold text-black/70"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Users size={13} /> Applicants
-                    </span>
-                    <ChevronDown
-                      size={14}
-                      className={`transition-transform ${expandedHatId === h.id ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                  {expandedHatId === h.id && (
-                    <div className="border-t border-black/5">
-                      <ApplicantsPanel hatId={h.id} />
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -276,20 +145,6 @@ export default function MyHats() {
                 <span className="text-[13px] font-bold">
                   ₦{(h.price_type === 'range' ? h.price_min : h.rate || 0).toLocaleString()}
                 </span>
-                {h.role === 'client' && (
-                  <button
-                    type="button"
-                    onClick={() => toggleApplicants(h.id)}
-                    title="View applicants"
-                    className={`w-9 h-9 rounded-full border-[1.5px] flex items-center justify-center transition ${
-                      expandedHatId === h.id
-                        ? 'border-black bg-black text-white'
-                        : 'border-black/10 text-black/50 hover:border-black hover:text-black'
-                    }`}
-                  >
-                    <Users size={14} />
-                  </button>
-                )}
                 <Link
                   to={`/create?edit=${h.id}`}
                   className="w-9 h-9 rounded-full border-[1.5px] border-black/10 flex items-center justify-center text-black/50 hover:border-black hover:text-black transition"
@@ -304,11 +159,6 @@ export default function MyHats() {
                   <Trash2 size={14} />
                 </button>
               </div>
-              {h.role === 'client' && expandedHatId === h.id && (
-                <div className="border-t border-black/5">
-                  <ApplicantsPanel hatId={h.id} />
-                </div>
-              )}
             </li>
           ))}
         </ul>
