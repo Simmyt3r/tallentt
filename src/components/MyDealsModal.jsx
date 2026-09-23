@@ -549,7 +549,7 @@ export default function MyDealsModal() {
                             to={`/messages?escrow=${item.id}`}
                             className="h-9 px-4 rounded-full border-[1.5px] border-black text-[11px] font-black inline-flex items-center gap-1.5"
                           >
-                            <MessageCircle size={14} /> Conversation
+                            <MessageCircle size={14} /> {unresolvedRange ? 'Negotiate' : item.price_type === 'range' && item.agreed_at ? 'View agreement' : 'Conversation'}
                           </Link>
                         )}
 
