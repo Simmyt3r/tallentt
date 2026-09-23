@@ -121,7 +121,7 @@ export async function notifyApplicationReceived({ ownerId, hatId, hatTitle, appl
     type: 'application_received',
     title: 'New application',
     body: `${applicantName || (applicantUsername ? `^${applicantUsername}` : 'Someone')} applied to ${titleForHat(hatTitle)}.`,
-    linkUrl: '/my-hats',
+    linkUrl: '/deals?role=client&tab=incoming',
     metadata: { hat_id: hatId, application_id: applicationId },
   })
 }
@@ -145,7 +145,7 @@ export async function notifyApplicationStatus({ applicationId, status, actor = '
       type: 'application_status',
       title: `Application ${statusText}`,
       body: `Your application to ${titleForHat(app.hat_title)} was marked ${statusText}.`,
-      linkUrl: '/my-applications',
+      linkUrl: '/deals?role=talent&tab=outgoing',
       metadata: { application_id: app.id, hat_id: app.hat_id, status: statusText, actor },
     })
 
@@ -194,7 +194,7 @@ export async function notifyEscrowSecured(escrowId) {
         type: 'escrow_secured',
         title: 'Booking secured',
         body: `${clientName} secured ${title} for ${amount}.`,
-        linkUrl: escrow.hat_id ? `/talent/${escrow.hat_id}` : '/my-hats',
+        linkUrl: '/deals?role=talent&tab=active',
         metadata: { escrow_id: escrow.id, hat_id: escrow.hat_id },
       }),
       notifyUser({
@@ -202,7 +202,7 @@ export async function notifyEscrowSecured(escrowId) {
         type: 'escrow_secured',
         title: 'Booking secured',
         body: `Your booking with ${talentName} for ${title} is now secured.`,
-        linkUrl: '/my-bookings',
+        linkUrl: '/deals?role=client&tab=active',
         metadata: { escrow_id: escrow.id, hat_id: escrow.hat_id },
       }),
     ])
@@ -247,7 +247,7 @@ export async function notifyEscrowReleased(escrowId) {
         type: 'escrow_released',
         title: 'Booking payment released',
         body: `You released ${amount} to ${talentName} for ${title}.`,
-        linkUrl: '/my-bookings',
+        linkUrl: '/deals?role=client&tab=active',
         metadata: { escrow_id: escrow.id, hat_id: escrow.hat_id },
       }),
     ])
@@ -277,8 +277,8 @@ export async function notifyEscrowCancelled(escrowId) {
     }
 
     await Promise.all([
-      notifyUser({ ...payload, userId: escrow.client_id, linkUrl: '/my-bookings' }),
-      notifyUser({ ...payload, userId: escrow.talent_id, linkUrl: escrow.hat_id ? `/talent/${escrow.hat_id}` : '/my-hats' }),
+      notifyUser({ ...payload, userId: escrow.client_id, linkUrl: '/deals?role=client&tab=active' }),
+      notifyUser({ ...payload, userId: escrow.talent_id, linkUrl: '/deals?role=talent&tab=active' }),
     ])
     return true
   } catch (err) {
