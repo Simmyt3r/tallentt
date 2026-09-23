@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { LogOut, ShieldCheck, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { NAV_PRIMARY, NAV_SECONDARY } from '../lib/nav'
-import NotificationsMenu from './NotificationsMenu.jsx'
 
 function fmtMoney(n) {
   if (n == null) return '₦0'
@@ -34,7 +33,7 @@ function SidebarLink({ to, icon: Icon, label, end, collapsed, onNavigate }) {
       <Icon size={18} className="shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
       {collapsed && (
-        <span className="pointer-events-none absolute right-full mr-2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-50">
+        <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-50">
           {label}
         </span>
       )}
@@ -85,7 +84,7 @@ function SidebarContent({ collapsed, onNavigate }) {
               <ShieldCheck size={18} className="shrink-0" />
               {!collapsed && <span className="truncate">Admin</span>}
               {collapsed && (
-                <span className="pointer-events-none absolute right-full mr-2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-50">
+                <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-50">
                   Admin
                 </span>
               )}
@@ -153,7 +152,7 @@ export function DesktopSidebar({ collapsed }) {
   return (
     <aside
       id="desktop-sidebar"
-      className={`hidden md:flex fixed top-16 bottom-0 right-0 z-30 flex-col border-l-[1.5px] border-black bg-[#FAFAF8] transition-[width] duration-200 ease-out ${
+      className={`hidden md:flex fixed top-16 bottom-0 left-0 z-30 flex-col border-r-[1.5px] border-black bg-[#FAFAF8] transition-[width] duration-200 ease-out ${
         collapsed ? 'w-[72px]' : 'w-[236px]'
       }`}
     >
@@ -177,11 +176,11 @@ export function MobileDrawer({ open, onClose }) {
         aria-modal="true"
         aria-label="Navigation"
         aria-hidden={!open}
-        className={`md:hidden fixed inset-y-0 right-0 z-50 flex w-[82%] max-w-[300px] flex-col bg-[#FAFAF8] border-l-[1.5px] border-black transition-transform duration-200 ease-out ${
-          open ? 'translate-x-0' : 'translate-x-full'
+        className={`md:hidden fixed inset-y-0 left-0 z-50 flex w-[82%] max-w-[300px] flex-col bg-[#FAFAF8] border-r-[1.5px] border-black transition-transform duration-200 ease-out ${
+          open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-end h-16 shrink-0 border-b border-black/10 px-4">
+        <div className="flex items-center justify-start h-16 shrink-0 border-b border-black/10 px-4">
           <button
             type="button"
             onClick={onClose}

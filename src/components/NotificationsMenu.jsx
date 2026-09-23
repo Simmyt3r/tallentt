@@ -165,9 +165,9 @@ export default function NotificationsMenu({ panelPosition = 'down', panelAlign =
           aria-label="Notifications"
           className={`absolute ${panelAlign === 'left' ? 'left-0' : 'right-0'} ${
             panelPosition === 'up' ? 'bottom-12' : 'top-12'
-          } w-[min(24rem,calc(100vw-1rem))] bg-[#F7F3EB] border-[1.5px] border-black rounded-[22px] shadow-[0_20px_50px_rgba(0,0,0,0.22)] overflow-hidden z-50`}
+          } w-[calc(100vw-1rem)] max-w-[24rem] max-h-[calc(100dvh-5rem)] bg-[#F7F3EB] border-[1.5px] border-black rounded-[22px] shadow-[0_20px_50px_rgba(0,0,0,0.22)] overflow-hidden z-50`}
         >
-          <div className="px-4 py-3.5 border-b-[1.5px] border-black bg-white flex items-center justify-between gap-3">
+          <div className="px-3 sm:px-4 py-3.5 border-b-[1.5px] border-black bg-white flex items-center justify-between gap-2 sm:gap-3">
             <div className="min-w-0 flex items-center gap-3">
               <span className="w-9 h-9 shrink-0 rounded-[11px] bg-black text-white grid place-items-center">
                 <Bell size={16} />
@@ -183,14 +183,15 @@ export default function NotificationsMenu({ panelPosition = 'down', panelAlign =
               type="button"
               onClick={markAll}
               disabled={!unreadCount}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border-[1.5px] border-black/15 bg-[#F7F3EB] text-[11px] font-black disabled:opacity-35 disabled:cursor-not-allowed hover:border-black transition"
+              className="inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-full border-[1.5px] border-black/15 bg-[#F7F3EB] text-[11px] font-black disabled:opacity-35 disabled:cursor-not-allowed hover:border-black transition"
             >
               <CheckCheck size={14} />
-              Mark all read
+              <span className="hidden min-[360px]:inline">Mark all read</span>
+              <span className="min-[360px]:hidden">Read all</span>
             </button>
           </div>
 
-          <div className="max-h-[min(65vh,560px)] overflow-y-auto">
+          <div className="max-h-[calc(100dvh-10rem)] md:max-h-[min(65vh,560px)] overflow-y-auto">
             {loading ? (
               <LoadingRows />
             ) : error ? (

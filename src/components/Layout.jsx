@@ -74,7 +74,7 @@ export default function Layout({ children }) {
         <div className="flex h-14 items-center justify-between gap-2 px-3 md:h-full md:px-4">
           <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
             <div className="hidden md:block">
-              <NotificationsMenu panelAlign="left" />
+              <NotificationsMenu panelAlign="right" />
             </div>
 
             {/* Mobile brand: logo + name. Below 390px the name is dropped (the
@@ -155,7 +155,7 @@ export default function Layout({ children }) {
       {location.pathname === '/deals' && <MyDealsModal />}
 
       <main
-        className={`w-full transition-[padding] duration-200 ease-out ${collapsed ? 'md:pr-[72px]' : 'md:pr-[236px]'}`}
+        className={`w-full transition-[padding] duration-200 ease-out ${collapsed ? 'md:pl-[72px]' : 'md:pl-[236px]'}`}
       >
         <div className="w-full max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 pt-5 pb-[76px] md:pb-7 md:pt-[calc(64px+1.75rem)]">
           {children}
