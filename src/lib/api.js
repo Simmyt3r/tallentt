@@ -65,6 +65,11 @@ export const api = {
   getHatDetail: (id) => request(`/api/hats/${id}?include=owner`),
   createHat: (body) => request('/api/hats', { method: 'POST', body: JSON.stringify(body) }),
   updateHat: (id, body) => request(`/api/hats/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  setHatFeedVisibility: (id, visible, confirmed = false) =>
+    request(`/api/hats/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'set_feed_visibility', feed_visible: visible, negotiation_fee_confirmed: confirmed }),
+    }),
   deleteHat: (id) => request(`/api/hats/${id}`, { method: 'DELETE' }),
   recordView: (id) =>
   request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'view' }) }),

@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS hats (
   rate_unit TEXT CHECK (rate_unit IN ('hr','day','week','month','year','custom')),
   rate_unit_custom TEXT,
   active BOOLEAN DEFAULT true,
+  feed_visible BOOLEAN NOT NULL DEFAULT false,
   availability BOOLEAN DEFAULT true,
   available_days TEXT[] NOT NULL DEFAULT ARRAY['mon','tue','wed','thu','fri','sat','sun']::TEXT[],
   available_from TIME,
@@ -139,6 +140,9 @@ CREATE TABLE IF NOT EXISTS hats (
   spent INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Feed publication is opt-in, independently of availability and Showroom media.
+ALTER TABLE hats ADD COLUMN IF NOT EXISTS feed_visible BOOLEAN NOT NULL DEFAULT false;
 
 DO $$
 BEGIN

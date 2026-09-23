@@ -272,7 +272,7 @@ function HatFormScreen({ editId }) {
         savedIdRef.current = created?.hat?.id || 'created'
       }
       setLeaving(true) // saved: nothing left to guard
-      showToast(editing ? 'Changes saved' : 'Hat published')
+      showToast(editing ? 'Changes saved. Manage feed visibility in My Hats.' : 'Hat created. Turn on Show in feed in My Hats to publish it to the feed.')
       navigate('/my-hats')
     } catch (err) {
       setSubmitError(describeSaveError(err, editing ? 'save' : 'publish'))

@@ -138,6 +138,9 @@ export default async function handler(req, res) {
       const userId = url.searchParams.get('user_id')
 
       const clauses = ['h.active = true']
+      // Unscoped listings are feeds, including requests from older app sessions.
+      // Explicit user listings retain My Hats/profile access to hidden Hats.
+      if (!userId || url.searchParams.get('feed') === '1') clauses.push('h.feed_visible = true')
       const params = []
       let i = 1
 

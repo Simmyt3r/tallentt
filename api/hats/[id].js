@@ -361,6 +361,10 @@ export default async function handler(req, res) {
             currency = COALESCE($12, currency),
             lga = COALESCE($13, lga),
             motto = COALESCE($14, motto),
+            -- Changing a published Fixed Hat to Range requires a fresh
+            -- fee confirmation through the My Hats publication toggle.
+            feed_visible = CASE WHEN $15 = 'range' AND price_type IS DISTINCT FROM 'range'
+                                THEN false ELSE feed_visible END,
             price_type = $15,
             price_min = $16,
             price_max = $17,
@@ -436,7 +440,28 @@ export default async function handler(req, res) {
       let application = null
       let alreadyApplied = false
 
-      if (body.action === 'view') {
+      if (body.action === 'set_feed_visibility') {
+        if (existing.user_id !== session.sub) return json(res, 403, { error: 'Forbidden' })
+        if (typeof body.feed_visible !== 'boolean') {
+          return json(res, 400, { error: 'feed_visible must be true or false.' })
+        }
+        // Check the current price type in the UPDATE itself so a concurrent
+        // edit cannot publish a Range Hat without confirming the fee notice.
+        const { rows } = await query(
+          `UPDATE hats SET feed_visible = $1
+           WHERE id = $2 AND user_id = $3
+             AND ($1 = false OR price_type IS DISTINCT FROM 'range' OR $4 = true)
+           RETURNING id, feed_visible, price_type`,
+          [body.feed_visible, id, session.sub, body.negotiation_fee_confirmed === true],
+        )
+        if (!rows[0]) {
+          return json(res, 409, {
+            error: 'A negotiation fee applies. Confirm before showing this Hat in the feed.',
+            code: 'NEGOTIATION_FEE_CONFIRMATION_REQUIRED',
+          })
+        }
+        return json(res, 200, { hat: rows[0] })
+      } else if (body.action === 'view') {
         await query(`UPDATE hats SET views = views + 1 WHERE id = $1`, [id])
       } else if (body.action === 'like') {
         const { rows: likeRows } = await query(
