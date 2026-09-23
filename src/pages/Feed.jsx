@@ -107,8 +107,8 @@ export default function Feed() {
               hat={primary}
               moreCount={moreCount}
               showFeedAction
-              onBook={(hat) => bookHat(hat, navigate)}
-              onApply={(hat) => submitApplication(hat, handleHatChange, navigate)}
+              onBook={(hat, proposal) => bookHat(hat, navigate, proposal)}
+              onApply={(hat, proposal) => submitApplication(hat, handleHatChange, navigate, proposal)}
               fullWidth
               onHatChange={handleHatChange}
             />
