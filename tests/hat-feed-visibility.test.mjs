@@ -131,7 +131,7 @@ test('ordinary editing cannot bypass opt-in and changing Fixed to Range unpublis
 
 const create = (fields = {}, who = owner) => request(hatsHandler, '/api/hats', { method: 'POST', who, body: {
     hat_title: 'Photographer', hat_name: 'Event photos', category: 'Film', role: 'client',
-    hiring_duration: '6 months', price_type: 'range', price_min: 10000, price_max: 20000,
+    hiring_duration: '6 months', price_type: 'range', price_min: 10000, price_max: 20000, rate_unit: 'month',
     ...fields,
   } })
 
