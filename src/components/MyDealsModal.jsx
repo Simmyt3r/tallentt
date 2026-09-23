@@ -150,7 +150,7 @@ export default function MyDealsModal() {
     if (role === 'talent') {
       return {
         incoming: bookings.filter(
-          (item) => item.talent_id === user?.id && item.request_state === 'pending',
+          (item) => item.request_kind !== 'application' && item.talent_id === user?.id && item.request_state === 'pending',
         ),
         outgoing: applications.filter(
           (item) => item.applicant_id === user?.id && item.status === 'pending',
@@ -166,7 +166,7 @@ export default function MyDealsModal() {
         (item) => item.owner_id === user?.id && item.status === 'pending',
       ),
       outgoing: bookings.filter(
-        (item) => item.client_id === user?.id && item.request_state === 'pending',
+        (item) => item.request_kind !== 'application' && item.client_id === user?.id && item.request_state === 'pending',
       ),
       active: bookings.filter(
         (item) => item.client_id === user?.id && item.request_state === 'accepted',
@@ -177,7 +177,7 @@ export default function MyDealsModal() {
   const activeItems = useMemo(() => {
     const query = search.trim().toLowerCase()
     return (collections[tab] || []).filter((item) => {
-      const isApplication = Boolean(item.application_id)
+      const isApplication = Boolean(item.application_id) && !item.id
       const peer = isApplication ? applicationPeer(item, role) : bookingPeer(item, role)
       const matchesFilter =
         filter === 'All' || String(item.hat_type || '').toLowerCase() === filter.toLowerCase()
@@ -203,7 +203,7 @@ export default function MyDealsModal() {
   }
 
   async function respond(item, status) {
-    const isApplication = Boolean(item.application_id)
+    const isApplication = Boolean(item.application_id) && !item.id
     const id = isApplication ? item.application_id : item.id
     setBusyId(id)
     try {
@@ -417,12 +417,13 @@ export default function MyDealsModal() {
             ) : (
               <div className="grid gap-3">
                 {activeItems.map((item) => {
-                  const isApplication = Boolean(item.application_id)
+                  const isApplication = Boolean(item.application_id) && !item.id
                   const id = isApplication ? item.application_id : item.id
                   const peer = isApplication
                     ? applicationPeer(item, role)
                     : bookingPeer(item, role)
                   const incomingPending = tab === 'incoming'
+                  const unresolvedRange = item.price_type === 'range' && !item.agreed_at
                   const outgoingApplication = tab === 'outgoing' && isApplication
                   const activeBooking = tab === 'active' && !isApplication
                   const canUseWallet =
@@ -482,7 +483,14 @@ export default function MyDealsModal() {
 
                           {!isApplication && (
                             <p className="mt-2 text-[13px] font-black">
-                              {money(item.amount, item.currency)}
+                              {money(item.amount, item.deal_currency || item.currency)}{item.pay_unit ? ` /${item.pay_unit}` : ''}
+                            </p>
+                          )}
+                          {isApplication && item.price_type === 'range' && (
+                            <p className="mt-2 text-[12px] font-bold text-[#0A13E6]">
+                              {item.agreed_at
+                                ? `Agreed: ${money(item.agreed_amount, item.deal_currency || item.currency)}${item.pay_unit ? ` /${item.pay_unit}` : ''}`
+                                : 'Price negotiation required'}
                             </p>
                           )}
                           {isApplication && item.message && (
@@ -494,6 +502,15 @@ export default function MyDealsModal() {
                       </div>
 
                       <div className="border-t border-black/10 px-4 sm:px-5 py-3 flex flex-wrap items-center justify-end gap-2">
+                        {isApplication && item.price_type === 'range' && item.negotiation_escrow_id && (
+                          <Link
+                            to={`/messages?escrow=${item.negotiation_escrow_id}`}
+                            className="h-9 px-4 rounded-full border-[1.5px] border-black text-[11px] font-black inline-flex items-center gap-1.5"
+                          >
+                            <MessageCircle size={14} /> {item.agreed_at ? 'View agreement' : 'Negotiate'}
+                          </Link>
+                        )}
+
                         {incomingPending && (
                           <>
                             <button
@@ -507,10 +524,11 @@ export default function MyDealsModal() {
                             <button
                               type="button"
                               onClick={() => respond(item, 'accepted')}
-                              disabled={busyId === id}
+                              disabled={busyId === id || unresolvedRange}
+                              title={unresolvedRange ? 'Agree the Range price before accepting.' : undefined}
                               className="h-9 px-4 rounded-full bg-[#0A13E6] text-white border-[1.5px] border-black text-[11px] font-black inline-flex items-center gap-1.5 disabled:opacity-50"
                             >
-                              <Check size={14} /> Accept
+                              <Check size={14} /> {unresolvedRange ? 'Agree price first' : 'Accept'}
                             </button>
                           </>
                         )}
