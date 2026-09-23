@@ -2,22 +2,17 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { normalizePricing, resolveHatRole, formatPrice, MAX_PRICE } from '../api/_lib/hatFields.js'
 
-test('fixed pricing keeps price_negotiable so a starting price can be negotiable', () => {
-  const plain = normalizePricing({ price_type: 'fixed', rate: 25000, rate_unit: 'hr' })
+test('fixed pricing is always fixed', () => {
+  const plain = normalizePricing({ price_type: 'fixed', rate: 25000, rate_unit: 'hr', price_negotiable: true })
   assert.equal(plain.ok, true)
   assert.equal(plain.fields.price_negotiable, false)
   assert.equal(plain.fields.rate, 25000)
-
-  const negotiable = normalizePricing({ price_type: 'fixed', rate: 25000, rate_unit: 'day', price_negotiable: true })
-  assert.equal(negotiable.ok, true)
-  assert.equal(negotiable.fields.price_type, 'fixed')
-  assert.equal(negotiable.fields.price_negotiable, true)
-  assert.equal(negotiable.fields.price_min, null)
-  assert.equal(negotiable.fields.price_max, null)
+  assert.equal(plain.fields.price_min, null)
+  assert.equal(plain.fields.price_max, null)
 })
 
-test('range pricing is unchanged', () => {
-  const r = normalizePricing({ price_type: 'range', price_min: 1000, price_max: 5000, price_negotiable: true })
+test('range pricing stores min/max and automatically enables the offer flow', () => {
+  const r = normalizePricing({ price_type: 'range', price_min: 1000, price_max: 5000 })
   assert.deepEqual(r.fields, {
     price_type: 'range', rate: null, rate_unit: null, rate_unit_custom: null,
     price_min: 1000, price_max: 5000, price_negotiable: true,
@@ -34,9 +29,9 @@ test('rejects zero, negative, fractional, missing and oversized amounts', () => 
   assert.equal(normalizePricing({ price_type: 'fixed', rate: 100, rate_unit: 'custom' }).ok, false, 'custom label required')
 })
 
-test('formatPrice marks negotiable fixed hats', () => {
-  assert.equal(formatPrice({ price_type: 'fixed', rate: 25000, rate_unit: 'hr', price_negotiable: true }, 'NGN'), '₦25,000 /hr (negotiable)')
+test('formatPrice shows fixed and min-max range distinctly', () => {
   assert.equal(formatPrice({ price_type: 'fixed', rate: 25000, rate_unit: 'hr', price_negotiable: false }, 'NGN'), '₦25,000 /hr')
+  assert.equal(formatPrice({ price_type: 'range', price_min: 1000, price_max: 5000, price_negotiable: true }, 'NGN'), '₦1,000 – ₦5,000')
 })
 
 test('hat role comes from the account, not the browser', () => {

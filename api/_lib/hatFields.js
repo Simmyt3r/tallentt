@@ -58,10 +58,9 @@ function validateAmount(value, missingMessage) {
  * side of fixed/range isn't active) so callers can spread it straight into
  * an INSERT/UPDATE without extra branching.
  *
- * New Create/Edit clients expose only Fixed and Range. Range is encoded as
- * a fixed starting rate with price_negotiable=true, because the booking and
- * offer system already keys off that flag. The old price_type='range' min/max
- * shape remains accepted here only for legacy records/older clients.
+ * Create/Edit exposes only Fixed and Range. Range is stored as a real
+ * minimum/maximum pair and automatically enters the existing offer flow.
+ * There is no separate Negotiable price mode.
  */
 export function normalizePricing(body) {
   const price_type = PRICE_TYPES.includes(body.price_type) ? body.price_type : 'fixed'
@@ -84,7 +83,7 @@ export function normalizePricing(body) {
         rate_unit_custom: rate_unit === 'custom' ? String(body.rate_unit_custom).trim().slice(0, 24) : null,
         price_min: null,
         price_max: null,
-        price_negotiable: Boolean(body.price_negotiable),
+        price_negotiable: false,
       },
     }
   }
@@ -108,7 +107,7 @@ export function normalizePricing(body) {
       rate_unit_custom: null,
       price_min,
       price_max,
-      price_negotiable: Boolean(body.price_negotiable),
+      price_negotiable: true,
     },
   }
 }

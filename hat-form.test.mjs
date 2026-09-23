@@ -113,9 +113,10 @@ test('price validation: zero, empty, oversized, and range ordering', () => {
   assert.equal(range('1000', '1000').priceMax, undefined)
 })
 
-test('negotiable still needs a starting price; custom unit needs a label', () => {
+test('range needs both bounds; fixed custom unit still needs a label', () => {
   const ctx = { role: 'talent', media: media(1) }
-  assert.equal(validateForm(validForm({ priceMode: 'negotiable', amount: '' }), ctx).amount, 'Enter a valid price.')
+  assert.equal(validateForm(validForm({ priceMode: 'range', priceMin: '', priceMax: '5000' }), ctx).priceMin, 'Enter a valid minimum.')
+  assert.equal(validateForm(validForm({ priceMode: 'range', priceMin: '1000', priceMax: '' }), ctx).priceMax, 'Enter a valid maximum.')
   assert.equal(validateForm(validForm({ rateUnit: 'custom', rateUnitCustom: '' }), ctx).rateUnitCustom.startsWith('Enter a label'), true)
 })
 
@@ -145,20 +146,17 @@ test('custom category is validated only when "Other" is chosen', () => {
   assert.equal(buildPayload(validForm({ category: OTHER_CATEGORY, customCategory: ' Drone Pilots ' }), { mode: 'create', role: 'talent' }).category, 'Drone Pilots')
 })
 
-test('price payloads: fixed / negotiable / range map onto existing fields only', () => {
+test('price payloads: fixed or real min-max range only', () => {
   const opts = { mode: 'create', role: 'talent' }
   const fixed = buildPayload(validForm(), opts)
   assert.equal(fixed.price_type, 'fixed'); assert.equal(fixed.price_negotiable, false); assert.equal(fixed.rate, 25000)
   assert.equal(fixed.price_min, undefined)
 
-  const neg = buildPayload(validForm({ priceMode: 'negotiable' }), opts)
-  assert.equal(neg.price_type, 'fixed'); assert.equal(neg.price_negotiable, true); assert.equal(neg.rate, 25000)
-
-  const range = buildPayload(validForm({ priceMode: 'range', priceMin: '1000', priceMax: '5000', rangeNegotiable: true }), opts)
+  const range = buildPayload(validForm({ priceMode: 'range', priceMin: '1000', priceMax: '5000' }), opts)
   assert.equal(range.price_type, 'range'); assert.equal(range.price_min, 1000); assert.equal(range.price_max, 5000)
   assert.equal(range.price_negotiable, true); assert.equal(range.rate, undefined)
 
-  for (const b of [fixed, neg, range]) {
+  for (const b of [fixed, range]) {
     for (const forbidden of ['priceType', 'pricing_type', 'negotiable', 'isNegotiable', 'price_mode']) assert.equal(forbidden in b, false, forbidden)
   }
 })
@@ -185,16 +183,16 @@ test('edit can clear the availability window and verified name; create omits emp
 test('hydrate -> build round-trips an existing hat without losing anything', () => {
   const hat = {
     hat_title: 'Henna artist', category: 'Beauty & Grooming', motto: 'Bridal specialist', skills: ['Henna', 'Bridal'],
-    hat_type: 'One-Off', verified_name: 'Acme Ltd', price_type: 'fixed', rate: 15000, rate_unit: 'custom', rate_unit_custom: 'per hand',
+    hat_type: 'One-Off', verified_name: 'Acme Ltd', price_type: 'range', price_min: 15000, price_max: 25000,
     price_negotiable: true, availability: false, available_from: '09:00:00', available_to: '17:00:00',
     country: 'Ghana', lga: 'Accra', delivery_mode: 'Physical', role: 'talent',
   }
   const form = hydrateForm(hat)
-  assert.equal(form.priceMode, 'negotiable')
+  assert.equal(form.priceMode, 'range')
   assert.equal(form.flexibleHours, false)
   assert.equal(form.available, false, 'an unavailable hat stays unavailable on edit')
   const body = buildPayload(form, { mode: 'edit', role: 'talent' })
-  assert.equal(body.hat_title, 'Henna artist'); assert.equal(body.rate, 15000); assert.equal(body.rate_unit_custom, 'per hand')
+  assert.equal(body.hat_title, 'Henna artist'); assert.equal(body.price_min, 15000); assert.equal(body.price_max, 25000)
   assert.equal(body.price_negotiable, true); assert.equal(body.availability, false)
   assert.equal(body.available_from, '09:00'); assert.equal(body.country, 'Ghana'); assert.equal(body.currency, 'GHS')
   assert.deepEqual(body.skills, ['Henna', 'Bridal']); assert.equal(body.motto, 'Bridal specialist')
@@ -202,7 +200,7 @@ test('hydrate -> build round-trips an existing hat without losing anything', () 
 
 test('legacy range hats hydrate as range; legacy blank window is flexible', () => {
   const form = hydrateForm({ price_type: 'range', price_min: 1000, price_max: 4000, price_negotiable: true, delivery_mode: null, availability: true })
-  assert.equal(form.priceMode, 'range'); assert.equal(form.rangeNegotiable, true)
+  assert.equal(form.priceMode, 'range'); assert.equal(form.priceMin, '1000'); assert.equal(form.priceMax, '4000')
   assert.equal(form.flexibleHours, true); assert.equal(form.deliveryMode, '')
 })
 
@@ -213,9 +211,9 @@ test('profile location seeds a new hat only when the country is supported', () =
   assert.equal(emptyForm(null).countryName, 'Nigeria')
 })
 
-test('preview reflects the form: price, negotiable marker, hours, location', () => {
-  const p = buildPreview(validForm({ priceMode: 'negotiable', city: 'Abuja', deliveryMode: 'Physical', flexibleHours: false, availableFrom: '09:00', availableTo: '17:00', description: 'Candid' }), { role: 'talent' })
-  assert.equal(p.listingLabel, 'Seeking'); assert.equal(p.price, '₦25,000 /hr • Negotiable')
+test('preview reflects the form: range, hours, location', () => {
+  const p = buildPreview(validForm({ priceMode: 'range', priceMin: '25000', priceMax: '50000', city: 'Abuja', deliveryMode: 'Physical', flexibleHours: false, availableFrom: '09:00', availableTo: '17:00', description: 'Candid' }), { role: 'talent' })
+  assert.equal(p.listingLabel, 'Seeking'); assert.equal(p.price, '₦25,000 – ₦50,000')
   assert.equal(p.hours, 'Daily, 9:00 AM – 5:00 PM'); assert.equal(p.location, 'Abuja, Nigeria'); assert.equal(p.delivery, 'On-site')
   assert.equal(buildPreview(validForm({ amount: '' }), { role: 'client' }).price, '')
   assert.equal(buildPreview(validForm(), { role: 'client' }).listingLabel, 'Hiring')
