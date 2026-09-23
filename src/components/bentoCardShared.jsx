@@ -362,11 +362,11 @@ export function NegotiationFeeNotice({ open, fee, onCancel, onContinue }) {
         className="bg-white rounded-[20px] border-[1.5px] border-black w-full max-w-[360px] p-5 space-y-4 shadow-[0_20px_60px_-12px_rgba(0,0,0,0.25)] animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-[16px] font-bold">Price Negotiation</h3>
+        <h3 className="text-[16px] font-bold">Negotiation fee applies</h3>
         <p className="text-[13px] text-black/70 leading-relaxed">
           {fee
-            ? `This price is negotiable. A negotiation fee of ${fee} will apply when you start negotiating.`
-            : 'This price is negotiable. A negotiation fee will apply when you start negotiating.'}
+            ? `This listing uses Range pricing. A negotiation fee of ${fee} applies if you continue.`
+            : 'This listing uses Range pricing. A negotiation fee applies if you continue.'}
         </p>
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={stop(onCancel)} className="tw-btn-ghost flex-1 h-11">

@@ -276,22 +276,17 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const availabilityWindow = formatAvailabilityWindow(hat)
   const hiringDuration = loaded ? detail.hiring_duration : hat.hiring_duration
   const priceDisplay = loaded ? formatBudget(detail.budget) : formatPrice(hat, currency)
-  const isNegotiable = loaded ? Boolean(detail.budget?.negotiable) : Boolean(hat.price_negotiable)
+  const usesNegotiationPricing = loaded
+    ? detail.budget?.type === 'range' || Boolean(detail.budget?.negotiable)
+    : hat.price_type === 'range' || Boolean(hat.price_negotiable)
   const publishedLabel = formatDate(loaded ? detail.created_at : hat.created_at)
   const postedAgo = relativeTime(loaded ? detail.created_at : hat.created_at)
   const applied = (loaded && Boolean(detail.has_applied)) || justApplied
 
-  // Talent hats book directly unless the price is negotiable, in which
-  // case the spec's fee notice runs first — "Continue" there calls
-  // onBook exactly as it would have run without the notice. Client hats
-  // are unaffected (see the spec's own worked examples: the notice only
-  // ever appears on the Talent/Book flow).
-  function handlePrimaryAction() {
+  // Both Book and Apply must acknowledge the fee before continuing when
+  // the Hat uses Range or legacy negotiable pricing.
+  function runPrimaryAction() {
     if (isTalent) {
-      if (isNegotiable) {
-        setShowNegotiationNotice(true)
-        return
-      }
       onBook?.(hat)
       return
     }
@@ -302,9 +297,18 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
       .finally(() => setApplying(false))
   }
 
+  function handlePrimaryAction() {
+    if (!isTalent && (applied || applying)) return
+    if (usesNegotiationPricing) {
+      setShowNegotiationNotice(true)
+      return
+    }
+    runPrimaryAction()
+  }
+
   function handleNegotiationContinue() {
     setShowNegotiationNotice(false)
-    onBook?.(hat)
+    runPrimaryAction()
   }
 
   return (
