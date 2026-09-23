@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { testDatabase } from './database.mjs'
 
-let database, pool, threads, checkout, payments, handler, signSession
+let database, pool, threads, checkout, payments, myDeals, handler, signSession
 let clientId, talentId, outsiderId, hatId, escrowId
 const schema = await readFile(new URL('../db/schema.sql', import.meta.url), 'utf8')
 
@@ -18,6 +18,7 @@ before(async () => {
   threads = await import('../api/_lib/bookingThreads.js')
   checkout = await import('../api/_lib/bookingCheckout.js')
   payments = await import('../api/_lib/escrowPayments.js')
+  myDeals = await import('../api/_lib/myDeals.js')
   handler = (await import('../api/escrows/index.js')).default
   signSession = (await import('../api/_lib/auth.js')).signSession
 })
@@ -99,6 +100,93 @@ test('counteroffers supersede, only recipients accept, and stale responses fail'
   assert.equal((await state()).amount, 9000)
   assert.equal((await respond(clientId, counter.id, 'accepted')).alreadyProcessed, true)
   assert.equal((await threads.getConversations(talentId)).conversations[0].unread_count, 1)
+})
+
+test('Range booking must agree a proposal before the talent can accept it', async () => {
+  await pool.query(
+    `UPDATE hats SET price_type = 'range', rate = NULL, rate_unit = 'month',
+       price_min = 8000, price_max = 12000, price_negotiable = true, currency = 'NGN'
+     WHERE id = $1`,
+    [hatId],
+  )
+  await pool.query(
+    `UPDATE escrows SET amount = 8000, contacts_unlocked = false, agreed_at = NULL,
+       currency = 'NGN', pay_unit = 'month' WHERE id = $1`,
+    [escrowId],
+  )
+
+  await assert.rejects(
+    myDeals.respondBookingRequest(talentId, escrowId, 'accepted'),
+    { status: 409 },
+  )
+
+  const proposed = await offer(clientId, 11000)
+  const pending = (await threads.getThread(talentId, escrowId)).thread.pending_offer
+  assert.equal(pending.id, proposed.id)
+  assert.equal(pending.amount, 11000)
+  assert.equal(pending.currency, 'NGN')
+  assert.equal(pending.pay_unit, 'month')
+
+  await respond(talentId, proposed.id, 'accepted')
+  const agreed = await state()
+  assert.equal(agreed.amount, 11000)
+  assert.equal(agreed.pay_unit, 'month')
+  assert.ok(agreed.agreed_at)
+
+  await myDeals.respondBookingRequest(talentId, escrowId, 'accepted')
+  assert.equal((await state()).contacts_unlocked, true)
+})
+
+test('Range Client Hat application negotiates on a provisional deal before acceptance', async () => {
+  const clientHatId = randomUUID()
+  await pool.query(
+    `INSERT INTO hats
+       (id, user_id, username, hat_title, hat_name, category, role, hiring_duration,
+        price_type, price_min, price_max, rate_unit, price_negotiable, currency)
+     VALUES ($1,$2,'client','Backend engineer','Backend role','Tech','client','6 months',
+             'range',40000,60000,'month',true,'NGN')`,
+    [clientHatId, clientId],
+  )
+
+  const created = await myDeals.createApplicationRequest(
+    talentId,
+    clientHatId,
+    'Available to start next week.',
+    { proposedAmount: 55000, proposalMessage: 'My proposal for the monthly engagement.' },
+  )
+  assert.equal(created.application.status, 'pending')
+  assert.equal(created.escrow.request_kind, 'application')
+  assert.equal(created.escrow.contacts_unlocked, false)
+  assert.equal(created.escrow.agreed_at, null)
+
+  await assert.rejects(
+    myDeals.respondApplicationDeal(clientId, clientHatId, created.application.id, 'accepted'),
+    { status: 409 },
+  )
+
+  const negotiation = await threads.getThread(clientId, created.escrow.id)
+  assert.equal(negotiation.thread.pending_offer.amount, 55000)
+  assert.equal(negotiation.thread.pending_offer.currency, 'NGN')
+  assert.equal(negotiation.thread.pending_offer.pay_unit, 'month')
+
+  await threads.threadAction(clientId, {
+    action: 'respond_offer',
+    escrow_id: created.escrow.id,
+    offer_id: negotiation.thread.pending_offer.id,
+    status: 'accepted',
+  })
+
+  const accepted = await myDeals.respondApplicationDeal(
+    clientId,
+    clientHatId,
+    created.application.id,
+    'accepted',
+  )
+  assert.equal(accepted.application.status, 'accepted')
+  assert.equal(accepted.escrow.amount, 55000)
+  assert.equal(accepted.escrow.pay_unit, 'month')
+  assert.equal(accepted.escrow.contacts_unlocked, true)
+  assert.ok(accepted.escrow.agreed_at)
 })
 
 test('decline and withdrawal preserve the price, including after negotiability changes', async () => {
