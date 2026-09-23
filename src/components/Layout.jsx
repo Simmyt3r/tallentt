@@ -7,6 +7,7 @@ import BottomNav from './BottomNav.jsx'
 import MyDealsModal from './MyDealsModal.jsx'
 import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
+import NotificationsMenu from './NotificationsMenu.jsx'
 
 // Header menu button (icon-only, round, no border — the avatar is the bordered one).
 const MENU_BUTTON =
@@ -72,27 +73,9 @@ export default function Layout({ children }) {
       <header className="sticky top-0 z-20 border-b-[1.5px] border-black bg-[#F7F3EB]/95 backdrop-blur-xl md:fixed md:inset-x-0 md:h-16">
         <div className="flex h-14 items-center justify-between gap-2 px-3 md:h-full md:px-4">
           <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Open menu"
-              aria-expanded={drawerOpen}
-              aria-controls="mobile-drawer"
-              className={`${MENU_BUTTON} grid md:hidden`}
-            >
-              <Menu size={22} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setCollapsed((v) => !v)}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-expanded={!collapsed}
-              aria-controls="desktop-sidebar"
-              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              className={`${MENU_BUTTON} hidden md:grid`}
-            >
-              <Menu size={22} />
-            </button>
+            <div className="hidden md:block">
+              <NotificationsMenu panelAlign="left" />
+            </div>
 
             {/* Mobile brand: logo + name. Below 390px the name is dropped (the
                 logo stays) so the row never has to truncate it. */}
@@ -143,6 +126,27 @@ export default function Layout({ children }) {
                 initial
               )}
             </Link>
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={drawerOpen}
+              aria-controls="mobile-drawer"
+              className={`${MENU_BUTTON} grid md:hidden`}
+            >
+              <Menu size={22} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollapsed((v) => !v)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-expanded={!collapsed}
+              aria-controls="desktop-sidebar"
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className={`${MENU_BUTTON} hidden md:grid`}
+            >
+              <Menu size={22} />
+            </button>
           </div>
         </div>
       </header>

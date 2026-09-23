@@ -56,7 +56,7 @@ function LoadingRows() {
   )
 }
 
-export default function NotificationsMenu({ panelPosition = 'down', className = '', buttonClassName = '', iconSize = 16 }) {
+export default function NotificationsMenu({ panelPosition = 'down', panelAlign = 'right', className = '', buttonClassName = '', iconSize = 16 }) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const rootRef = useRef(null)
@@ -163,7 +163,7 @@ export default function NotificationsMenu({ panelPosition = 'down', className = 
         <div
           role="dialog"
           aria-label="Notifications"
-          className={`absolute right-0 ${
+          className={`absolute ${panelAlign === 'left' ? 'left-0' : 'right-0'} ${
             panelPosition === 'up' ? 'bottom-12' : 'top-12'
           } w-[min(24rem,calc(100vw-1rem))] bg-[#F7F3EB] border-[1.5px] border-black rounded-[22px] shadow-[0_20px_50px_rgba(0,0,0,0.22)] overflow-hidden z-50`}
         >
