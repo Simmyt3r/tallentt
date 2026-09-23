@@ -21,11 +21,11 @@ test('allows ordinary work discussion and prices', () => {
   }
 })
 
-test('both payment status and contact entitlement are required', () => {
+test('acceptance unlocks contacts before payment while closed deals remain locked', () => {
   for (const status of ['not_funded', 'cancelled', 'secured', 'released']) {
     for (const unlocked of [false, true]) {
       const escrow = { status, contacts_unlocked: unlocked }
-      const allowed = unlocked && ['secured', 'released'].includes(status)
+      const allowed = unlocked && !['cancelled', 'refunded'].includes(status)
       assert.equal(canShareContacts(escrow), allowed)
       if (allowed) assert.equal(messageText('a@example.com', escrow), 'a@example.com')
       else assert.throws(() => messageText('a@example.com', escrow), { status: 422 })
