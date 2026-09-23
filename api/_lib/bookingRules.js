@@ -17,7 +17,7 @@ export function requireAmount(value) {
 }
 
 export function canShareContacts(escrow) {
-  return escrow.contacts_unlocked === true && ['secured', 'released'].includes(escrow.status)
+  return escrow.contacts_unlocked === true && !['cancelled', 'refunded'].includes(escrow.status)
 }
 
 export function assertPriceEditable(escrow) {
@@ -60,7 +60,7 @@ export function messageText(value, escrow, required = true) {
   }
   const text = value.trim()
   if (!canShareContacts(escrow) && containsContactDetails(text)) {
-    throw bookingError(422, 'Contact details and external links can only be shared after payment is secured. Remove them to send this message.')
+    throw bookingError(422, 'Contact details and external links can only be shared after the deal is accepted. Remove them to send this message.')
   }
   return text
 }
