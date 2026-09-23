@@ -71,6 +71,17 @@ test('only opted-in active Hats enter the feed, including search and role filter
   assert.equal((await feed()).length, 0)
 })
 
+test('legacy feed requests also exclude hidden Hats', async () => {
+  for (const suffix of ['', '?role=talent', '?feed=0&role=talent']) {
+    assert.deepEqual((await request(hatsHandler, `/api/hats${suffix}`)).body.hats, [])
+  }
+  await toggle(fixed, true)
+  const legacy = await request(hatsHandler, '/api/hats?role=talent&search=Video')
+  assert.deepEqual(legacy.body.hats.map((h) => h.id), [fixed])
+  const scopedFeed = await feed(`&user_id=${owner}`)
+  assert.deepEqual(scopedFeed.map((h) => h.id), [fixed])
+})
+
 test('hidden Hats remain in My Hats, Showroom and direct details', async () => {
   const mine = await request(hatsHandler, `/api/hats?user_id=${owner}`)
   assert.equal(mine.body.hats.length, 3)
