@@ -46,6 +46,7 @@ const offer = (sender, amount = 8000, expected = null, extra = {}) => send(sende
 const respond = (sender, id, status) => threads.threadAction(sender, { action: 'respond_offer', escrow_id: escrowId, offer_id: id, status })
 const state = async () => (await pool.query('SELECT * FROM escrows WHERE id = $1', [escrowId])).rows[0]
 const txn = (reference, amount = 1000000) => ({ reference, amount, status: 'success', currency: 'NGN', metadata: { escrow_id: escrowId } })
+const accept = () => pool.query('UPDATE escrows SET contacts_unlocked = true WHERE id = $1', [escrowId])
 
 test('migration works fresh and on upgrade, and does not lock new bookings on rerun', async () => {
   await pool.query(schema)
@@ -85,6 +86,7 @@ test('contact rejection persists nothing and message retries deliver once', asyn
 })
 
 test('counteroffers supersede, only recipients accept, and stale responses fail', async () => {
+  await accept()
   const first = await offer(clientId)
   await assert.rejects(respond(clientId, first.id, 'accepted'), { status: 403 })
   await assert.rejects(respond(talentId, first.id, 'withdrawn'), { status: 403 })
@@ -112,6 +114,7 @@ test('decline and withdrawal preserve the price, including after negotiability c
 })
 
 test('wallet uses accepted price, rejects stale amount, and credits talent exactly once on release', async () => {
+  await accept()
   const pending = await offer(talentId, 8500)
   await respond(clientId, pending.id, 'accepted')
   await assert.rejects(checkout.payBookingWithWallet(clientId, escrowId, 10000), { status: 409 })
@@ -132,6 +135,7 @@ test('wallet uses accepted price, rejects stale amount, and credits talent exact
 })
 
 test('card checkout freezes price and reference, rejects wrong and underpaid transactions', async () => {
+  await accept()
   const prepared = await checkout.prepareCheckout(clientId, escrowId, 10000)
   assert.equal((await checkout.prepareCheckout(clientId, escrowId, 10000)).reference, prepared.reference)
   await assert.rejects(offer(clientId), { status: 409 })
@@ -146,6 +150,7 @@ test('card checkout freezes price and reference, rejects wrong and underpaid tra
 })
 
 test('competing funding requests debit the wallet only once', async () => {
+  await accept()
   const results = await Promise.allSettled([
     checkout.payBookingWithWallet(clientId, escrowId, 10000),
     checkout.payBookingWithWallet(clientId, escrowId, 10000),
@@ -155,6 +160,7 @@ test('competing funding requests debit the wallet only once', async () => {
 })
 
 test('concurrent offers and checkout cannot leave an open offer against a locked price', async () => {
+  await accept()
   const results = await Promise.allSettled([offer(talentId), checkout.prepareCheckout(clientId, escrowId, 10000)])
   assert.equal(results.filter((x) => x.status === 'fulfilled').length, 1)
   const current = await state()
@@ -218,6 +224,7 @@ test('admin cancellation cannot race a started checkout', async () => {
   escrowId = randomUUID()
   await pool.query(`INSERT INTO escrows (id, hat_id, client_id, talent_id, amount)
     VALUES ($1, $2, $3, $4, 10000)`, [escrowId, hatId, clientId, talentId])
+  await accept()
   await checkout.prepareCheckout(clientId, escrowId, 10000)
   assert.equal((await cancel()).status, 409)
   assert.equal((await state()).status, 'not_funded')
