@@ -435,11 +435,12 @@ export function validateForm(form, ctx) {
   } else {
     const msg = amountError(form.amount, copy.priceNoun, currency)
     if (msg) errors.amount = msg
-    if (form.rateUnit === 'custom') {
-      const label = form.rateUnitCustom.trim()
-      if (!label) errors.rateUnitCustom = 'Enter a label, like “per event”.'
-      else if (label.length > CUSTOM_UNIT_MAX) errors.rateUnitCustom = `Keep the label to ${CUSTOM_UNIT_MAX} characters or fewer.`
-    }
+  }
+
+  if (form.rateUnit === 'custom') {
+    const label = form.rateUnitCustom.trim()
+    if (!label) errors.rateUnitCustom = 'Enter a label, like “per event”.'
+    else if (label.length > CUSTOM_UNIT_MAX) errors.rateUnitCustom = `Keep the label to ${CUSTOM_UNIT_MAX} characters or fewer.`
   }
 
   if (!Array.isArray(form.availableDays) || form.availableDays.length === 0) {
@@ -519,6 +520,8 @@ function pricingFields(form) {
       price_type: 'range',
       price_min: Number(form.priceMin),
       price_max: Number(form.priceMax),
+      rate_unit: form.rateUnit,
+      rate_unit_custom: form.rateUnit === 'custom' ? form.rateUnitCustom.trim() : undefined,
       price_negotiable: true,
     }
   }
@@ -577,7 +580,11 @@ export function priceLine(form) {
     const min = formatMoney(form.priceMin, currency)
     const max = formatMoney(form.priceMax, currency)
     if (!min) return ''
-    return max && form.priceMax !== form.priceMin ? `${min} – ${max}` : min
+    const base = max && form.priceMax !== form.priceMin ? `${min} – ${max}` : min
+    const unit = form.rateUnit === 'custom'
+      ? form.rateUnitCustom.trim()
+      : RATE_UNITS.find((u) => u.value === form.rateUnit)?.short || ''
+    return unit ? `${base} ${unit}` : base
   }
   const amount = formatMoney(form.amount, currency)
   if (!amount) return ''
