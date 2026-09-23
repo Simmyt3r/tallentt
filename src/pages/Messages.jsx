@@ -246,7 +246,7 @@ function BookingThread({ id, onBack }) {
         {pending && <p className="text-xs text-black/50">Resolve the pending offer before paying.</p>}
       </div>}
     </header>
-    {thread.contacts_unlocked && thread.status !== 'cancelled' && <BookingProgress thread={thread} events={data.events} eventsCursor={data.eventsCursor}
+    {(thread.contacts_unlocked || thread.status !== 'not_funded') && thread.status !== 'cancelled' && <BookingProgress thread={thread} events={data.events} eventsCursor={data.eventsCursor}
       busy={busy} run={run} refreshUser={refreshUser} />}
     {pending && <div className="p-4 bg-[#0A13E6]/5 border-b border-black/10 space-y-2">
       <p className="text-sm font-semibold">{pending.sender_id === user.id ? 'Your offer' : 'Received offer'}: {money(pending.amount, pending.currency || thread.currency)}</p>
