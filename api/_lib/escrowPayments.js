@@ -28,6 +28,9 @@ export async function applyVerifiedPayment({ escrowId, reference, txn }) {
       if (escrow.status !== 'not_funded') {
         throw bookingError(409, 'This booking cannot accept another payment. Contact support with your payment reference.')
       }
+      if (!escrow.contacts_unlocked) {
+        throw bookingError(409, 'The talent must accept this booking request before payment.')
+      }
       // Old checkouts have a frozen price but no server-issued reference.
       if (escrow.checkout_reference && escrow.checkout_reference !== reference) {
         throw bookingError(409, 'This payment does not match the booking checkout. Contact support with your reference.')
