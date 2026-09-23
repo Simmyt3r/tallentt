@@ -1,7 +1,7 @@
 // Path: src/components/hatform/BasicInfoSection.jsx
 import { memo, useEffect, useId, useRef, useState } from 'react'
 import { api } from '../../lib/api'
-import { HAT_DESCRIPTION_MAX, HAT_NAME_MAX, HAT_TITLE_MAX, HAT_TYPES, OTHER_CATEGORY } from '../../lib/hatForm'
+import { HAT_DESCRIPTION_MAX, HAT_NAME_MAX, HAT_TITLE_MAX, HAT_TYPES, HIRING_DURATIONS, OTHER_CATEGORY } from '../../lib/hatForm'
 import { CharCount, Field, RadioCards, SelectBox, Section, inputClass } from './formParts'
 
 // Title with the app's existing "Seeking" typeahead (GET /api/hats?suggest=1).
@@ -140,6 +140,7 @@ function BasicInfoSection({
   description,
   skills,
   hatType,
+  hiringDuration,
   verifiedName,
   categories,
   errors,
@@ -240,6 +241,31 @@ function BasicInfoSection({
           )}
         </Field>
       </div>
+
+      {hatRole === 'client' && (
+        <Field
+          id="hat-hiring-duration"
+          label="Hiring duration"
+          hint="How long should this job or contract last?"
+          error={errors.hiringDuration}
+        >
+          {(a11y) => (
+            <SelectBox
+              {...a11y}
+              error={errors.hiringDuration}
+              value={hiringDuration}
+              onChange={(e) => onChange('hiringDuration', e.target.value)}
+            >
+              <option value="">Choose duration…</option>
+              {HIRING_DURATIONS.map((duration) => (
+                <option key={duration} value={duration}>
+                  {duration}
+                </option>
+              ))}
+            </SelectBox>
+          )}
+        </Field>
+      )}
 
       <Field
         id="hat-description"

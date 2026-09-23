@@ -2,7 +2,7 @@ import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
-import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing, normalizeAvailableDays } from '../_lib/hatFields.js'
+import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing, normalizeAvailableDays, normalizeHiringDuration } from '../_lib/hatFields.js'
 import { notifyApplicationReceived, notifyApplicationStatus } from '../_lib/notifications.js'
 
 async function getHat(id, viewerId) {
@@ -118,6 +118,7 @@ async function buildCardDetail(hat, viewerId) {
     media: (hat.media || []).map((m) => ({ url: m.url, type: m.type, caption: m.caption || null })),
     tags: hat.skills || [],
     category: hat.category || null,
+    hiring_duration: hat.hiring_duration || null,
     budget: {
       type: hat.price_type,
       currency: hat.currency || 'NGN',
@@ -270,6 +271,8 @@ export default async function handler(req, res) {
       if (body.delivery_mode != null && !DELIVERY_MODES.includes(body.delivery_mode)) {
         return json(res, 400, { error: 'Invalid delivery mode.' })
       }
+      const duration = normalizeHiringDuration(body.hiring_duration, existing.role, existing.hiring_duration)
+      if (!duration.ok) return json(res, 400, { error: duration.error })
 
       // Pricing is only re-validated/re-normalized when the client actually
       // sent pricing fields this time — otherwise keep what's on file.
@@ -351,26 +354,27 @@ export default async function handler(req, res) {
             category = COALESCE($5, category),
             skills = COALESCE($6, skills),
             hat_type = COALESCE($7, hat_type),
-            delivery_mode = COALESCE($8, delivery_mode),
-            country = COALESCE($9, country),
-            country_flag = COALESCE($10, country_flag),
-            currency = COALESCE($11, currency),
-            lga = COALESCE($12, lga),
-            motto = COALESCE($13, motto),
-            price_type = $14,
-            price_min = $15,
-            price_max = $16,
-            price_negotiable = $17,
-            rate = $18,
-            rate_unit = $19,
-            rate_unit_custom = $20,
-            availability = COALESCE($21, availability),
-            active = COALESCE($22, active),
-            available_days = $23,
-            available_from = $24,
-            available_to = $25,
-            orbit_score = $26
-          WHERE id = $27`,
+            hiring_duration = $8,
+            delivery_mode = COALESCE($9, delivery_mode),
+            country = COALESCE($10, country),
+            country_flag = COALESCE($11, country_flag),
+            currency = COALESCE($12, currency),
+            lga = COALESCE($13, lga),
+            motto = COALESCE($14, motto),
+            price_type = $15,
+            price_min = $16,
+            price_max = $17,
+            price_negotiable = $18,
+            rate = $19,
+            rate_unit = $20,
+            rate_unit_custom = $21,
+            availability = COALESCE($22, availability),
+            active = COALESCE($23, active),
+            available_days = $24,
+            available_from = $25,
+            available_to = $26,
+            orbit_score = $27
+          WHERE id = $28`,
           [
             body.hat_title ?? null,
             body.hat_name ?? null,
@@ -379,6 +383,7 @@ export default async function handler(req, res) {
             body.category ?? null,
             body.skills ?? null,
             body.hat_type ?? null,
+            duration.value,
             body.delivery_mode ?? null,
             body.country ?? null,
             body.country_flag ?? null,

@@ -24,13 +24,20 @@ ALTER TABLE hats ADD CONSTRAINT hats_hat_type_check
   CHECK (hat_type IN ('Full-time','Part-time','Freelance','Contract','One-Off'));
 ALTER TABLE hats ALTER COLUMN hat_type SET DEFAULT 'Freelance';
 
--- 4. Delivery mode --------------------------------------------------------
+-- 4. Client hiring duration ----------------------------------------------
+ALTER TABLE hats ADD COLUMN IF NOT EXISTS hiring_duration TEXT;
+ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_hiring_duration_check;
+ALTER TABLE hats ADD CONSTRAINT hats_hiring_duration_check CHECK (
+  hiring_duration IS NULL OR hiring_duration IN ('1 month','3 months','6 months','1 year','1 year (renewable)','Permanent job')
+);
+
+-- 5. Delivery mode --------------------------------------------------------
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS delivery_mode TEXT;
 ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_delivery_mode_check;
 ALTER TABLE hats ADD CONSTRAINT hats_delivery_mode_check
   CHECK (delivery_mode IS NULL OR delivery_mode IN ('Physical','Remote','Hybrid'));
 
--- 5. Price settings: fixed (rate + unit) vs range (min/max + negotiable) --
+-- 6. Price settings: fixed (rate + unit) vs range (min/max + negotiable) --
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS price_type TEXT DEFAULT 'fixed';
 ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_price_type_check;
 ALTER TABLE hats ADD CONSTRAINT hats_price_type_check
@@ -61,7 +68,7 @@ UPDATE hats
 SET price_type = 'range'
 WHERE price_max IS NOT NULL AND price_max <> price_min;
 
--- 6. Weekly availability --------------------------------------------------
+-- 7. Weekly availability --------------------------------------------------
 ALTER TABLE hats
   ADD COLUMN IF NOT EXISTS available_days TEXT[] NOT NULL
   DEFAULT ARRAY['mon','tue','wed','thu','fri','sat','sun']::TEXT[];
@@ -76,7 +83,7 @@ ALTER TABLE hats ADD CONSTRAINT hats_available_days_check CHECK (
   AND available_days <@ ARRAY['mon','tue','wed','thu','fri','sat','sun']::TEXT[]
 );
 
--- 7. Reseed the 14 MECE categories (additive — old custom categories some
+-- 8. Reseed the 14 MECE categories (additive — old custom categories some
 --    users already created are left in place, not replaced) --------------
 INSERT INTO categories (name) VALUES
   ('Beauty & Grooming'),

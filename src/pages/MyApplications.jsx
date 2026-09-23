@@ -127,6 +127,9 @@ export default function MyApplications() {
                 <p className="text-[12px] text-black/50 truncate">
                   <UserIdentity user={identityFromRow(a, 'owner')} layout="inline" showAvatar={false} nameClassName="font-semibold text-black/70" usernameClassName="font-semibold text-black/50" /> · {a.category}
                 </p>
+                {a.hiring_duration && (
+                  <p className="text-[11px] text-black/55 font-semibold mt-0.5">Duration: {a.hiring_duration}</p>
+                )}
                 <p className="text-[11px] text-black/40 flex items-center gap-1 mt-0.5">
                   <Clock size={11} /> Applied {new Date(a.applied_at).toLocaleDateString()}
                 </p>

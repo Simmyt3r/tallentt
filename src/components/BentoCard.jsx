@@ -95,14 +95,22 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
             </div>
           )
         ) : (
-          (location || availabilityWindow) && (
+          <>
+            {hat.hiring_duration && (
+              <div className="mt-1.5 text-[12px] leading-snug flex items-baseline gap-1">
+                <span className="font-bold text-black/70 shrink-0">Duration:</span>
+                <span className="font-medium text-black/80 truncate">{hat.hiring_duration}</span>
+              </div>
+            )}
+            {(location || availabilityWindow) && (
             <div className="mt-1.5 text-[12px] leading-snug flex items-baseline gap-1">
               <span className="font-bold text-black/70 shrink-0">Event:</span>
               <span className="font-medium text-black/80 truncate">
                 {[location, availabilityWindow].filter(Boolean).join(' • ')}
               </span>
             </div>
-          )
+          )}
+          </>
         )}
 
         <div className="mt-auto pt-4 flex items-center justify-between">
