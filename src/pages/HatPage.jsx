@@ -82,8 +82,8 @@ export default function HatPage() {
     <BentoCardDetailModal
       hat={hat}
       onClose={handleClose}
-      onBook={(h) => bookHat(h, navigate)}
-      onApply={(h) => submitApplication(h, handleHatChange, navigate)}
+      onBook={(h, proposal) => bookHat(h, navigate, proposal)}
+      onApply={(h, proposal) => submitApplication(h, handleHatChange, navigate, proposal)}
       onHatChange={handleHatChange}
     />
   )
