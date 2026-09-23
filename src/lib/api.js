@@ -122,6 +122,12 @@ export const api = {
   getMyApplications: () => request('/api/hats?applied=1'),
   getReceivedApplications: () => request('/api/hats?received_applications=1'),
   getMyBookings: () => request('/api/escrows?mine=1'),
+  getMyDeals: () => request('/api/escrows?deals=1'),
+  respondToBooking: (escrowId, status) =>
+    request('/api/escrows', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'respond_booking', escrow_id: escrowId, status }),
+    }),
 
   // Admin — one consolidated endpoint to stay within Vercel Hobby's
   // function cap while still giving operations a real control panel.

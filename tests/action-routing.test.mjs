@@ -4,10 +4,10 @@ import { readFile } from 'node:fs/promises'
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('final Book and Apply actions land on their canonical dashboards', async () => {
+test('final Book and Apply actions land in the correct My Deals direction', async () => {
   const actions = await read('src/lib/hatActions.js')
-  assert.match(actions, /navigate\('\/my-bookings'/)
-  assert.match(actions, /navigate\?\.\('\/my-applications'/)
+  assert.match(actions, /navigate\('\/deals\?role=client&tab=outgoing'/)
+  assert.match(actions, /navigate\?\.\('\/deals\?role=talent&tab=outgoing'/)
   assert.doesNotMatch(actions, /navigate\(`\/messages\?escrow=/)
 })
 

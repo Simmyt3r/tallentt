@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
+import MyDealsModal from './MyDealsModal.jsx'
 import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
 
@@ -14,11 +15,12 @@ const MENU_BUTTON =
 export default function Layout({ children }) {
   const location = useLocation()
   const { user } = useAuth()
-  const [browseRole, setBrowseRole] = useState(() => localStorage.getItem('chombutar_role') || 'talent')
+  const [browseRole, setBrowseRole] = useState(() => localStorage.getItem('_role') || localStorage.getItem('chombutar_role') || 'talent')
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
+    localStorage.setItem('_role', browseRole)
     localStorage.setItem('chombutar_role', browseRole)
   }, [browseRole])
 
@@ -146,6 +148,7 @@ export default function Layout({ children }) {
       </header>
 
       <BottomNav />
+      {location.pathname === '/deals' && <MyDealsModal />}
 
       <main
         className={`w-full transition-[padding] duration-200 ease-out ${collapsed ? 'md:pr-[72px]' : 'md:pr-[236px]'}`}
@@ -159,9 +162,9 @@ export default function Layout({ children }) {
 }
 
 export function useBrowseRole() {
-  const [role, setRole] = useState(() => localStorage.getItem('chombutar_role') || 'talent')
+  const [role, setRole] = useState(() => localStorage.getItem('_role') || localStorage.getItem('chombutar_role') || 'talent')
   useEffect(() => {
-    const onStorage = () => setRole(localStorage.getItem('chombutar_role') || 'talent')
+    const onStorage = () => setRole(localStorage.getItem('_role') || localStorage.getItem('chombutar_role') || 'talent')
     window.addEventListener('storage', onStorage)
     const id = setInterval(onStorage, 400)
     return () => {
