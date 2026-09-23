@@ -4,6 +4,7 @@ import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import AvailabilityBadge from './AvailabilityBadge'
 import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
+import RoleCardBadge from './RoleCardBadge'
 
 // True when a clamped paragraph is actually cut off, so "More" only shows
 // when there is something more to read. Re-measured on resize because the
@@ -81,7 +82,8 @@ function ShowroomPost({
             Showroom Host
           </span>
         )}
-        <div className="absolute top-3 right-3 z-10 pointer-events-none">
+        <div className="absolute top-3 right-3 z-10 pointer-events-none flex flex-col items-end gap-2">
+          <RoleCardBadge role={hat.role} />
           <AvailabilityBadge available={hat.availability} />
         </div>
       </div>
