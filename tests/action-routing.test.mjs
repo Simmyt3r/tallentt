@@ -13,7 +13,7 @@ test('final Book and Apply actions land in the correct My Deals direction', asyn
 
 test('Feed passes navigation into the shared application action', async () => {
   const feed = await read('src/pages/Feed.jsx')
-  assert.match(feed, /submitApplication\(hat, handleHatChange, navigate\)/)
+  assert.match(feed, /submitApplication\(hat, handleHatChange, navigate, proposal\)/)
 })
 
 test('Showroom keeps its detail flow but final booking uses the shared booking action', async () => {
@@ -29,7 +29,7 @@ test('direct hat and profile surfaces use the same dashboard handoff', async () 
     read('src/pages/HatPage.jsx'),
     read('src/pages/TalentProfile.jsx'),
   ])
-  assert.match(hatPage, /submitApplication\(h, handleHatChange, navigate\)/)
+  assert.match(hatPage, /submitApplication\(h, handleHatChange, navigate, proposal\)/)
   assert.match(profile, /await bookHat\(hat, navigate\)/)
   assert.match(profile, /submitApplication\(/)
   assert.doesNotMatch(profile, /navigate\(`\/messages\?escrow=/)
