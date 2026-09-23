@@ -54,7 +54,9 @@ test('acceptance is required before payment and unlocks contacts', () => {
 test('server emits myDeals invalidations and promotes accepted applications into active escrows', () => {
   const deals = read('api/_lib/myDeals.js')
   assert.match(deals, /emitLiveEvent\(userId, 'myDeals'/)
-  assert.match(deals, /INSERT INTO escrows \(hat_id, client_id, talent_id, amount, contacts_unlocked\)/)
+  assert.match(deals, /application_id, request_kind, currency, pay_unit, agreed_at/)
   assert.match(deals, /type: 'booking_accepted'/)
   assert.match(deals, /type: `application_\$\{status\}`/)
+  assert.match(deals, /Agree the Range price before accepting this application/)
+  assert.match(deals, /negotiation_escrow_id/)
 })
