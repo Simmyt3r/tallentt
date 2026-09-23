@@ -24,7 +24,7 @@ export default function Feed() {
     setLoading(true)
     ;(async () => {
       try {
-        const data = await api.getHats({ role: hatRole, search: searchTerm || undefined })
+        const data = await api.getHats({ feed: '1', role: hatRole, search: searchTerm || undefined })
         if (!cancelled) setHats(data.hats || [])
       } catch (e) {
         console.error(e)
@@ -46,6 +46,7 @@ export default function Feed() {
     const order = []
     const byUser = new Map()
     for (const h of hats) {
+      if (h.feed_visible !== true) continue
       const key = h.user_id || h.id
       if (!byUser.has(key)) {
         byUser.set(key, [])

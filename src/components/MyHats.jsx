@@ -3,6 +3,7 @@ import { LayoutGrid, List, Pencil, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import BentoCard from './BentoCard'
+import HatFeedToggle from './HatFeedToggle'
 import { Link } from 'react-router-dom'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 import UserIdentity from './UserIdentity'
@@ -36,6 +37,10 @@ export default function MyHats() {
     localStorage.setItem('chombutar_viewMode', m)
   }
 
+  function handleHatChange(patch) {
+    setHats((prev) => prev.map((hat) => hat.id === patch.id ? { ...hat, ...patch } : hat))
+  }
+
   async function handleDelete(id) {
     if (!confirm('Delete this hat?')) return
     try {
@@ -56,6 +61,7 @@ export default function MyHats() {
         <div>
           <h1 className="text-[22px] font-bold tracking-tight">My Hats</h1>
           <p className="text-[12px] text-black/50 font-medium mt-0.5">{hats.length} hat{hats.length !== 1 ? 's' : ''}</p>
+          <p className="text-[12px] text-black/50 mt-1">Choose which Hats appear in the Bento feed. Range pricing requires a fee notice confirmation.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5">
@@ -102,7 +108,7 @@ export default function MyHats() {
           {hats.map((h) => (
             <div key={h.id} className="relative group space-y-2">
               <div className="relative">
-                <BentoCard hat={h} />
+                <BentoCard hat={h} onHatChange={handleHatChange} />
                 <div className="absolute top-3 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition">
                   <Link
                     to={`/create?edit=${h.id}`}
@@ -119,7 +125,7 @@ export default function MyHats() {
                   </button>
                 </div>
               </div>
-
+              <HatFeedToggle hat={h} onChange={handleHatChange} />
             </div>
           ))}
         </div>
@@ -158,6 +164,9 @@ export default function MyHats() {
                 >
                   <Trash2 size={14} />
                 </button>
+              </div>
+              <div className="px-4 pb-4">
+                <HatFeedToggle hat={h} onChange={handleHatChange} />
               </div>
             </li>
           ))}

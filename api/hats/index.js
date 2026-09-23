@@ -138,6 +138,9 @@ export default async function handler(req, res) {
       const userId = url.searchParams.get('user_id')
 
       const clauses = ['h.active = true']
+      // Only the Bento feed opts into this filter. Owner/profile listings
+      // and Showroom retain their existing visibility rules.
+      if (url.searchParams.get('feed') === '1') clauses.push('h.feed_visible = true')
       const params = []
       let i = 1
 
