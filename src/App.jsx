@@ -12,8 +12,6 @@ import MyHats from './components/MyHats.jsx'
 import HatForm from './components/HatForm.jsx'
 import Profile from './pages/Profile.jsx'
 import TalentProfile from './pages/TalentProfile.jsx'
-import MyApplications from './pages/MyApplications.jsx'
-import MyBookings from './pages/MyBookings.jsx'
 import Wallet from './pages/Wallet.jsx'
 import Admin from './pages/Admin.jsx'
 import Messages from './pages/Messages.jsx'
@@ -36,8 +34,9 @@ export default function App() {
     <Route path="/create" element={<ProtectedRoute><HatForm /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="/profile/:username" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
-    <Route path="/my-applications" element={<ProtectedRoute><MyApplications /></ProtectedRoute>} />
-    <Route path="/my-bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
+    <Route path="/deals" element={<ProtectedRoute><div /></ProtectedRoute>} />
+    <Route path="/my-applications" element={<Navigate to="/deals?role=talent&tab=outgoing" replace />} />
+    <Route path="/my-bookings" element={<Navigate to="/deals?role=client&tab=outgoing" replace />} />
     <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
     <Route path="/live" element={<ProtectedRoute><LiveHub /></ProtectedRoute>} />
     <Route path="/live/stage/:id" element={<ProtectedRoute><StageRoom /></ProtectedRoute>} />
