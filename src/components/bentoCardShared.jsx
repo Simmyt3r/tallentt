@@ -394,19 +394,22 @@ export function NegotiationProposalModal({
   const [amount, setAmount] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!open) return
     setAmount('')
     setMessage('')
     setError('')
+    setSubmitting(false)
   }, [open])
 
   if (!open) return null
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault()
     e.stopPropagation()
+    if (submitting) return
     const value = Number(amount)
     if (!Number.isInteger(value) || value <= 0) {
       setError('Enter a valid whole-number proposal.')
@@ -420,7 +423,15 @@ export function NegotiationProposalModal({
       setError(`Proposal must not exceed ${fmtMoney(max, currency)}.`)
       return
     }
-    onSubmit?.({ amount: value, message: message.trim() })
+    setSubmitting(true)
+    setError('')
+    try {
+      const result = await onSubmit?.({ amount: value, message: message.trim() })
+      if (!result) setSubmitting(false)
+    } catch (err) {
+      setError(err?.message || 'Could not send this proposal. Please try again.')
+      setSubmitting(false)
+    }
   }
 
   const range = [
@@ -487,8 +498,10 @@ export function NegotiationProposalModal({
         {error && <p role="alert" className="text-[11.5px] font-semibold text-red-600">{error}</p>}
 
         <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onCancel} className="tw-btn-ghost flex-1 h-11">Cancel</button>
-          <button type="submit" className="tw-btn-primary flex-1 h-11">{actionLabel}</button>
+          <button type="button" onClick={onCancel} disabled={submitting} className="tw-btn-ghost flex-1 h-11 disabled:opacity-50">Cancel</button>
+          <button type="submit" disabled={submitting} className="tw-btn-primary flex-1 h-11 disabled:opacity-60">
+            {submitting ? 'Sending…' : actionLabel}
+          </button>
         </div>
       </form>
     </div>
