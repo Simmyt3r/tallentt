@@ -1,8 +1,9 @@
 // Path: src/components/bentoCardShared.jsx
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Heart, Share2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { cldImage } from '../lib/cloudinary'
+import { useDialog } from '../lib/dialog'
 
 // Shared by BentoCard.jsx and BentoCardDetailModal.jsx — both render the
 // same underlying hat data (money, time, availability), the same
@@ -339,17 +340,24 @@ export function HatOwnerHeader({
 // renders the generic message rather than inventing a number.
 export function NegotiationFeeNotice({ open, fee, onCancel, onContinue }) {
   if (!open) return null
-  // This renders nested inside BentoCardDetailModal's own overlay (whose
-  // backdrop click also means "close"), so every click here has to stop
-  // propagation — otherwise dismissing this notice would also close the
-  // parent modal, which the spec explicitly says must not happen
-  // ("Cancel: ... Keep the BentoCardDetailModal open").
+  return <NegotiationFeeDialog fee={fee} onCancel={onCancel} onContinue={onContinue} />
+}
+
+function NegotiationFeeDialog({ fee, onCancel, onContinue }) {
+  const panelRef = useRef(null)
+  const cancelRef = useRef(null)
+  useDialog(panelRef, { onClose: onCancel, initialFocusRef: cancelRef })
+
+  // This renders above either BentoCardDetailModal or ShowroomDetailModal.
+  // Registering it with the shared dialog stack makes it the topmost focus
+  // owner, so the underlying modal cannot steal keyboard focus.
   function stop(handler) {
     return (e) => {
       e.stopPropagation()
       handler?.()
     }
   }
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4"
@@ -359,7 +367,9 @@ export function NegotiationFeeNotice({ open, fee, onCancel, onContinue }) {
       onClick={stop(onCancel)}
     >
       <div
-        className="bg-white rounded-[20px] border-[1.5px] border-black w-full max-w-[360px] p-5 space-y-4 shadow-[0_20px_60px_-12px_rgba(0,0,0,0.25)] animate-slide-up"
+        ref={panelRef}
+        tabIndex={-1}
+        className="bg-white rounded-[20px] border-[1.5px] border-black w-full max-w-[360px] p-5 space-y-4 shadow-[0_20px_60px_-12px_rgba(0,0,0,0.25)] animate-slide-up outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-[16px] font-bold">Negotiation fee applies</h3>
@@ -369,7 +379,7 @@ export function NegotiationFeeNotice({ open, fee, onCancel, onContinue }) {
             : 'This listing uses Range pricing. A negotiation fee applies if you continue.'}
         </p>
         <div className="flex gap-2 pt-1">
-          <button type="button" onClick={stop(onCancel)} className="tw-btn-ghost flex-1 h-11">
+          <button ref={cancelRef} type="button" onClick={stop(onCancel)} className="tw-btn-ghost flex-1 h-11">
             Cancel
           </button>
           <button type="button" onClick={stop(onContinue)} className="tw-btn-primary flex-1 h-11">
@@ -381,8 +391,12 @@ export function NegotiationFeeNotice({ open, fee, onCancel, onContinue }) {
   )
 }
 
-export function NegotiationProposalModal({
-  open,
+export function NegotiationProposalModal(props) {
+  if (!props.open) return null
+  return <NegotiationProposalDialog {...props} />
+}
+
+function NegotiationProposalDialog({
   min,
   max,
   currency = 'NGN',
@@ -391,20 +405,17 @@ export function NegotiationProposalModal({
   onCancel,
   onSubmit,
 }) {
+  const panelRef = useRef(null)
+  const amountRef = useRef(null)
   const [amount, setAmount] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    setAmount('')
-    setMessage('')
-    setError('')
-    setSubmitting(false)
-  }, [open])
-
-  if (!open) return null
+  useDialog(panelRef, {
+    onClose: submitting ? undefined : onCancel,
+    initialFocusRef: amountRef,
+  })
 
   async function submit(e) {
     e.preventDefault()
@@ -423,6 +434,7 @@ export function NegotiationProposalModal({
       setError(`Proposal must not exceed ${fmtMoney(max, currency)}.`)
       return
     }
+
     setSubmitting(true)
     setError('')
     try {
@@ -447,13 +459,15 @@ export function NegotiationProposalModal({
       aria-label="Make your first proposal"
       onClick={(e) => {
         e.stopPropagation()
-        onCancel?.()
+        if (!submitting) onCancel?.()
       }}
     >
       <form
+        ref={panelRef}
+        tabIndex={-1}
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[390px] rounded-[22px] border-[1.5px] border-black bg-white p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] space-y-4"
+        className="w-full max-w-[390px] rounded-[22px] border-[1.5px] border-black bg-white p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] space-y-4 outline-none"
       >
         <div>
           <h3 className="text-[17px] font-black">Make your proposal</h3>
@@ -467,18 +481,19 @@ export function NegotiationProposalModal({
           <div className="mt-1.5 flex items-center rounded-[13px] border-[1.5px] border-black bg-[#F7F3EB] px-3">
             <span className="shrink-0 text-[12px] font-black text-black/45">{currency}</span>
             <input
-              autoFocus
+              ref={amountRef}
               type="number"
               min={min || 1}
               max={max || 2147483647}
               step="1"
               value={amount}
+              disabled={submitting}
               onChange={(e) => {
                 setAmount(e.target.value)
                 setError('')
               }}
               placeholder={min ? String(min) : '50000'}
-              className="h-11 min-w-0 flex-1 bg-transparent px-2 text-[14px] font-bold outline-none"
+              className="h-11 min-w-0 flex-1 bg-transparent px-2 text-[14px] font-bold outline-none disabled:opacity-60"
             />
           </div>
         </label>
@@ -489,16 +504,19 @@ export function NegotiationProposalModal({
             rows={3}
             maxLength={500}
             value={message}
+            disabled={submitting}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Add context for your offer"
-            className="mt-1.5 w-full resize-none rounded-[13px] border-[1.5px] border-black bg-white p-3 text-[13px] outline-none focus:ring-4 focus:ring-black/[0.04]"
+            className="mt-1.5 w-full resize-none rounded-[13px] border-[1.5px] border-black bg-white p-3 text-[13px] outline-none focus:ring-4 focus:ring-black/[0.04] disabled:opacity-60"
           />
         </label>
 
         {error && <p role="alert" className="text-[11.5px] font-semibold text-red-600">{error}</p>}
 
         <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onCancel} disabled={submitting} className="tw-btn-ghost flex-1 h-11 disabled:opacity-50">Cancel</button>
+          <button type="button" onClick={onCancel} disabled={submitting} className="tw-btn-ghost flex-1 h-11 disabled:opacity-50">
+            Cancel
+          </button>
           <button type="submit" disabled={submitting} className="tw-btn-primary flex-1 h-11 disabled:opacity-60">
             {submitting ? 'Sending…' : actionLabel}
           </button>
