@@ -284,8 +284,9 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const postedAgo = relativeTime(loaded ? detail.created_at : hat.created_at)
   const applied = (loaded && Boolean(detail.has_applied)) || justApplied
 
-  // Both Book and Apply must acknowledge the fee before continuing when
-  // the Hat uses Range or legacy negotiable pricing.
+  // Fixed-price Hats continue immediately. Range pricing starts with the
+  // initiating party's first proposal so the deal never pretends the minimum
+  // listed amount is already the agreed price.
   async function runPrimaryAction(proposal = null) {
     if (isTalent) {
       return (await onBook?.(hat, proposal)) || null
@@ -304,14 +305,10 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   function handlePrimaryAction() {
     if (!isTalent && (applied || applying)) return
     if (usesNegotiationPricing) {
-      setNegotiationStep('fee')
+      setNegotiationStep('proposal')
       return
     }
     runPrimaryAction()
-  }
-
-  function handleNegotiationContinue() {
-    setNegotiationStep('proposal')
   }
 
   async function handleProposalSubmit(proposal) {
@@ -542,12 +539,6 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
         </div>
         </div>
       </div>
-
-      <NegotiationFeeNotice
-        open={negotiationStep === 'fee'}
-        onCancel={cancelNegotiation}
-        onContinue={handleNegotiationContinue}
-      />
 
       <NegotiationProposalModal
         open={negotiationStep === 'proposal'}
