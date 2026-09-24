@@ -34,3 +34,14 @@ test('direct hat and profile surfaces use the same dashboard handoff', async () 
   assert.match(profile, /submitApplication\(/)
   assert.doesNotMatch(profile, /navigate\(`\/messages\?escrow=/)
 })
+
+
+test('Range negotiation flow mounts the proposal modal and advances through explicit steps', async () => {
+  const detail = await read('src/components/BentoCardDetailModal.jsx')
+  assert.match(detail, /const \[negotiationStep, setNegotiationStep\] = useState\(null\)/)
+  assert.match(detail, /setNegotiationStep\('fee'\)/)
+  assert.match(detail, /setNegotiationStep\('proposal'\)/)
+  assert.match(detail, /<NegotiationProposalModal/)
+  assert.match(detail, /open=\{negotiationStep === 'proposal'\}/)
+  assert.match(detail, /onSubmit=\{handleProposalSubmit\}/)
+})
