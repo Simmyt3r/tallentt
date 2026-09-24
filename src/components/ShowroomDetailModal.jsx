@@ -10,7 +10,7 @@ import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import AvailabilityBadge from './AvailabilityBadge'
 import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
-import { NegotiationFeeNotice, NegotiationProposalModal, formatAvailabilityWindow, formatPrice, relativeTime } from './bentoCardShared'
+import { NegotiationProposalModal, formatAvailabilityWindow, formatPrice, relativeTime } from './bentoCardShared'
 import { bookHat } from '../lib/hatActions'
 
 const iconBtn =
@@ -134,8 +134,8 @@ export default function ShowroomDetailModal({
   const hasRelated = related.length > 0
 
   // Re-read the Hat before acting so Range/fixed pricing is current. Range
-  // pricing follows the same fee -> proposal -> request flow as the main Hat
-  // detail modal; fixed pricing still books directly.
+  // pricing opens the first proposal directly; fixed pricing still books
+  // without a negotiation step.
   async function handleBook() {
     if (!hat || checkingRef.current || negotiationStep) return
     checkingRef.current = true
@@ -151,7 +151,7 @@ export default function ShowroomDetailModal({
         fresh.price_type === 'range' || Boolean(fresh.price_negotiable)
 
       if (usesNegotiationPricing) {
-        setNegotiationStep('fee')
+        setNegotiationStep('proposal')
         return
       }
 
@@ -162,10 +162,6 @@ export default function ShowroomDetailModal({
       checkingRef.current = false
       setChecking(false)
     }
-  }
-
-  function handleNegotiationContinue() {
-    setNegotiationStep('proposal')
   }
 
   async function handleProposalSubmit(proposal) {
@@ -348,12 +344,6 @@ export default function ShowroomDetailModal({
           )}
         </div>
       </div>
-
-      <NegotiationFeeNotice
-        open={negotiationStep === 'fee'}
-        onCancel={cancelNegotiation}
-        onContinue={handleNegotiationContinue}
-      />
 
       <NegotiationProposalModal
         open={negotiationStep === 'proposal'}
