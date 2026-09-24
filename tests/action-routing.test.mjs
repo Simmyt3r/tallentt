@@ -20,7 +20,7 @@ test('Showroom keeps its detail flow but final booking uses the shared booking a
   const showroom = await read('src/components/ShowroomDetailModal.jsx')
   assert.match(showroom, /import \{ bookHat \} from '\.\.\/lib\/hatActions'/)
   assert.match(showroom, /await bookHat\(fresh, navigate\)/)
-  assert.match(showroom, /await bookHat\(target, navigate\)/)
+  assert.match(showroom, /await bookHat\(target, navigate, proposal\)/)
   assert.doesNotMatch(showroom, /navigate\(`\/talent\//)
 })
 
@@ -44,4 +44,16 @@ test('Range negotiation flow mounts the proposal modal and advances through expl
   assert.match(detail, /<NegotiationProposalModal/)
   assert.match(detail, /open=\{negotiationStep === 'proposal'\}/)
   assert.match(detail, /onSubmit=\{handleProposalSubmit\}/)
+})
+
+
+test('Showroom Range negotiation uses the same fee-to-proposal handoff', async () => {
+  const showroom = await read('src/components/ShowroomDetailModal.jsx')
+  assert.match(showroom, /fresh\.price_type === 'range' \|\| Boolean\(fresh\.price_negotiable\)/)
+  assert.match(showroom, /setNegotiationStep\('fee'\)/)
+  assert.match(showroom, /setNegotiationStep\('proposal'\)/)
+  assert.match(showroom, /<NegotiationFeeNotice/)
+  assert.match(showroom, /<NegotiationProposalModal/)
+  assert.match(showroom, /open=\{negotiationStep === 'proposal'\}/)
+  assert.match(showroom, /await bookHat\(target, navigate, proposal\)/)
 })
