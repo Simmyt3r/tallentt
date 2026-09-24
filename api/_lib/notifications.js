@@ -91,24 +91,30 @@ export async function markAllNotificationsRead(userId) {
   return rowCount || 0
 }
 
-export async function notifyUser({ userId, type = 'system', title, body = null, linkUrl = null, metadata = {} }) {
+export async function notifyUserWithQuery(
+  runQuery,
+  { userId, type = 'system', title, body = null, linkUrl = null, metadata = {} },
+) {
   if (!userId || !title) return null
+  const { rows } = await runQuery(
+    `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+     RETURNING id, type, title, body, link_url, metadata, read_at, created_at`,
+    [
+      userId,
+      cleanText(type, 60) || 'system',
+      cleanText(title, 120),
+      cleanText(body, 500),
+      safeLink(linkUrl),
+      JSON.stringify(metadata || {}),
+    ],
+  )
+  return mapNotification(rows[0])
+}
 
+export async function notifyUser(payload) {
   try {
-    const { rows } = await query(
-      `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-       RETURNING id, type, title, body, link_url, metadata, read_at, created_at`,
-      [
-        userId,
-        cleanText(type, 60) || 'system',
-        cleanText(title, 120),
-        cleanText(body, 500),
-        safeLink(linkUrl),
-        JSON.stringify(metadata || {}),
-      ],
-    )
-    return mapNotification(rows[0])
+    return await notifyUserWithQuery(query, payload)
   } catch (err) {
     console.error('notification insert failed:', err)
     return null
