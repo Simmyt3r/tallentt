@@ -159,8 +159,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   // The negotiation-fee confirmation from the spec — only ever relevant
   // to a talent hat's "Book" action when the price is negotiable; see
   // handlePrimaryAction below.
-  const [showNegotiationNotice, setShowNegotiationNotice] = useState(false)
-  const [showProposalModal, setShowProposalModal] = useState(false)
+  const [negotiationStep, setNegotiationStep] = useState(null)
 
   useEffect(() => {
     setViewCount(hat?.views || 0)
@@ -295,27 +294,32 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
     if (applied || applying) return
     setApplying(true)
     Promise.resolve(onApply?.(hat, proposal))
-      .then(() => setJustApplied(true))
+      .then((result) => {
+        if (result) setJustApplied(true)
+      })
       .finally(() => setApplying(false))
   }
 
   function handlePrimaryAction() {
     if (!isTalent && (applied || applying)) return
     if (usesNegotiationPricing) {
-      setShowNegotiationNotice(true)
+      setNegotiationStep('fee')
       return
     }
     runPrimaryAction()
   }
 
   function handleNegotiationContinue() {
-    setShowNegotiationNotice(false)
-    setShowProposalModal(true)
+    setNegotiationStep('proposal')
   }
 
   function handleProposalSubmit(proposal) {
-    setShowProposalModal(false)
+    setNegotiationStep(null)
     runPrimaryAction(proposal)
+  }
+
+  function cancelNegotiation() {
+    setNegotiationStep(null)
   }
 
   return (
@@ -538,9 +542,26 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
       </div>
 
       <NegotiationFeeNotice
-        open={showNegotiationNotice}
-        onCancel={() => setShowNegotiationNotice(false)}
+        open={negotiationStep === 'fee'}
+        onCancel={cancelNegotiation}
         onContinue={handleNegotiationContinue}
+      />
+
+      <NegotiationProposalModal
+        open={negotiationStep === 'proposal'}
+        min={loaded ? detail.budget?.min : hat.price_min}
+        max={loaded ? detail.budget?.max : hat.price_max}
+        currency={currency}
+        payUnit={
+          loaded
+            ? detail.budget?.unit
+            : hat.rate_unit === 'custom'
+              ? hat.rate_unit_custom
+              : hat.rate_unit
+        }
+        actionLabel={isTalent ? 'Send booking proposal' : 'Send application'}
+        onCancel={cancelNegotiation}
+        onSubmit={handleProposalSubmit}
       />
     </div>
   )
