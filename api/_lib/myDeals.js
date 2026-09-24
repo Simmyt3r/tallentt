@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { getClient, query } from './db.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from './bookingRules.js'
-import { notifyUser } from './notifications.js'
+import { notifyUser, notifyUserWithQuery } from './notifications.js'
 import { emitLiveEvent } from './liveRealtime.js'
 
 function displayName(row, prefix, fallback) {
@@ -93,6 +93,49 @@ async function bookingSnapshot(escrowId) {
     [escrowId],
   )
   return rows[0] || null
+}
+
+export async function writeBookingCreatedNotifications(client, escrowId) {
+  const runQuery = (sql, params) => client.query(sql, params)
+  const { rows } = await runQuery(
+    `SELECT e.id, e.hat_id, e.client_id, e.talent_id,
+            h.hat_title,
+            client_user.username AS client_username, client_user.full_name AS client_full_name,
+            talent_user.username AS talent_username, talent_user.full_name AS talent_full_name
+     FROM escrows e
+     LEFT JOIN hats h ON h.id = e.hat_id
+     LEFT JOIN users client_user ON client_user.id = e.client_id
+     LEFT JOIN users talent_user ON talent_user.id = e.talent_id
+     WHERE e.id = $1`,
+    [escrowId],
+  )
+  const booking = rows[0]
+  if (!booking) throw bookingError(500, 'Booking was created but could not be read back.')
+
+  const clientName = displayName(booking, 'client', 'A client')
+  const talentName = displayName(booking, 'talent', 'the talent')
+  const title = booking.hat_title || 'this Hat'
+
+  await Promise.all([
+    notifyUserWithQuery(runQuery, {
+      userId: booking.talent_id,
+      type: 'booking_requested',
+      title: 'New booking request',
+      body: `${clientName} wants to book you for ${title}.`,
+      linkUrl: '/deals?role=talent&tab=incoming',
+      metadata: { escrow_id: booking.id, hat_id: booking.hat_id },
+    }),
+    notifyUserWithQuery(runQuery, {
+      userId: booking.client_id,
+      type: 'booking_sent',
+      title: 'Booking request sent',
+      body: `Your booking request for ${title} was sent to ${talentName}.`,
+      linkUrl: '/deals?role=client&tab=outgoing',
+      metadata: { escrow_id: booking.id, hat_id: booking.hat_id },
+    }),
+  ])
+
+  return booking
 }
 
 export async function notifyBookingCreated(escrowId) {
@@ -276,6 +319,49 @@ async function applicationSnapshot(applicationId) {
   return rows[0] || null
 }
 
+export async function writeApplicationCreatedNotifications(client, applicationId) {
+  const runQuery = (sql, params) => client.query(sql, params)
+  const { rows } = await runQuery(
+    `SELECT a.id AS application_id, a.hat_id, a.applicant_id,
+            h.user_id AS owner_id, h.hat_title,
+            owner.username AS owner_username, owner.full_name AS owner_full_name,
+            applicant.username AS applicant_username, applicant.full_name AS applicant_full_name
+     FROM applications a
+     JOIN hats h ON h.id = a.hat_id
+     LEFT JOIN users owner ON owner.id = h.user_id
+     LEFT JOIN users applicant ON applicant.id = a.applicant_id
+     WHERE a.id = $1`,
+    [applicationId],
+  )
+  const app = rows[0]
+  if (!app) throw bookingError(500, 'Application was created but could not be read back.')
+
+  const applicantName = displayName(app, 'applicant', 'Someone')
+  const ownerName = displayName(app, 'owner', 'the client')
+  const title = app.hat_title || 'this Hat'
+
+  await Promise.all([
+    notifyUserWithQuery(runQuery, {
+      userId: app.owner_id,
+      type: 'application_received',
+      title: 'New application',
+      body: `${applicantName} applied to ${title}.`,
+      linkUrl: '/deals?role=client&tab=incoming',
+      metadata: { application_id: app.application_id, hat_id: app.hat_id },
+    }),
+    notifyUserWithQuery(runQuery, {
+      userId: app.applicant_id,
+      type: 'application_sent',
+      title: 'Application sent',
+      body: `Your application to ${ownerName} for ${title} was sent.`,
+      linkUrl: '/deals?role=talent&tab=outgoing',
+      metadata: { application_id: app.application_id, hat_id: app.hat_id },
+    }),
+  ])
+
+  return app
+}
+
 export async function notifyApplicationCreated(applicationId) {
   try {
     const app = await applicationSnapshot(applicationId)
@@ -452,7 +538,15 @@ export async function createApplicationRequest(applicantId, hatId, message, prop
       }
     }
 
+    let notificationApp = null
+    if (!alreadyApplied) {
+      notificationApp = await writeApplicationCreatedNotifications(client, application.id)
+    }
+
     await client.query('COMMIT')
+    if (notificationApp) {
+      emitMyDealsEvent([notificationApp.owner_id, notificationApp.applicant_id], 'application_created')
+    }
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {})
     throw error
@@ -460,7 +554,6 @@ export async function createApplicationRequest(applicantId, hatId, message, prop
     client.release()
   }
 
-  if (!alreadyApplied) await notifyApplicationCreated(application.id)
   return { application, alreadyApplied, escrow }
 }
 
