@@ -30,7 +30,7 @@ export async function getConversations(userId, before) {
   if (before) requireBookingId(before)
   const { rows } = await query(
     `SELECT e.id, e.hat_id, e.amount, e.currency, e.pay_unit, e.agreed_at, e.request_kind, e.application_id,
-            e.status, e.work_status, e.created_at, h.hat_title,
+            e.status, e.work_status, e.created_at, h.hat_title, h.price_type,
             u.username AS peer_username, u.avatar_url AS peer_avatar,
             u.full_name AS peer_full_name, u.role AS peer_role, u.company_suffix AS peer_company_suffix,
             (SELECT COUNT(*)::int FROM booking_messages m
