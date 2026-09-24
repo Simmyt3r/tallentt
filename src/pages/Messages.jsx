@@ -521,6 +521,7 @@ function BookingThread({ id, onBack }) {
   const mounted = useRef(true)
   const sequence = useRef(0)
   const retryPayload = useRef(null)
+  const busyRef = useRef(false)
 
   const load = useCallback(async () => {
     const requestNumber = ++sequence.current
@@ -563,11 +564,15 @@ function BookingThread({ id, onBack }) {
   }, [data?.thread])
 
   useEffect(() => {
+    busyRef.current = busy
+  }, [busy])
+
+  useEffect(() => {
     let stopped = false
     let timer
     const poll = async () => {
       try {
-        if (!document.hidden && !history && !busy) await load()
+        if (!document.hidden && !history && !busyRef.current) await load()
       } catch (e) {
         if (!stopped) setSyncError(e.message)
       } finally {
@@ -580,7 +585,7 @@ function BookingThread({ id, onBack }) {
       sequence.current++
       clearTimeout(timer)
     }
-  }, [load, history, busy])
+  }, [load, history])
 
   async function run(operation) {
     if (busy) return
