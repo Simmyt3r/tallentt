@@ -286,18 +286,19 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
 
   // Both Book and Apply must acknowledge the fee before continuing when
   // the Hat uses Range or legacy negotiable pricing.
-  function runPrimaryAction(proposal = null) {
+  async function runPrimaryAction(proposal = null) {
     if (isTalent) {
-      onBook?.(hat, proposal)
-      return
+      return (await onBook?.(hat, proposal)) || null
     }
-    if (applied || applying) return
+    if (applied || applying) return null
     setApplying(true)
-    Promise.resolve(onApply?.(hat, proposal))
-      .then((result) => {
-        if (result) setJustApplied(true)
-      })
-      .finally(() => setApplying(false))
+    try {
+      const result = await onApply?.(hat, proposal)
+      if (result) setJustApplied(true)
+      return result || null
+    } finally {
+      setApplying(false)
+    }
   }
 
   function handlePrimaryAction() {
@@ -313,9 +314,10 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
     setNegotiationStep('proposal')
   }
 
-  function handleProposalSubmit(proposal) {
-    setNegotiationStep(null)
-    runPrimaryAction(proposal)
+  async function handleProposalSubmit(proposal) {
+    const result = await runPrimaryAction(proposal)
+    if (result) setNegotiationStep(null)
+    return result
   }
 
   function cancelNegotiation() {
