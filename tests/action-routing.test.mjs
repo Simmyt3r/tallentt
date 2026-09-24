@@ -36,23 +36,24 @@ test('direct hat and profile surfaces use the same dashboard handoff', async () 
 })
 
 
-test('Range negotiation flow mounts the proposal modal and advances through explicit steps', async () => {
+test('Range negotiation flow opens the proposal modal directly', async () => {
   const detail = await read('src/components/BentoCardDetailModal.jsx')
   assert.match(detail, /const \[negotiationStep, setNegotiationStep\] = useState\(null\)/)
-  assert.match(detail, /setNegotiationStep\('fee'\)/)
+  assert.doesNotMatch(detail, /setNegotiationStep\('fee'\)/)
   assert.match(detail, /setNegotiationStep\('proposal'\)/)
+  assert.doesNotMatch(detail, /NegotiationFeeNotice/)
   assert.match(detail, /<NegotiationProposalModal/)
   assert.match(detail, /open=\{negotiationStep === 'proposal'\}/)
   assert.match(detail, /onSubmit=\{handleProposalSubmit\}/)
 })
 
 
-test('Showroom Range negotiation uses the same fee-to-proposal handoff', async () => {
+test('Showroom Range negotiation opens the proposal directly', async () => {
   const showroom = await read('src/components/ShowroomDetailModal.jsx')
   assert.match(showroom, /fresh\.price_type === 'range' \|\| Boolean\(fresh\.price_negotiable\)/)
-  assert.match(showroom, /setNegotiationStep\('fee'\)/)
+  assert.doesNotMatch(showroom, /setNegotiationStep\('fee'\)/)
   assert.match(showroom, /setNegotiationStep\('proposal'\)/)
-  assert.match(showroom, /<NegotiationFeeNotice/)
+  assert.doesNotMatch(showroom, /NegotiationFeeNotice/)
   assert.match(showroom, /<NegotiationProposalModal/)
   assert.match(showroom, /open=\{negotiationStep === 'proposal'\}/)
   assert.match(showroom, /await bookHat\(target, navigate, proposal\)/)
@@ -82,5 +83,5 @@ test('Showroom proposal owns focus above the detail dialog', async () => {
   assert.match(shared, /useDialog\(panelRef,/)
   assert.match(shared, /initialFocusRef: amountRef/)
   assert.match(shared, /ref=\{amountRef\}/)
-  assert.match(shared, /function NegotiationFeeDialog/)
+  assert.doesNotMatch(shared, /function NegotiationFeeDialog/)
 })
