@@ -3,9 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Clock, BookOpen, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Eye } from 'lucide-react'
 import { api } from '../lib/api'
 import {
-  HatOwnerHeader,
-  NegotiationFeeNotice,
-  NegotiationProposalModal,
+  HatOwnerHeader,  NegotiationProposalModal,
   formatAvailabilityWindow,
   formatBudget,
   formatPrice,
@@ -156,9 +154,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   // whatever the detail fetch already knows (has_applied) once loaded.
   const [applying, setApplying] = useState(false)
   const [justApplied, setJustApplied] = useState(false)
-  // The negotiation-fee confirmation from the spec — only ever relevant
-  // to a talent hat's "Book" action when the price is negotiable; see
-  // handlePrimaryAction below.
+  // Range pricing starts with the initiating party's first proposal.
   const [negotiationStep, setNegotiationStep] = useState(null)
 
   useEffect(() => {
