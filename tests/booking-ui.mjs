@@ -49,7 +49,11 @@ try {
   await client.getByLabel('Message', { exact: true }).fill('For a shorter highlight reel.')
   await client.getByRole('button', { name: 'Counter', exact: true }).click()
   await client.getByLabel('Amount (NGN)').fill('8000')
+  const counterResponsePromise = client.waitForResponse((response) =>
+    response.url().endsWith('/api/escrows') && response.request().method() === 'POST')
   await client.getByRole('button', { name: 'Send counter proposal', exact: true }).click()
+  const counterResponse = await counterResponsePromise
+  assert.equal(counterResponse.status(), 200, await counterResponse.text())
   await client.getByText('₦8,000', { exact: true }).first().waitFor()
   await talent.goto('http://127.0.0.1:5179/api/__test/session?role=talent')
   await talent.goto('http://127.0.0.1:5179/deals?role=talent&tab=incoming')
