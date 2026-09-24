@@ -54,3 +54,9 @@ test('My Deals exposes current proposal and agreement state for Range deals', ()
   assert.match(modal, /Current proposal/)
   assert.match(modal, /Agreed:/)
 })
+
+test('live deal reads bypass browser cache so proposals refresh immediately', () => {
+  const api = read('src/lib/api.js')
+  assert.match(api, /getConversations:[\s\S]*cache: 'no-store'/)
+  assert.match(api, /getMessages:[\s\S]*cache: 'no-store'/)
+})
