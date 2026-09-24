@@ -8,10 +8,9 @@ import { useBackdropClose, useDialog, useScrollLock } from '../lib/dialog'
 import { useAuth } from '../context/AuthContext'
 import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import AvailabilityBadge from './AvailabilityBadge'
-import NegotiationNotice from './NegotiationNotice'
 import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
-import { formatAvailabilityWindow, formatPrice, relativeTime } from './bentoCardShared'
+import { NegotiationFeeNotice, NegotiationProposalModal, formatAvailabilityWindow, formatPrice, relativeTime } from './bentoCardShared'
 import { bookHat } from '../lib/hatActions'
 
 const iconBtn =
@@ -106,7 +105,7 @@ export default function ShowroomDetailModal({
   const bodyRef = useRef(null)
   const mainRef = useRef(null)
   const [aspect, setAspect] = useState(null)
-  const [noticeOpen, setNoticeOpen] = useState(false)
+  const [negotiationStep, setNegotiationStep] = useState(null)
   const [checking, setChecking] = useState(false)
   const [bookCandidate, setBookCandidate] = useState(null)
   const checkingRef = useRef(false) // synchronous guard: state alone can't stop clicks in the same tick
@@ -119,7 +118,7 @@ export default function ShowroomDetailModal({
   const hatId = hat?.id
   useEffect(() => {
     setAspect(null)
-    setNoticeOpen(false)
+    setNegotiationStep(null)
     setBookCandidate(null)
     bodyRef.current?.scrollTo?.(0, 0)
     mainRef.current?.scrollTo?.(0, 0)
@@ -134,12 +133,11 @@ export default function ShowroomDetailModal({
   const ownerName = getPrimaryIdentity(owner)
   const hasRelated = related.length > 0
 
-  // Book. The hat is re-read first: whether the price is negotiable comes from
-  // the hat's own `price_negotiable` field as it is *now* (never from displayed
-  // text, never from a possibly stale list). If that can't be confirmed we stop
-  // rather than risk sending a negotiable hat down the plain booking path.
+  // Re-read the Hat before acting so Range/fixed pricing is current. Range
+  // pricing follows the same fee -> proposal -> request flow as the main Hat
+  // detail modal; fixed pricing still books directly.
   async function handleBook() {
-    if (!hat || checkingRef.current || noticeOpen) return
+    if (!hat || checkingRef.current || negotiationStep) return
     checkingRef.current = true
     setChecking(true)
     try {
@@ -149,8 +147,15 @@ export default function ShowroomDetailModal({
         return
       }
       setBookCandidate(fresh)
-      if (fresh.price_negotiable) setNoticeOpen(true)
-      else await bookHat(fresh, navigate)
+      const usesNegotiationPricing =
+        fresh.price_type === 'range' || Boolean(fresh.price_negotiable)
+
+      if (usesNegotiationPricing) {
+        setNegotiationStep('fee')
+        return
+      }
+
+      await bookHat(fresh, navigate)
     } catch {
       onNotify?.("Couldn't check this price. Please try again.")
     } finally {
@@ -159,14 +164,20 @@ export default function ShowroomDetailModal({
     }
   }
 
-  // Negotiable hats keep the existing confirmation notice. The booking is
-  // only created after the user presses Continue, then My Bookings becomes
-  // the management surface.
-  async function handleContinue() {
+  function handleNegotiationContinue() {
+    setNegotiationStep('proposal')
+  }
+
+  async function handleProposalSubmit(proposal) {
     const target = bookCandidate || hat
     if (!target) return
-    setNoticeOpen(false)
-    await bookHat(target, navigate)
+    setNegotiationStep(null)
+    await bookHat(target, navigate, proposal)
+  }
+
+  function cancelNegotiation() {
+    setNegotiationStep(null)
+    bookRef.current?.focus?.()
   }
 
   const labelId = 'sr-detail-title'
@@ -337,13 +348,26 @@ export default function ShowroomDetailModal({
         </div>
       </div>
 
-      {noticeOpen && (
-        <NegotiationNotice
-          onCancel={() => setNoticeOpen(false)}
-          onContinue={handleContinue}
-          returnFocusRef={bookRef}
-        />
-      )}
+      <NegotiationFeeNotice
+        open={negotiationStep === 'fee'}
+        onCancel={cancelNegotiation}
+        onContinue={handleNegotiationContinue}
+      />
+
+      <NegotiationProposalModal
+        open={negotiationStep === 'proposal'}
+        min={(bookCandidate || hat)?.price_min}
+        max={(bookCandidate || hat)?.price_max}
+        currency={(bookCandidate || hat)?.currency || 'NGN'}
+        payUnit={
+          (bookCandidate || hat)?.rate_unit === 'custom'
+            ? (bookCandidate || hat)?.rate_unit_custom
+            : (bookCandidate || hat)?.rate_unit
+        }
+        actionLabel="Send booking proposal"
+        onCancel={cancelNegotiation}
+        onSubmit={handleProposalSubmit}
+      />
     </>,
     document.body,
   )
