@@ -170,9 +170,10 @@ export default function ShowroomDetailModal({
 
   async function handleProposalSubmit(proposal) {
     const target = bookCandidate || hat
-    if (!target) return
-    setNegotiationStep(null)
-    await bookHat(target, navigate, proposal)
+    if (!target) return null
+    const result = await bookHat(target, navigate, proposal)
+    if (result) setNegotiationStep(null)
+    return result
   }
 
   function cancelNegotiation() {
