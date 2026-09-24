@@ -57,3 +57,19 @@ test('Showroom Range negotiation uses the same fee-to-proposal handoff', async (
   assert.match(showroom, /open=\{negotiationStep === 'proposal'\}/)
   assert.match(showroom, /await bookHat\(target, navigate, proposal\)/)
 })
+
+
+test('proposal modal stays mounted while the request is submitting', async () => {
+  const [shared, detail, showroom] = await Promise.all([
+    read('src/components/bentoCardShared.jsx'),
+    read('src/components/BentoCardDetailModal.jsx'),
+    read('src/components/ShowroomDetailModal.jsx'),
+  ])
+  assert.match(shared, /const \[submitting, setSubmitting\] = useState\(false\)/)
+  assert.match(shared, /const result = await onSubmit\?\.\(/)
+  assert.match(shared, /\{submitting \? 'Sending…' : actionLabel\}/)
+  assert.match(detail, /const result = await runPrimaryAction\(proposal\)/)
+  assert.match(detail, /if \(result\) setNegotiationStep\(null\)/)
+  assert.match(showroom, /const result = await bookHat\(target, navigate, proposal\)/)
+  assert.match(showroom, /if \(result\) setNegotiationStep\(null\)/)
+})
