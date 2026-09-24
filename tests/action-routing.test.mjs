@@ -73,3 +73,14 @@ test('proposal modal stays mounted while the request is submitting', async () =>
   assert.match(showroom, /const result = await bookHat\(target, navigate, proposal\)/)
   assert.match(showroom, /if \(result\) setNegotiationStep\(null\)/)
 })
+
+
+test('Showroom proposal owns focus above the detail dialog', async () => {
+  const shared = await read('src/components/bentoCardShared.jsx')
+  assert.match(shared, /import \{ useDialog \} from '\.\.\/lib\/dialog'/)
+  assert.match(shared, /function NegotiationProposalDialog/)
+  assert.match(shared, /useDialog\(panelRef,/)
+  assert.match(shared, /initialFocusRef: amountRef/)
+  assert.match(shared, /ref=\{amountRef\}/)
+  assert.match(shared, /function NegotiationFeeDialog/)
+})
