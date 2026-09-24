@@ -671,11 +671,47 @@ function BookingThread({ id, onBack }) {
     }
 
     setOfferError('')
-    await run(async () => {
-      await api.messageAction({ ...payload, client_token: retryPayload.current.token })
+    setError('')
+    setBusy(true)
+    try {
+      const result = await api.messageAction({ ...payload, client_token: retryPayload.current.token })
       retryPayload.current = null
+
+      const createdAt = new Date().toISOString()
+      const localOffer = {
+        id: result.id,
+        sender_id: user.id,
+        kind: 'offer',
+        body: offerNote.trim(),
+        amount,
+        currency: thread.currency || 'NGN',
+        pay_unit: thread.pay_unit || null,
+        offer_status: 'pending',
+        created_at: createdAt,
+        updated_at: createdAt,
+      }
+
+      setData((current) => {
+        if (!current) return current
+        const messages = current.messages.map((message) =>
+          message.kind === 'offer' && message.offer_status === 'pending'
+            ? { ...message, offer_status: 'superseded', updated_at: createdAt }
+            : message,
+        )
+        if (!messages.some((message) => message.id === localOffer.id)) messages.push(localOffer)
+        return {
+          ...current,
+          thread: { ...current.thread, pending_offer: localOffer },
+          messages,
+        }
+      })
       cancelOffer()
-    })
+      setHistory(false)
+    } catch (e) {
+      if (mounted.current) setOfferError(e.message)
+    } finally {
+      if (mounted.current) setBusy(false)
+    }
   }
 
   async function older() {
@@ -722,15 +758,45 @@ function BookingThread({ id, onBack }) {
   const pending = thread.pending_offer
   const closed = ['cancelled', 'refunded'].includes(thread.status)
   const offers = data.messages.filter((message) => message.kind === 'offer')
-  const pendingRespond = (status) =>
-    run(() =>
-      api.messageAction({
+  const pendingRespond = async (status) => {
+    if (busy || !pending) return
+    setBusy(true)
+    setError('')
+    try {
+      await api.messageAction({
         action: 'respond_offer',
         escrow_id: id,
         offer_id: pending.id,
         status,
-      }),
-    )
+      })
+
+      const updatedAt = new Date().toISOString()
+      setData((current) => {
+        if (!current) return current
+        const messages = current.messages.map((message) =>
+          message.id === pending.id
+            ? { ...message, offer_status: status, updated_at: updatedAt }
+            : message,
+        )
+        const threadUpdate = {
+          ...current.thread,
+          pending_offer: null,
+        }
+        if (status === 'accepted') {
+          threadUpdate.amount = Number(pending.amount)
+          threadUpdate.currency = pending.currency || current.thread.currency
+          threadUpdate.pay_unit = pending.pay_unit || current.thread.pay_unit
+          threadUpdate.agreed_at = updatedAt
+        }
+        return { ...current, thread: threadUpdate, messages }
+      })
+      setHistory(false)
+    } catch (e) {
+      if (mounted.current) setError(e.message)
+    } finally {
+      if (mounted.current) setBusy(false)
+    }
+  }
 
   return (
     <section className="min-w-0 flex flex-col">
