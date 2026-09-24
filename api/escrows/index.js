@@ -9,7 +9,7 @@ import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from 
 import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notifications.js'
 import { getConversations, getThread, threadAction } from '../_lib/bookingThreads.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from '../_lib/bookingRules.js'
-import { getMyDeals, notifyBookingCreated, respondBookingRequest } from '../_lib/myDeals.js'
+import { emitMyDealsEvent, getMyDeals, respondBookingRequest, writeBookingCreatedNotifications } from '../_lib/myDeals.js'
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store')
@@ -169,8 +169,18 @@ async function createBooking(userId, hatId, proposal = {}) {
       }
     }
     const alreadyExists = Boolean(existing[0])
+    let notificationBooking = null
+    if (!alreadyExists) {
+      notificationBooking = await writeBookingCreatedNotifications(client, escrow.id)
+    }
+
     await client.query('COMMIT')
-    if (!alreadyExists) await notifyBookingCreated(escrow.id)
+    if (notificationBooking) {
+      emitMyDealsEvent(
+        [notificationBooking.client_id, notificationBooking.talent_id],
+        'booking_requested',
+      )
+    }
     return { escrow, already_exists: alreadyExists }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
