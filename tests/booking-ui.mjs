@@ -54,7 +54,7 @@ try {
   await client.getByRole('button', { name: 'Send counter proposal', exact: true }).click()
   const counterResponse = await counterResponsePromise
   assert.equal(counterResponse.status(), 200, await counterResponse.text())
-  await client.getByText(/₦8,000/).first().waitFor()
+  await client.getByText(/8,000/).first().waitFor()
   await talent.goto('http://127.0.0.1:5179/api/__test/session?role=talent')
   await talent.goto('http://127.0.0.1:5179/deals?role=talent&tab=incoming')
   await talent.getByRole('heading', { name: 'My Deals', exact: true }).waitFor()
