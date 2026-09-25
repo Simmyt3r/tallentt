@@ -57,6 +57,7 @@ export default function PublicProfile() {
 
   return (
     <ProfileView
+      key={username}
       status={status}
       isOwner={isOwnUsername}
       profileUser={profileUser}

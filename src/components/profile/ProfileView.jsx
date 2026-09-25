@@ -52,17 +52,39 @@ function ChipListSection({ id, title, items }) {
   )
 }
 
-function SectionNav({ links }) {
-  if (links.length < 2) return null
+function SectionNav({ tabs, activeTab, onSelect }) {
+  function handleKeyDown(event, index) {
+    const nextIndex = event.key === 'ArrowRight' ? (index + 1) % tabs.length
+      : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length
+        : event.key === 'Home' ? 0
+          : event.key === 'End' ? tabs.length - 1 : null
+    if (nextIndex == null) return
+    event.preventDefault()
+    onSelect(tabs[nextIndex].id)
+    document.getElementById(`profile-${tabs[nextIndex].id}-tab`)?.focus()
+  }
+
   return (
     <nav
       aria-label="Profile sections"
-      className="flex gap-4 overflow-x-auto border-b-[1.5px] border-black/10 pb-2 -mx-1 px-1"
+      className="flex gap-5 overflow-x-auto border-b-[1.5px] border-black/10 -mx-1 px-1"
+      role="tablist"
     >
-      {links.map(({ href, label }) => (
-        <a key={href} href={href} className="text-[12px] font-bold text-black/50 hover:text-black whitespace-nowrap transition">
+      {tabs.map(({ id, label }, index) => (
+        <button
+          key={id}
+          id={`profile-${id}-tab`}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === id}
+          aria-controls={`profile-${id}-panel`}
+          tabIndex={activeTab === id ? 0 : -1}
+          onClick={() => onSelect(id)}
+          onKeyDown={(event) => handleKeyDown(event, index)}
+          className={`text-[13px] font-bold whitespace-nowrap border-b-2 pb-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0A13E6] ${activeTab === id ? 'text-[#0A13E6] border-[#0A13E6]' : 'text-black/50 border-transparent hover:text-black'}`}
+        >
           {label}
-        </a>
+        </button>
       ))}
     </nav>
   )
@@ -79,6 +101,8 @@ export default function ProfileView({
   ratedHatsCount = 0,
   onEditClick,
 }) {
+  const [activeTab, setActiveTab] = useState('portfolio')
+
   if (status === 'loading') return <ProfileSkeleton />
 
   if (status === 'not-found') {
@@ -94,13 +118,17 @@ export default function ProfileView({
   const skillsCount = profileUser.skills?.length || 0
   const industryCount = profileUser.industry?.length || 0
 
-  const navLinks = [
-    profileUser.bio && { href: '#about-heading', label: 'About' },
-    !isBusiness && portfolio.length > 0 && { href: '#portfolio-heading', label: 'Portfolio' },
-    hats.talent.length > 0 && { href: '#available-for-heading', label: 'Hats' },
-    (isBusiness || hats.client.length > 0) && { href: '#hiring-heading', label: 'Hiring' },
-    { href: '#reviews-heading', label: 'Reviews' },
+  const tabs = [
+    !isBusiness && { id: 'portfolio', label: 'Portfolio' },
+    { id: 'hats', label: 'Hats' },
+    { id: 'reviews', label: 'Reviews' },
   ].filter(Boolean)
+  const selectedTab = tabs.some(({ id }) => id === activeTab) ? activeTab : tabs[0].id
+
+  function showHats() {
+    setActiveTab('hats')
+    document.getElementById('profile-hats-tab')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <div className="max-w-[720px] mx-auto space-y-6 pb-8">
@@ -112,6 +140,7 @@ export default function ProfileView({
         hasTalentHats={hats.talent.length > 0}
         hasClientHats={hats.client.length > 0}
         onEditClick={onEditClick}
+        onShowHats={showHats}
       />
 
       {isOwner && (
@@ -124,8 +153,6 @@ export default function ProfileView({
         />
       )}
 
-      <SectionNav links={navLinks} />
-
       <AboutSection bio={profileUser.bio} />
 
       {isBusiness ? (
@@ -134,11 +161,29 @@ export default function ProfileView({
         <ChipListSection id="skills-heading" title="Skills" items={profileUser.skills} />
       )}
 
-      {!isBusiness && <PortfolioSection items={portfolio} isOwner={isOwner} />}
+      <SectionNav tabs={tabs} activeTab={selectedTab} onSelect={setActiveTab} />
 
-      <ActiveHatsSection role={profileUser.role} talentHats={hats.talent} clientHats={hats.client} />
-
-      <ReviewsSection rating={rating} ratedHatsCount={ratedHatsCount} />
+      {tabs.map(({ id }) => (
+        <div
+          key={id}
+          id={`profile-${id}-panel`}
+          role="tabpanel"
+          aria-labelledby={`profile-${id}-tab`}
+          tabIndex={id === selectedTab ? 0 : -1}
+          hidden={id !== selectedTab}
+        >
+          {id === selectedTab && id === 'portfolio' && (
+            portfolio.length || isOwner ? <PortfolioSection items={portfolio} isOwner={isOwner} />
+              : <p className="text-[12px] text-black/40 font-medium">No portfolio items yet.</p>
+          )}
+          {id === selectedTab && id === 'hats' && (
+            hats.talent.length || hats.client.length || isBusiness
+              ? <ActiveHatsSection role={profileUser.role} talentHats={hats.talent} clientHats={hats.client} />
+              : <p className="text-[12px] text-black/40 font-medium">No active Hats yet.</p>
+          )}
+          {id === selectedTab && id === 'reviews' && <ReviewsSection rating={rating} ratedHatsCount={ratedHatsCount} />}
+        </div>
+      ))}
     </div>
   )
 }
