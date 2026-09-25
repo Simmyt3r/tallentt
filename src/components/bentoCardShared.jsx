@@ -328,69 +328,6 @@ export function HatOwnerHeader({
   )
 }
 
-// The informational negotiation-fee confirmation from the spec: shown when
-// the user starts the primary action on a negotiable-price hat. This is
-// deliberately NOT built from .modal-overlay/.modal-panel (which go
-// full-screen below 768px) — a two-button confirmation should stay a small
-// centered card on every screen size, not take over the viewport.
-//
-// `fee` is left undefined unless the app actually has a real, dynamic fee
-// value to show — there is none in this codebase today (no
-// negotiation-fee field or config anywhere in api/), so this always
-// renders the generic message rather than inventing a number.
-export function NegotiationFeeNotice({ open, fee, onCancel, onContinue }) {
-  if (!open) return null
-  return <NegotiationFeeDialog fee={fee} onCancel={onCancel} onContinue={onContinue} />
-}
-
-function NegotiationFeeDialog({ fee, onCancel, onContinue }) {
-  const panelRef = useRef(null)
-  const cancelRef = useRef(null)
-  useDialog(panelRef, { onClose: onCancel, initialFocusRef: cancelRef })
-
-  // This renders above either BentoCardDetailModal or ShowroomDetailModal.
-  // Registering it with the shared dialog stack makes it the topmost focus
-  // owner, so the underlying modal cannot steal keyboard focus.
-  function stop(handler) {
-    return (e) => {
-      e.stopPropagation()
-      handler?.()
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Price Negotiation"
-      onClick={stop(onCancel)}
-    >
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        className="bg-white rounded-[20px] border-[1.5px] border-black w-full max-w-[360px] p-5 space-y-4 shadow-[0_20px_60px_-12px_rgba(0,0,0,0.25)] animate-slide-up outline-none"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-[16px] font-bold">Negotiation fee applies</h3>
-        <p className="text-[13px] text-black/70 leading-relaxed">
-          {fee
-            ? `This listing uses Range pricing. A negotiation fee of ${fee} applies if you continue.`
-            : 'This listing uses Range pricing. A negotiation fee applies if you continue.'}
-        </p>
-        <div className="flex gap-2 pt-1">
-          <button ref={cancelRef} type="button" onClick={stop(onCancel)} className="tw-btn-ghost flex-1 h-11">
-            Cancel
-          </button>
-          <button type="button" onClick={stop(onContinue)} className="tw-btn-primary flex-1 h-11">
-            Continue
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function NegotiationProposalModal(props) {
   if (!props.open) return null
   return <NegotiationProposalDialog {...props} />
@@ -401,7 +338,7 @@ function NegotiationProposalDialog({
   max,
   currency = 'NGN',
   payUnit,
-  actionLabel = 'Continue',
+  actionLabel = 'Send proposal',
   onCancel,
   onSubmit,
 }) {
@@ -456,7 +393,7 @@ function NegotiationProposalDialog({
       className="fixed inset-0 z-[61] flex items-center justify-center bg-black/45 backdrop-blur-[2px] p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Make your first proposal"
+      aria-label="Start price negotiation"
       onClick={(e) => {
         e.stopPropagation()
         if (!submitting) onCancel?.()
@@ -469,15 +406,27 @@ function NegotiationProposalDialog({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-[390px] rounded-[22px] border-[1.5px] border-black bg-white p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] space-y-4 outline-none"
       >
-        <div>
-          <h3 className="text-[17px] font-black">Make your proposal</h3>
-          <p className="mt-1 text-[12px] font-medium text-black/55">
-            Range: {range || 'Flexible'}{payUnit ? ` / ${payUnit}` : ''}
-          </p>
+        <div className="space-y-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0A13E6]">Range pricing</p>
+            <h3 className="mt-1 text-[18px] font-black tracking-tight">Make your proposal</h3>
+            <p className="mt-1 text-[12px] font-medium leading-relaxed text-black/55">
+              Propose the amount you want to start with. The other party can accept, reject, or counter it.
+            </p>
+          </div>
+          <div className="rounded-[14px] border-[1.5px] border-black bg-[#F7F3EB] px-3.5 py-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-black/40">Listed range</p>
+            <p className="mt-1 text-[15px] font-black">
+              {range || 'Flexible'}{payUnit ? ` / ${payUnit}` : ''}
+            </p>
+            <p className="mt-1 text-[10.5px] font-medium text-black/45">
+              The final deal price is set only when one proposal is accepted.
+            </p>
+          </div>
         </div>
 
         <label className="block text-[12px] font-bold">
-          Proposed amount
+          Your proposal
           <div className="mt-1.5 flex items-center rounded-[13px] border-[1.5px] border-black bg-[#F7F3EB] px-3">
             <span className="shrink-0 text-[12px] font-black text-black/45">{currency}</span>
             <input
@@ -499,14 +448,14 @@ function NegotiationProposalDialog({
         </label>
 
         <label className="block text-[12px] font-bold">
-          Message <span className="font-medium text-black/35">Optional</span>
+          Proposal note <span className="font-medium text-black/35">Optional</span>
           <textarea
             rows={3}
             maxLength={500}
             value={message}
             disabled={submitting}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Add context for your offer"
+            placeholder="Optional context, scope, or terms for this price"
             className="mt-1.5 w-full resize-none rounded-[13px] border-[1.5px] border-black bg-white p-3 text-[13px] outline-none focus:ring-4 focus:ring-black/[0.04] disabled:opacity-60"
           />
         </label>

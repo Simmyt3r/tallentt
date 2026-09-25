@@ -30,7 +30,7 @@ export async function getConversations(userId, before) {
   if (before) requireBookingId(before)
   const { rows } = await query(
     `SELECT e.id, e.hat_id, e.amount, e.currency, e.pay_unit, e.agreed_at, e.request_kind, e.application_id,
-            e.status, e.work_status, e.created_at, h.hat_title,
+            e.status, e.work_status, e.created_at, h.hat_title, h.price_type,
             u.username AS peer_username, u.avatar_url AS peer_avatar,
             u.full_name AS peer_full_name, u.role AS peer_role, u.company_suffix AS peer_company_suffix,
             (SELECT COUNT(*)::int FROM booking_messages m
@@ -71,7 +71,8 @@ export async function getThread(userId, escrowId, before, eventsBefore) {
         amount: escrow.amount, currency: escrow.currency || escrow.hat_currency || 'NGN',
         pay_unit: escrow.pay_unit || (escrow.rate_unit === 'custom' ? escrow.rate_unit_custom : escrow.rate_unit) || null,
         agreed_at: escrow.agreed_at, request_kind: escrow.request_kind, application_id: escrow.application_id,
-        price_type: escrow.price_type, status: escrow.status, is_client: userId === escrow.client_id,
+        price_type: escrow.price_type, price_min: escrow.price_min, price_max: escrow.price_max,
+        status: escrow.status, is_client: userId === escrow.client_id,
         work_status: escrow.work_status, work_version: escrow.work_version,
         contacts_unlocked: canShareContacts(escrow), price_negotiable: escrow.price_negotiable,
         checkout_locked_at: escrow.checkout_locked_at, card_checkout_started: Boolean(escrow.checkout_reference),

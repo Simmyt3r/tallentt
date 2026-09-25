@@ -89,9 +89,9 @@ export const api = {
   fundEscrowWithWallet: (id, expected_amount) =>
     request(`/api/escrows/${id}/fund-wallet`, { method: 'POST', body: JSON.stringify({ expected_amount }) }),
   bookingAction: (id, action, body) => request(`/api/escrows/${id}/${action}`, { method: 'POST', body: JSON.stringify(body) }),
-  getConversations: (before) => request(`/api/escrows?conversations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`),
-  getMessages: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
-  getBookingHistory: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}&events_before=${encodeURIComponent(before)}`),
+  getConversations: (before) => request(`/api/escrows?conversations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
+  getMessages: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
+  getBookingHistory: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}&events_before=${encodeURIComponent(before)}`, { cache: 'no-store' }),
   messageAction: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
 
   // Wallet — reuses the /api/escrows endpoint with a query param / action

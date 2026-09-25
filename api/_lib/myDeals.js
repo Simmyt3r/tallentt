@@ -20,6 +20,8 @@ export async function getMyDeals(userId) {
       `SELECT e.id, e.hat_id, e.client_id, e.talent_id, e.amount, e.status, e.contacts_unlocked,
               e.created_at, e.funded_at, e.released_at, e.work_status, e.request_kind, e.application_id,
               e.currency AS deal_currency, e.pay_unit, e.agreed_at,
+              (SELECT po.amount FROM booking_messages po WHERE po.escrow_id = e.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_amount,
+              (SELECT po.sender_id FROM booking_messages po WHERE po.escrow_id = e.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_sender_id,
               CASE
                 WHEN e.status = 'not_funded' AND COALESCE(e.contacts_unlocked, false) = false THEN 'pending'
                 ELSE 'accepted'
@@ -50,6 +52,8 @@ export async function getMyDeals(userId) {
               h.price_type, h.rate, h.price_min, h.price_max,
               deal.id AS negotiation_escrow_id, deal.amount AS agreed_amount, deal.agreed_at,
               deal.currency AS deal_currency, deal.pay_unit,
+              (SELECT po.amount FROM booking_messages po WHERE po.escrow_id = deal.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_amount,
+              (SELECT po.sender_id FROM booking_messages po WHERE po.escrow_id = deal.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_sender_id,
               EXISTS (SELECT 1 FROM booking_messages po WHERE po.escrow_id = deal.id AND po.offer_status = 'pending') AS has_pending_offer,
               owner.username AS owner_username, owner.full_name AS owner_full_name,
               owner.avatar_url AS owner_avatar, owner.lga AS owner_lga,

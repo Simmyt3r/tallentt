@@ -435,6 +435,16 @@ export default function MyDealsModal() {
                     : item.status === 'not_funded'
                       ? item.request_state
                       : item.status
+                  const dealCurrency = item.deal_currency || item.currency || 'NGN'
+                  const rangeLabel =
+                    item.price_type === 'range'
+                      ? [item.price_min, item.price_max]
+                          .filter((value, index, values) => value != null && (index === 0 || value !== values[0]))
+                          .map((value) => money(value, dealCurrency))
+                          .join(' – ')
+                      : null
+                  const agreedAmount = isApplication ? item.agreed_amount : item.amount
+                  const pendingOfferByMe = item.pending_offer_sender_id === user?.id
 
                   return (
                     <article
@@ -481,18 +491,32 @@ export default function MyDealsModal() {
                             </span>
                           </div>
 
-                          {!isApplication && (
+                          {item.price_type === 'range' ? (
+                            <div className="mt-3 rounded-[13px] border border-black/10 bg-[#F7F3EB] px-3 py-2.5">
+                              <p className="text-[9.5px] font-black uppercase tracking-[0.1em] text-black/35">
+                                Listed range
+                              </p>
+                              <p className="mt-0.5 text-[12px] font-black">
+                                {rangeLabel || 'Flexible'}{item.pay_unit ? ` /${item.pay_unit}` : ''}
+                              </p>
+                              {item.agreed_at ? (
+                                <p className="mt-1 text-[11.5px] font-black text-emerald-700">
+                                  Agreed: {money(agreedAmount, dealCurrency)}{item.pay_unit ? ` /${item.pay_unit}` : ''}
+                                </p>
+                              ) : item.pending_offer_amount != null ? (
+                                <p className="mt-1 text-[11.5px] font-black text-[#0A13E6]">
+                                  {pendingOfferByMe ? 'Your proposal' : 'Current proposal'}: {money(item.pending_offer_amount, dealCurrency)}
+                                  {item.pay_unit ? ` /${item.pay_unit}` : ''}
+                                </p>
+                              ) : (
+                                <p className="mt-1 text-[11px] font-semibold text-black/45">Awaiting a proposal</p>
+                              )}
+                            </div>
+                          ) : !isApplication ? (
                             <p className="mt-2 text-[13px] font-black">
-                              {money(item.amount, item.deal_currency || item.currency)}{item.pay_unit ? ` /${item.pay_unit}` : ''}
+                              {money(item.amount, dealCurrency)}{item.pay_unit ? ` /${item.pay_unit}` : ''}
                             </p>
-                          )}
-                          {isApplication && item.price_type === 'range' && (
-                            <p className="mt-2 text-[12px] font-bold text-[#0A13E6]">
-                              {item.agreed_at
-                                ? `Agreed: ${money(item.agreed_amount, item.deal_currency || item.currency)}${item.pay_unit ? ` /${item.pay_unit}` : ''}`
-                                : 'Price negotiation required'}
-                            </p>
-                          )}
+                          ) : null}
                           {isApplication && item.message && (
                             <p className="mt-2 text-[12px] text-black/60 leading-relaxed">
                               {item.message}

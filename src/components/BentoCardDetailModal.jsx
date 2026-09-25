@@ -3,9 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Clock, BookOpen, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Eye } from 'lucide-react'
 import { api } from '../lib/api'
 import {
-  HatOwnerHeader,
-  NegotiationFeeNotice,
-  NegotiationProposalModal,
+  HatOwnerHeader,  NegotiationProposalModal,
   formatAvailabilityWindow,
   formatBudget,
   formatPrice,
@@ -156,9 +154,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   // whatever the detail fetch already knows (has_applied) once loaded.
   const [applying, setApplying] = useState(false)
   const [justApplied, setJustApplied] = useState(false)
-  // The negotiation-fee confirmation from the spec — only ever relevant
-  // to a talent hat's "Book" action when the price is negotiable; see
-  // handlePrimaryAction below.
+  // Range pricing starts with the initiating party's first proposal.
   const [negotiationStep, setNegotiationStep] = useState(null)
 
   useEffect(() => {
@@ -284,8 +280,9 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const postedAgo = relativeTime(loaded ? detail.created_at : hat.created_at)
   const applied = (loaded && Boolean(detail.has_applied)) || justApplied
 
-  // Both Book and Apply must acknowledge the fee before continuing when
-  // the Hat uses Range or legacy negotiable pricing.
+  // Fixed-price Hats continue immediately. Range pricing starts with the
+  // initiating party's first proposal so the deal never pretends the minimum
+  // listed amount is already the agreed price.
   async function runPrimaryAction(proposal = null) {
     if (isTalent) {
       return (await onBook?.(hat, proposal)) || null
@@ -304,14 +301,10 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   function handlePrimaryAction() {
     if (!isTalent && (applied || applying)) return
     if (usesNegotiationPricing) {
-      setNegotiationStep('fee')
+      setNegotiationStep('proposal')
       return
     }
     runPrimaryAction()
-  }
-
-  function handleNegotiationContinue() {
-    setNegotiationStep('proposal')
   }
 
   async function handleProposalSubmit(proposal) {
@@ -542,12 +535,6 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
         </div>
         </div>
       </div>
-
-      <NegotiationFeeNotice
-        open={negotiationStep === 'fee'}
-        onCancel={cancelNegotiation}
-        onContinue={handleNegotiationContinue}
-      />
 
       <NegotiationProposalModal
         open={negotiationStep === 'proposal'}
