@@ -4,11 +4,12 @@ import { creditWallet } from './wallet.js'
 
 const titles = {
   submit_delivery: 'Work submitted for review', request_revision: 'Revisions requested',
-  open_dispute: 'Booking dispute opened', approve_delivery: 'Work approved and payment released',
+  open_dispute: 'Booking dispute opened', approve_delivery: 'Delivery approved; completion QR available',
   resolve_release: 'Dispute resolved: payment released', resolve_refund: 'Dispute resolved: wallet refunded',
 }
 const publicState = (e) => ({ id: e.id, status: e.status, work_status: e.work_status,
-  work_version: e.work_version, amount: e.amount, released_at: e.released_at, refunded_at: e.refunded_at })
+  work_version: e.work_version, amount: e.amount, start_released_amount: e.start_released_amount,
+  work_started_at: e.work_started_at, released_at: e.released_at, refunded_at: e.refunded_at })
 
 function cursor(value) {
   if (value != null && (typeof value !== 'string' || !/^[1-9]\d{0,18}$/.test(value) || BigInt(value) > 9223372036854775807n)) {
@@ -75,14 +76,14 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
     if (action === 'submit_delivery') {
       if (userId !== escrow.talent_id) throw bookingError(403, 'Only the talent can submit work.')
       if (!['in_progress', 'revision_requested'].includes(escrow.work_status)) throw bookingError(409, 'Work cannot be submitted in the current state.')
+      if (!escrow.work_started_at && escrow.work_status === 'in_progress') throw bookingError(409, 'Scan the client’s start QR before submitting work.')
       workStatus = 'submitted'
     } else if (action === 'request_revision' || action === 'approve_delivery') {
       if (userId !== escrow.client_id) throw bookingError(403, 'Only the client can review delivery.')
       if (escrow.work_status !== 'submitted') throw bookingError(409, 'Review is available only after work is submitted and while no dispute is open.')
-      workStatus = action === 'request_revision' ? 'revision_requested' : 'completed'
-      if (action === 'approve_delivery') settlement = 'released'
+      workStatus = action === 'request_revision' ? 'revision_requested' : 'awaiting_completion'
     } else if (action === 'open_dispute') {
-      if (!['in_progress', 'submitted', 'revision_requested'].includes(escrow.work_status)) throw bookingError(409, 'This booking already has a dispute.')
+      if (!['awaiting_start', 'in_progress', 'submitted', 'revision_requested', 'awaiting_completion'].includes(escrow.work_status)) throw bookingError(409, 'This booking already has a dispute.')
       workStatus = 'disputed'
       await client.query('INSERT INTO booking_disputes (escrow_id, opened_by, reason) VALUES ($1, $2, $3)', [escrowId, userId, note])
     } else {
@@ -96,8 +97,9 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
       if (!disputes[0]) throw bookingError(409, 'This dispute has already been resolved.')
     }
     if (settlement) {
-      await creditWallet(client, { userId: settlement === 'released' ? escrow.talent_id : escrow.client_id,
-        amount: requireAmount(escrow.amount), type: settlement === 'released' ? 'escrow_release' : 'refund', escrowId })
+      const remaining = requireAmount(Number(escrow.amount)) - Number(escrow.start_released_amount)
+      if (remaining > 0) await creditWallet(client, { userId: settlement === 'released' ? escrow.talent_id : escrow.client_id,
+        amount: remaining, type: settlement === 'released' ? 'escrow_release' : 'refund', escrowId })
     }
     const { rows: updated } = await client.query(
       `UPDATE escrows SET work_status = $2, work_version = work_version + 1, status = COALESCE($3, status),
@@ -113,15 +115,18 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
     if (adminAction) await client.query(
       `INSERT INTO admin_audit_logs (admin_id, action, target_type, target_id, metadata)
        VALUES ($1, $2, 'escrow', $3, $4::jsonb)`,
-      [userId, action, escrowId, JSON.stringify({ amount: escrow.amount, outcome: settlement, reason: note })],
+      [userId, action, escrowId, JSON.stringify({ amount: escrow.amount,
+        previously_released: escrow.start_released_amount, remaining: Number(escrow.amount) - Number(escrow.start_released_amount),
+        outcome: settlement, reason: note })],
     )
     const recipients = adminAction ? [escrow.client_id, escrow.talent_id]
       : [userId === escrow.client_id ? escrow.talent_id : escrow.client_id]
     for (const recipient of recipients) await client.query(
       `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
        VALUES ($1, 'booking_lifecycle', $2, $3, $4, $5::jsonb)`,
-      [recipient, titles[action], settlement === 'refunded' ? 'The full booking amount was returned to the client wallet.'
-        : 'Open the booking to review the update.', `/messages?escrow=${escrowId}`, JSON.stringify({ escrow_id: escrowId })],
+      [recipient, titles[action], settlement === 'refunded' ? 'The remaining escrow balance was returned to the client wallet.'
+        : action === 'approve_delivery' ? 'The client approved delivery. Present the completion QR to the talent for the remaining payment.'
+          : 'Open the booking to review the update.', `/messages?escrow=${escrowId}`, JSON.stringify({ escrow_id: escrowId })],
     )
     if (action === 'open_dispute') await client.query(
       `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
@@ -143,7 +148,7 @@ export async function listDisputes(status = 'open', before) {
   if (before) requireBookingId(before)
   // The boundary's timestamp/id remain stable even if another admin resolves it.
   const { rows } = await query(
-    `SELECT d.*, e.amount, h.hat_title, c.username AS client_username, c.full_name AS client_full_name, c.role AS client_role, c.company_suffix AS client_company_suffix,
+    `SELECT d.*, e.amount, e.start_released_amount, h.hat_title, c.username AS client_username, c.full_name AS client_full_name, c.role AS client_role, c.company_suffix AS client_company_suffix,
             t.username AS talent_username, t.full_name AS talent_full_name, t.role AS talent_role, t.company_suffix AS talent_company_suffix
      FROM booking_disputes d JOIN escrows e ON e.id = d.escrow_id
      LEFT JOIN hats h ON h.id = e.hat_id JOIN users c ON c.id = e.client_id JOIN users t ON t.id = e.talent_id
@@ -157,7 +162,7 @@ export async function listDisputes(status = 'open', before) {
 export async function getDispute(escrowId, messagesBefore, eventsBefore) {
   requireBookingId(escrowId)
   const { rows } = await query(
-    `SELECT d.*, e.amount, e.work_version, e.work_status, c.username AS client_username, c.full_name AS client_full_name, c.role AS client_role, c.company_suffix AS client_company_suffix,
+    `SELECT d.*, e.amount, e.start_released_amount, e.work_version, e.work_status, c.username AS client_username, c.full_name AS client_full_name, c.role AS client_role, c.company_suffix AS client_company_suffix,
             t.username AS talent_username, t.full_name AS talent_full_name, t.role AS talent_role, t.company_suffix AS talent_company_suffix
      FROM booking_disputes d JOIN escrows e ON e.id = d.escrow_id
      JOIN users c ON c.id = e.client_id JOIN users t ON t.id = e.talent_id WHERE d.escrow_id = $1`, [escrowId],

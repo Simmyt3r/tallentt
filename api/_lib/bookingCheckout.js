@@ -32,7 +32,7 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
     await assertNoPendingOffer(client, escrow.id)
     await debitWallet(client, { userId, amount: escrow.amount, type: 'escrow_fund', escrowId })
     const { rows } = await client.query(
-      `UPDATE escrows SET status = 'secured', contacts_unlocked = true, funded_at = NOW(),
+      `UPDATE escrows SET status = 'secured', work_status = 'awaiting_start', contacts_unlocked = true, funded_at = NOW(),
        checkout_locked_at = COALESCE(checkout_locked_at, NOW()) WHERE id = $1 RETURNING *`, [escrow.id],
     )
     return { escrow: rows[0] }

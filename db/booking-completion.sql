@@ -12,7 +12,7 @@ ALTER TABLE escrows DROP CONSTRAINT IF EXISTS escrows_work_state_check;
 ALTER TABLE escrows ADD CONSTRAINT escrows_work_state_check CHECK (
   work_version >= 0 AND (
     (status IN ('not_funded', 'cancelled') AND work_status = 'in_progress') OR
-    (status = 'secured' AND work_status IN ('in_progress', 'submitted', 'revision_requested', 'disputed')) OR
+    (status = 'secured' AND work_status IN ('awaiting_start', 'in_progress', 'submitted', 'revision_requested', 'awaiting_completion', 'disputed')) OR
     (status = 'released' AND work_status = 'completed') OR
     (status = 'refunded' AND work_status = 'refunded')
   )

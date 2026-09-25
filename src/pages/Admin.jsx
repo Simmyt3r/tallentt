@@ -42,7 +42,7 @@ const STATUS_STYLE = {
   not_funded: 'bg-[#FFF6DB] text-[#8A6D00]',
 }
 
-const MONEY_TYPES = new Set(['topup', 'escrow_release', 'refund'])
+const MONEY_TYPES = new Set(['topup', 'escrow_start', 'escrow_release', 'refund'])
 
 function fmtMoney(n) {
   if (n == null) return '₦0'

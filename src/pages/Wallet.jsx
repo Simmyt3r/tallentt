@@ -21,6 +21,7 @@ function fmtMoney(n) {
 const TYPE_LABEL = {
   topup: 'Wallet top-up',
   escrow_fund: 'Booking payment',
+  escrow_start: 'Work start payment (30%)',
   escrow_release: 'Booking earnings',
   withdrawal: 'Withdrawal',
   refund: 'Withdrawal refund',
@@ -33,9 +34,9 @@ const STATUS_STYLE = {
 }
 
 // Direction is implied by `type`, mirroring api/_lib/wallet.js — topup,
-// escrow_release, and refund credit the wallet; escrow_fund and
+// escrow_start, escrow_release, and refund credit the wallet; escrow_fund and
 // withdrawal debit it.
-const CREDIT_TYPES = new Set(['topup', 'escrow_release', 'refund'])
+const CREDIT_TYPES = new Set(['topup', 'escrow_start', 'escrow_release', 'refund'])
 
 export default function Wallet() {
   const { user, refreshUser } = useAuth()

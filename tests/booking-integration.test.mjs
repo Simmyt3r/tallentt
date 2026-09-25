@@ -201,7 +201,7 @@ test('decline and withdrawal preserve the price, including after negotiability c
   assert.equal((await state()).amount, 10000)
 })
 
-test('wallet uses accepted price, rejects stale amount, and credits talent exactly once on release', async () => {
+test('wallet uses accepted price and QR checkpoints credit talent once in two stages', async () => {
   await accept()
   const pending = await offer(talentId, 8500)
   await respond(clientId, pending.id, 'accepted')
@@ -215,11 +215,18 @@ test('wallet uses accepted price, rejects stale amount, and credits talent exact
   assert.equal((await threads.getThread(clientId, escrowId)).thread.peer.phone, '08012345678')
   const releaseHandler = (await import('../api/escrows/[id]/[action].js')).default
   const lifecycle = (await import('../api/_lib/bookingLifecycle.js')).bookingLifecycle
-  await lifecycle(talentId, escrowId, 'submit_delivery', { expected_version: 0, note: 'Completed the edit.', client_token: randomUUID() })
-  const releaseBody = { expected_version: 1, note: 'Approved.', client_token: randomUUID() }
+  const { issueBookingQr, redeemBookingQr } = await import('../api/_lib/bookingQr.js')
+  const start = await issueBookingQr(clientId, escrowId, 'start')
+  await redeemBookingQr(talentId, escrowId, start.token)
+  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 2550)
+  await lifecycle(talentId, escrowId, 'submit_delivery', { expected_version: 1, note: 'Completed the edit.', client_token: randomUUID() })
+  const releaseBody = { expected_version: 2, note: 'Approved.', client_token: randomUUID() }
   assert.equal((await request(releaseHandler, clientId, 'POST', '', releaseBody, { id: escrowId, action: 'release' })).status, 200)
-  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 8500)
+  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 2550)
   assert.equal((await request(releaseHandler, clientId, 'POST', '', releaseBody, { id: escrowId, action: 'release' })).body.alreadyProcessed, true)
+  const finish = await issueBookingQr(clientId, escrowId, 'completion')
+  await redeemBookingQr(talentId, escrowId, finish.token)
+  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 8500)
 })
 
 test('card checkout freezes price and reference, rejects wrong and underpaid transactions', async () => {

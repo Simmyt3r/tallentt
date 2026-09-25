@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "db:migrate": "node db/migrate.js",
     "db:migrate:completion": "node db/migrate.js --completion",
+    "db:migrate:qr-settlement": "node db/migrate.js --qr-settlement",
     "db:migrate:live": "node db/migrate.js --live",
     "db:migrate:hat-days": "node db/migrate.js --hat-days",
     "db:migrate:hat-form": "node db/migrate.js --hat-form",
@@ -20,15 +21,17 @@
     "verify": "npm test && npm run check:api && npm run build"
   },
   "dependencies": {
+    "@zxing/browser": "^0.2.1",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.5.1",
+    "hls.js": "^1.7.3",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.441.0",
     "pg": "^8.12.0",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.0",
-    "hls.js": "^1.7.3"
+    "react-router-dom": "^6.26.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
