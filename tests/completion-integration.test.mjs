@@ -7,7 +7,8 @@ import { testDatabase } from './database.mjs'
 
 const schema = await readFile(new URL('../db/schema.sql', import.meta.url), 'utf8')
 const migration = await readFile(new URL('../db/booking-completion.sql', import.meta.url), 'utf8')
-let database, pool, lifecycle, threads, checkout, payments, handler, adminHandler, signSession
+const qrMigration = await readFile(new URL('../db/booking-qr-settlement.sql', import.meta.url), 'utf8')
+let database, pool, lifecycle, threads, checkout, payments, qr, handler, adminHandler, signSession
 let clientId, talentId, adminId, outsiderId, hatId, escrowId
 before(async () => {
   database = await testDatabase(); pool = database.pool; global.__tworldPool = pool
@@ -17,6 +18,7 @@ before(async () => {
   threads = await import('../api/_lib/bookingThreads.js')
   checkout = await import('../api/_lib/bookingCheckout.js')
   payments = await import('../api/_lib/escrowPayments.js')
+  qr = await import('../api/_lib/bookingQr.js')
   handler = (await import('../api/escrows/[id]/[action].js')).default
   adminHandler = (await import('../api/admin/index.js')).default
   signSession = (await import('../api/_lib/auth.js')).signSession
@@ -37,6 +39,10 @@ const state = async () => (await pool.query('SELECT * FROM escrows WHERE id = $1
 const balance = async (id) => (await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [id])).rows[0]?.balance || 0
 const payload = (expected_version, note = 'Completed the agreed work.') => ({ expected_version, note, client_token: randomUUID() })
 const fund = () => checkout.payBookingWithWallet(clientId, escrowId, 10000)
+const beginWork = async () => {
+  const { token } = await qr.issueBookingQr(clientId, escrowId, 'start')
+  return qr.redeemBookingQr(talentId, escrowId, token)
+}
 const act = (user, action, version, note) => lifecycle(user, escrowId, action, payload(version, note), action.startsWith('resolve_'))
 const open = async () => { await fund(); await act(clientId, 'open_dispute', 0, 'The work was not delivered as agreed.') }
 
@@ -49,43 +55,161 @@ async function http(fn, user, body = {}, action = 'submit_delivery', url = '/api
   await fn(req, res); return response
 }
 
-test('delivery, revision, resubmission and approval settle the agreed amount exactly once', async () => {
+test('start scan releases 30%, and approval plus completion scan releases the remaining 70% exactly once', async () => {
   await fund()
-  await act(talentId, 'submit_delivery', 0)
-  await act(clientId, 'request_revision', 1, 'Please correct the colours.')
-  await act(talentId, 'submit_delivery', 2, 'Colour corrections complete.')
-  const request = payload(3, 'Approved.')
+  const started = await beginWork()
+  assert.equal(started.amount, 3000)
+  assert.equal(await balance(talentId), 3000)
+  await act(talentId, 'submit_delivery', 1)
+  await act(clientId, 'request_revision', 2, 'Please correct the colours.')
+  await act(talentId, 'submit_delivery', 3, 'Colour corrections complete.')
+  const request = payload(4, 'Approved.')
   await lifecycle(clientId, escrowId, 'approve_delivery', request)
   assert.equal((await lifecycle(clientId, escrowId, 'approve_delivery', request)).alreadyProcessed, true)
+  assert.equal((await state()).work_status, 'awaiting_completion')
+  assert.equal(await balance(talentId), 3000)
+  const { token } = await qr.issueBookingQr(clientId, escrowId, 'completion')
+  const completed = await qr.redeemBookingQr(talentId, escrowId, token)
+  assert.equal(completed.amount, 7000)
+  assert.equal((await qr.redeemBookingQr(talentId, escrowId, token)).alreadyProcessed, true)
   assert.equal((await state()).work_status, 'completed')
   assert.equal(await balance(talentId), 10000)
   assert.equal(await balance(clientId), 40000)
   const history = await threads.getThread(clientId, escrowId)
-  assert.deepEqual(history.events.map((e) => e.action), ['submit_delivery', 'request_revision', 'submit_delivery', 'approve_delivery'])
+  assert.deepEqual(history.events.map((e) => e.action), ['scan_start', 'submit_delivery', 'request_revision', 'submit_delivery', 'approve_delivery', 'scan_completion'])
   assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM wallet_transactions WHERE type = 'escrow_release'")).rows[0].n, 1)
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM wallet_transactions WHERE type = 'escrow_start'")).rows[0].n, 1)
+})
+
+test('start QR is bound to the client, talent, booking, stage, expiry and latest issuance', async () => {
+  await fund()
+  await assert.rejects(qr.issueBookingQr(talentId, escrowId, 'start'), { status: 404 })
+  await assert.rejects(qr.issueBookingQr(clientId, escrowId, 'completion'), { status: 409 })
+  const first = await qr.issueBookingQr(clientId, escrowId, 'start')
+  const second = await qr.issueBookingQr(clientId, escrowId, 'start')
+  await assert.rejects(qr.redeemBookingQr(talentId, escrowId, first.token), { status: 409 })
+  await assert.rejects(qr.redeemBookingQr(clientId, escrowId, second.token), { status: 404 })
+  await assert.rejects(qr.redeemBookingQr(talentId, randomUUID(), second.token), { status: 400 })
+  await assert.rejects(qr.redeemBookingQr(talentId, escrowId, second.token.replace('.start.', '.completion.')), { status: 409 })
+  await pool.query(`UPDATE booking_qr_tokens SET expires_at = NOW() - INTERVAL '1 second' WHERE escrow_id = $1`, [escrowId])
+  await assert.rejects(qr.redeemBookingQr(talentId, escrowId, second.token), { status: 410 })
+  const renewed = await qr.issueBookingQr(clientId, escrowId, 'start')
+  const attempts = await Promise.all([qr.redeemBookingQr(talentId, escrowId, renewed.token), qr.redeemBookingQr(talentId, escrowId, renewed.token)])
+  assert.equal(attempts.filter((result) => !result.alreadyProcessed).length, 1)
+  assert.equal(await balance(talentId), 3000)
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM wallet_transactions WHERE type = 'escrow_start'")).rows[0].n, 1)
+  await assert.rejects(qr.issueBookingQr(clientId, escrowId, 'start'), { status: 409 })
+})
+
+test('dispute after a 30% start payment refunds only the remaining 70%', async () => {
+  await fund(); await beginWork(); await act(clientId, 'open_dispute', 1, 'The work stopped after it started.')
+  await act(adminId, 'resolve_refund', 2, 'Return the remaining funds.')
+  assert.equal(await balance(clientId), 47000)
+  assert.equal(await balance(talentId), 3000)
+  const { rows: ledger } = await pool.query("SELECT type, amount FROM wallet_transactions WHERE escrow_id = $1 ORDER BY created_at", [escrowId])
+  assert.deepEqual(ledger.filter((entry) => ['escrow_start', 'refund'].includes(entry.type)).map((entry) => Number(entry.amount)).sort(), [3000, 7000])
+  assert.equal((await state()).status, 'refunded')
+})
+
+test('an admin release after the start scan pays only the remaining 70%', async () => {
+  await fund(); await beginWork(); await act(talentId, 'open_dispute', 1, 'Cannot agree on the remaining work.')
+  await act(adminId, 'resolve_release', 2, 'Verified that the talent completed the work.')
+  assert.equal(await balance(talentId), 10000)
+  assert.equal(await balance(clientId), 40000)
+  assert.equal((await pool.query("SELECT amount FROM wallet_transactions WHERE type = 'escrow_release'")).rows[0].amount, 7000)
+})
+
+test('a dispute after approval blocks the completion QR and preserves the held balance', async () => {
+  await fund(); await beginWork()
+  await act(talentId, 'submit_delivery', 1)
+  await act(clientId, 'approve_delivery', 2, 'Delivery approved.')
+  const { token } = await qr.issueBookingQr(clientId, escrowId, 'completion')
+  await act(clientId, 'open_dispute', 3, 'A new problem was found before handover.')
+  await assert.rejects(qr.redeemBookingQr(talentId, escrowId, token), { status: 409 })
+  await act(adminId, 'resolve_refund', 4, 'Refund money still held in escrow.')
+  assert.equal(await balance(talentId), 3000)
+  assert.equal(await balance(clientId), 47000)
+})
+
+test('a previously submitted booking settles its full unpaid balance after approval', async () => {
+  await fund()
+  await pool.query("UPDATE escrows SET work_status = 'submitted' WHERE id = $1", [escrowId])
+  await act(clientId, 'approve_delivery', 0, 'Legacy delivery approved.')
+  const { token } = await qr.issueBookingQr(clientId, escrowId, 'completion')
+  assert.equal((await qr.redeemBookingQr(talentId, escrowId, token)).amount, 10000)
+  assert.equal(await balance(talentId), 10000)
+})
+
+test('a wallet write failure rolls back both the start scan and token consumption', async () => {
+  await fund()
+  const { token } = await qr.issueBookingQr(clientId, escrowId, 'start')
+  await pool.query("ALTER TABLE wallet_transactions ADD CONSTRAINT reject_qr_test CHECK (type <> 'escrow_start')")
+  try {
+    await assert.rejects(qr.redeemBookingQr(talentId, escrowId, token), { code: '23514' })
+    assert.equal((await state()).work_status, 'awaiting_start')
+    assert.equal(await balance(talentId), 0)
+    assert.equal((await pool.query('SELECT consumed_at FROM booking_qr_tokens WHERE escrow_id = $1', [escrowId])).rows[0].consumed_at, null)
+  } finally { await pool.query('ALTER TABLE wallet_transactions DROP CONSTRAINT reject_qr_test') }
+  await qr.redeemBookingQr(talentId, escrowId, token)
+  assert.equal(await balance(talentId), 3000)
+})
+
+test('HTTP QR routes require login and each party is authorized only for their action', async () => {
+  await fund()
+  assert.equal((await http(handler, null, { stage: 'start' }, 'generate-qr', '/api/escrows/id/generate-qr')).status, 401)
+  assert.equal((await http(handler, talentId, { stage: 'start' }, 'generate-qr', '/api/escrows/id/generate-qr')).status, 404)
+  const issued = await http(handler, clientId, { stage: 'start' }, 'generate-qr', '/api/escrows/id/generate-qr')
+  assert.equal(issued.status, 200)
+  assert.equal(issued.headers['Cache-Control'], 'private, no-store')
+  assert.equal((await http(handler, clientId, { token: issued.body.token }, 'redeem-qr', '/api/escrows/id/redeem-qr')).status, 404)
+  assert.equal((await http(handler, talentId, { token: issued.body.token }, 'redeem-qr', '/api/escrows/id/redeem-qr')).status, 200)
+})
+
+test('QR migration reruns without resetting money already released at work start', async () => {
+  assert.ok(schema.includes(qrMigration.trim()))
+  await fund(); await beginWork()
+  await pool.query(qrMigration); await pool.query(schema); await pool.query(qrMigration)
+  assert.equal((await state()).work_status, 'in_progress')
+  assert.equal((await state()).start_released_amount, 3000)
+  assert.equal(await balance(talentId), 3000)
+})
+
+test('QR migration upgrades an existing funded booking under its old state constraint', async () => {
+  await fund()
+  await pool.query("UPDATE escrows SET work_status = 'in_progress' WHERE id = $1", [escrowId])
+  await pool.query('ALTER TABLE escrows DROP CONSTRAINT escrows_work_state_check')
+  await pool.query(`ALTER TABLE escrows ADD CONSTRAINT escrows_work_state_check CHECK (
+    (status = 'secured' AND work_status IN ('in_progress', 'submitted', 'revision_requested', 'disputed'))
+    OR (status = 'not_funded' AND work_status = 'in_progress') OR (status = 'released' AND work_status = 'completed')
+    OR (status = 'refunded' AND work_status = 'refunded') OR (status = 'cancelled' AND work_status = 'in_progress'))`)
+  await pool.query(qrMigration)
+  assert.equal((await state()).work_status, 'awaiting_start')
 })
 
 test('funding, participation and actor roles are required for every transition', async () => {
   await assert.rejects(act(talentId, 'submit_delivery', 0), { status: 409 })
   await fund()
-  await assert.rejects(act(outsiderId, 'submit_delivery', 0), { status: 404 })
-  await assert.rejects(act(clientId, 'submit_delivery', 0), { status: 403 })
-  await assert.rejects(act(clientId, 'approve_delivery', 0), { status: 409 })
-  await act(talentId, 'submit_delivery', 0)
-  await assert.rejects(act(talentId, 'approve_delivery', 1), { status: 403 })
-  await assert.rejects(act(talentId, 'request_revision', 1), { status: 403 })
-  await assert.rejects(act(talentId, 'submit_delivery', 1), { status: 409 })
-  assert.equal(await balance(talentId), 0)
+  await assert.rejects(act(talentId, 'submit_delivery', 0), { status: 409 })
+  await beginWork()
+  await assert.rejects(act(outsiderId, 'submit_delivery', 1), { status: 404 })
+  await assert.rejects(act(clientId, 'submit_delivery', 1), { status: 403 })
+  await assert.rejects(act(clientId, 'approve_delivery', 1), { status: 409 })
+  await act(talentId, 'submit_delivery', 1)
+  await assert.rejects(act(talentId, 'approve_delivery', 2), { status: 403 })
+  await assert.rejects(act(talentId, 'request_revision', 2), { status: 403 })
+  await assert.rejects(act(talentId, 'submit_delivery', 2), { status: 409 })
+  assert.equal(await balance(talentId), 3000)
 })
 
 test('stale revisions cannot apply to a newer delivery; token reuse cannot change the operation', async () => {
   await fund()
-  const request = payload(0)
+  await beginWork()
+  const request = payload(1)
   await lifecycle(talentId, escrowId, 'submit_delivery', request)
   await assert.rejects(lifecycle(talentId, escrowId, 'submit_delivery', { ...request, note: 'Different work' }), { status: 409 })
-  await act(clientId, 'request_revision', 1)
-  await act(talentId, 'submit_delivery', 2)
-  await assert.rejects(act(clientId, 'request_revision', 1), { status: 409 })
+  await act(clientId, 'request_revision', 2)
+  await act(talentId, 'submit_delivery', 3)
+  await assert.rejects(act(clientId, 'request_revision', 2), { status: 409 })
   assert.equal((await state()).work_status, 'submitted')
 })
 
@@ -137,13 +261,13 @@ test('admin release pays talent; competing admin release/refund can settle only 
 })
 
 test('competing client approval and dispute never leave an open dispute against released funds', async () => {
-  await fund(); await act(talentId, 'submit_delivery', 0)
-  const results = await Promise.allSettled([act(clientId, 'approve_delivery', 1), act(talentId, 'open_dispute', 1)])
+  await fund(); await beginWork(); await act(talentId, 'submit_delivery', 1)
+  const results = await Promise.allSettled([act(clientId, 'approve_delivery', 2), act(talentId, 'open_dispute', 2)])
   assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1)
   const e = await state()
   const disputes = (await pool.query('SELECT * FROM booking_disputes')).rows
   assert.equal(e.status === 'released' && disputes.some((d) => d.status === 'open'), false)
-  if (e.work_status === 'disputed') assert.equal(await balance(talentId), 0)
+  assert.equal(await balance(talentId), 3000)
 })
 
 test('an audit failure rolls back wallet credit, dispute, events and notifications', async () => {
@@ -185,11 +309,11 @@ test('HTTP authentication, admin scope, validation and no-store apply to new act
 })
 
 test('blank/oversized notes are rejected without changing funded bookings', async () => {
-  await fund()
+  await fund(); await beginWork()
   for (const note of ['', ' ', 'x'.repeat(2001), {}, 2]) {
-    await assert.rejects(lifecycle(talentId, escrowId, 'submit_delivery', payload(0, note)), { status: 400 })
+    await assert.rejects(lifecycle(talentId, escrowId, 'submit_delivery', payload(1, note)), { status: 400 })
   }
-  assert.equal((await state()).work_version, 0)
+  assert.equal((await state()).work_version, 1)
 })
 
 test('participants and admins can page all lifecycle evidence without leaking unrelated bookings', async () => {

@@ -113,7 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_live_support_talent_created ON live_support_trans
 
 ALTER TABLE wallet_transactions DROP CONSTRAINT IF EXISTS wallet_transactions_type_check;
 ALTER TABLE wallet_transactions ADD CONSTRAINT wallet_transactions_type_check CHECK (type IN (
- 'topup','escrow_fund','escrow_release','withdrawal','refund',
+ 'topup','escrow_fund','escrow_start','escrow_release','withdrawal','refund',
  'live_stake','live_stake_refund','live_prize','live_owner_share','live_bet_stake','live_bet_payout','live_bet_refund',
  'live_gift_sent','live_gift_earning','live_sponsor_rent','live_sponsor_rain',
  'live_support_sent','live_support_earning'

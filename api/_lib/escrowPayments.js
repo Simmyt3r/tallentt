@@ -43,7 +43,7 @@ export async function applyVerifiedPayment({ escrowId, reference, txn }) {
       const { rows: walletRefs } = await client.query(`SELECT id FROM wallet_transactions WHERE reference = $1`, [reference])
       if (walletRefs[0]) throw bookingError(409, 'This payment reference is already in use.')
       const { rows: secured } = await client.query(
-        `UPDATE escrows SET status = 'secured', contacts_unlocked = true,
+        `UPDATE escrows SET status = 'secured', work_status = 'awaiting_start', contacts_unlocked = true,
          payment_reference = $2, funded_at = NOW() WHERE id = $1 RETURNING *`, [escrow.id, reference],
       )
       result = { escrow: secured[0], alreadyProcessed: false }

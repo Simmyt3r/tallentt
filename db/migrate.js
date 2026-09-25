@@ -15,6 +15,8 @@ async function main() {
 
   const files = process.argv.includes('--hat-feed')
     ? ['hat-feed-visibility.sql']
+    : process.argv.includes('--qr-settlement')
+      ? ['booking-qr-settlement.sql']
     : process.argv.includes('--completion')
     ? ['booking-completion.sql']
     : process.argv.includes('--live')

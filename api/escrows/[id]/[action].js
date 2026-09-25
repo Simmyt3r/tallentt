@@ -6,6 +6,7 @@ import { verifyPaystackTransaction } from '../../_lib/paystack.js'
 import { applyVerifiedPayment } from '../../_lib/escrowPayments.js'
 import { bookingLifecycle } from '../../_lib/bookingLifecycle.js'
 import { prepareCheckout, payBookingWithWallet } from '../../_lib/bookingCheckout.js'
+import { issueBookingQr, redeemBookingQr } from '../../_lib/bookingQr.js'
 
 // Handles:
 //   POST /api/escrows/:id/fund         — pay with card (Paystack)
@@ -37,6 +38,19 @@ export default async function handler(req, res) {
   }
 
   if (action === 'fund') return fund(req, res, id)
+  if (action === 'generate-qr' || action === 'redeem-qr') {
+    try {
+      const session = getSessionUser(req)
+      if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
+      const body = await readBody(req)
+      return json(res, 200, action === 'generate-qr'
+        ? await issueBookingQr(session.sub, id, body?.stage)
+        : await redeemBookingQr(session.sub, id, body?.token))
+    } catch (err) {
+      if (!err.status) console.error('Booking QR checkpoint failed:', err)
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Could not process the QR checkpoint.' })
+    }
+  }
   if (['submit_delivery', 'request_revision', 'open_dispute', 'approve_delivery', 'release'].includes(action)) {
     try {
       const session = getSessionUser(req)

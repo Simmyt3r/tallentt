@@ -5,6 +5,7 @@ import { api, payForBooking } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 import RoleCardBadge from './RoleCardBadge.jsx'
+import DealQrCheckpoint from './DealQrCheckpoint.jsx'
 
 const FILTERS = ['All', 'Freelance', 'Contract']
 
@@ -604,6 +605,14 @@ export default function MyDealsModal() {
                             </>
                           )}
                       </div>
+                      {activeBooking && item.status === 'secured' &&
+                        ['awaiting_start', 'awaiting_completion'].includes(item.work_status) && (
+                          <DealQrCheckpoint booking={item} role={role} onComplete={async () => {
+                            await refreshUser()
+                            await load({ quiet: true })
+                            notifyLocalChange()
+                          }} />
+                        )}
                     </article>
                   )
                 })}

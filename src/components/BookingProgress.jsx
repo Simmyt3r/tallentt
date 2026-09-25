@@ -3,11 +3,13 @@ import { api } from '../lib/api.js'
 import { identityFromRow } from '../lib/profile.js'
 import UserIdentity from './UserIdentity.jsx'
 
-export const workLabels = { in_progress: 'Work in progress', submitted: 'Awaiting delivery review',
-  revision_requested: 'Revisions requested', disputed: 'Dispute under review', completed: 'Completed', refunded: 'Refunded to wallet' }
+export const workLabels = { awaiting_start: 'Awaiting start QR scan', in_progress: 'Work in progress', submitted: 'Awaiting delivery review',
+  revision_requested: 'Revisions requested', awaiting_completion: 'Approved: awaiting completion QR',
+  disputed: 'Dispute under review', completed: 'Completed', refunded: 'Remaining escrow refunded' }
 export const eventLabels = { submit_delivery: 'Work submitted', request_revision: 'Revisions requested',
-  open_dispute: 'Dispute opened', approve_delivery: 'Approved; payment released',
-  resolve_release: 'Admin released payment', resolve_refund: 'Admin refunded the client wallet' }
+  scan_start: 'Start QR scanned; 30% released', scan_completion: 'Completion QR scanned; balance released',
+  open_dispute: 'Dispute opened', approve_delivery: 'Delivery approved; completion QR ready',
+  resolve_release: 'Admin released remaining escrow', resolve_refund: 'Admin refunded remaining escrow' }
 export const actionButton = 'px-3 py-2 rounded-lg border border-black/20 text-xs font-semibold disabled:opacity-40 hover:bg-black/5'
 
 export function BookingEvents({ events = [] }) {
@@ -35,7 +37,7 @@ export default function BookingProgress({ thread, events, eventsCursor, busy, ru
     ...(thread.is_client && thread.work_status === 'submitted' ? ['approve_delivery', 'request_revision'] : []),
     'open_dispute',
   ] : []
-  const labels = { submit_delivery: 'Submit work', approve_delivery: 'Approve and release payment',
+  const labels = { submit_delivery: 'Submit work', approve_delivery: 'Approve delivery',
     request_revision: 'Request revisions', open_dispute: 'Open dispute' }
   const activeCursor = cursor === undefined ? eventsCursor : cursor
 
@@ -66,14 +68,15 @@ export default function BookingProgress({ thread, events, eventsCursor, busy, ru
   return <section aria-label="Booking progress" className="border-b border-black/10 p-4 space-y-3 bg-[#F7F3EB]/50">
     <h3 className="text-sm font-bold">{thread.status === 'not_funded' ? 'Fund the booking to start work' : workLabels[thread.work_status] || 'Booking progress'}</h3>
     {thread.work_status === 'disputed' && <p className="text-xs text-black/65">Funds remain held until an admin resolves the dispute. Both parties can add evidence in this conversation. Admins can review its messages and booking history.</p>}
-    {thread.status === 'refunded' && <p className="text-xs text-black/65">The full booking amount was returned to the client’s ChombuTar wallet. This is not a card or bank refund.</p>}
-    {thread.status === 'released' && <p className="text-xs text-black/65">The full booking amount is in the talent’s wallet.</p>}
+    {thread.status === 'refunded' && <p className="text-xs text-black/65">The remaining escrow balance was returned to the client’s ChombuTar wallet. Any start payment already released to the talent remains in their wallet.</p>}
+    {thread.status === 'released' && <p className="text-xs text-black/65">The booking amount has been released to the talent’s wallet.</p>}
+    {thread.status === 'secured' && <p className="text-xs text-black/65">Start payment released: {Number(thread.start_released_amount || 0).toLocaleString('en-NG')} of {Number(thread.amount).toLocaleString('en-NG')} {thread.currency || 'NGN'}. The rest remains in escrow.</p>}
     <div className="flex flex-wrap gap-2">{actions.map((item) => <button key={item} type="button" className={actionButton} disabled={busy}
       onClick={() => { setAction(item); setVersion(thread.work_version); setNote(''); retry.current = null }}>{labels[item]}</button>)}</div>
     {action && <form onSubmit={submit} className="space-y-2">
       <p className="text-xs font-semibold">{labels[action]}</p>
-      {action === 'approve_delivery' && <p className="text-xs">Confirm the work is complete. This releases the full payment to the talent’s wallet and closes the booking.</p>}
-      {action === 'open_dispute' && <p className="text-xs">Explain the issue. An admin will review the booking history and conversation before deciding on a full release or wallet refund.</p>}
+      {action === 'approve_delivery' && <p className="text-xs">Approve delivery to enable your completion QR. The remaining escrow is released only after the talent scans it.</p>}
+      {action === 'open_dispute' && <p className="text-xs">Explain the issue. An admin will review the booking before deciding how to settle the money still in escrow.</p>}
       <label className="block text-xs">{action === 'approve_delivery' ? 'Approval note (optional)' : 'Booking update'}
         <textarea aria-label={action === 'approve_delivery' ? 'Approval note (optional)' : 'Booking update'} required={action !== 'approve_delivery'} maxLength={2000}
           rows={3} value={note} disabled={busy} onChange={(e) => setNote(e.target.value)} className="block mt-1 p-2 border border-black/20 rounded-lg w-full text-sm" />

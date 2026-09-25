@@ -654,11 +654,11 @@ function BookingThread({ id, onBack }) {
       setOfferError('Enter a valid whole-number proposal.')
       return
     }
-    if (Number.isFinite(Number(thread.price_min)) && amount < Number(thread.price_min)) {
+    if (thread.price_min != null && Number.isFinite(Number(thread.price_min)) && amount < Number(thread.price_min)) {
       setOfferError(`Proposal must be at least ${money(thread.price_min, thread.currency)}.`)
       return
     }
-    if (Number.isFinite(Number(thread.price_max)) && amount > Number(thread.price_max)) {
+    if (thread.price_max != null && Number.isFinite(Number(thread.price_max)) && amount > Number(thread.price_max)) {
       setOfferError(`Proposal must not exceed ${money(thread.price_max, thread.currency)}.`)
       return
     }

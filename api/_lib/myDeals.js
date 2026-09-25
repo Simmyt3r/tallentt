@@ -18,7 +18,8 @@ export async function getMyDeals(userId) {
   const [bookingResult, applicationResult] = await Promise.all([
     query(
       `SELECT e.id, e.hat_id, e.client_id, e.talent_id, e.amount, e.status, e.contacts_unlocked,
-              e.created_at, e.funded_at, e.released_at, e.work_status, e.request_kind, e.application_id,
+              e.created_at, e.funded_at, e.released_at, e.work_status, e.start_released_amount,
+              e.work_started_at, e.request_kind, e.application_id,
               e.currency AS deal_currency, e.pay_unit, e.agreed_at,
               (SELECT po.amount FROM booking_messages po WHERE po.escrow_id = e.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_amount,
               (SELECT po.sender_id FROM booking_messages po WHERE po.escrow_id = e.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_sender_id,

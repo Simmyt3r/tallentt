@@ -51,7 +51,7 @@ export default function AdminDisputes() {
     {busy && <p className="text-xs">Loading disputes…</p>}
     {!busy && !items.length && !error && <p className="text-sm text-black/50">No disputes in this queue.</p>}
     <ul className="space-y-3">{items.map((d) => <li key={d.escrow_id} className="p-3 border border-black/15 rounded-lg space-y-2">
-      <p className="text-sm font-bold break-words">{d.hat_title} · {money(d.amount)}</p>
+      <p className="text-sm font-bold break-words">{d.hat_title} · {money(d.amount - d.start_released_amount)} held in escrow</p>
       <p className="text-xs break-words">Client <Party row={d} prefix="client" /> · Talent <Party row={d} prefix="talent" /></p>
       <p className="text-xs whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{d.reason}</p>
       <p className="text-[10px] text-black/50">Opened {new Date(d.created_at).toLocaleString()}</p>
@@ -103,7 +103,8 @@ function DisputeDetail({ id, onBack }) {
     {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
     {!data && !error && <p className="text-sm">Loading case…</p>}
     {d && <>
-      <h2 className="text-sm font-bold">Dispute · {money(d.amount)} · {d.status}</h2>
+      <h2 className="text-sm font-bold">Dispute · {money(d.amount - d.start_released_amount)} held · {d.status}</h2>
+      {d.start_released_amount > 0 && <p className="text-xs">{money(d.start_released_amount)} was paid to the talent when work started and cannot be refunded from escrow.</p>}
       <p className="text-xs break-words">Client <Party row={d} prefix="client" /> · Talent <Party row={d} prefix="talent" /></p>
       <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{d.reason}</p>
       <h3 className="text-xs font-bold">Booking history</h3>
@@ -122,14 +123,14 @@ function DisputeDetail({ id, onBack }) {
       {d.status === 'open' ? <form onSubmit={(e) => { e.preventDefault(); setConfirming(true) }} className="space-y-3 border-t border-black/15 pt-4">
         <label className="block text-xs font-semibold">Decision
           <select aria-label="Decision" required disabled={busy || confirming} value={outcome} onChange={(e) => setOutcome(e.target.value)} className="block w-full mt-1 p-2 border border-black/20 rounded-lg">
-            <option value="">Choose a decision</option><option value="resolve_release">Release full amount to talent wallet</option><option value="resolve_refund">Refund full amount to client wallet</option>
+            <option value="">Choose a decision</option><option value="resolve_release">Release remaining escrow to talent wallet</option><option value="resolve_refund">Refund remaining escrow to client wallet</option>
           </select>
         </label>
         <label className="block text-xs font-semibold">Resolution reason
           <textarea aria-label="Resolution reason" required maxLength={2000} rows={3} disabled={busy || confirming} value={note} onChange={(e) => setNote(e.target.value)} className="block w-full mt-1 p-2 border border-black/20 rounded-lg" />
         </label>
         {confirming ? <div className="p-3 rounded-lg bg-amber-50 space-y-3">
-          <p className="text-xs">Confirm {outcome === 'resolve_release' ? `release of ${money(d.amount)} to ${getPrimaryIdentity(identityFromRow(d, 'talent'))}` : `refund of ${money(d.amount)} to ${getPrimaryIdentity(identityFromRow(d, 'client'))}`} in their ChombuTar wallet. This closes the dispute and records your reason for both parties.</p>
+          <p className="text-xs">Confirm {outcome === 'resolve_release' ? `release of ${money(d.amount - d.start_released_amount)} to ${getPrimaryIdentity(identityFromRow(d, 'talent'))}` : `refund of ${money(d.amount - d.start_released_amount)} to ${getPrimaryIdentity(identityFromRow(d, 'client'))}`} in their ChombuTar wallet. This closes the dispute and records your reason for both parties.</p>
           <div className="flex flex-wrap gap-2"><button type="button" className={actionButton} disabled={busy} onClick={resolve}>Confirm settlement</button>
             <button type="button" className={actionButton} disabled={busy} onClick={() => setConfirming(false)}>Edit decision</button></div>
         </div> : <button disabled={busy} className={actionButton}>Review settlement</button>}

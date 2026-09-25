@@ -74,6 +74,7 @@ export async function getThread(userId, escrowId, before, eventsBefore) {
         price_type: escrow.price_type, price_min: escrow.price_min, price_max: escrow.price_max,
         status: escrow.status, is_client: userId === escrow.client_id,
         work_status: escrow.work_status, work_version: escrow.work_version,
+        start_released_amount: escrow.start_released_amount, work_started_at: escrow.work_started_at,
         contacts_unlocked: canShareContacts(escrow), price_negotiable: escrow.price_negotiable,
         checkout_locked_at: escrow.checkout_locked_at, card_checkout_started: Boolean(escrow.checkout_reference),
         peer: peers[0], pending_offer: offers[0] || null },
