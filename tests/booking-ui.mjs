@@ -149,7 +149,7 @@ try {
   await admin.getByRole('heading', { name: /Dispute.*refunded/ }).waitFor()
   await client.reload()
   await client.getByRole('heading', { name: 'Remaining escrow refunded', exact: true }).waitFor()
-  await client.getByText('This conversation is read-only because the booking is closed.', { exact: true }).waitFor()
+  await client.getByText('This conversation is read-only because the deal is closed.', { exact: true }).waitFor()
   const wallet = await client.evaluate(async () => (await (await fetch('/api/escrows?wallet=1')).json()).wallet)
   assert.equal(wallet.balance, 42000)
   assert.equal(wallet.transactions.filter((t) => t.type === 'refund').length, 1)
