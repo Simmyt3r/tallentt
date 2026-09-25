@@ -12,6 +12,7 @@ export default function ProfileHeader({
   hasTalentHats,
   hasClientHats,
   onEditClick,
+  onShowHats,
 }) {
   const [copied, setCopied] = useState(false)
   const isBusiness = isBusinessIdentity(user.role)
@@ -40,7 +41,7 @@ export default function ProfileHeader({
     }
   }
 
-  const secondaryHref = isBusiness ? (hasClientHats ? '#hiring-heading' : null) : hasTalentHats ? '#available-for-heading' : null
+  const showHatsAction = isBusiness ? hasClientHats : hasTalentHats
 
   return (
     <header className="rounded-[22px] border-[1.5px] border-black/10 p-4 sm:p-5">
@@ -95,10 +96,10 @@ export default function ProfileHeader({
             Edit Profile
           </button>
         ) : (
-          secondaryHref && (
-            <a href={secondaryHref} className="tw-btn-primary h-9 px-4 text-[12px] inline-flex items-center">
+          showHatsAction && (
+            <button type="button" onClick={onShowHats} className="tw-btn-primary h-9 px-4 text-[12px] inline-flex items-center">
               {isBusiness ? 'View Opportunities' : 'View Hats'}
-            </a>
+            </button>
           )
         )}
       </div>

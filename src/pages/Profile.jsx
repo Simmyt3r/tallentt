@@ -53,6 +53,7 @@ export default function Profile() {
 
   return (
     <ProfileView
+      key={user.username}
       status={loading ? 'loading' : 'ready'}
       isOwner
       profileUser={user}
