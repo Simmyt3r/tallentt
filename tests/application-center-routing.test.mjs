@@ -35,9 +35,11 @@ test('API exposes a unified deals projection from applications and escrows', asy
   assert.match(client, /getMyDeals: \(\) => request\('\/api\/escrows\?deals=1'\)/)
 })
 
-test('active booking management remains inside My Deals and Messages', async () => {
+test('active booking management remains inside My Deals and Messages and funds from wallet only', async () => {
   const deals = await read('src/components/MyDealsModal.jsx')
-  assert.match(deals, /payForBooking/)
   assert.match(deals, /fundEscrowWithWallet/)
+  assert.match(deals, /Pay from wallet/)
+  assert.doesNotMatch(deals, /payForBooking/)
+  assert.doesNotMatch(deals, /Pay with card/)
   assert.match(deals, /\/messages\?escrow=/)
 })
