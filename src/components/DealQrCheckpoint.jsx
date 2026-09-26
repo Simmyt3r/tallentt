@@ -81,9 +81,12 @@ export default function DealQrCheckpoint({ booking, role, onComplete }) {
     ? Math.floor(Number(booking.amount) * 3 / 10)
     : Number(booking.amount) - Number(booking.start_released_amount || 0)
 
-  return <div className="border-t border-black/10 px-4 sm:px-5 py-3 space-y-3 bg-[#F7F3EB]/50">
-    <p className="text-[12px] font-bold">{stage === 'start' ? 'Start work · 30% payment' : 'Complete work · remaining payment'}</p>
-    <p className="text-[11px] text-black/60">
+  return <div className="rounded-[18px] border border-black/10 bg-white p-4 space-y-3">
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">QR checkpoint</p>
+      <p className="mt-1 text-[14px] font-black">{stage === 'start' ? 'Start work · 30% payment' : 'Complete work · remaining payment'}</p>
+    </div>
+    <p className="text-[11px] leading-relaxed text-black/60">
       {role === 'client'
         ? stage === 'start'
           ? `Present this code to the talent when work begins. Scanning releases ${money(amount)} from funded escrow.`
@@ -95,11 +98,11 @@ export default function DealQrCheckpoint({ booking, role, onComplete }) {
     {error && <p role="alert" className="text-[11px] font-semibold text-red-700">{error}</p>}
     {role === 'client' ? <>
       <button type="button" disabled={busy} onClick={generate}
-        className="h-9 px-4 rounded-full bg-[#0A13E6] text-white border-[1.5px] border-black text-[11px] font-black disabled:opacity-50 inline-flex items-center gap-2">
+        className="h-10 w-full sm:w-auto px-4 rounded-full bg-[#0A13E6] text-white border-[1.5px] border-black text-[11px] font-black disabled:opacity-50 inline-flex items-center justify-center gap-2">
         {issued ? <RefreshCw size={14} /> : null}{busy ? 'Generating…' : issued ? 'Generate new QR' : `Generate ${stage} QR`}
       </button>
       {issued && !expired && image && <div className="flex flex-col items-start gap-2">
-        <img src={image} width="256" height="256" alt={`${stage} checkpoint QR for this booking`} className="rounded-lg border border-black/15" />
+        <img src={image} width="256" height="256" alt={`${stage} checkpoint QR for this booking`} className="w-full max-w-[256px] rounded-[14px] border border-black/10 bg-white" />
         <p className="text-[11px] text-black/60">Expires {new Date(issued.expiresAt).toLocaleTimeString()}. A new code replaces this one.</p>
         <label className="text-[11px] font-semibold w-full max-w-xs">Manual code (if the talent cannot scan)
           <input readOnly value={issued.token} onFocus={(event) => event.target.select()}
@@ -109,7 +112,7 @@ export default function DealQrCheckpoint({ booking, role, onComplete }) {
       {expired && <p className="text-[11px] text-amber-700">Code expired. Generate another QR before the talent scans.</p>}
     </> : <>
       <button type="button" disabled={busy} onClick={() => setScanning((current) => !current)}
-        className="h-9 px-4 rounded-full bg-[#0A13E6] text-white border-[1.5px] border-black text-[11px] font-black disabled:opacity-50 inline-flex items-center gap-2">
+        className="h-10 w-full sm:w-auto px-4 rounded-full bg-[#0A13E6] text-white border-[1.5px] border-black text-[11px] font-black disabled:opacity-50 inline-flex items-center justify-center gap-2">
         <Camera size={14} />{scanning ? 'Stop camera' : `Scan ${stage} QR`}
       </button>
       {scanning && <video ref={video} muted playsInline autoPlay aria-label="QR scanner camera preview"
@@ -120,7 +123,7 @@ export default function DealQrCheckpoint({ booking, role, onComplete }) {
             placeholder="Paste the client's QR code" className="block mt-1 w-full h-9 rounded-lg border border-black/20 px-3 text-[11px]" />
         </label>
         <button type="submit" disabled={busy || !input.trim()}
-          className="h-9 px-4 rounded-full border-[1.5px] border-black text-[11px] font-black disabled:opacity-50">
+          className="h-9 px-4 rounded-full border-[1.5px] border-black bg-white text-[11px] font-black disabled:opacity-50">
           {busy ? 'Verifying…' : 'Confirm code'}
         </button>
       </form>
