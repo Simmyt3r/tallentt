@@ -82,10 +82,6 @@ export const api = {
   getSeekingSuggestions: (role, q) =>
     request(`/api/hats?suggest=1&role=${encodeURIComponent(role)}&q=${encodeURIComponent(q || '')}`),
   createEscrow: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
-  fundEscrow: (id, reference) =>
-    request(`/api/escrows/${id}/fund`, { method: 'POST', body: JSON.stringify({ reference }) }),
-  prepareCheckout: (id, expected_amount) =>
-    request(`/api/escrows/${id}/prepare-checkout`, { method: 'POST', body: JSON.stringify({ expected_amount }) }),
   fundEscrowWithWallet: (id, expected_amount) =>
     request(`/api/escrows/${id}/fund-wallet`, { method: 'POST', body: JSON.stringify({ expected_amount }) }),
   bookingAction: (id, action, body) => request(`/api/escrows/${id}/${action}`, { method: 'POST', body: JSON.stringify(body) }),
@@ -299,13 +295,4 @@ export function maskLeaks(text) {
   return text.replace(/\b(whatsapp|telegram|tg\b|call me|my number|hmu|dm me)\b/gi, '••••')
 }
 
-export async function payForBooking(booking, email) {
-  if (!import.meta.env.VITE_PAYSTACK_PUBLIC_KEY) throw new Error('Card payments are not configured.')
-  await waitForPaystack()
-  const checkout = await api.prepareCheckout(booking.id, booking.amount)
-  const reference = await payWithPaystack({
-    email, amountNaira: checkout.amount, reference: checkout.reference,
-    metadata: { escrow_id: booking.id, hat_id: booking.hat_id },
-  })
-  return api.fundEscrow(booking.id, reference)
-}
+
