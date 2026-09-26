@@ -217,6 +217,13 @@ async function getDashboard() {
 
   return {
     metrics: metrics.rows[0],
+    services: {
+      database: Boolean(process.env.DATABASE_URL),
+      paystack: Boolean(process.env.PAYSTACK_SECRET_KEY),
+      cloudinary: Boolean(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)),
+      live_media: Boolean(process.env.LIVE_MEDIA_SERVER_URL && process.env.LIVE_WHIP_URL && process.env.LIVE_HLS_BASE_URL),
+      live_realtime: Boolean(process.env.LIVE_REALTIME_PUBLISH_URL && process.env.LIVE_REALTIME_SECRET),
+    },
     statusCounts: {
       applications: applicationStatuses.rows,
       escrows: escrowStatuses.rows,
