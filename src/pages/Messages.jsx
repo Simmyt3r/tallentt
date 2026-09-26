@@ -980,7 +980,7 @@ function BookingThread({ id, onBack }) {
             <p className="text-[11px] font-black">Ready to fund</p>
             <p className="text-[10px] text-black/45">Payment comes from your ChombuTar wallet.</p>
           </div>
-          {(user.walletBalance || 0) >= thread.amount ? (
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               className="h-9 px-4 rounded-full bg-[#0A13E6] text-white text-[11px] font-black disabled:opacity-50"
@@ -994,11 +994,15 @@ function BookingThread({ id, onBack }) {
             >
               Pay {money(thread.amount)} from wallet
             </button>
-          ) : (
-            <Link to="/wallet" className="h-9 px-4 rounded-full bg-[#0A13E6] text-white text-[11px] font-black inline-flex items-center">
-              Top up wallet
-            </Link>
-          )}
+            {(user.walletBalance || 0) < thread.amount && (
+              <Link
+                to="/wallet"
+                className="h-9 px-4 rounded-full border border-black/15 bg-white text-[11px] font-black inline-flex items-center"
+              >
+                Top up wallet
+              </Link>
+            )}
+          </div>
         </div>
       )}
 
