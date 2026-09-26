@@ -346,8 +346,8 @@ function DealDetailsSheet({
 }) {
   const range = formatRange(thread)
   const status =
-    thread.status === 'secured'
-      ? workLabels[thread.work_status] || 'Active deal'
+    ['secured', 'released', 'refunded'].includes(thread.status)
+      ? workLabels[thread.work_status] || statusLabel[thread.status] || 'Active deal'
       : statusLabel[thread.status] || thread.status
 
   return (
@@ -887,8 +887,8 @@ function BookingThread({ id, onBack }) {
   }
 
   const dealStatus =
-    thread.status === 'secured'
-      ? workLabels[thread.work_status] || 'Active deal'
+    ['secured', 'released', 'refunded'].includes(thread.status)
+      ? workLabels[thread.work_status] || statusLabel[thread.status] || 'Active deal'
       : statusLabel[thread.status] || thread.status
   const qrAction =
     thread.status === 'secured' &&
