@@ -91,6 +91,7 @@ async function getDashboard() {
     metrics,
     applicationStatuses,
     escrowStatuses,
+    workStatuses,
     walletSummary,
     users,
     hats,
@@ -103,12 +104,20 @@ async function getDashboard() {
       SELECT
         (SELECT COUNT(*)::int FROM users) as users,
         (SELECT COUNT(*)::int FROM users WHERE is_admin = true) as admins,
+        (SELECT COUNT(*)::int FROM users WHERE role IN ('talent','dual')) as talent_users,
+        (SELECT COUNT(*)::int FROM users WHERE role IN ('client','dual')) as client_users,
         (SELECT COUNT(*)::int FROM hats) as hats,
         (SELECT COUNT(*)::int FROM hats WHERE active = true) as active_hats,
         (SELECT COUNT(*)::int FROM hats WHERE role = 'talent') as talent_hats,
         (SELECT COUNT(*)::int FROM hats WHERE role = 'client') as client_hats,
         (SELECT COUNT(*)::int FROM applications) as applications,
         (SELECT COUNT(*)::int FROM escrows) as escrows,
+        (SELECT COUNT(*)::int FROM escrows WHERE status = 'secured') as active_deals,
+        (SELECT COALESCE(SUM(amount), 0)::int FROM escrows WHERE status = 'secured') as active_deal_value,
+        (SELECT COUNT(*)::int FROM escrows WHERE status = 'released') as completed_deals,
+        (SELECT COALESCE(SUM(amount), 0)::int FROM escrows WHERE status = 'released') as completed_deal_value,
+        (SELECT COUNT(*)::int FROM wallet_transactions WHERE type = 'withdrawal' AND status = 'pending') as pending_withdrawals,
+        (SELECT COALESCE(SUM(amount), 0)::int FROM wallet_transactions WHERE type = 'withdrawal' AND status = 'pending') as pending_withdrawal_value,
         (SELECT COUNT(*)::int FROM booking_disputes WHERE status = 'open') as open_disputes,
         (SELECT COALESCE(SUM(balance), 0)::int FROM wallets) as wallet_liability
     `),
@@ -116,6 +125,12 @@ async function getDashboard() {
     query(`
       SELECT status, COUNT(*)::int as count, COALESCE(SUM(amount), 0)::int as amount
       FROM escrows GROUP BY status ORDER BY status
+    `),
+    query(`
+      SELECT work_status as status, COUNT(*)::int as count, COALESCE(SUM(amount), 0)::int as amount
+      FROM escrows
+      GROUP BY work_status
+      ORDER BY work_status
     `),
     query(`
       SELECT type, status, COUNT(*)::int as count, COALESCE(SUM(amount), 0)::int as amount
@@ -162,7 +177,8 @@ async function getDashboard() {
       [DASHBOARD_LIMIT],
     ),
     query(
-      `SELECT e.id, e.hat_id, e.amount, e.status, e.contacts_unlocked,
+      `SELECT e.id, e.hat_id, e.amount, e.status, e.work_status, e.start_released_amount,
+              e.work_started_at, e.refunded_at, e.request_kind, e.currency, e.pay_unit, e.contacts_unlocked,
               e.payment_reference, e.checkout_locked_at, e.created_at, e.funded_at, e.released_at,
               h.hat_title,
               client.username as client_username, client.full_name as client_full_name,
@@ -204,6 +220,7 @@ async function getDashboard() {
     statusCounts: {
       applications: applicationStatuses.rows,
       escrows: escrowStatuses.rows,
+      work: workStatuses.rows,
       wallet: walletSummary.rows,
     },
     lists: {
