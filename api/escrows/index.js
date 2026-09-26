@@ -4,8 +4,8 @@ import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
 import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTransfer } from '../_lib/paystack.js'
-import { applyVerifiedPayment } from '../_lib/escrowPayments.js'
 import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from '../_lib/wallet.js'
+import { applyVerifiedLegacyBookingCharge } from '../_lib/bookingCheckout.js'
 import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notifications.js'
 import { getConversations, getThread, threadAction } from '../_lib/bookingThreads.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from '../_lib/bookingRules.js'
@@ -296,12 +296,10 @@ async function refundFailedWithdrawal(userId, reference, amount) {
   }
 }
 
-// Handles Paystack's charge.success event as a fallback to the
-// client-side callback — for escrow funding (see payWithPaystack() in
-// api.js and fund() in api/escrows/[id]/[action].js) and for wallet
-// top-ups (handleTopup above). Whichever path sees a given reference
-// first wins; the other is a no-op (see applyVerifiedPayment /
-// applyVerifiedTopup).
+// Handles Paystack charge.success. New payments are wallet top-ups only.
+// A legacy escrow_id is accepted solely for cached clients that started a
+// checkout before the wallet-only rollout; that charge is posted to the
+// wallet ledger first and the escrow is then funded from wallet atomically.
 async function handlePaystackWebhook(req, res, signature) {
   const rawBody = await readRawBody(req)
 
@@ -341,8 +339,12 @@ async function handlePaystackWebhook(req, res, signature) {
     const txn = await verifyPaystackTransaction(data.reference)
     if (isWalletTopup) {
       await applyVerifiedTopup({ userId: walletUserId, reference: data.reference, txn })
-    } else {
-      await applyVerifiedPayment({ escrowId, reference: data.reference, txn })
+    } else if (escrowId) {
+      await applyVerifiedLegacyBookingCharge({
+        escrowId,
+        reference: data.reference,
+        txn,
+      })
     }
   } catch (err) {
     // Logged for manual reconciliation, not retried — a payload that
