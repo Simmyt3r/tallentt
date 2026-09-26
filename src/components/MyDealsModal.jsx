@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Clock, Handshake, MessageCircle, Undo2, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { api, payForBooking } from '../lib/api.js'
+import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 import RoleCardBadge from './RoleCardBadge.jsx'
@@ -233,19 +233,19 @@ export default function MyDealsModal() {
     }
   }
 
-  async function fundBooking(item, source) {
+  async function fundBooking(item) {
     setBusyId(item.id)
     try {
-      if (source === 'wallet') {
-        await api.fundEscrowWithWallet(item.id, item.amount)
-        await refreshUser()
-      } else {
-        await payForBooking(item, user?.email)
-      }
+      await api.fundEscrowWithWallet(item.id, item.amount)
+      await refreshUser()
       await load({ quiet: true })
       notifyLocalChange()
     } catch (e) {
-      setError(e.message || 'Could not fund this booking.')
+      setError(
+        e?.status === 402
+          ? 'Insufficient wallet balance. Top up your wallet, then fund this deal.'
+          : e.message || 'Could not fund this booking.',
+      )
     } finally {
       setBusyId(null)
     }
@@ -535,28 +535,23 @@ export default function MyDealsModal() {
                         {activeBooking &&
                           role === 'client' &&
                           item.status === 'not_funded' && (
-                            <>
-                              {canUseWallet && (
-                                <button
-                                  type="button"
-                                  onClick={() => fundBooking(item, 'wallet')}
-                                  disabled={busyId === id}
-                                  className="h-9 px-4 rounded-full bg-[#0A13E6] text-white border-[1.5px] border-black text-[11px] font-black disabled:opacity-50"
-                                >
-                                  Pay from wallet
-                                </button>
-                              )}
+                            canUseWallet ? (
                               <button
                                 type="button"
-                                onClick={() => fundBooking(item, 'card')}
+                                onClick={() => fundBooking(item)}
                                 disabled={busyId === id}
-                                className={`h-9 px-4 rounded-full border-[1.5px] border-black text-[11px] font-black disabled:opacity-50 ${
-                                  canUseWallet ? 'bg-white' : 'bg-[#0A13E6] text-white'
-                                }`}
+                                className="h-9 px-4 rounded-full bg-[#0A13E6] text-white border-[1.5px] border-black text-[11px] font-black disabled:opacity-50"
                               >
-                                {canUseWallet ? 'Pay with card' : 'Fund escrow'}
+                                Pay from wallet
                               </button>
-                            </>
+                            ) : (
+                              <Link
+                                to="/wallet"
+                                className="h-9 px-4 rounded-full bg-[#0A13E6] text-white border-[1.5px] border-black text-[11px] font-black inline-flex items-center"
+                              >
+                                Top up wallet
+                              </Link>
+                            )
                           )}
                       </div>
                       {activeBooking && item.status === 'secured' &&
