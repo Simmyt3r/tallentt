@@ -24,7 +24,7 @@ test('mobile nav places My Deals between Showroom and Live and shows pending bad
   assert.match(source, /badge=\{pendingDeals\}/)
 })
 
-test('modal implements requested role modes, direction tabs, search, filters and skeleton cards', () => {
+test('modal implements requested role modes, direction tabs and skeleton cards without extra sorting controls', () => {
   const source = read('src/components/MyDealsModal.jsx')
   for (const phrase of [
     'All your active deals in one place',
@@ -33,20 +33,24 @@ test('modal implements requested role modes, direction tabs, search, filters and
     'Incoming',
     'Outgoing',
     'Active Deals',
-    'Search by username LGA',
-    'Freelance',
-    'Contract',
     'No incoming bookings yet — your Showroom is live',
     'h-[260px]',
   ]) assert.ok(source.includes(phrase), phrase)
+  for (const removed of ['Search by username LGA', 'Freelance', 'Contract']) {
+    assert.ok(!source.includes(removed), removed)
+  }
 })
 
-test('acceptance is required before payment and unlocks contacts', () => {
+test('acceptance is required and every booking payment settles through the wallet ledger', () => {
   const checkout = read('api/_lib/bookingCheckout.js')
   const payments = read('api/_lib/escrowPayments.js')
   const rules = read('api/_lib/bookingRules.js')
+  const dealsUi = read('src/components/MyDealsModal.jsx')
   assert.match(checkout, /must accept this booking request before payment/)
-  assert.match(payments, /must accept this booking request before payment/)
+  assert.match(checkout, /type: 'escrow_fund'/)
+  assert.match(payments, /applyVerifiedLegacyBookingCharge/)
+  assert.match(dealsUi, /Pay from wallet/)
+  assert.doesNotMatch(dealsUi, /Pay with card/)
   assert.match(rules, /contacts_unlocked === true/)
   assert.match(rules, /!\['cancelled', 'refunded'\]\.includes/)
 })
