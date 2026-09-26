@@ -5,6 +5,10 @@ import {
   BadgeCheck,
   Briefcase,
   ClipboardList,
+  FileText,
+  Gavel,
+  Handshake,
+  LayoutDashboard,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -16,15 +20,18 @@ import AdminDisputes from '../components/AdminDisputes.jsx'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromHat, identityFromRow, resolveIdentity } from '../lib/profile.js'
 
-const TABS = [
-  { id: 'users', label: 'Users' },
-  { id: 'hats', label: 'Hats' },
-  { id: 'applications', label: 'Applications' },
-  { id: 'escrows', label: 'Escrows' },
-  { id: 'disputes', label: 'Disputes' },
-  { id: 'wallet', label: 'Wallet' },
-  { id: 'audit', label: 'Audit' },
+const SECTIONS = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'users', label: 'Users', icon: Users },
+  { id: 'deals', label: 'Deals & Escrow', icon: Handshake },
+  { id: 'finance', label: 'Finance', icon: Wallet },
+  { id: 'disputes', label: 'Disputes', icon: Gavel },
+  { id: 'hats', label: 'Hats', icon: Briefcase },
+  { id: 'applications', label: 'Applications', icon: ClipboardList },
+  { id: 'audit', label: 'Audit Log', icon: FileText },
 ]
+
+const SEARCHABLE_TABS = new Set(['users', 'deals', 'finance', 'hats', 'applications', 'audit'])
 
 const STATUS_STYLE = {
   active: 'bg-[#E8FFE6] text-[#0A7A00]',
@@ -40,6 +47,13 @@ const STATUS_STYLE = {
   cancelled: 'bg-red-50 text-red-600',
   withdrawn: 'bg-[#F5F3EF] text-black/50',
   not_funded: 'bg-[#FFF6DB] text-[#8A6D00]',
+  awaiting_start: 'bg-[#FFF6DB] text-[#8A6D00]',
+  in_progress: 'bg-blue-50 text-blue-700',
+  submitted: 'bg-violet-50 text-violet-700',
+  revision_requested: 'bg-orange-50 text-orange-700',
+  awaiting_completion: 'bg-cyan-50 text-cyan-700',
+  disputed: 'bg-red-50 text-red-700',
+  completed: 'bg-[#E8FFE6] text-[#0A7A00]',
 }
 
 const MONEY_TYPES = new Set(['topup', 'escrow_start', 'escrow_release', 'refund'])
@@ -82,7 +96,10 @@ export default function Admin() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
-  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('tab') === 'disputes' ? 'disputes' : 'users')
+  const [tab, setTab] = useState(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab')
+    return SECTIONS.some((item) => item.id === requested) ? requested : 'overview'
+  })
   const [query, setQuery] = useState('')
 
   async function load() {
@@ -102,16 +119,26 @@ export default function Admin() {
     load()
   }, [])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    params.set('tab', tab)
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
+    setQuery('')
+  }, [tab])
+
   const lists = dashboard?.lists || {}
   const metrics = dashboard?.metrics || {}
 
   const filtered = useMemo(() => {
-    const source =
-      tab === 'wallet'
-        ? lists.walletTransactions || []
-        : tab === 'audit'
-          ? lists.auditLogs || []
-          : lists[tab] || []
+    const key = {
+      users: 'users',
+      deals: 'escrows',
+      finance: 'walletTransactions',
+      hats: 'hats',
+      applications: 'applications',
+      audit: 'auditLogs',
+    }[tab]
+    const source = key ? lists[key] || [] : []
     const needle = query.trim().toLowerCase()
     if (!needle) return source
     return source.filter((item) =>
@@ -133,92 +160,233 @@ export default function Admin() {
   }
 
   if (loading && !dashboard) {
-    return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading admin panel…</p>
+    return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading admin command center…</p>
   }
 
+  const activeSection = SECTIONS.find((item) => item.id === tab) || SECTIONS[0]
+
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-[#0A13E6]">
-            <ShieldCheck size={16} />
-            <span className="text-[11px] font-bold tracking-widest uppercase">Operations</span>
+    <div className="space-y-4 pb-8">
+      <header className="rounded-[22px] border-[1.5px] border-black bg-white p-4 md:p-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-[#0A13E6]">
+              <ShieldCheck size={16} />
+              <span className="text-[11px] font-bold tracking-widest uppercase">ChombuTar Operations</span>
+            </div>
+            <h1 className="text-[24px] md:text-[28px] font-bold tracking-tight mt-1">Admin Command Center</h1>
+            <p className="text-[12px] text-black/50 font-medium mt-1 max-w-2xl">
+              Users, deal settlement, money movement, moderation and operational evidence in one place.
+            </p>
           </div>
-          <h1 className="text-[22px] font-bold tracking-tight mt-1">Admin Panel</h1>
-          <p className="text-[12px] text-black/50 font-medium mt-0.5">
-            Monitor users, hats, bookings, applications, wallet activity, and support actions.
-          </p>
+          <div className="flex items-center gap-2">
+            {dashboard?.admin?.username && (
+              <span className="hidden sm:inline-flex h-10 items-center rounded-full bg-[#F7F3EB] px-4 text-[11px] font-bold">
+                @{dashboard.admin.username}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              className="h-10 px-4 rounded-full border-[1.5px] border-black bg-white text-[12px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          className="h-10 px-4 rounded-full border-[1.5px] border-black bg-white text-[12px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-      </div>
+      </header>
 
       {error && (
-        <div className="rounded-[12px] border-[1.5px] border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-medium text-red-700">
+        <div className="rounded-[14px] border-[1.5px] border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <Metric icon={Users} label="Users" value={metrics.users} />
-        <Metric icon={Briefcase} label="Active Hats" value={metrics.active_hats} sub={`${metrics.hats || 0} total`} />
-        <Metric icon={ClipboardList} label="Applications" value={metrics.applications} />
-        <Metric icon={Activity} label="Escrows" value={metrics.escrows} sub={`${metrics.open_disputes || 0} open disputes`} />
-        <Metric icon={Wallet} label="Wallet Liability" value={fmtMoney(metrics.wallet_liability)} />
-      </div>
+      <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-4">
+        <aside className="mb-4 lg:mb-0">
+          <nav className="lg:sticky lg:top-4 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
+            {SECTIONS.map((item) => {
+              const Icon = item.icon
+              const active = tab === item.id
+              const badge =
+                item.id === 'disputes'
+                  ? metrics.open_disputes
+                  : item.id === 'finance'
+                    ? metrics.pending_withdrawals
+                    : null
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setTab(item.id)}
+                  className={`min-w-fit lg:w-full h-11 px-3.5 rounded-[14px] border-[1.5px] text-[12px] font-semibold transition flex items-center gap-2.5 ${
+                    active
+                      ? 'bg-[#0A13E6] border-black text-white shadow-[2px_2px_0_#000]'
+                      : 'bg-white border-black/10 text-black/60 hover:border-black/30 hover:text-black'
+                  }`}
+                >
+                  <Icon size={15} />
+                  <span className="whitespace-nowrap">{item.label}</span>
+                  {Number(badge) > 0 && (
+                    <span className={`ml-auto min-w-5 h-5 px-1.5 rounded-full grid place-items-center text-[9px] font-bold ${
+                      active ? 'bg-white text-[#0A13E6]' : 'bg-red-50 text-red-600'
+                    }`}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </nav>
+        </aside>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <StatusSummary title="Applications" rows={dashboard?.statusCounts?.applications || []} />
-        <StatusSummary title="Escrows" rows={dashboard?.statusCounts?.escrows || []} money />
-        <WalletSummary rows={dashboard?.statusCounts?.wallet || []} />
-      </div>
+        <main className="min-w-0 space-y-4">
+          {tab === 'overview' ? (
+            <OverviewPanel dashboard={dashboard} setTab={setTab} />
+          ) : (
+            <section className="bg-white rounded-[20px] border-[1.5px] border-black overflow-hidden">
+              <div className="p-3.5 md:p-4 border-b border-black/10 flex flex-col md:flex-row gap-3 md:items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold tracking-widest uppercase text-black/35">Operations</p>
+                  <h2 className="text-[17px] font-bold tracking-tight mt-0.5">{activeSection.label}</h2>
+                </div>
+                {SEARCHABLE_TABS.has(tab) && (
+                  <div className="relative w-full md:w-80">
+                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/35" />
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={`Search ${activeSection.label.toLowerCase()}…`}
+                      className="w-full h-10 pl-9 pr-3 rounded-full border-[1.5px] border-black/10 bg-[#F7F3EB] text-[13px] font-medium outline-none focus:border-black/30"
+                    />
+                  </div>
+                )}
+              </div>
 
-      <div className="bg-white rounded-[20px] border-[1.5px] border-black overflow-hidden">
-        <div className="p-3 border-b border-black/10 flex flex-col lg:flex-row gap-3 lg:items-center justify-between">
-          <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
-            {TABS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setTab(item.id)}
-                className={`h-9 px-3 rounded-full border-[1.5px] text-[12px] font-semibold whitespace-nowrap transition ${
-                  tab === item.id
-                    ? 'bg-[#0A13E6] border-black text-white'
-                    : 'bg-white border-black/10 text-black/60 hover:border-black hover:text-black'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className={`relative lg:w-72 ${tab === 'disputes' ? 'hidden' : ''}`}>
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/35" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search this table…"
-              className="w-full h-10 pl-9 pr-3 rounded-full border-[1.5px] border-black/10 bg-[#F7F3EB] text-[13px] font-medium outline-none focus:border-black/20"
-            />
-          </div>
-        </div>
-
-        {tab === 'users' && <UsersTable rows={filtered} />}
-        {tab === 'hats' && <HatsTable rows={filtered} busy={busy} runAction={runAction} />}
-        {tab === 'applications' && <ApplicationsTable rows={filtered} busy={busy} runAction={runAction} />}
-        {tab === 'escrows' && <EscrowsTable rows={filtered} busy={busy} runAction={runAction} />}
-        {tab === 'disputes' && <AdminDisputes />}
-        {tab === 'wallet' && <WalletTable rows={filtered} busy={busy} runAction={runAction} />}
-        {tab === 'audit' && <AuditTable rows={filtered} />}
+              {tab === 'users' && <UsersTable rows={filtered} />}
+              {tab === 'deals' && <EscrowsTable rows={filtered} busy={busy} runAction={runAction} />}
+              {tab === 'finance' && <WalletTable rows={filtered} busy={busy} runAction={runAction} />}
+              {tab === 'disputes' && <AdminDisputes />}
+              {tab === 'hats' && <HatsTable rows={filtered} busy={busy} runAction={runAction} />}
+              {tab === 'applications' && <ApplicationsTable rows={filtered} busy={busy} runAction={runAction} />}
+              {tab === 'audit' && <AuditTable rows={filtered} />}
+            </section>
+          )}
+        </main>
       </div>
     </div>
+  )
+}
+
+function OverviewPanel({ dashboard, setTab }) {
+  const metrics = dashboard?.metrics || {}
+  const statusCounts = dashboard?.statusCounts || {}
+  const audits = dashboard?.lists?.auditLogs || []
+  const work = statusCounts.work || []
+  const awaitingCompletion = work.find((row) => row.status === 'awaiting_completion')?.count || 0
+  const awaitingStart = work.find((row) => row.status === 'awaiting_start')?.count || 0
+  const unfunded = (statusCounts.escrows || []).find((row) => row.status === 'not_funded')?.count || 0
+
+  return (
+    <>
+      <section className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+        <Metric icon={Users} label="Users" value={metrics.users} sub={`${metrics.talent_users || 0} talent-capable · ${metrics.client_users || 0} client-capable`} />
+        <Metric icon={Handshake} label="Active Deals" value={metrics.active_deals} sub={fmtMoney(metrics.active_deal_value)} />
+        <Metric icon={BadgeCheck} label="Completed Deals" value={metrics.completed_deals} sub={`${fmtMoney(metrics.completed_deal_value)} settled`} />
+        <Metric icon={Wallet} label="Wallet Liability" value={fmtMoney(metrics.wallet_liability)} sub="Total user balances" />
+        <Metric icon={Activity} label="Pending Withdrawals" value={metrics.pending_withdrawals} sub={fmtMoney(metrics.pending_withdrawal_value)} />
+        <Metric icon={Gavel} label="Open Disputes" value={metrics.open_disputes} sub={`${metrics.active_hats || 0} active hats`} />
+      </section>
+
+      <section className="grid grid-cols-1 xl:grid-cols-5 gap-3">
+        <div className="xl:col-span-3 bg-white rounded-[20px] border-[1.5px] border-black p-4">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <p className="text-[10px] font-bold tracking-widest uppercase text-black/35">Settlement pipeline</p>
+              <h2 className="text-[16px] font-bold tracking-tight mt-0.5">Deal lifecycle</h2>
+            </div>
+            <button type="button" onClick={() => setTab('deals')} className="text-[11px] font-bold text-[#0A13E6]">
+              View deals
+            </button>
+          </div>
+          {work.length ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {work.map((row) => (
+                <div key={row.status} className="rounded-[14px] bg-[#F7F3EB] p-3 min-w-0">
+                  <StatusPill status={row.status} />
+                  <p className="text-[21px] font-bold mt-2">{row.count}</p>
+                  <p className="text-[10px] font-semibold text-black/40 truncate">{fmtMoney(row.amount)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[12px] text-black/40 font-medium">No deal lifecycle data yet.</p>
+          )}
+        </div>
+
+        <div className="xl:col-span-2 bg-white rounded-[20px] border-[1.5px] border-black p-4">
+          <p className="text-[10px] font-bold tracking-widest uppercase text-black/35">Needs attention</p>
+          <h2 className="text-[16px] font-bold tracking-tight mt-0.5 mb-3">Operations queue</h2>
+          <div className="space-y-2">
+            <QueueItem label="Open disputes" value={metrics.open_disputes || 0} tone="danger" onClick={() => setTab('disputes')} />
+            <QueueItem label="Pending withdrawals" value={metrics.pending_withdrawals || 0} tone="warning" onClick={() => setTab('finance')} />
+            <QueueItem label="Awaiting completion QR" value={awaitingCompletion} onClick={() => setTab('deals')} />
+            <QueueItem label="Awaiting start QR" value={awaitingStart} onClick={() => setTab('deals')} />
+            <QueueItem label="Unfunded deals" value={unfunded} onClick={() => setTab('deals')} />
+          </div>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+        <StatusSummary title="Escrow Status" rows={statusCounts.escrows || []} money />
+        <WalletSummary rows={statusCounts.wallet || []} />
+        <div className="bg-white rounded-[16px] border-[1.5px] border-black p-4">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className="text-[13px] font-bold tracking-tight">Recent Admin Activity</h2>
+            <button type="button" onClick={() => setTab('audit')} className="text-[10px] font-bold text-[#0A13E6]">Full log</button>
+          </div>
+          {!audits.length ? (
+            <p className="text-[12px] text-black/40 font-medium">No admin actions recorded yet.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {audits.slice(0, 5).map((item) => (
+                <div key={item.id} className="flex items-start justify-between gap-3 text-[11px]">
+                  <div className="min-w-0">
+                    <p className="font-bold truncate">{cleanLabel(item.action)}</p>
+                    <p className="text-black/40 truncate">@{item.admin_username || 'unknown'} · {cleanLabel(item.target_type)}</p>
+                  </div>
+                  <span className="text-black/35 whitespace-nowrap">{new Date(item.created_at).toLocaleDateString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </>
+  )
+}
+
+function QueueItem({ label, value, tone, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-[13px] border border-black/10 px-3 py-2.5 flex items-center justify-between gap-3 text-left hover:border-black/30 transition"
+    >
+      <span className="text-[12px] font-semibold text-black/65">{label}</span>
+      <span className={`min-w-7 h-7 rounded-full px-2 grid place-items-center text-[11px] font-bold ${
+        tone === 'danger'
+          ? 'bg-red-50 text-red-700'
+          : tone === 'warning'
+            ? 'bg-amber-50 text-amber-700'
+            : 'bg-[#F7F3EB] text-black'
+      }`}>
+        {value}
+      </span>
+    </button>
   )
 }
 
@@ -430,7 +598,8 @@ function EscrowsTable({ rows, busy, runAction }) {
           <Th>Booking</Th>
           <Th>Parties</Th>
           <Th>Amount</Th>
-          <Th>Status</Th>
+          <Th>Escrow</Th>
+          <Th>Work</Th>
           <Th>Reference</Th>
           <Th>Created</Th>
           <Th>Action</Th>
@@ -450,6 +619,13 @@ function EscrowsTable({ rows, busy, runAction }) {
             <Td>{fmtMoney(e.amount)}</Td>
             <Td>
               <StatusPill status={e.status} />
+              {Number(e.start_released_amount || 0) > 0 && (
+                <p className="text-[10px] text-black/40 mt-1">{fmtMoney(e.start_released_amount)} start release</p>
+              )}
+            </Td>
+            <Td>
+              <StatusPill status={e.work_status || 'in_progress'} />
+              {e.work_started_at && <p className="text-[10px] text-black/35 mt-1">Started {fmtDate(e.work_started_at)}</p>}
             </Td>
             <Td className="max-w-[220px]">
               <p className="truncate">{e.payment_reference || '—'}</p>
