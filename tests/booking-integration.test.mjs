@@ -229,19 +229,39 @@ test('wallet uses accepted price and QR checkpoints credit talent once in two st
   assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 8500)
 })
 
-test('card checkout freezes price and reference, rejects wrong and underpaid transactions', async () => {
+test('legacy card checkout enters wallet first, then funds escrow from wallet', async () => {
   await accept()
   const prepared = await checkout.prepareCheckout(clientId, escrowId, 10000)
   assert.equal((await checkout.prepareCheckout(clientId, escrowId, 10000)).reference, prepared.reference)
   await assert.rejects(offer(clientId), { status: 409 })
-  await assert.rejects(checkout.payBookingWithWallet(clientId, escrowId, 10000), { status: 409 })
   await assert.rejects(payments.applyVerifiedPayment({ escrowId, reference: 'other', txn: txn('other') }), { status: 409 })
   await assert.rejects(payments.applyVerifiedPayment({ escrowId, reference: prepared.reference, txn: txn(prepared.reference, 999999) }), { status: 402 })
+
   const payment = { escrowId, reference: prepared.reference, txn: txn(prepared.reference) }
   assert.equal((await payments.applyVerifiedPayment(payment)).alreadyProcessed, false)
   assert.equal((await payments.applyVerifiedPayment(payment)).alreadyProcessed, true)
+
+  const { rows: ledger } = await pool.query(
+    `SELECT type, amount FROM wallet_transactions WHERE user_id = $1 ORDER BY created_at, id`,
+    [clientId],
+  )
+  assert.deepEqual(ledger.map((row) => [row.type, row.amount]), [
+    ['topup', 10000],
+    ['escrow_fund', 10000],
+  ])
+  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [clientId])).rows[0].balance, 100000)
+
   const other = randomUUID()
   await assert.rejects(payments.applyVerifiedPayment({ ...payment, txn: { ...payment.txn, metadata: { escrow_id: other } } }), { status: 402 })
+})
+
+test('wallet funding is allowed after an abandoned legacy checkout was started', async () => {
+  await accept()
+  await checkout.prepareCheckout(clientId, escrowId, 10000)
+  await checkout.payBookingWithWallet(clientId, escrowId, 10000)
+  assert.equal((await state()).status, 'secured')
+  assert.equal((await state()).checkout_reference, null)
+  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [clientId])).rows[0].balance, 90000)
 })
 
 test('competing funding requests debit the wallet only once', async () => {
