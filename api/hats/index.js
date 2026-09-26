@@ -15,7 +15,7 @@ import {
   resolveHatRole,
 } from '../_lib/hatFields.js'
 
-async function attachMedia(hats) {
+async function attachMedia(hats, viewerId = null) {
   if (!hats.length) return hats
   const ids = hats.map((h) => h.id)
   const { rows } = await query(
@@ -27,10 +27,19 @@ async function attachMedia(hats) {
     if (!byHat[m.hat_id]) byHat[m.hat_id] = []
     byHat[m.hat_id].push(m)
   }
+  let likedSet = new Set()
+  if (viewerId) {
+    const { rows: likes } = await query(
+      `SELECT hat_id FROM hat_likes WHERE user_id = $1 AND hat_id = ANY($2::uuid[])`,
+      [viewerId, ids],
+    )
+    likedSet = new Set(likes.map((row) => row.hat_id))
+  }
   return hats.map((h) => ({
     ...h,
     media: byHat[h.id] || [],
     confidence: h.orbit_score, // alias for UI
+    liked_by_me: likedSet.has(h.id),
   }))
 }
 
@@ -38,6 +47,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const url = new URL(req.url, `http://${req.headers.host}`)
+      const session = getSessionUser(req)
       const role = url.searchParams.get('role')
 
       // GET /api/hats?categories=1 — open category taxonomy. Kept here
@@ -192,7 +202,7 @@ export default async function handler(req, res) {
          LIMIT 100`,
         params,
       )
-      return json(res, 200, { hats: await attachMedia(rows) })
+      return json(res, 200, { hats: await attachMedia(rows, session?.sub) })
     } catch (err) {
       console.error(err)
       return json(res, 500, { error: 'Failed to fetch hats' })
@@ -364,7 +374,7 @@ export default async function handler(req, res) {
         )
       }
 
-      const withMedia = await attachMedia([hat])
+      const withMedia = await attachMedia([hat], session.sub)
       return json(res, 201, { hat: withMedia[0] })
     } catch (err) {
       console.error(err)
