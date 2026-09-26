@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, LockKeyhole, RefreshCw, Send, UnlockKeyhole } from 'lucide-react'
+import { ArrowLeft, ChevronRight, CircleCheck, RefreshCw, Send, X } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
@@ -155,88 +155,63 @@ function NegotiationPanel({
     !thread.checkout_locked_at &&
     !hasAgreement
 
-  return (
-    <section className="border-b border-black/10 bg-[#F7F3EB] p-4">
-      <div className="rounded-[20px] border-[1.5px] border-black bg-white overflow-hidden">
-        <div className="p-4 sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0A13E6]">
-                Price negotiation
-              </p>
-              <h3 className="mt-1 text-[17px] font-black tracking-tight">
-                {hasAgreement ? 'Agreement reached' : pending ? 'Current proposal' : 'Agree the final deal price'}
-              </h3>
-              <p className="mt-1 max-w-[560px] text-[12px] font-medium leading-relaxed text-black/50">
-                {hasAgreement
-                  ? 'This price is now locked for the deal.'
-                  : 'Either side can propose an amount. The other side can accept, reject, or counter until one proposal is accepted.'}
-              </p>
-            </div>
+  // Once a deal is funded, negotiation becomes historical context inside
+  // "View deal" rather than permanently occupying the conversation.
+  if (hasAgreement && thread.status !== 'not_funded') return null
 
-            {range && (
-              <div className="rounded-[12px] border border-black/10 bg-[#F7F3EB] px-3 py-2 text-right">
-                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/35">Listed range</p>
-                <p className="mt-0.5 text-[12px] font-black">
-                  {range}{thread.pay_unit ? ` /${thread.pay_unit}` : ''}
+  return (
+    <>
+      <section className="mx-3 mt-2 rounded-[16px] border border-black/10 bg-[#FCFBF8] px-3.5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">
+              Price negotiation
+            </p>
+            {hasAgreement ? (
+              <>
+                <p className="mt-0.5 text-[12px] font-bold text-black/45">Final agreed price</p>
+                <p className="text-[18px] font-black text-emerald-700">
+                  {money(thread.amount, thread.currency)}
+                  {thread.pay_unit ? <span className="text-[11px]"> /{thread.pay_unit}</span> : null}
                 </p>
-              </div>
+              </>
+            ) : pending ? (
+              <>
+                <p className="mt-0.5 text-[11px] font-bold text-black/45">
+                  {ownPending ? 'Your proposal' : 'Proposal received'}
+                </p>
+                <p className="text-[18px] font-black">
+                  {money(pending.amount, pending.currency || thread.currency)}
+                  {(pending.pay_unit || thread.pay_unit) ? (
+                    <span className="text-[11px] text-black/45"> /{pending.pay_unit || thread.pay_unit}</span>
+                  ) : null}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-0.5 text-[12px] font-black">
+                  {offers.length ? 'No active proposal' : 'Agree the final deal price'}
+                </p>
+                {range && (
+                  <p className="text-[11px] font-semibold text-black/45">
+                    Listed range: {range}{thread.pay_unit ? ` /${thread.pay_unit}` : ''}
+                  </p>
+                )}
+              </>
             )}
           </div>
 
-          {hasAgreement ? (
-            <div className="mt-4 rounded-[16px] border-[1.5px] border-emerald-700/25 bg-emerald-50 p-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">Final agreed price</p>
-              <p className="mt-1 text-[22px] font-black text-emerald-800">
-                {money(thread.amount, thread.currency)}
-                {thread.pay_unit ? <span className="text-[12px] font-bold"> /{thread.pay_unit}</span> : null}
-              </p>
-              {!thread.contacts_unlocked && (
-                <p className="mt-1 text-[11px] font-semibold text-emerald-700/80">
-                  Return to My Deals to accept the request and move it into Active Deals.
-                </p>
-              )}
-            </div>
-          ) : pending ? (
-            <div className="mt-4 rounded-[16px] border-[1.5px] border-black bg-[#FCFBF8] p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-black/40">
-                    {ownPending ? 'Your proposal' : 'Proposal received'}
-                  </p>
-                  <p className="mt-1 text-[22px] font-black">
-                    {money(pending.amount, pending.currency || thread.currency)}
-                    {(pending.pay_unit || thread.pay_unit) ? (
-                      <span className="text-[12px] font-bold text-black/50">
-                        {' '}/{pending.pay_unit || thread.pay_unit}
-                      </span>
-                    ) : null}
-                  </p>
-                  {pending.body && (
-                    <p className="mt-2 max-w-[560px] text-[12px] leading-relaxed text-black/60 whitespace-pre-wrap">
-                      {pending.body}
-                    </p>
-                  )}
-                </div>
-                <span className="rounded-full bg-[#0A13E6]/10 px-2.5 py-1 text-[10px] font-black text-[#0A13E6]">
-                  Awaiting response
-                </span>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {ownPending ? (
+          {!hasAgreement && (
+            <div className="flex flex-wrap gap-2">
+              {pending ? (
+                ownPending ? (
                   <>
-                    <button
-                      type="button"
-                      className={button}
-                      disabled={busy}
-                      onClick={() => onRespond('withdrawn')}
-                    >
+                    <button type="button" className={button} disabled={busy} onClick={() => onRespond('withdrawn')}>
                       Withdraw
                     </button>
                     <button
                       type="button"
-                      className="px-4 py-2 rounded-full border-[1.5px] border-black bg-black text-white text-xs font-black disabled:opacity-40"
+                      className="h-9 px-4 rounded-full bg-black text-white text-[11px] font-black disabled:opacity-40"
                       disabled={busy || !negotiable}
                       onClick={() => onOpenOffer(pending.id)}
                     >
@@ -247,113 +222,213 @@ function NegotiationPanel({
                   <>
                     <button
                       type="button"
-                      className="px-4 py-2 rounded-full border-[1.5px] border-black bg-[#0A13E6] text-white text-xs font-black disabled:opacity-40"
+                      className="h-9 px-4 rounded-full bg-[#0A13E6] text-white text-[11px] font-black disabled:opacity-40"
                       disabled={busy}
                       onClick={() => onRespond('accepted')}
                     >
                       Accept proposal
                     </button>
-                    <button
-                      type="button"
-                      className={button}
-                      disabled={busy}
-                      onClick={() => onRespond('declined')}
-                    >
+                    <button type="button" className={button} disabled={busy} onClick={() => onRespond('declined')}>
                       Reject
                     </button>
                     <button
                       type="button"
-                      className="px-4 py-2 rounded-full border-[1.5px] border-black bg-black text-white text-xs font-black disabled:opacity-40"
+                      className="h-9 px-4 rounded-full bg-black text-white text-[11px] font-black disabled:opacity-40"
                       disabled={busy || !negotiable}
                       onClick={() => onOpenOffer(pending.id)}
                     >
                       Counter
                     </button>
                   </>
+                )
+              ) : negotiable ? (
+                <button
+                  type="button"
+                  className="h-9 px-4 rounded-full bg-[#0A13E6] text-white text-[11px] font-black"
+                  onClick={() => onOpenOffer(null)}
+                >
+                  {offers.length ? 'Make new proposal' : 'Make first proposal'}
+                </button>
+              ) : null}
+            </div>
+          )}
+        </div>
+        {pending?.body && !hasAgreement && (
+          <p className="mt-2 text-[11px] leading-relaxed text-black/55 line-clamp-2">{pending.body}</p>
+        )}
+      </section>
+
+      {offerMode && negotiable && (
+        <div
+          className="fixed inset-0 z-[110] bg-black/45 p-3 sm:p-6 flex items-end sm:items-center justify-center"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) onCancelOffer()
+          }}
+        >
+          <form
+            onSubmit={onSubmitOffer}
+            className="w-full sm:max-w-[480px] rounded-t-[24px] sm:rounded-[24px] border-[1.5px] border-black bg-[#F7F3EB] p-5 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">
+                  Price negotiation
+                </p>
+                <h3 className="mt-1 text-[18px] font-black">
+                  {offers.length ? 'Counter offer' : 'Make an offer'}
+                </h3>
+                {range && (
+                  <p className="mt-1 text-[11px] font-semibold text-black/45">
+                    Listed range: {range}{thread.pay_unit ? ` /${thread.pay_unit}` : ''}
+                  </p>
                 )}
               </div>
-            </div>
-          ) : negotiable ? (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[15px] border border-black/10 bg-[#FCFBF8] p-3.5">
-              <div>
-                <p className="text-[12px] font-black">{offers.length ? 'No proposal is currently active.' : 'No proposal has been sent yet.'}</p>
-                <p className="mt-0.5 text-[11px] font-medium text-black/45">
-                  {offers.length ? 'Send the next proposal to continue negotiating.' : 'Start with the amount you want the deal to use.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="h-9 px-4 rounded-full border-[1.5px] border-black bg-[#0A13E6] text-white text-[11px] font-black"
-                onClick={() => onOpenOffer(null)}
-              >
-                {offers.length ? 'Make new proposal' : 'Make first proposal'}
+              <button type="button" onClick={onCancelOffer} aria-label="Close negotiation" className="p-2">
+                <X size={18} />
               </button>
             </div>
-          ) : null}
 
-          {offerMode && negotiable && (
-            <form onSubmit={onSubmitOffer} className="mt-4 rounded-[16px] border-[1.5px] border-black bg-[#F7F3EB] p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">
-                    {offers.length ? 'Counter proposal' : 'First proposal'}
-                  </p>
-                  <p className="mt-1 text-[13px] font-black">Set the price you want to propose</p>
-                </div>
-                <button type="button" onClick={onCancelOffer} className="text-[11px] font-bold underline text-black/50">
-                  Cancel
-                </button>
-              </div>
+            <label className="mt-4 block text-[11px] font-black">
+              Amount ({thread.currency || 'NGN'})
+              <input
+                type="number"
+                min={thread.price_min || 1}
+                max={thread.price_max || 2147483647}
+                step="1"
+                required
+                value={amount}
+                onChange={(event) => onAmount(event.target.value)}
+                disabled={busy}
+                className="mt-1.5 h-12 w-full rounded-[14px] border-[1.5px] border-black bg-white px-3 text-[16px] font-black outline-none"
+              />
+            </label>
 
-              <div className="mt-3 grid sm:grid-cols-[180px_1fr] gap-3">
-                <label className="block text-[11px] font-black">
-                  Amount ({thread.currency || 'NGN'})
-                  <input
-                    type="number"
-                    min={thread.price_min || 1}
-                    max={thread.price_max || 2147483647}
-                    step="1"
-                    required
-                    value={amount}
-                    onChange={(event) => onAmount(event.target.value)}
-                    disabled={busy}
-                    className="mt-1.5 h-11 w-full rounded-[12px] border-[1.5px] border-black bg-white px-3 text-[13px] font-black outline-none"
-                  />
-                </label>
-                <label className="block text-[11px] font-black">
-                  Proposal note <span className="font-medium text-black/35">Optional</span>
-                  <textarea
-                    rows={2}
-                    maxLength={500}
-                    value={note}
-                    onChange={(event) => onNote(event.target.value)}
-                    disabled={busy}
-                    placeholder="Scope, timeline, or context for this amount"
-                    className="mt-1.5 min-h-[44px] w-full resize-y rounded-[12px] border-[1.5px] border-black bg-white p-3 text-[12px] outline-none"
-                  />
-                </label>
-              </div>
+            <label className="mt-3 block text-[11px] font-black">
+              Note <span className="font-medium text-black/35">Optional</span>
+              <textarea
+                rows={3}
+                maxLength={500}
+                value={note}
+                onChange={(event) => onNote(event.target.value)}
+                disabled={busy}
+                placeholder="Scope, timeline, or context for this amount"
+                className="mt-1.5 w-full resize-y rounded-[14px] border-[1.5px] border-black bg-white p-3 text-[12px] outline-none"
+              />
+            </label>
 
-              {error && <p className="mt-2 text-[11px] font-semibold text-red-600">{error}</p>}
+            {error && <p className="mt-2 text-[11px] font-semibold text-red-600">{error}</p>}
 
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="h-10 px-5 rounded-full border-[1.5px] border-black bg-[#0A13E6] text-white text-[11px] font-black disabled:opacity-50"
-                >
-                  {busy ? 'Sending…' : offers.length ? 'Send counter proposal' : 'Send proposal'}
-                </button>
-              </div>
-            </form>
+            <button
+              type="submit"
+              disabled={busy}
+              className="mt-4 h-11 w-full rounded-full bg-[#0A13E6] text-white text-[12px] font-black disabled:opacity-50"
+            >
+              {busy ? 'Sending…' : offers.length ? 'Send counter proposal' : 'Send proposal'}
+            </button>
+          </form>
+        </div>
+      )}
+    </>
+  )
+}
+
+function DealDetailsSheet({
+  thread,
+  offers,
+  userId,
+  events,
+  eventsCursor,
+  busy,
+  run,
+  refreshUser,
+  onClose,
+  onComplete,
+}) {
+  const range = formatRange(thread)
+  const status =
+    thread.status === 'secured'
+      ? workLabels[thread.work_status] || 'Active deal'
+      : statusLabel[thread.status] || thread.status
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-black/45 p-3 sm:p-6 flex items-end sm:items-center justify-center"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="Deal details"
+        className="w-full sm:max-w-[560px] max-h-[88dvh] overflow-y-auto rounded-t-[26px] sm:rounded-[26px] border-[1.5px] border-black bg-[#F7F3EB] shadow-2xl"
+      >
+        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur px-4 py-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">Deal details</p>
+            <h2 className="mt-0.5 text-[18px] font-black">{thread.hat_title}</h2>
+            <p className="text-[11px] font-semibold text-black/45">{status}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close deal details" className="p-2">
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-[16px] border border-black/10 bg-white p-3">
+              <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Deal price</p>
+              <p className="mt-1 text-[17px] font-black">
+                {money(thread.amount, thread.currency)}
+                {thread.pay_unit ? <span className="text-[10px]"> /{thread.pay_unit}</span> : null}
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-black/10 bg-white p-3">
+              <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Status</p>
+              <p className="mt-1 text-[12px] font-black">{status}</p>
+            </div>
+          </div>
+
+          {range && (
+            <div className="rounded-[16px] border border-black/10 bg-white p-3">
+              <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Listed range</p>
+              <p className="mt-1 text-[12px] font-black">{range}{thread.pay_unit ? ` /${thread.pay_unit}` : ''}</p>
+            </div>
           )}
 
-          <div className="mt-4">
-            <NegotiationHistory offers={offers} thread={thread} userId={userId} />
-          </div>
+          {thread.contacts_unlocked && (thread.peer?.email || thread.peer?.phone) && (
+            <div className="rounded-[16px] border border-black/10 bg-white p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.1em] text-black/35">Contact</p>
+              {thread.peer?.email && <p className="mt-1 text-[12px] break-all">{thread.peer.email}</p>}
+              {thread.peer?.phone && <p className="mt-1 text-[12px]">{thread.peer.phone}</p>}
+            </div>
+          )}
+
+          {!!offers.length && <NegotiationHistory offers={offers} thread={thread} userId={userId} />}
+
+          {(thread.contacts_unlocked || thread.status !== 'not_funded') && thread.status !== 'cancelled' && (
+            <BookingProgress
+              thread={thread}
+              events={events}
+              eventsCursor={eventsCursor}
+              busy={busy}
+              run={run}
+              refreshUser={refreshUser}
+              showActions={false}
+            />
+          )}
+
+          {thread.status === 'secured' &&
+            ['awaiting_start', 'awaiting_completion'].includes(thread.work_status) && (
+              <DealQrCheckpoint
+                booking={thread}
+                role={thread.is_client ? 'client' : 'talent'}
+                onComplete={onComplete}
+              />
+            )}
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   )
 }
 
@@ -517,6 +592,7 @@ function BookingThread({ id, onBack }) {
   const [offerBaseId, setOfferBaseId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [history, setHistory] = useState(false)
+  const [dealOpen, setDealOpen] = useState(false)
   const [paging, setPaging] = useState(false)
   const scrollRef = useRef(null)
   const mounted = useRef(true)
@@ -804,16 +880,27 @@ function BookingThread({ id, onBack }) {
     }
   }
 
+  const dealStatus =
+    thread.status === 'secured'
+      ? workLabels[thread.work_status] || 'Active deal'
+      : statusLabel[thread.status] || thread.status
+  const qrAction =
+    thread.status === 'secured' &&
+    ['awaiting_start', 'awaiting_completion'].includes(thread.work_status)
+  const showCompactProgress =
+    thread.status === 'secured' &&
+    !['awaiting_start', 'awaiting_completion'].includes(thread.work_status)
+
   return (
-    <section className="min-w-0 flex flex-col">
-      <header className="p-4 border-b border-black/10 space-y-3">
-        <div className="flex gap-3 items-start">
+    <section className="min-w-0 min-h-0 h-full flex flex-col bg-white">
+      <header className="shrink-0 border-b border-black/10 px-3 sm:px-4 py-3">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onBack}
             title="Back to conversations"
             aria-label="Back to conversations"
-            className="md:hidden p-1"
+            className="md:hidden p-1 -ml-1"
           >
             <ArrowLeft size={20} />
           </button>
@@ -822,76 +909,43 @@ function BookingThread({ id, onBack }) {
               user={thread.peer}
               avatarClassName="w-9 h-9"
               nameAs="h2"
-              nameClassName="text-sm font-bold"
-              usernameClassName="text-[11px] font-semibold text-black/50 leading-tight"
-            />
-            <Link to={`/hat/${thread.hat_id}`} className="text-xs underline text-black/60 break-words">
-              {thread.hat_title}
-            </Link>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-sm font-bold">
-              {money(thread.amount, thread.currency)}
-              {thread.pay_unit ? ` /${thread.pay_unit}` : ''}
-            </p>
-            <p className="text-[11px] text-black/50">
-              {thread.agreed_at
-                ? 'Final deal price'
-                : thread.price_type === 'range'
-                  ? 'Negotiating'
-                  : statusLabel[thread.status]}
-            </p>
-          </div>
-        </div>
-
-        <p className="flex items-start gap-2 text-xs text-black/60">
-          {thread.contacts_unlocked ? (
-            <UnlockKeyhole size={14} className="shrink-0" />
-          ) : (
-            <LockKeyhole size={14} className="shrink-0" />
-          )}
-          {thread.contacts_unlocked
-            ? 'Contact details are available for this accepted deal.'
-            : closed
-              ? 'This deal is closed.'
-              : 'Contact details become available after the request is accepted.'}
-        </p>
-
-        {thread.contacts_unlocked && (
-          <div className="text-xs space-y-1 break-all">
-            {thread.peer?.email && <p>{thread.peer.email}</p>}
-            {thread.peer?.phone && <p>{thread.peer.phone}</p>}
-          </div>
-        )}
-
-        {thread.checkout_locked_at && thread.status === 'not_funded' && (
-          <p className="text-xs text-black/60">The agreed price is locked for this deal.</p>
-        )}
-
-        {thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' && (
-          <div className="flex flex-wrap gap-2 items-center">
-            {(user.walletBalance || 0) >= thread.amount ? (
-              <button
-                type="button"
-                className={button}
-                disabled={busy || Boolean(pending)}
-                onClick={() =>
-                  run(async () => {
-                    await api.fundEscrowWithWallet(id, thread.amount)
-                    await refreshUser()
-                  })
-                }
+              nameClassName="text-[13px] font-black"
+              usernameClassName="text-[10px] font-semibold text-black/45 leading-tight"
+            >
+              <Link
+                to={`/hat/${thread.hat_id}`}
+                className="block max-w-full truncate text-[10px] font-semibold text-black/45"
               >
-                Pay {money(thread.amount)} from wallet
-              </button>
-            ) : (
-              <Link to="/wallet" className={button}>
-                Top up wallet
+                {thread.hat_title}
               </Link>
-            )}
+            </UserIdentity>
           </div>
-        )}
+          <span className="shrink-0 rounded-full bg-[#F5F3EF] px-2.5 py-1 text-[10px] font-black text-black/60">
+            {dealStatus}
+          </span>
+        </div>
       </header>
+
+      <div className="shrink-0 px-3 pt-2">
+        <button
+          type="button"
+          onClick={() => setDealOpen(true)}
+          className="w-full rounded-[15px] border border-black/10 bg-[#FCFBF8] px-3.5 py-2.5 flex items-center gap-3 text-left hover:border-black/20 transition"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Deal</p>
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className="text-[13px] font-black">
+                {money(thread.amount, thread.currency)}
+                {thread.pay_unit ? ` /${thread.pay_unit}` : ''}
+              </span>
+              <span className="text-[10px] font-semibold text-black/45">{dealStatus}</span>
+            </div>
+          </div>
+          <span className="text-[10px] font-black text-[#0A13E6]">View deal</span>
+          <ChevronRight size={16} className="text-black/35" />
+        </button>
+      </div>
 
       {(thread.price_type === 'range' || thread.price_negotiable) && (
         <NegotiationPanel
@@ -916,36 +970,68 @@ function BookingThread({ id, onBack }) {
         />
       )}
 
-      {(thread.contacts_unlocked || thread.status !== 'not_funded') &&
-        thread.status !== 'cancelled' && (
-          <>
-            <BookingProgress
-              thread={thread}
-              events={data.events}
-              eventsCursor={data.eventsCursor}
-              busy={busy}
-              run={run}
-              refreshUser={refreshUser}
-            />
-            {thread.status === 'secured' &&
-              ['awaiting_start', 'awaiting_completion'].includes(thread.work_status) && (
-                <DealQrCheckpoint
-                  booking={thread}
-                  role={thread.is_client ? 'client' : 'talent'}
-                  onComplete={async () => {
-                    await refreshUser()
-                    await load()
-                  }}
-                />
-              )}
-          </>
-        )}
+      {thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' && (
+        <div className="shrink-0 mx-3 mt-2 rounded-[16px] border border-[#0A13E6]/15 bg-[#0A13E6]/[0.04] px-3.5 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-black">Ready to fund</p>
+            <p className="text-[10px] text-black/45">Payment comes from your ChombuTar wallet.</p>
+          </div>
+          {(user.walletBalance || 0) >= thread.amount ? (
+            <button
+              type="button"
+              className="h-9 px-4 rounded-full bg-[#0A13E6] text-white text-[11px] font-black disabled:opacity-50"
+              disabled={busy || Boolean(pending)}
+              onClick={() =>
+                run(async () => {
+                  await api.fundEscrowWithWallet(id, thread.amount)
+                  await refreshUser()
+                })
+              }
+            >
+              Pay {money(thread.amount)} from wallet
+            </button>
+          ) : (
+            <Link to="/wallet" className="h-9 px-4 rounded-full bg-[#0A13E6] text-white text-[11px] font-black inline-flex items-center">
+              Top up wallet
+            </Link>
+          )}
+        </div>
+      )}
+
+      {showCompactProgress && (
+        <BookingProgress
+          thread={thread}
+          events={data.events}
+          eventsCursor={data.eventsCursor}
+          busy={busy}
+          run={run}
+          refreshUser={refreshUser}
+          compact
+          showHistory={false}
+        />
+      )}
+
+      {qrAction && (
+        <button
+          type="button"
+          onClick={() => setDealOpen(true)}
+          className="shrink-0 mx-3 mt-2 rounded-[16px] border border-amber-300 bg-amber-50 px-3.5 py-3 flex items-center justify-between gap-3 text-left"
+        >
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-amber-700">Action required</p>
+            <p className="mt-0.5 text-[12px] font-black">
+              {thread.work_status === 'awaiting_start' ? 'Start QR checkpoint' : 'Completion QR checkpoint'}
+            </p>
+          </div>
+          <span className="text-[10px] font-black text-amber-800">Open deal</span>
+        </button>
+      )}
 
       <div
         ref={scrollRef}
         role="region"
         aria-label="Message history"
-        className="overflow-y-auto overscroll-contain p-4 space-y-3 h-[360px] md:h-[400px]"
+        className="flex-1 min-h-[220px] overflow-y-auto overscroll-contain px-3 sm:px-4 py-4 space-y-3"
       >
         {history && (
           <button
@@ -967,89 +1053,105 @@ function BookingThread({ id, onBack }) {
           </div>
         )}
         {!data.messages.length && (
-          <p className="text-sm text-center text-black/50 py-12">No messages yet.</p>
+          <div className="py-12 text-center">
+            <p className="text-[13px] font-black text-black/45">No messages yet</p>
+            <p className="mt-1 text-[11px] text-black/35">Start the conversation about this deal.</p>
+          </div>
         )}
-        {data.messages.map((message) => (
-          <article
-            key={message.id}
-            className={`max-w-[88%] w-fit rounded-[14px] px-3 py-2.5 ${
-              message.sender_id === user.id ? 'ml-auto bg-[#0A13E6]/10' : 'bg-black/5'
-            }`}
-          >
-            <p className="text-[10px] font-semibold text-black/50 mb-1">
-              {message.sender_id === user.id ? (
-                'You'
-              ) : (
-                <UserIdentity
-                  user={thread.peer}
-                  layout="inline"
-                  showAvatar={false}
-                  nameClassName="font-semibold"
-                  usernameClassName="font-semibold text-black/40"
-                />
+        {data.messages.map((message) => {
+          const own = message.sender_id === user.id
+          return (
+            <article
+              key={message.id}
+              className={`max-w-[84%] sm:max-w-[72%] w-fit rounded-[16px] px-3.5 py-2.5 ${
+                own ? 'ml-auto bg-[#0A13E6] text-white' : 'bg-[#F3F3F3] text-black'
+              }`}
+            >
+              {message.kind === 'offer' && (
+                <div className={`mb-1.5 pb-1.5 border-b ${own ? 'border-white/20' : 'border-black/10'}`}>
+                  <p className={`text-[9px] font-black uppercase tracking-[0.08em] ${own ? 'text-white/65' : 'text-black/40'}`}>
+                    Proposal · {offerStatusLabel[message.offer_status] || message.offer_status}
+                  </p>
+                  <p className="mt-0.5 text-[14px] font-black">
+                    {money(message.amount, message.currency || thread.currency)}
+                    {(message.pay_unit || thread.pay_unit) ? ` /${message.pay_unit || thread.pay_unit}` : ''}
+                  </p>
+                </div>
               )}
-            </p>
-            {message.kind === 'offer' && (
-              <p className="text-sm font-semibold mb-1">
-                Proposal: {money(message.amount, message.currency || thread.currency)}
-                {(message.pay_unit || thread.pay_unit) ? ` /${message.pay_unit || thread.pay_unit}` : ''}{' '}
-                <span className="font-normal text-xs text-black/45">
-                  ({offerStatusLabel[message.offer_status] || message.offer_status})
-                </span>
-              </p>
-            )}
-            {message.body && (
-              <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.body}</p>
-            )}
-            <time dateTime={message.created_at} className="block text-[10px] text-black/40 mt-1">
-              {new Date(message.created_at).toLocaleString([], {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </time>
-          </article>
-        ))}
+              {message.body && (
+                <p className="text-[12px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                  {message.body}
+                </p>
+              )}
+              <time
+                dateTime={message.created_at}
+                className={`mt-1.5 block text-[9px] ${own ? 'text-white/60' : 'text-black/35'}`}
+              >
+                {new Date(message.created_at).toLocaleString([], {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </time>
+            </article>
+          )
+        })}
       </div>
 
-      <div className="border-t border-black/10 p-4 space-y-3">
+      <div className="shrink-0 border-t border-black/10 bg-white p-3 sm:p-4">
         {error && <ErrorNotice message={error} />}
         {syncError && (
-          <ErrorNotice message={syncError} onRetry={() => load().catch((e) => setSyncError(e.message))} />
+          <div className="mb-2">
+            <ErrorNotice message={syncError} onRetry={() => load().catch((e) => setSyncError(e.message))} />
+          </div>
         )}
         {closed ? (
-          <p className="text-sm text-black/50">This conversation is read-only because the deal is closed.</p>
+          <p className="text-[12px] text-center text-black/45">This deal is closed. The conversation is read-only.</p>
         ) : (
-          <form onSubmit={sendMessage} className="space-y-2">
-            <label htmlFor={`message-${id}`} className="text-xs font-semibold">
-              Message
-            </label>
+          <form onSubmit={sendMessage} className="flex items-end gap-2">
+            <label htmlFor={`message-${id}`} className="sr-only">Message</label>
             <textarea
               id={`message-${id}`}
-              rows={2}
+              rows={1}
               maxLength={2000}
               required
               value={text}
               disabled={busy}
               onChange={(event) => setText(event.target.value)}
-              placeholder="Discuss scope, timeline, delivery, or other deal details"
-              className="w-full resize-y rounded-[14px] border-[1.5px] border-black/20 p-3 text-sm min-h-[70px] outline-none focus:border-black"
+              placeholder="Type a message…"
+              className="min-h-[44px] max-h-28 flex-1 resize-none rounded-[22px] border-[1.5px] border-black/15 bg-[#FCFBF8] px-4 py-3 text-[12px] outline-none focus:border-black/35"
             />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] text-black/40">{text.length}/2,000</span>
-              <button
-                type="submit"
-                disabled={busy || !text.trim()}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#0A13E6] text-white rounded-full text-sm font-semibold disabled:opacity-50"
-              >
-                <Send size={14} />
-                {busy ? 'Please wait...' : 'Send'}
-              </button>
-            </div>
+            <button
+              type="submit"
+              aria-label="Send"
+              disabled={busy || !text.trim()}
+              className="h-11 w-11 shrink-0 rounded-full bg-[#0A13E6] text-white grid place-items-center disabled:opacity-40"
+            >
+              <Send size={16} />
+            </button>
           </form>
         )}
       </div>
+
+      {dealOpen && (
+        <DealDetailsSheet
+          thread={thread}
+          offers={offers}
+          userId={user.id}
+          events={data.events}
+          eventsCursor={data.eventsCursor}
+          busy={busy}
+          run={run}
+          refreshUser={refreshUser}
+          onClose={() => setDealOpen(false)}
+          onComplete={async () => {
+            await refreshUser()
+            await load()
+          }}
+        />
+      )}
     </section>
   )
+
 }
