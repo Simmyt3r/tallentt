@@ -492,12 +492,18 @@ export default function Messages() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4">
-      <h1 className="text-[22px] font-bold">Messages</h1>
-      <div className="grid md:grid-cols-[260px_minmax(0,1fr)] border-[1.5px] border-black rounded-[20px] bg-white overflow-hidden">
+    <div className="max-w-6xl mx-auto md:space-y-4">
+      <h1 className={`${selected ? 'hidden md:block' : ''} text-[22px] font-bold mb-4 md:mb-0`}>Messages</h1>
+      <div
+        className={`grid md:grid-cols-[260px_minmax(0,1fr)] border-[1.5px] border-black rounded-[20px] bg-white overflow-hidden ${
+          selected
+            ? 'h-[calc(100dvh-150px)] min-h-[520px] md:h-[calc(100dvh-190px)] md:max-h-[760px]'
+            : 'min-h-[560px]'
+        }`}
+      >
         <aside
           aria-label="Deal conversations"
-          className={`${selected ? 'hidden md:block' : ''} md:border-r border-black/15 min-w-0`}
+          className={`${selected ? 'hidden md:flex' : 'flex'} md:border-r border-black/15 min-w-0 min-h-0 flex-col overflow-hidden`}
         >
           {error && (
             <div className="p-3">
@@ -513,7 +519,7 @@ export default function Messages() {
               </Link>
             </div>
           )}
-          <ul className="max-h-[70dvh] overflow-y-auto divide-y divide-black/10">
+          <ul className="flex-1 min-h-0 overflow-y-auto divide-y divide-black/10">
             {items.map((item) => (
               <li key={item.id} className={`relative ${selected === item.id ? 'bg-[#0A13E6]/5' : ''}`}>
                 <button
