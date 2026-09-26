@@ -17,21 +17,25 @@ test('Range Hats start with a proposal instead of a fee detour', () => {
   assert.match(shared, /The final deal price is set only when one proposal is accepted/)
 })
 
-test('deal conversation presents negotiation as a dedicated workflow', () => {
+test('deal conversation keeps chat primary and negotiation contextual', () => {
   const messages = read('src/pages/Messages.jsx')
   for (const phrase of [
     'Price negotiation',
-    'Current proposal',
+    'Proposal received',
     'Accept proposal',
     'Reject',
     'Counter',
     'Negotiation history',
     'Final agreed price',
     'Send counter proposal',
+    'View deal',
+    'Deal details',
+    'Type a message…',
   ]) {
     assert.ok(messages.includes(phrase), phrase)
   }
   assert.match(messages, /data\.messages\.filter\(\(message\) => message\.kind === 'offer'\)/)
+  assert.match(messages, /setDealOpen\(true\)/)
 })
 
 test('thread API exposes the range and keeps the accepted proposal as the deal price', () => {
