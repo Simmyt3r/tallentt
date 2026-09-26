@@ -268,6 +268,11 @@ function waitForPaystack(timeoutMs = 8000, intervalMs = 200) {
 }
 
 export async function payWithPaystack({ email, amountNaira, reference, metadata }) {
+  const isWalletTopup = metadata?.wallet_topup === true || metadata?.wallet_topup === 'true'
+  if (!isWalletTopup) {
+    throw new Error('Paystack can only be used to fund your ChombuTar wallet.')
+  }
+
   const key = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY
   if (!key) throw new Error('Paystack is not configured (VITE_PAYSTACK_PUBLIC_KEY missing).')
   if (!email) throw new Error('An email address is required to pay.')
