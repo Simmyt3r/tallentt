@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, CircleCheck, RefreshCw, Send, X } from 'lucide-react'
+import { ArrowLeft, ChevronRight, RefreshCw, Send, X } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
@@ -893,9 +893,7 @@ function BookingThread({ id, onBack }) {
   const qrAction =
     thread.status === 'secured' &&
     ['awaiting_start', 'awaiting_completion'].includes(thread.work_status)
-  const showCompactProgress =
-    thread.status === 'secured' &&
-    !['awaiting_start', 'awaiting_completion'].includes(thread.work_status)
+  const showCompactProgress = thread.status === 'secured'
 
   return (
     <section className="min-w-0 min-h-0 h-full flex flex-col bg-white">
