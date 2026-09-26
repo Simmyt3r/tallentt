@@ -7,8 +7,6 @@ import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 import RoleCardBadge from './RoleCardBadge.jsx'
 import DealQrCheckpoint from './DealQrCheckpoint.jsx'
 
-const FILTERS = ['All', 'Freelance', 'Contract']
-
 function money(value, currency = 'NGN') {
   if (value == null) return '—'
   try {
@@ -82,7 +80,6 @@ export default function MyDealsModal() {
 
   const [role, setRole] = useState(initialRole)
   const [tab, setTab] = useState(initialTab)
-  const [filter, setFilter] = useState('All')
   const [data, setData] = useState({ bookings: [], applications: [], pendingCount: 0 })
   const [loading, setLoading] = useState(true)
   const [quietLoading, setQuietLoading] = useState(false)
@@ -174,15 +171,7 @@ export default function MyDealsModal() {
     }
   }, [data, role, user?.id])
 
-  const activeItems = useMemo(
-    () =>
-      (collections[tab] || []).filter(
-        (item) =>
-          filter === 'All' ||
-          String(item.hat_type || '').toLowerCase() === filter.toLowerCase(),
-      ),
-    [collections, filter, tab],
-  )
+  const activeItems = useMemo(() => collections[tab] || [], [collections, tab])
 
   function notifyLocalChange() {
     window.dispatchEvent(new CustomEvent('mydeals:changed'))
@@ -363,22 +352,6 @@ export default function MyDealsModal() {
             ))}
           </div>
 
-          <div className="mt-4">
-            <div className="flex w-fit max-w-full rounded-full border-[1.5px] border-black bg-white p-1 overflow-x-auto">
-              {FILTERS.map((value) => (
-                <button
-                  type="button"
-                  key={value}
-                  onClick={() => setFilter(value)}
-                  className={`h-8 px-3 rounded-full text-[11px] font-black whitespace-nowrap ${
-                    filter === value ? 'bg-[#0A13E6] text-white' : 'text-black/50'
-                  }`}
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {error && (
             <div className="mt-4 rounded-[14px] border-[1.5px] border-red-200 bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700">
