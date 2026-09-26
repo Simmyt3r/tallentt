@@ -4,6 +4,7 @@ import { ArrowLeft, LockKeyhole, RefreshCw, Send, UnlockKeyhole } from 'lucide-r
 import { api, payForBooking } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
+import DealQrCheckpoint from '../components/DealQrCheckpoint.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
 import { getPrimaryIdentity, identityFromRow } from '../lib/profile.js'
 
@@ -921,14 +922,27 @@ function BookingThread({ id, onBack }) {
 
       {(thread.contacts_unlocked || thread.status !== 'not_funded') &&
         thread.status !== 'cancelled' && (
-          <BookingProgress
-            thread={thread}
-            events={data.events}
-            eventsCursor={data.eventsCursor}
-            busy={busy}
-            run={run}
-            refreshUser={refreshUser}
-          />
+          <>
+            <BookingProgress
+              thread={thread}
+              events={data.events}
+              eventsCursor={data.eventsCursor}
+              busy={busy}
+              run={run}
+              refreshUser={refreshUser}
+            />
+            {thread.status === 'secured' &&
+              ['awaiting_start', 'awaiting_completion'].includes(thread.work_status) && (
+                <DealQrCheckpoint
+                  booking={thread}
+                  role={thread.is_client ? 'client' : 'talent'}
+                  onComplete={async () => {
+                    await refreshUser()
+                    await load()
+                  }}
+                />
+              )}
+          </>
         )}
 
       <div
