@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Clock, Handshake, MessageCircle, Search, Undo2, X } from 'lucide-react'
+import { Check, Clock, Handshake, MessageCircle, Undo2, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { api, payForBooking } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -83,7 +83,6 @@ export default function MyDealsModal() {
   const [role, setRole] = useState(initialRole)
   const [tab, setTab] = useState(initialTab)
   const [filter, setFilter] = useState('All')
-  const [search, setSearch] = useState('')
   const [data, setData] = useState({ bookings: [], applications: [], pendingCount: 0 })
   const [loading, setLoading] = useState(true)
   const [quietLoading, setQuietLoading] = useState(false)
@@ -175,23 +174,15 @@ export default function MyDealsModal() {
     }
   }, [data, role, user?.id])
 
-  const activeItems = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    return (collections[tab] || []).filter((item) => {
-      const isApplication = Boolean(item.application_id) && !item.id
-      const peer = isApplication ? applicationPeer(item, role) : bookingPeer(item, role)
-      const matchesFilter =
-        filter === 'All' || String(item.hat_type || '').toLowerCase() === filter.toLowerCase()
-      const matchesSearch =
-        !query ||
-        [peer.username, peer.name, peer.lga, item.hat_lga, item.hat_title]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-          .includes(query)
-      return matchesFilter && matchesSearch
-    })
-  }, [collections, filter, role, search, tab])
+  const activeItems = useMemo(
+    () =>
+      (collections[tab] || []).filter(
+        (item) =>
+          filter === 'All' ||
+          String(item.hat_type || '').toLowerCase() === filter.toLowerCase(),
+      ),
+    [collections, filter, tab],
+  )
 
   function notifyLocalChange() {
     window.dispatchEvent(new CustomEvent('mydeals:changed'))
@@ -372,18 +363,8 @@ export default function MyDealsModal() {
             ))}
           </div>
 
-          <div className="mt-4 flex flex-col sm:flex-row gap-2">
-            <label className="flex-1 h-11 rounded-full border-[1.5px] border-black bg-white px-4 flex items-center gap-2">
-              <Search size={16} className="text-black/40" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by username LGA"
-                className="w-full outline-none bg-transparent text-[12px] font-semibold placeholder:text-black/35"
-              />
-            </label>
-
-            <div className="flex rounded-full border-[1.5px] border-black bg-white p-1 overflow-x-auto">
+          <div className="mt-4">
+            <div className="flex w-fit max-w-full rounded-full border-[1.5px] border-black bg-white p-1 overflow-x-auto">
               {FILTERS.map((value) => (
                 <button
                   type="button"
