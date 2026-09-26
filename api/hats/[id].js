@@ -483,7 +483,15 @@ export default async function handler(req, res) {
            ),
            synced AS (
              UPDATE hats
-             SET likes = (SELECT COUNT(*)::int FROM hat_likes WHERE hat_id = $1)
+             SET likes = GREATEST(
+               COALESCE(likes, 0) +
+               CASE
+                 WHEN EXISTS (SELECT 1 FROM added) THEN 1
+                 WHEN EXISTS (SELECT 1 FROM removed) THEN -1
+                 ELSE 0
+               END,
+               0
+             )
              WHERE id = $1
              RETURNING likes
            )
