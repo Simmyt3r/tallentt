@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, LockKeyhole, RefreshCw, Send, UnlockKeyhole } from 'lucide-react'
-import { api, payForBooking } from '../lib/api.js'
+import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
 import DealQrCheckpoint from '../components/DealQrCheckpoint.jsx'
@@ -865,20 +865,12 @@ function BookingThread({ id, onBack }) {
         )}
 
         {thread.checkout_locked_at && thread.status === 'not_funded' && (
-          <p className="text-xs text-black/60">The agreed price is locked for checkout.</p>
+          <p className="text-xs text-black/60">The agreed price is locked for this deal.</p>
         )}
 
         {thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' && (
           <div className="flex flex-wrap gap-2 items-center">
-            <button
-              type="button"
-              className={button}
-              disabled={busy || Boolean(pending)}
-              onClick={() => run(() => payForBooking(thread, user.email))}
-            >
-              Pay {money(thread.amount)} by card
-            </button>
-            {!thread.card_checkout_started && (user.walletBalance || 0) >= thread.amount && (
+            {(user.walletBalance || 0) >= thread.amount ? (
               <button
                 type="button"
                 className={button}
@@ -890,8 +882,12 @@ function BookingThread({ id, onBack }) {
                   })
                 }
               >
-                Pay from wallet
+                Pay {money(thread.amount)} from wallet
               </button>
+            ) : (
+              <Link to="/wallet" className={button}>
+                Top up wallet
+              </Link>
             )}
           </div>
         )}
