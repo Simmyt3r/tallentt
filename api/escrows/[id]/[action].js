@@ -1,16 +1,14 @@
 // Path: api/escrows/[id]/[action].js
-import { query } from '../../_lib/db.js'
 import { getSessionUser } from '../../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../../_lib/http.js'
 import { verifyPaystackTransaction } from '../../_lib/paystack.js'
-import { applyVerifiedPayment } from '../../_lib/escrowPayments.js'
 import { bookingLifecycle } from '../../_lib/bookingLifecycle.js'
-import { prepareCheckout, payBookingWithWallet } from '../../_lib/bookingCheckout.js'
+import { applyVerifiedLegacyBookingCharge, prepareCheckout, payBookingWithWallet } from '../../_lib/bookingCheckout.js'
 import { issueBookingQr, redeemBookingQr } from '../../_lib/bookingQr.js'
 
 // Handles:
-//   POST /api/escrows/:id/fund         — pay with card (Paystack)
-//   POST /api/escrows/:id/fund-wallet  — pay from wallet balance
+//   POST /api/escrows/:id/fund-wallet  — fund strictly from wallet balance
+//   POST /api/escrows/:id/fund         — legacy cached-client bridge; verified Paystack enters wallet first
 //   POST /api/escrows/:id/release      — compatibility alias for approve_delivery
 //   POST /api/escrows/:id/{submit_delivery,request_revision,approve_delivery,open_dispute}
 // Merged into one function (via the [action] dynamic segment) to stay
@@ -75,33 +73,27 @@ async function fund(req, res, id) {
     const reference = typeof body?.reference === 'string' ? body.reference.trim() : ''
     if (!reference) return json(res, 400, { error: 'Payment reference is required.' })
 
-    const { rows: ownedRows } = await query(`SELECT id FROM escrows WHERE id = $1 AND client_id = $2`, [
-      id,
-      session.sub,
-    ])
-    if (!ownedRows[0]) return json(res, 404, { error: 'Escrow not found.' })
-
     let txn
     try {
       txn = await verifyPaystackTransaction(reference)
     } catch (err) {
-      console.error('Paystack verification failed:', err)
+      console.error('Paystack verification failed for legacy booking checkout:', err)
       return json(res, 402, { error: err.message || 'Could not verify payment.' })
     }
 
-    // Shared with the Paystack webhook (api/escrows/index.js) — whichever
-    // of the two notices this payment first wins; if the webhook already
-    // beat this request to it (e.g. the user closed the tab right after
-    // paying and this callback is only firing now on a retry), this just
-    // returns the already-secured escrow instead of erroring.
-    try {
-      const { escrow } = await applyVerifiedPayment({ escrowId: id, reference, txn })
-      return json(res, 200, { escrow })
-    } catch (err) {
-      return json(res, err.status || 402, { error: err.message })
-    }
+    // Old cached clients may still complete a Paystack checkout that began
+    // before wallet-only payments shipped. The verified charge is converted
+    // into a wallet credit first and the escrow is then debited from wallet,
+    // atomically, so even this compatibility path obeys the wallet ledger.
+    const { escrow } = await applyVerifiedLegacyBookingCharge({
+      escrowId: id,
+      reference,
+      txn,
+      userId: session.sub,
+    })
+    return json(res, 200, { escrow })
   } catch (err) {
-    console.error(err)
-    return json(res, 500, { error: 'Failed to fund escrow' })
+    if (!err.status) console.error(err)
+    return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to fund escrow' })
   }
 }
