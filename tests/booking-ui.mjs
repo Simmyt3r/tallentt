@@ -67,6 +67,14 @@ try {
   await talent.getByRole('button', { name: 'Accept proposal', exact: true }).click()
   await talent.getByText('Final agreed price', { exact: true }).waitFor()
   await client.reload()
+  console.log('PAYMENT_STATE', {
+    url: client.url(),
+    body: (await client.locator('body').innerText()).slice(0, 5000),
+    me: await client.evaluate(async () => {
+      const response = await fetch('/api/auth?action=me', { cache: 'no-store' })
+      return response.json()
+    }),
+  })
   assert.equal(await client.getByRole('button', { name: /Pay .* from wallet/ }).count(), 1)
   assert.equal(await client.getByRole('button', { name: /card/i }).count(), 0)
   await client.getByRole('button', { name: /Pay .* from wallet/ }).click()
