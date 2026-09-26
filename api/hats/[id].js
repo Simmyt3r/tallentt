@@ -464,20 +464,38 @@ export default async function handler(req, res) {
       } else if (body.action === 'view') {
         await query(`UPDATE hats SET views = views + 1 WHERE id = $1`, [id])
       } else if (body.action === 'like') {
+        // Toggle the relationship and derive the public counter from the
+        // relationship table in one statement. This prevents double taps or
+        // concurrent requests from slowly drifting hats.likes away from the
+        // actual number of users who liked the Hat.
         const { rows: likeRows } = await query(
-          `SELECT 1 FROM hat_likes WHERE hat_id = $1 AND user_id = $2`,
+          `WITH removed AS (
+             DELETE FROM hat_likes
+             WHERE hat_id = $1 AND user_id = $2
+             RETURNING hat_id
+           ),
+           added AS (
+             INSERT INTO hat_likes (hat_id, user_id)
+             SELECT $1, $2
+             WHERE NOT EXISTS (SELECT 1 FROM removed)
+             ON CONFLICT (hat_id, user_id) DO NOTHING
+             RETURNING hat_id
+           ),
+           synced AS (
+             UPDATE hats
+             SET likes = (SELECT COUNT(*)::int FROM hat_likes WHERE hat_id = $1)
+             WHERE id = $1
+             RETURNING likes
+           )
+           SELECT
+             EXISTS (SELECT 1 FROM added) AS liked,
+             COALESCE((SELECT likes FROM synced), 0)::int AS likes`,
           [id, session.sub],
         )
-        if (likeRows.length) {
-          await query(`DELETE FROM hat_likes WHERE hat_id = $1 AND user_id = $2`, [id, session.sub])
-          await query(`UPDATE hats SET likes = GREATEST(likes - 1, 0) WHERE id = $1`, [id])
-        } else {
-          await query(
-            `INSERT INTO hat_likes (hat_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-            [id, session.sub],
-          )
-          await query(`UPDATE hats SET likes = likes + 1 WHERE id = $1`, [id])
-        }
+        const likeState = likeRows[0] || { liked: false, likes: 0 }
+        return json(res, 200, {
+          hat: { id, liked_by_me: Boolean(likeState.liked), likes: Number(likeState.likes || 0) },
+        })
       } else if (body.action === 'apply') {
         if (existing.user_id === session.sub) {
           return json(res, 400, { error: "You can't apply to your own Hat." })
