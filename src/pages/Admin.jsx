@@ -365,7 +365,38 @@ function OverviewPanel({ dashboard, setTab }) {
           )}
         </div>
       </section>
+
+      <section className="bg-white rounded-[20px] border-[1.5px] border-black p-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
+          <div>
+            <p className="text-[10px] font-bold tracking-widest uppercase text-black/35">Infrastructure</p>
+            <h2 className="text-[16px] font-bold tracking-tight mt-0.5">Service readiness</h2>
+          </div>
+          <p className="text-[11px] text-black/40 font-medium">Configuration status only. Secrets are never exposed here.</p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          <ServiceState label="Database" ready={dashboard?.services?.database} />
+          <ServiceState label="Paystack" ready={dashboard?.services?.paystack} />
+          <ServiceState label="Cloudinary" ready={dashboard?.services?.cloudinary} />
+          <ServiceState label="Live media" ready={dashboard?.services?.live_media} fallback />
+          <ServiceState label="Live realtime" ready={dashboard?.services?.live_realtime} />
+        </div>
+      </section>
     </>
+  )
+}
+
+function ServiceState({ label, ready, fallback }) {
+  return (
+    <div className="rounded-[14px] border border-black/10 p-3">
+      <div className="flex items-center gap-2">
+        <span className={`w-2.5 h-2.5 rounded-full ${ready ? 'bg-green-500' : fallback ? 'bg-amber-400' : 'bg-red-400'}`} />
+        <span className="text-[11px] font-bold">{label}</span>
+      </div>
+      <p className="text-[10px] text-black/45 font-medium mt-2">
+        {ready ? 'Configured' : fallback ? 'Fallback mode' : 'Not configured'}
+      </p>
+    </div>
   )
 }
 
