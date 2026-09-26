@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Clock } from 'lucide-react'
-import { api, payForBooking } from '../lib/api'
+import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromRow } from '../lib/profile.js'
@@ -62,21 +62,8 @@ export default function MyBookings() {
     }
   }, [])
 
-  async function handleFund(b) {
-    setBusyId(b.id)
-    try {
-      const { escrow } = await payForBooking(b, user.email)
-      setBookings((list) => list.map((x) => (x.id === b.id ? { ...x, ...escrow } : x)))
-    } catch (e) {
-      alert(e.message)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  // Pays straight out of the wallet balance — only ever shown when
-  // user.walletBalance already covers the amount, so no confirm() dialog
-  // (the button itself, next to the card-payment fallback, is the choice).
+  // Every booking payment comes from the wallet. Paystack is used only
+  // on the Wallet page to add funds before this step.
   async function handleFundWallet(b) {
     setBusyId(b.id)
     try {
@@ -149,8 +136,8 @@ export default function MyBookings() {
                   {b.status === 'secured' ? (b.work_status || 'in_progress').replace(/_/g, ' ') : STATUS_LABEL[b.status] || b.status}
                 </span>
                 {b.status === 'not_funded' && (
-                  <div className="flex gap-2 shrink-0">
-                    {canUseWallet && (
+                  <div className="shrink-0">
+                    {canUseWallet ? (
                       <button
                         type="button"
                         onClick={() => handleFundWallet(b)}
@@ -159,19 +146,14 @@ export default function MyBookings() {
                       >
                         Pay from wallet
                       </button>
+                    ) : (
+                      <Link
+                        to="/wallet"
+                        className="h-8 px-3 rounded-full bg-[#0A13E6] text-white text-[11px] font-semibold inline-flex items-center"
+                      >
+                        Top up wallet
+                      </Link>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => handleFund(b)}
-                      disabled={busyId === b.id}
-                      className={
-                        canUseWallet
-                          ? 'h-8 px-3 rounded-full border-[1.5px] border-black/20 text-black/60 text-[11px] font-semibold hover:border-black hover:text-black transition disabled:opacity-50'
-                          : 'h-8 px-3 rounded-full bg-[#0A13E6] text-white text-[11px] font-semibold disabled:opacity-50'
-                      }
-                    >
-                      {canUseWallet ? 'Pay with card' : 'Fund escrow'}
-                    </button>
                   </div>
                 )}
 
