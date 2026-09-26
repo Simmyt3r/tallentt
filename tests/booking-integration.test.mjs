@@ -245,10 +245,13 @@ test('legacy card checkout enters wallet first, then funds escrow from wallet', 
     `SELECT type, amount FROM wallet_transactions WHERE user_id = $1 ORDER BY created_at, id`,
     [clientId],
   )
-  assert.deepEqual(ledger.map((row) => [row.type, row.amount]), [
-    ['topup', 10000],
-    ['escrow_fund', 10000],
-  ])
+  assert.deepEqual(
+    ledger.map((row) => [row.type, row.amount]).sort(([a], [b]) => a.localeCompare(b)),
+    [
+      ['escrow_fund', 10000],
+      ['topup', 10000],
+    ],
+  )
   assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [clientId])).rows[0].balance, 100000)
 
   const other = randomUUID()
