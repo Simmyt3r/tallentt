@@ -164,16 +164,16 @@ function NegotiationPanel({
   return (
     <>
       <section className="mx-3 mt-2 rounded-[16px] border border-black/10 bg-[#FCFBF8] px-3.5 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">
-              Price negotiation
-            </p>
-            <NegotiationParties
-              currentUser={currentUser}
-              peer={thread.peer}
-              currentRole={thread.is_client ? 'client' : 'talent'}
-            />
+        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">
+          Price negotiation
+        </p>
+        <NegotiationParties
+          currentUser={currentUser}
+          peer={thread.peer}
+          currentRole={thread.is_client ? 'client' : 'talent'}
+        />
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0 flex-1">
             {hasAgreement ? (
               <>
                 <p className="mt-0.5 text-[12px] font-bold text-black/45">Final agreed price</p>
