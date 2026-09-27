@@ -21,7 +21,7 @@ export const NAV_PRIMARY = [
 ]
 
 export const NAV_SECONDARY = [
-  { to: '/messages', icon: MessageCircle, label: 'Deal Chats' },
+  { to: '/messages', icon: MessageCircle, label: 'Negotiation Center' },
   { to: '/wallet', icon: WalletIcon, label: 'Wallet' },
 ]
 
