@@ -1019,7 +1019,21 @@ function BookingThread({ id, onBack }) {
         />
       )}
 
-      {qrAction && (
+      {qrAction && !thread.is_client && (
+        <div className="shrink-0 mx-3 mt-2">
+          <DealQrCheckpoint
+            booking={thread}
+            role="talent"
+            compact
+            onComplete={async () => {
+              await refreshUser()
+              await load()
+            }}
+          />
+        </div>
+      )}
+
+      {qrAction && thread.is_client && (
         <button
           type="button"
           onClick={() => setDealOpen(true)}
@@ -1031,7 +1045,9 @@ function BookingThread({ id, onBack }) {
               {thread.work_status === 'awaiting_start' ? 'Start QR checkpoint' : 'Completion QR checkpoint'}
             </p>
           </div>
-          <span className="text-[10px] font-black text-amber-800">Open deal</span>
+          <span className="text-[10px] font-black text-amber-800">
+            {thread.work_status === 'awaiting_start' ? 'Generate start QR' : 'Generate completion QR'}
+          </span>
         </button>
       )}
 
