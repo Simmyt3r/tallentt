@@ -19,6 +19,7 @@ test('Range Hats start with a proposal instead of a fee detour', () => {
 
 test('deal conversation keeps chat primary and negotiation contextual', () => {
   const messages = read('src/pages/Messages.jsx')
+  const parties = read('src/components/NegotiationParties.jsx')
   for (const phrase of [
     'Price negotiation',
     'Proposal received',
@@ -34,6 +35,11 @@ test('deal conversation keeps chat primary and negotiation contextual', () => {
   ]) {
     assert.ok(messages.includes(phrase), phrase)
   }
+  assert.match(messages, /NegotiationParties/)
+  assert.match(parties, /Switch negotiation sides/)
+  assert.match(parties, /Client/)
+  assert.match(parties, /Talent/)
+  assert.match(parties, /ArrowLeftRight/)
   assert.match(messages, /data\.messages\.filter\(\(message\) => message\.kind === 'offer'\)/)
   assert.match(messages, /setDealOpen\(true\)/)
 })
@@ -47,12 +53,13 @@ test('thread API exposes the range and keeps the accepted proposal as the deal p
   assert.match(threads, /amount = \$1/)
 })
 
-test('My Deals exposes current proposal and agreement state for Range deals', () => {
+test('My Deals exposes current proposal, agreement state, and both negotiation parties for Range deals', () => {
   const api = read('api/_lib/myDeals.js')
   const modal = read('src/components/MyDealsModal.jsx')
 
   assert.match(api, /pending_offer_amount/)
   assert.match(api, /pending_offer_sender_id/)
+  assert.match(modal, /NegotiationParties/)
   assert.match(modal, /Listed range/)
   assert.match(modal, /Your proposal/)
   assert.match(modal, /Current proposal/)
