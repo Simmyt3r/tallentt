@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 import RoleCardBadge from './RoleCardBadge.jsx'
 import DealQrCheckpoint from './DealQrCheckpoint.jsx'
+import NegotiationParties from './NegotiationParties.jsx'
 
 function money(value, currency = 'NGN') {
   if (value == null) return '—'
@@ -377,6 +378,12 @@ export default function MyDealsModal() {
                   const peer = isApplication
                     ? applicationPeer(item, role)
                     : bookingPeer(item, role)
+                  const negotiationPeer = {
+                    fullName: peer.name,
+                    username: peer.username,
+                    avatarUrl: peer.avatar,
+                    role: peer.role,
+                  }
                   const incomingPending = tab === 'incoming'
                   const unresolvedRange = item.price_type === 'range' && !item.agreed_at
                   const outgoingApplication = tab === 'outgoing' && isApplication
@@ -448,7 +455,13 @@ export default function MyDealsModal() {
 
                           {item.price_type === 'range' ? (
                             <div className="mt-3 rounded-[13px] border border-black/10 bg-[#F7F3EB] px-3 py-2.5">
-                              <p className="text-[9.5px] font-black uppercase tracking-[0.1em] text-black/35">
+                              <NegotiationParties
+                                currentUser={user}
+                                peer={negotiationPeer}
+                                currentRole={role}
+                                compact
+                              />
+                              <p className="mt-3 text-[9.5px] font-black uppercase tracking-[0.1em] text-black/35">
                                 Listed range
                               </p>
                               <p className="mt-0.5 text-[12px] font-black">
