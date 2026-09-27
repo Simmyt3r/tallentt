@@ -5,6 +5,7 @@ import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
 import DealQrCheckpoint from '../components/DealQrCheckpoint.jsx'
+import NegotiationParties from '../components/NegotiationParties.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
 import { getPrimaryIdentity, identityFromRow } from '../lib/profile.js'
 
@@ -134,6 +135,7 @@ function NegotiationPanel({
   offers,
   pending,
   userId,
+  currentUser,
   busy,
   offerMode,
   amount,
@@ -167,6 +169,11 @@ function NegotiationPanel({
             <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">
               Price negotiation
             </p>
+            <NegotiationParties
+              currentUser={currentUser}
+              peer={thread.peer}
+              currentRole={thread.is_client ? 'client' : 'talent'}
+            />
             {hasAgreement ? (
               <>
                 <p className="mt-0.5 text-[12px] font-bold text-black/45">Final agreed price</p>
@@ -286,6 +293,15 @@ function NegotiationPanel({
               <button type="button" onClick={onCancelOffer} aria-label="Close negotiation" className="p-2">
                 <X size={18} />
               </button>
+            </div>
+
+            <div className="mt-4">
+              <NegotiationParties
+                currentUser={currentUser}
+                peer={thread.peer}
+                currentRole={thread.is_client ? 'client' : 'talent'}
+                compact
+              />
             </div>
 
             <label className="mt-4 block text-[11px] font-black">
@@ -957,6 +973,7 @@ function BookingThread({ id, onBack }) {
           offers={offers}
           pending={pending}
           userId={user.id}
+          currentUser={user}
           busy={busy}
           offerMode={offerMode}
           amount={offerAmount}
