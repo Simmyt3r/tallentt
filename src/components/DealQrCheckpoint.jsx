@@ -6,7 +6,7 @@ const money = (amount) => new Intl.NumberFormat('en-NG', {
   style: 'currency', currency: 'NGN', maximumFractionDigits: 0,
 }).format(amount)
 
-export default function DealQrCheckpoint({ booking, role, onComplete }) {
+export default function DealQrCheckpoint({ booking, role, onComplete, compact = false }) {
   const stage = booking.work_status === 'awaiting_start' ? 'start' : 'completion'
   const [issued, setIssued] = useState(null)
   const [image, setImage] = useState('')
@@ -81,12 +81,18 @@ export default function DealQrCheckpoint({ booking, role, onComplete }) {
     ? Math.floor(Number(booking.amount) * 3 / 10)
     : Number(booking.amount) - Number(booking.start_released_amount || 0)
 
-  return <div className="rounded-[18px] border border-black/10 bg-white p-4 space-y-3">
-    <div>
-      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">QR checkpoint</p>
-      <p className="mt-1 text-[14px] font-black">{stage === 'start' ? 'Start work · 30% payment' : 'Complete work · remaining payment'}</p>
+  return <div className={`rounded-[18px] border p-4 space-y-3 ${
+    compact ? 'border-amber-300 bg-amber-50' : 'border-black/10 bg-white'
+  }`}>
+    <div className={compact ? 'flex items-center justify-between gap-3' : ''}>
+      <div>
+        <p className={`text-[10px] font-black uppercase tracking-[0.12em] ${compact ? 'text-amber-700' : 'text-[#0A13E6]'}`}>
+          {compact ? 'Action required' : 'QR checkpoint'}
+        </p>
+        <p className="mt-1 text-[14px] font-black">{stage === 'start' ? 'Start work · 30% payment' : 'Complete work · remaining payment'}</p>
+      </div>
     </div>
-    <p className="text-[11px] leading-relaxed text-black/60">
+    {!compact && <p className="text-[11px] leading-relaxed text-black/60">
       {role === 'client'
         ? stage === 'start'
           ? `Present this code to the talent when work begins. Scanning releases ${money(amount)} from funded escrow.`
@@ -94,7 +100,14 @@ export default function DealQrCheckpoint({ booking, role, onComplete }) {
         : stage === 'start'
           ? `Scan the client's start QR when work begins to receive ${money(amount)} in your wallet.`
           : `Scan the client's completion QR to receive the remaining ${money(amount)} in your wallet.`}
-    </p>
+    </p>}
+    {compact && role === 'talent' && (
+      <p className="text-[11px] font-semibold text-amber-800">
+        {stage === 'start'
+          ? `Scan the client's QR to begin work and receive ${money(amount)}.`
+          : `Scan the client's completion QR to receive ${money(amount)}.`}
+      </p>
+    )}
     {error && <p role="alert" className="text-[11px] font-semibold text-red-700">{error}</p>}
     {role === 'client' ? <>
       <button type="button" disabled={busy} onClick={generate}
@@ -117,16 +130,32 @@ export default function DealQrCheckpoint({ booking, role, onComplete }) {
       </button>
       {scanning && <video ref={video} muted playsInline autoPlay aria-label="QR scanner camera preview"
         className="w-full max-w-[320px] aspect-square object-cover rounded-xl border border-black/15" />}
-      <form onSubmit={(event) => { event.preventDefault(); redeem(input) }} className="flex flex-wrap gap-2 items-end">
-        <label className="text-[11px] font-semibold flex-1 min-w-[180px]">Or enter the code shown by the client
-          <input value={input} onChange={(event) => setInput(event.target.value)} autoComplete="off"
-            placeholder="Paste the client's QR code" className="block mt-1 w-full h-9 rounded-lg border border-black/20 px-3 text-[11px]" />
-        </label>
-        <button type="submit" disabled={busy || !input.trim()}
-          className="h-9 px-4 rounded-full border-[1.5px] border-black bg-white text-[11px] font-black disabled:opacity-50">
-          {busy ? 'Verifying…' : 'Confirm code'}
-        </button>
-      </form>
+      {compact ? (
+        <details>
+          <summary className="cursor-pointer text-[10px] font-bold text-black/50">Enter code manually</summary>
+          <form onSubmit={(event) => { event.preventDefault(); redeem(input) }} className="mt-2 flex flex-wrap gap-2 items-end">
+            <label className="text-[11px] font-semibold flex-1 min-w-[180px]">Code shown by the client
+              <input value={input} onChange={(event) => setInput(event.target.value)} autoComplete="off"
+                placeholder="Paste the client's QR code" className="block mt-1 w-full h-9 rounded-lg border border-black/20 bg-white px-3 text-[11px]" />
+            </label>
+            <button type="submit" disabled={busy || !input.trim()}
+              className="h-9 px-4 rounded-full border-[1.5px] border-black bg-white text-[11px] font-black disabled:opacity-50">
+              {busy ? 'Verifying…' : 'Confirm code'}
+            </button>
+          </form>
+        </details>
+      ) : (
+        <form onSubmit={(event) => { event.preventDefault(); redeem(input) }} className="flex flex-wrap gap-2 items-end">
+          <label className="text-[11px] font-semibold flex-1 min-w-[180px]">Or enter the code shown by the client
+            <input value={input} onChange={(event) => setInput(event.target.value)} autoComplete="off"
+              placeholder="Paste the client's QR code" className="block mt-1 w-full h-9 rounded-lg border border-black/20 px-3 text-[11px]" />
+          </label>
+          <button type="submit" disabled={busy || !input.trim()}
+            className="h-9 px-4 rounded-full border-[1.5px] border-black bg-white text-[11px] font-black disabled:opacity-50">
+            {busy ? 'Verifying…' : 'Confirm code'}
+          </button>
+        </form>
+      )}
     </>}
   </div>
 }
