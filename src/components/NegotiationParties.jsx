@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ArrowLeftRight } from 'lucide-react'
 import UserIdentity from './UserIdentity.jsx'
 
-function PartyCard({ user, role, isCurrent }) {
+function PartyCard({ user, role, isCurrent, compact }) {
   return (
     <div className="min-w-0 flex-1 rounded-[14px] border border-black/10 bg-white px-2.5 py-2.5">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -26,7 +26,7 @@ function PartyCard({ user, role, isCurrent }) {
         user={user}
         align="start"
         gap="gap-2"
-        avatarClassName="w-8 h-8"
+        avatarClassName={compact ? 'w-8 h-8' : 'w-12 h-12'}
         nameClassName="text-[11px] font-black"
         usernameClassName="text-[9.5px] font-semibold text-black/45"
       />
@@ -63,7 +63,7 @@ export default function NegotiationParties({
   return (
     <div className={compact ? '' : 'mt-3'}>
       <div className="grid grid-cols-[minmax(0,1fr)_40px_minmax(0,1fr)] items-center gap-2">
-        <PartyCard {...parties[0]} />
+        <PartyCard {...parties[0]} compact={compact} />
 
         <button
           type="button"
@@ -75,7 +75,7 @@ export default function NegotiationParties({
           <ArrowLeftRight size={15} />
         </button>
 
-        <PartyCard {...parties[1]} />
+        <PartyCard {...parties[1]} compact={compact} />
       </div>
 
       {!compact && (

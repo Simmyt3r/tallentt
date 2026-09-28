@@ -28,7 +28,7 @@ export async function getMyDeals(userId) {
                 ELSE 'accepted'
               END AS request_state,
               h.hat_title, h.hat_name, h.category, h.hat_type, h.hiring_duration,
-              h.lga AS hat_lga, h.currency, h.role AS hat_role, h.price_type, h.price_min, h.price_max,
+              h.lga AS hat_lga, h.currency, h.role AS hat_role, h.price_type, h.price_negotiable, h.price_min, h.price_max,
               client.username AS client_username, client.full_name AS client_full_name,
               client.avatar_url AS client_avatar, client.lga AS client_lga,
               client.role AS client_role, client.company_suffix AS client_company_suffix,
@@ -50,7 +50,7 @@ export async function getMyDeals(userId) {
               a.created_at AS applied_at, a.updated_at,
               h.user_id AS owner_id, h.hat_title, h.hat_name, h.category, h.hat_type,
               h.hiring_duration, h.lga AS hat_lga, h.currency, h.role AS hat_role,
-              h.price_type, h.rate, h.price_min, h.price_max,
+              h.price_type, h.price_negotiable, h.rate, h.price_min, h.price_max,
               deal.id AS negotiation_escrow_id, deal.amount AS agreed_amount, deal.agreed_at,
               deal.currency AS deal_currency, deal.pay_unit,
               (SELECT po.amount FROM booking_messages po WHERE po.escrow_id = deal.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_amount,

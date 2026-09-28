@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ChevronRight, RefreshCw, Send, X } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
 import DealQrCheckpoint from '../components/DealQrCheckpoint.jsx'
-import NegotiationParties from '../components/NegotiationParties.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
 import { getPrimaryIdentity, identityFromRow } from '../lib/profile.js'
 
@@ -24,27 +23,8 @@ const statusLabel = {
   refunded: 'Refunded to wallet',
 }
 
-const offerStatusLabel = {
-  pending: 'Awaiting response',
-  accepted: 'Accepted',
-  declined: 'Rejected',
-  withdrawn: 'Withdrawn',
-  superseded: 'Countered',
-}
-
 const button =
   'px-3 py-2 rounded-full border-[1.5px] border-black/20 text-xs font-semibold disabled:opacity-40 hover:bg-black/5 transition'
-
-function formatRange(thread) {
-  if (thread.price_type !== 'range') return null
-  const min = Number(thread.price_min)
-  const max = Number(thread.price_max)
-  if (Number.isFinite(min) && Number.isFinite(max) && max > min) {
-    return `${money(min, thread.currency)} – ${money(max, thread.currency)}`
-  }
-  if (Number.isFinite(min) && min > 0) return money(min, thread.currency)
-  return 'Flexible'
-}
 
 function ErrorNotice({ message, onRetry }) {
   return (
@@ -62,296 +42,8 @@ function ErrorNotice({ message, onRetry }) {
   )
 }
 
-function NegotiationHistory({ offers, thread, userId }) {
-  if (!offers.length) return null
-
-  return (
-    <details className="rounded-[15px] border border-black/10 bg-white overflow-hidden">
-      <summary className="cursor-pointer list-none px-3.5 py-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-black/45">
-            Negotiation history
-          </p>
-          <p className="mt-0.5 text-[12px] font-semibold text-black/60">
-            {offers.length} {offers.length === 1 ? 'proposal' : 'proposals'}
-          </p>
-        </div>
-        <span className="text-[11px] font-bold text-black/45">View</span>
-      </summary>
-
-      <div className="border-t border-black/10 p-3.5 space-y-3">
-        {offers.map((offer, index) => {
-          const own = offer.sender_id === userId
-          return (
-            <div key={offer.id} className="relative pl-4">
-              <span className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-black" />
-              {index < offers.length - 1 && (
-                <span className="absolute left-[3px] top-3 bottom-[-14px] w-px bg-black/15" />
-              )}
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-[12px] font-black">
-                  {own ? 'You' : thread.peer?.full_name || thread.peer?.username || 'Other party'} proposed{' '}
-                  {money(offer.amount, offer.currency || thread.currency)}
-                  {(offer.pay_unit || thread.pay_unit) ? ` /${offer.pay_unit || thread.pay_unit}` : ''}
-                </p>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[9.5px] font-black ${
-                    offer.offer_status === 'accepted'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : offer.offer_status === 'pending'
-                        ? 'bg-[#0A13E6]/10 text-[#0A13E6]'
-                        : 'bg-black/[0.06] text-black/50'
-                  }`}
-                >
-                  {offerStatusLabel[offer.offer_status] || offer.offer_status}
-                </span>
-              </div>
-              {offer.body && (
-                <p className="mt-1 text-[11.5px] leading-relaxed text-black/55 whitespace-pre-wrap break-words">
-                  {offer.body}
-                </p>
-              )}
-              <time
-                dateTime={offer.created_at}
-                className="mt-1 block text-[10px] font-medium text-black/35"
-              >
-                {new Date(offer.created_at).toLocaleString([], {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </time>
-            </div>
-          )
-        })}
-      </div>
-    </details>
-  )
-}
-
-function NegotiationPanel({
-  thread,
-  offers,
-  pending,
-  userId,
-  currentUser,
-  busy,
-  offerMode,
-  amount,
-  note,
-  error,
-  onAmount,
-  onNote,
-  onOpenOffer,
-  onCancelOffer,
-  onSubmitOffer,
-  onRespond,
-}) {
-  const range = formatRange(thread)
-  const ownPending = pending?.sender_id === userId
-  const hasAgreement = Boolean(thread.agreed_at)
-  const negotiable =
-    (thread.price_type === 'range' || thread.price_negotiable) &&
-    thread.status === 'not_funded' &&
-    !thread.checkout_locked_at &&
-    !hasAgreement
-
-  // Once a deal is funded, negotiation becomes historical context inside
-  // "View deal" rather than permanently occupying the conversation.
-  if (hasAgreement && thread.status !== 'not_funded') return null
-
-  return (
-    <>
-      <section className="mx-3 mt-2 rounded-[16px] border border-black/10 bg-[#FCFBF8] px-3.5 py-3">
-        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">
-          Price negotiation
-        </p>
-        <NegotiationParties
-          currentUser={currentUser}
-          peer={thread.peer}
-          currentRole={thread.is_client ? 'client' : 'talent'}
-        />
-        <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            {hasAgreement ? (
-              <>
-                <p className="mt-0.5 text-[12px] font-bold text-black/45">Final agreed price</p>
-                <p className="text-[18px] font-black text-emerald-700">
-                  {money(thread.amount, thread.currency)}
-                  {thread.pay_unit ? <span className="text-[11px]"> /{thread.pay_unit}</span> : null}
-                </p>
-              </>
-            ) : pending ? (
-              <>
-                <p className="mt-0.5 text-[11px] font-bold text-black/45">
-                  {ownPending ? 'Your proposal' : 'Proposal received'}
-                </p>
-                <p className="text-[18px] font-black">
-                  {money(pending.amount, pending.currency || thread.currency)}
-                  {(pending.pay_unit || thread.pay_unit) ? (
-                    <span className="text-[11px] text-black/45"> /{pending.pay_unit || thread.pay_unit}</span>
-                  ) : null}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="mt-0.5 text-[12px] font-black">
-                  {offers.length ? 'No active proposal' : 'Agree the final deal price'}
-                </p>
-                {range && (
-                  <p className="text-[11px] font-semibold text-black/45">
-                    Listed range: {range}{thread.pay_unit ? ` /${thread.pay_unit}` : ''}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-
-          {!hasAgreement && (
-            <div className="flex flex-wrap gap-2">
-              {pending ? (
-                ownPending ? (
-                  <>
-                    <button type="button" className={button} disabled={busy} onClick={() => onRespond('withdrawn')}>
-                      Withdraw
-                    </button>
-                    <button
-                      type="button"
-                      className="h-9 px-4 rounded-full bg-black text-white text-[11px] font-black disabled:opacity-40"
-                      disabled={busy || !negotiable}
-                      onClick={() => onOpenOffer(pending.id)}
-                    >
-                      Revise proposal
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="h-9 px-4 rounded-full bg-[#0A13E6] text-white text-[11px] font-black disabled:opacity-40"
-                      disabled={busy}
-                      onClick={() => onRespond('accepted')}
-                    >
-                      Accept proposal
-                    </button>
-                    <button type="button" className={button} disabled={busy} onClick={() => onRespond('declined')}>
-                      Reject
-                    </button>
-                    <button
-                      type="button"
-                      className="h-9 px-4 rounded-full bg-black text-white text-[11px] font-black disabled:opacity-40"
-                      disabled={busy || !negotiable}
-                      onClick={() => onOpenOffer(pending.id)}
-                    >
-                      Counter
-                    </button>
-                  </>
-                )
-              ) : negotiable ? (
-                <button
-                  type="button"
-                  className="h-9 px-4 rounded-full bg-[#0A13E6] text-white text-[11px] font-black"
-                  onClick={() => onOpenOffer(null)}
-                >
-                  {offers.length ? 'Make new proposal' : 'Make first proposal'}
-                </button>
-              ) : null}
-            </div>
-          )}
-        </div>
-        {pending?.body && !hasAgreement && (
-          <p className="mt-2 text-[11px] leading-relaxed text-black/55 line-clamp-2">{pending.body}</p>
-        )}
-      </section>
-
-      {offerMode && negotiable && (
-        <div
-          className="fixed inset-0 z-[110] bg-black/45 p-3 sm:p-6 flex items-end sm:items-center justify-center"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) onCancelOffer()
-          }}
-        >
-          <form
-            onSubmit={onSubmitOffer}
-            className="w-full sm:max-w-[480px] rounded-t-[24px] sm:rounded-[24px] border-[1.5px] border-black bg-[#F7F3EB] p-5 shadow-2xl"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">
-                  Price negotiation
-                </p>
-                <h3 className="mt-1 text-[18px] font-black">
-                  {offers.length ? 'Counter offer' : 'Make an offer'}
-                </h3>
-                {range && (
-                  <p className="mt-1 text-[11px] font-semibold text-black/45">
-                    Listed range: {range}{thread.pay_unit ? ` /${thread.pay_unit}` : ''}
-                  </p>
-                )}
-              </div>
-              <button type="button" onClick={onCancelOffer} aria-label="Close negotiation" className="p-2">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="mt-4">
-              <NegotiationParties
-                currentUser={currentUser}
-                peer={thread.peer}
-                currentRole={thread.is_client ? 'client' : 'talent'}
-                compact
-              />
-            </div>
-
-            <label className="mt-4 block text-[11px] font-black">
-              Amount ({thread.currency || 'NGN'})
-              <input
-                type="number"
-                min={thread.price_min || 1}
-                max={thread.price_max || 2147483647}
-                step="1"
-                required
-                value={amount}
-                onChange={(event) => onAmount(event.target.value)}
-                disabled={busy}
-                className="mt-1.5 h-12 w-full rounded-[14px] border-[1.5px] border-black bg-white px-3 text-[16px] font-black outline-none"
-              />
-            </label>
-
-            <label className="mt-3 block text-[11px] font-black">
-              Note <span className="font-medium text-black/35">Optional</span>
-              <textarea
-                rows={3}
-                maxLength={500}
-                value={note}
-                onChange={(event) => onNote(event.target.value)}
-                disabled={busy}
-                placeholder="Scope, timeline, or context for this amount"
-                className="mt-1.5 w-full resize-y rounded-[14px] border-[1.5px] border-black bg-white p-3 text-[12px] outline-none"
-              />
-            </label>
-
-            {error && <p className="mt-2 text-[11px] font-semibold text-red-600">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={busy}
-              className="mt-4 h-11 w-full rounded-full bg-[#0A13E6] text-white text-[12px] font-black disabled:opacity-50"
-            >
-              {busy ? 'Sending…' : offers.length ? 'Send counter proposal' : 'Send proposal'}
-            </button>
-          </form>
-        </div>
-      )}
-    </>
-  )
-}
-
 function DealDetailsSheet({
   thread,
-  offers,
-  userId,
   events,
   eventsCursor,
   busy,
@@ -360,7 +52,6 @@ function DealDetailsSheet({
   onClose,
   onComplete,
 }) {
-  const range = formatRange(thread)
   const status =
     ['secured', 'released', 'refunded'].includes(thread.status)
       ? workLabels[thread.work_status] || statusLabel[thread.status] || 'Active deal'
@@ -405,13 +96,6 @@ function DealDetailsSheet({
             </div>
           </div>
 
-          {range && (
-            <div className="rounded-[16px] border border-black/10 bg-white p-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Listed range</p>
-              <p className="mt-1 text-[12px] font-black">{range}{thread.pay_unit ? ` /${thread.pay_unit}` : ''}</p>
-            </div>
-          )}
-
           {thread.contacts_unlocked && (thread.peer?.email || thread.peer?.phone) && (
             <div className="rounded-[16px] border border-black/10 bg-white p-3">
               <p className="text-[10px] font-black uppercase tracking-[0.1em] text-black/35">Contact</p>
@@ -419,8 +103,6 @@ function DealDetailsSheet({
               {thread.peer?.phone && <p className="mt-1 text-[12px]">{thread.peer.phone}</p>}
             </div>
           )}
-
-          {!!offers.length && <NegotiationHistory offers={offers} thread={thread} userId={userId} />}
 
           {(thread.contacts_unlocked || thread.status !== 'not_funded') && thread.status !== 'cancelled' && (
             <BookingProgress
@@ -564,7 +246,7 @@ export default function Messages() {
                       {item.agreed_at
                         ? `Agreed • ${money(item.amount, item.currency)}`
                         : item.price_type === 'range'
-                          ? 'Negotiating price'
+                          ? 'Price in Negotiation Center'
                           : item.status === 'secured'
                             ? workLabels[item.work_status]
                             : statusLabel[item.status]}
@@ -607,11 +289,6 @@ function BookingThread({ id, onBack }) {
   const [error, setError] = useState('')
   const [syncError, setSyncError] = useState('')
   const [text, setText] = useState('')
-  const [offerAmount, setOfferAmount] = useState('')
-  const [offerNote, setOfferNote] = useState('')
-  const [offerError, setOfferError] = useState('')
-  const [offerMode, setOfferMode] = useState(false)
-  const [offerBaseId, setOfferBaseId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [history, setHistory] = useState(false)
   const [dealOpen, setDealOpen] = useState(false)
@@ -635,7 +312,7 @@ function BookingThread({ id, onBack }) {
         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
       })
     }
-    const lastId = next.messages.at(-1)?.id
+    const lastId = next.messages.filter((message) => message.kind !== 'offer').at(-1)?.id
     if (lastId && !document.hidden) {
       await api.messageAction({ action: 'read_messages', escrow_id: id, through_id: lastId })
     }
@@ -648,19 +325,6 @@ function BookingThread({ id, onBack }) {
       sequence.current++
     }
   }, [])
-
-  useEffect(() => {
-    const thread = data?.thread
-    if (
-      thread &&
-      (thread.status !== 'not_funded' ||
-        thread.checkout_locked_at ||
-        thread.agreed_at ||
-        !(thread.price_type === 'range' || thread.price_negotiable))
-    ) {
-      setOfferMode(false)
-    }
-  }, [data?.thread])
 
   useEffect(() => {
     busyRef.current = busy
@@ -726,98 +390,6 @@ function BookingThread({ id, onBack }) {
     })
   }
 
-  function openOffer(baseId = null) {
-    const thread = data?.thread
-    const suggested = data?.thread?.pending_offer?.amount || thread?.amount || thread?.price_min || ''
-    setOfferBaseId(baseId)
-    setOfferAmount(suggested ? String(suggested) : '')
-    setOfferNote('')
-    setOfferError('')
-    setOfferMode(true)
-  }
-
-  function cancelOffer() {
-    setOfferMode(false)
-    setOfferAmount('')
-    setOfferNote('')
-    setOfferError('')
-    setOfferBaseId(null)
-  }
-
-  async function submitOffer(event) {
-    event.preventDefault()
-    if (busy) return
-    const thread = data.thread
-    const amount = Number(offerAmount)
-    if (!Number.isInteger(amount) || amount <= 0) {
-      setOfferError('Enter a valid whole-number proposal.')
-      return
-    }
-    if (thread.price_min != null && Number.isFinite(Number(thread.price_min)) && amount < Number(thread.price_min)) {
-      setOfferError(`Proposal must be at least ${money(thread.price_min, thread.currency)}.`)
-      return
-    }
-    if (thread.price_max != null && Number.isFinite(Number(thread.price_max)) && amount > Number(thread.price_max)) {
-      setOfferError(`Proposal must not exceed ${money(thread.price_max, thread.currency)}.`)
-      return
-    }
-
-    const payload = {
-      action: 'make_offer',
-      escrow_id: id,
-      body: offerNote.trim(),
-      amount,
-      expected_offer_id: offerBaseId,
-    }
-    const fingerprint = JSON.stringify(payload)
-    if (retryPayload.current?.fingerprint !== fingerprint) {
-      retryPayload.current = { fingerprint, token: crypto.randomUUID() }
-    }
-
-    setOfferError('')
-    setError('')
-    setBusy(true)
-    try {
-      const result = await api.messageAction({ ...payload, client_token: retryPayload.current.token })
-      retryPayload.current = null
-
-      const createdAt = new Date().toISOString()
-      const localOffer = {
-        id: result.id,
-        sender_id: user.id,
-        kind: 'offer',
-        body: offerNote.trim(),
-        amount,
-        currency: thread.currency || 'NGN',
-        pay_unit: thread.pay_unit || null,
-        offer_status: 'pending',
-        created_at: createdAt,
-        updated_at: createdAt,
-      }
-
-      setData((current) => {
-        if (!current) return current
-        const messages = current.messages.map((message) =>
-          message.kind === 'offer' && message.offer_status === 'pending'
-            ? { ...message, offer_status: 'superseded', updated_at: createdAt }
-            : message,
-        )
-        if (!messages.some((message) => message.id === localOffer.id)) messages.push(localOffer)
-        return {
-          ...current,
-          thread: { ...current.thread, pending_offer: localOffer },
-          messages,
-        }
-      })
-      cancelOffer()
-      setHistory(false)
-    } catch (e) {
-      if (mounted.current) setOfferError(e.message)
-    } finally {
-      if (mounted.current) setBusy(false)
-    }
-  }
-
   async function older() {
     setPaging(true)
     setHistory(true)
@@ -859,49 +431,7 @@ function BookingThread({ id, onBack }) {
   }
 
   const thread = data.thread
-  const pending = thread.pending_offer
   const closed = ['cancelled', 'refunded'].includes(thread.status)
-  const offers = data.messages.filter((message) => message.kind === 'offer')
-  const pendingRespond = async (status) => {
-    if (busy || !pending) return
-    setBusy(true)
-    setError('')
-    try {
-      await api.messageAction({
-        action: 'respond_offer',
-        escrow_id: id,
-        offer_id: pending.id,
-        status,
-      })
-
-      const updatedAt = new Date().toISOString()
-      setData((current) => {
-        if (!current) return current
-        const messages = current.messages.map((message) =>
-          message.id === pending.id
-            ? { ...message, offer_status: status, updated_at: updatedAt }
-            : message,
-        )
-        const threadUpdate = {
-          ...current.thread,
-          pending_offer: null,
-        }
-        if (status === 'accepted') {
-          threadUpdate.amount = Number(pending.amount)
-          threadUpdate.currency = pending.currency || current.thread.currency
-          threadUpdate.pay_unit = pending.pay_unit || current.thread.pay_unit
-          threadUpdate.agreed_at = updatedAt
-        }
-        return { ...current, thread: threadUpdate, messages }
-      })
-      setHistory(false)
-    } catch (e) {
-      if (mounted.current) setError(e.message)
-    } finally {
-      if (mounted.current) setBusy(false)
-    }
-  }
-
   const dealStatus =
     ['secured', 'released', 'refunded'].includes(thread.status)
       ? workLabels[thread.work_status] || statusLabel[thread.status] || 'Active deal'
@@ -967,28 +497,10 @@ function BookingThread({ id, onBack }) {
         </button>
       </div>
 
-      {(thread.price_type === 'range' || thread.price_negotiable) && (
-        <NegotiationPanel
-          thread={thread}
-          offers={offers}
-          pending={pending}
-          userId={user.id}
-          currentUser={user}
-          busy={busy}
-          offerMode={offerMode}
-          amount={offerAmount}
-          note={offerNote}
-          error={offerError}
-          onAmount={(value) => {
-            setOfferAmount(value)
-            setOfferError('')
-          }}
-          onNote={setOfferNote}
-          onOpenOffer={openOffer}
-          onCancelOffer={cancelOffer}
-          onSubmitOffer={submitOffer}
-          onRespond={pendingRespond}
-        />
+      {(thread.price_type === 'range' || thread.price_negotiable) && !thread.agreed_at && (
+        <Link to={`/negotiations?escrow=${id}`} className="mx-3 mt-2 rounded-[14px] border border-[#0A13E6]/20 bg-[#0A13E6]/5 px-3 py-2 text-[11px] font-bold text-[#0A13E6]">
+          Review the price in Negotiation Center →
+        </Link>
       )}
 
       {thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' && (
@@ -1001,7 +513,7 @@ function BookingThread({ id, onBack }) {
             <button
               type="button"
               className="h-9 px-4 rounded-full bg-[#0A13E6] text-white text-[11px] font-black disabled:opacity-50"
-              disabled={busy || Boolean(pending)}
+              disabled={busy || Boolean(thread.pending_offer)}
               onClick={() =>
                 run(async () => {
                   await api.fundEscrowWithWallet(id, thread.amount)
@@ -1093,13 +605,13 @@ function BookingThread({ id, onBack }) {
             </button>
           </div>
         )}
-        {!data.messages.length && (
+        {!data.messages.some((message) => message.kind !== 'offer') && (
           <div className="py-12 text-center">
             <p className="text-[13px] font-black text-black/45">No messages yet</p>
             <p className="mt-1 text-[11px] text-black/35">Start the conversation about this deal.</p>
           </div>
         )}
-        {data.messages.map((message) => {
+        {data.messages.filter((message) => message.kind !== 'offer').map((message) => {
           const own = message.sender_id === user.id
           return (
             <article
@@ -1108,17 +620,6 @@ function BookingThread({ id, onBack }) {
                 own ? 'ml-auto bg-[#0A13E6] text-white' : 'bg-[#F3F3F3] text-black'
               }`}
             >
-              {message.kind === 'offer' && (
-                <div className={`mb-1.5 pb-1.5 border-b ${own ? 'border-white/20' : 'border-black/10'}`}>
-                  <p className={`text-[9px] font-black uppercase tracking-[0.08em] ${own ? 'text-white/65' : 'text-black/40'}`}>
-                    Proposal · {offerStatusLabel[message.offer_status] || message.offer_status}
-                  </p>
-                  <p className="mt-0.5 text-[14px] font-black">
-                    {money(message.amount, message.currency || thread.currency)}
-                    {(message.pay_unit || thread.pay_unit) ? ` /${message.pay_unit || thread.pay_unit}` : ''}
-                  </p>
-                </div>
-              )}
               {message.body && (
                 <p className="text-[12px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                   {message.body}
@@ -1178,8 +679,6 @@ function BookingThread({ id, onBack }) {
       {dealOpen && (
         <DealDetailsSheet
           thread={thread}
-          offers={offers}
-          userId={user.id}
           events={data.events}
           eventsCursor={data.eventsCursor}
           busy={busy}

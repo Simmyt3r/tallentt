@@ -7,7 +7,7 @@ import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTran
 import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from '../_lib/wallet.js'
 import { applyVerifiedLegacyBookingCharge } from '../_lib/bookingCheckout.js'
 import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notifications.js'
-import { getConversations, getThread, threadAction } from '../_lib/bookingThreads.js'
+import { getConversations, getNegotiations, getThread, threadAction } from '../_lib/bookingThreads.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from '../_lib/bookingRules.js'
 import { emitMyDealsEvent, getMyDeals, respondBookingRequest, writeBookingCreatedNotifications } from '../_lib/myDeals.js'
 
@@ -26,6 +26,9 @@ export default async function handler(req, res) {
 
       if (url.searchParams.get('conversations') === '1') {
         return json(res, 200, await getConversations(session.sub, url.searchParams.get('before')))
+      }
+      if (url.searchParams.get('negotiations') === '1') {
+        return json(res, 200, await getNegotiations(session.sub, url.searchParams.get('before')))
       }
       if (url.searchParams.get('messages') === '1') {
         return json(res, 200, await getThread(session.sub, url.searchParams.get('escrow_id'), url.searchParams.get('before'), url.searchParams.get('events_before')))
@@ -97,7 +100,7 @@ export default async function handler(req, res) {
     const body = await readBody(req)
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'A JSON object is required.' })
 
-    if (['send_message', 'make_offer', 'respond_offer', 'read_messages'].includes(body.action)) {
+    if (['send_message', 'make_offer', 'respond_offer', 'read_messages', 'read_offers'].includes(body.action)) {
       return json(res, 200, await threadAction(session.sub, body))
     }
     if (body.action === 'respond_booking') {

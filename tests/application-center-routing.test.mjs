@@ -41,5 +41,5 @@ test('active booking management remains inside My Deals and Messages and funds f
   assert.match(deals, /Pay from wallet/)
   assert.doesNotMatch(deals, /payForBooking/)
   assert.doesNotMatch(deals, /Pay with card/)
-  assert.match(deals, /\/messages\?escrow=/)
+  assert.match(deals, /negotiablePrice \? '\/negotiations' : '\/messages'/)
 })

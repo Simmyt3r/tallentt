@@ -17,8 +17,10 @@ test('Range Hats start with a proposal instead of a fee detour', () => {
   assert.match(shared, /The final deal price is set only when one proposal is accepted/)
 })
 
-test('deal conversation keeps chat primary and negotiation contextual', () => {
+test('offers live in the negotiation center while chat remains in messages', () => {
   const messages = read('src/pages/Messages.jsx')
+  const center = read('src/pages/Negotiations.jsx')
+  const panel = read('src/components/NegotiationPanel.jsx')
   const parties = read('src/components/NegotiationParties.jsx')
   for (const phrase of [
     'Price negotiation',
@@ -29,18 +31,18 @@ test('deal conversation keeps chat primary and negotiation contextual', () => {
     'Negotiation history',
     'Final agreed price',
     'Send counter proposal',
-    'View deal',
-    'Deal details',
-    'Type a message…',
   ]) {
-    assert.ok(messages.includes(phrase), phrase)
+    assert.ok(panel.includes(phrase), phrase)
   }
-  assert.match(messages, /NegotiationParties/)
+  for (const tab of ['Action needed', 'Ongoing', 'Completed']) assert.ok(center.includes(tab))
+  assert.match(center, /NegotiationParties/)
   assert.match(parties, /Switch negotiation sides/)
   assert.match(parties, /Client/)
   assert.match(parties, /Talent/)
   assert.match(parties, /ArrowLeftRight/)
-  assert.match(messages, /data\.messages\.filter\(\(message\) => message\.kind === 'offer'\)/)
+  assert.match(center, /filter\(\(message\) => message\.kind === 'offer'\)/)
+  assert.match(messages, /message\.kind !== 'offer'/)
+  assert.match(messages, /Type a message…/)
   assert.match(messages, /setDealOpen\(true\)/)
 })
 

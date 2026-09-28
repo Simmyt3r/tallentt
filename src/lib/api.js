@@ -88,6 +88,7 @@ export const api = {
   generateBookingQr: (id, stage) => request(`/api/escrows/${id}/generate-qr`, { method: 'POST', body: JSON.stringify({ stage }) }),
   redeemBookingQr: (id, token) => request(`/api/escrows/${id}/redeem-qr`, { method: 'POST', body: JSON.stringify({ token }) }),
   getConversations: (before) => request(`/api/escrows?conversations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
+  getNegotiations: (before) => request(`/api/escrows?negotiations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
   getMessages: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
   getBookingHistory: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}&events_before=${encodeURIComponent(before)}`, { cache: 'no-store' }),
   messageAction: (body) => request('/api/escrows', { method: 'POST', body: JSON.stringify(body) }),
@@ -299,5 +300,4 @@ export function maskLeaks(text) {
   if (!text) return text
   return text.replace(/\b(whatsapp|telegram|tg\b|call me|my number|hmu|dm me)\b/gi, '••••')
 }
-
 

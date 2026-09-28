@@ -99,7 +99,22 @@ test('counteroffers supersede, only recipients accept, and stale responses fail'
   await respond(clientId, counter.id, 'accepted')
   assert.equal((await state()).amount, 9000)
   assert.equal((await respond(clientId, counter.id, 'accepted')).alreadyProcessed, true)
-  assert.equal((await threads.getConversations(talentId)).conversations[0].unread_count, 1)
+  assert.equal((await threads.getConversations(talentId)).conversations[0].unread_count, 0)
+  assert.equal((await threads.getNegotiations(clientId)).negotiations[0].agreed_at != null, true)
+  assert.equal((await pool.query("SELECT link_url FROM notifications WHERE user_id = $1 AND type = 'booking_offer'", [talentId])).rows[0].link_url,
+    `/negotiations?escrow=${escrowId}`)
+})
+
+test('negotiation listing and offer alerts stay separate from chat unread state', async () => {
+  assert.equal((await threads.getNegotiations(outsiderId)).negotiations.length, 0)
+  const proposal = await offer(clientId, 8500)
+  const [talentDeal] = (await threads.getNegotiations(talentId)).negotiations
+  assert.equal(talentDeal.pending_offer_id, proposal.id)
+  assert.equal(talentDeal.pending_offer_sender_id, clientId)
+  assert.equal((await threads.getConversations(talentId)).conversations[0].unread_count, 0)
+  await threads.threadAction(talentId, { action: 'read_offers', escrow_id: escrowId })
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM notifications WHERE user_id = $1 AND type = 'booking_offer' AND read_at IS NULL", [talentId])).rows[0].n, 0)
+  await assert.rejects(threads.threadAction(outsiderId, { action: 'read_offers', escrow_id: escrowId }), { status: 404 })
 })
 
 test('Range booking must agree a proposal before the talent can accept it', async () => {

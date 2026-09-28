@@ -385,7 +385,8 @@ export default function MyDealsModal() {
                     role: peer.role,
                   }
                   const incomingPending = tab === 'incoming'
-                  const unresolvedRange = item.price_type === 'range' && !item.agreed_at
+                  const negotiablePrice = item.price_type === 'range' || item.price_negotiable
+                  const unresolvedRange = negotiablePrice && !item.agreed_at
                   const outgoingApplication = tab === 'outgoing' && isApplication
                   const activeBooking = tab === 'active' && !isApplication
                   const canUseWallet =
@@ -494,12 +495,12 @@ export default function MyDealsModal() {
                       </div>
 
                       <div className="border-t border-black/10 px-4 sm:px-5 py-3 flex flex-wrap items-center justify-end gap-2">
-                        {isApplication && item.price_type === 'range' && item.negotiation_escrow_id && (
+                        {isApplication && negotiablePrice && item.negotiation_escrow_id && (
                           <Link
-                            to={`/messages?escrow=${item.negotiation_escrow_id}`}
+                            to={`/negotiations?escrow=${item.negotiation_escrow_id}`}
                             className="h-9 px-4 rounded-full border-[1.5px] border-black text-[11px] font-black inline-flex items-center gap-1.5"
                           >
-                            <MessageCircle size={14} /> {item.agreed_at ? 'View agreement' : 'Negotiate'}
+                            <Handshake size={14} /> {item.agreed_at ? 'View agreement' : 'Negotiate'}
                           </Link>
                         )}
 
@@ -538,10 +539,10 @@ export default function MyDealsModal() {
 
                         {!isApplication && (
                           <Link
-                            to={`/messages?escrow=${item.id}`}
+                            to={`${negotiablePrice ? '/negotiations' : '/messages'}?escrow=${item.id}`}
                             className="h-9 px-4 rounded-full border-[1.5px] border-black text-[11px] font-black inline-flex items-center gap-1.5"
                           >
-                            <MessageCircle size={14} /> {unresolvedRange ? 'Negotiate' : item.price_type === 'range' && item.agreed_at ? 'View agreement' : 'Conversation'}
+                            {negotiablePrice ? <Handshake size={14} /> : <MessageCircle size={14} />} {unresolvedRange ? 'Negotiate' : negotiablePrice && item.agreed_at ? 'View agreement' : 'Conversation'}
                           </Link>
                         )}
 

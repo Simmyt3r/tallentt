@@ -8,6 +8,7 @@ import {
   Handshake,
   Wallet as WalletIcon,
   MessageCircle,
+  ArrowLeftRight,
   Radio,
 } from 'lucide-react'
 
@@ -21,7 +22,8 @@ export const NAV_PRIMARY = [
 ]
 
 export const NAV_SECONDARY = [
-  { to: '/messages', icon: MessageCircle, label: 'Negotiation Center' },
+  { to: '/negotiations', icon: ArrowLeftRight, label: 'Negotiation Center' },
+  { to: '/messages', icon: MessageCircle, label: 'Messages' },
   { to: '/wallet', icon: WalletIcon, label: 'Wallet' },
 ]
 
@@ -30,6 +32,7 @@ export const PROFILE_ITEM = { to: '/profile', icon: UserRound, label: 'Profile' 
 const TITLES = [
   { test: (p) => p === '/', title: 'Feed' },
   { test: (p) => p.startsWith('/messages'), title: 'Messages' },
+  { test: (p) => p.startsWith('/negotiations'), title: 'Negotiation Center' },
   { test: (p) => p.startsWith('/showroom'), title: 'Showroom' },
   { test: (p) => p.startsWith('/deals'), title: 'My Deals' },
   { test: (p) => p.startsWith('/my-hats'), title: 'My Hats' },
