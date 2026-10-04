@@ -21,7 +21,8 @@ await database.pool.query(`INSERT INTO hats (id, user_id, hat_title, hat_name, u
 await database.pool.query(`INSERT INTO escrows (id, hat_id, client_id, talent_id, amount) VALUES ($1, $2, $3, $4, 10000)`,
   [ids.escrow, ids.hat, ids.client, ids.talent])
 await database.pool.query(`INSERT INTO wallets (user_id, balance) VALUES ($1, 50000)`, [ids.client])
-await database.pool.query(`INSERT INTO escrows (id, hat_id, client_id, talent_id, amount, contacts_unlocked) VALUES ($1, $2, $3, $4, 10000, true)`,
+await database.pool.query(`INSERT INTO escrows (id, hat_id, client_id, talent_id, amount, contacts_unlocked, agreed_at)
+  VALUES ($1, $2, $3, $4, 10000, true, NOW())`,
   [ids.refund, ids.hat, ids.client, ids.talent])
 const { payBookingWithWallet } = await import('../api/_lib/bookingCheckout.js')
 await payBookingWithWallet(ids.client, ids.refund, 10000)
