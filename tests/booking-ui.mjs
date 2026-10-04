@@ -98,7 +98,7 @@ try {
   await client.getByRole('button', { name: 'Send', exact: true }).click()
   await client.locator('article').filter({ hasText: 'email@example.com' }).waitFor()
   assert.equal(await client.getByRole('button', { name: /Make .*proposal/, exact: false }).count(), 0)
-  await talent.reload()
+  await talent.goto('http://127.0.0.1:5179/messages?escrow=44444444-4444-4444-8444-444444444444')
   await talent.locator('article').filter({ hasText: 'email@example.com' }).waitFor()
   assert.equal(await talent.getByRole('button', { name: /Submit work|Scan start QR|Scan completion QR/ }).count(), 0)
   await talent.screenshot({ path: 'test-results/messaging-secured-mobile.png', fullPage: true })
