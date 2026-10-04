@@ -28,7 +28,8 @@ export const api = {
   logout: () => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) }),
   usernameCheck: (u) => request(`/api/auth?action=username-check&u=${encodeURIComponent(u)}`),
   updateProfile: (body) => request('/api/auth', { method: 'PUT', body: JSON.stringify(body) }),
-  getNotifications: () => request('/api/auth?action=notifications'),
+  getNotifications: (before) => request(`/api/auth?action=notifications${before ? `&before=${encodeURIComponent(before)}` : ''}`),
+  getNotificationCount: () => request('/api/auth?action=notification-count'),
   markNotificationRead: (notificationId) =>
     request('/api/auth', {
       method: 'PUT',
@@ -129,6 +130,9 @@ export const api = {
   getReceivedApplications: () => request('/api/hats?received_applications=1'),
   getMyBookings: () => request('/api/escrows?mine=1'),
   getMyDeals: () => request('/api/escrows?deals=1'),
+  getMyDealsCount: () => request('/api/escrows?deals_count=1'),
+  getMyDealsPage: (role, tab, before) => request(`/api/escrows?deals=1&role=${encodeURIComponent(role)}&tab=${encodeURIComponent(tab)}${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
+  getDealDetail: (id) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}`, { cache: 'no-store' }),
   respondToBooking: (escrowId, status) =>
     request('/api/escrows', {
       method: 'POST',
