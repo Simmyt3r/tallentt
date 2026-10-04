@@ -35,7 +35,7 @@ try {
       await client.getByRole('button', { name: 'Open menu', exact: true }).click()
       await client.waitForTimeout(250) // let the 200ms slide-in transition settle before measuring
     }
-    for (const name of ['Messages', 'Wallet', 'Admin']) {
+    for (const name of ['Deals Chat', 'Wallet', 'Admin']) {
       const link = client.getByRole('link', { name, exact: true }).first()
       assert.equal(await link.isVisible(), true, `${name} missing at ${width}`)
       const box = await link.boundingBox()
@@ -69,9 +69,9 @@ try {
   await client.reload()
   await client.getByText('Final agreed price', { exact: true }).waitFor()
   await client.goto('http://127.0.0.1:5179/messages?escrow=44444444-4444-4444-8444-444444444444')
-  assert.equal(await client.getByRole('button', { name: /Pay .* from wallet/ }).count(), 1)
+  assert.equal(await client.getByRole('button', { name: /Fund escrow/ }).count(), 1)
   assert.equal(await client.getByRole('button', { name: /card/i }).count(), 0)
-  await client.getByRole('button', { name: /Pay .* from wallet/ }).click()
+  await client.getByRole('button', { name: /Fund escrow/ }).click()
   await client.getByRole('heading', { name: 'Awaiting start QR scan', exact: true }).waitFor()
   await client.goto('http://127.0.0.1:5179/deals?role=client&tab=active')
   await dealCard(client).getByRole('button', { name: 'Generate start QR', exact: true }).click()
