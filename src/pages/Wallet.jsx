@@ -1,6 +1,6 @@
 // Path: src/pages/Wallet.jsx
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDownToLine, ArrowUpFromLine, Landmark, Wallet as WalletIcon } from 'lucide-react'
 import { api, payWithPaystack } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -40,13 +40,19 @@ const CREDIT_TYPES = new Set(['topup', 'escrow_start', 'escrow_release', 'refund
 
 export default function Wallet() {
   const { user, refreshUser } = useAuth()
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const requestedTopup = Number(params.get('topup'))
+  const initialTopup = Number.isFinite(requestedTopup) && requestedTopup > 0 ? Math.ceil(requestedTopup) : 0
+  const requestedReturn = params.get('return') || ''
+  const returnTo = requestedReturn.startsWith('/') && !requestedReturn.startsWith('//') ? requestedReturn : ''
   const [balance, setBalance] = useState(null)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [topupOpen, setTopupOpen] = useState(false)
-  const [topupInput, setTopupInput] = useState('')
+  const [topupOpen, setTopupOpen] = useState(initialTopup > 0)
+  const [topupInput, setTopupInput] = useState(initialTopup > 0 ? String(initialTopup) : '')
 
   useEffect(() => {
     let cancelled = false
@@ -100,6 +106,10 @@ export default function Wallet() {
       })
       const result = await api.topupWallet(reference)
       await reload()
+      if (returnTo) {
+        navigate(returnTo)
+        return
+      }
       alert(`${fmtMoney(result.amount || amount)} added to your wallet.`)
     } catch (e) {
       alert(e.message)
@@ -239,7 +249,10 @@ export default function Wallet() {
             className="bg-white rounded-[24px] border-[1.5px] border-black p-6 w-full max-w-[380px] shadow-[0_24px_60px_rgba(0,0,0,0.2)]"
           >
             <h2 className="text-[16px] font-bold tracking-tight mb-1">Top up your wallet</h2>
-            <p className="text-[12px] text-black/50 font-medium mb-4">Funded via Paystack — card, transfer, or USSD.</p>
+            <p className="text-[12px] text-black/50 font-medium mb-4">
+              Funded via Paystack — card, transfer, or USSD.
+              {returnTo ? ' After a successful top-up, you’ll return to the deal.' : ''}
+            </p>
 
             <label htmlFor="topup-amount" className="text-[11px] font-bold tracking-widest uppercase text-black/50">
               Amount (₦)
