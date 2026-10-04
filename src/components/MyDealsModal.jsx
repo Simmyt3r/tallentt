@@ -7,6 +7,7 @@ import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 import RoleCardBadge from './RoleCardBadge.jsx'
 import DealQrCheckpoint from './DealQrCheckpoint.jsx'
 import EscrowFundingCard from './EscrowFundingCard.jsx'
+import BookingProgress from './BookingProgress.jsx'
 import NegotiationParties from './NegotiationParties.jsx'
 
 function money(value, currency = 'NGN') {
@@ -248,6 +249,21 @@ export default function MyDealsModal() {
           ? 'Insufficient wallet balance. Top up your wallet, then fund this deal.'
           : e.message || 'Could not fund this booking.',
       )
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function runBookingWorkflow(item, operation) {
+    if (busyId) return
+    setBusyId(item.id)
+    setError('')
+    try {
+      await operation()
+      await load({ quiet: true })
+      notifyLocalChange()
+    } catch (e) {
+      setError(e.message || 'Could not update this deal.')
     } finally {
       setBusyId(null)
     }
@@ -573,12 +589,29 @@ export default function MyDealsModal() {
 
                       {activeBooking && item.status === 'secured' &&
                         ['awaiting_start', 'awaiting_completion'].includes(item.work_status) && (
-                          <DealQrCheckpoint booking={item} role={role} onComplete={async () => {
-                            await refreshUser()
-                            await load({ quiet: true })
-                            notifyLocalChange()
-                          }} />
+                          <div className="border-t border-black/10 px-4 sm:px-5 py-3">
+                            <DealQrCheckpoint booking={{ ...item, is_client: role === 'client' }} role={role} onComplete={async () => {
+                              await refreshUser()
+                              await load({ quiet: true })
+                              notifyLocalChange()
+                            }} />
+                          </div>
                         )}
+
+                      {activeBooking && item.status === 'secured' && (
+                        <div className="border-t border-black/10 px-4 sm:px-5 py-3">
+                          <BookingProgress
+                            thread={{ ...item, is_client: role === 'client' }}
+                            events={[]}
+                            eventsCursor={null}
+                            busy={busyId === id}
+                            run={(operation) => runBookingWorkflow(item, operation)}
+                            refreshUser={refreshUser}
+                            compact
+                            showHistory={false}
+                          />
+                        </div>
+                      )}
                     </article>
                   )
                 })}
