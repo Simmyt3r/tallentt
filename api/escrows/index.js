@@ -10,6 +10,7 @@ import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notific
 import { getConversations, getNegotiations, getThread, threadAction } from '../_lib/bookingThreads.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from '../_lib/bookingRules.js'
 import { emitMyDealsEvent, getMyDeals, getMyDealsCount, getMyDealsPage, respondBookingRequest, writeBookingCreatedNotifications } from '../_lib/myDeals.js'
+import { dispatchStoredNotifications } from '../_lib/pushNotifications.js'
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store')
@@ -191,6 +192,7 @@ async function createBooking(userId, hatId, proposal = {}) {
 
     await client.query('COMMIT')
     if (notificationBooking) {
+      await dispatchStoredNotifications(notificationBooking.pushNotifications)
       emitMyDealsEvent(
         [notificationBooking.client_id, notificationBooking.talent_id],
         'booking_requested',
