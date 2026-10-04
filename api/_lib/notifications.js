@@ -1,4 +1,5 @@
 import { query } from './db.js'
+import { dispatchStoredNotification } from './pushNotifications.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -94,7 +95,7 @@ export async function markNotificationRead(userId, notificationId) {
     `UPDATE notifications
      SET read_at = COALESCE(read_at, NOW())
      WHERE id = $1 AND user_id = $2
-     RETURNING id, type, title, body, link_url, metadata, read_at, created_at`,
+     RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
     [notificationId, userId],
   )
   return rows[0] ? mapNotification(rows[0]) : null
@@ -133,7 +134,9 @@ export async function notifyUserWithQuery(
 
 export async function notifyUser(payload) {
   try {
-    return await notifyUserWithQuery(query, payload)
+    const notification = await notifyUserWithQuery(query, payload)
+    if (notification) await dispatchStoredNotification(notification)
+    return notification
   } catch (err) {
     console.error('notification insert failed:', err)
     return null
