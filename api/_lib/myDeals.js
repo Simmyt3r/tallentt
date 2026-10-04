@@ -298,7 +298,7 @@ export async function writeBookingCreatedNotifications(client, escrowId) {
       type: 'booking_requested',
       title: 'New booking request',
       body: `${clientName} wants to book you for ${title}.`,
-      linkUrl: '/deals?role=talent&tab=incoming',
+      linkUrl: `/deals/${booking.id}?role=talent`,
       metadata: { escrow_id: booking.id, hat_id: booking.hat_id },
     }),
     notifyUserWithQuery(runQuery, {
@@ -306,7 +306,7 @@ export async function writeBookingCreatedNotifications(client, escrowId) {
       type: 'booking_sent',
       title: 'Booking request sent',
       body: `Your booking request for ${title} was sent to ${talentName}.`,
-      linkUrl: '/deals?role=client&tab=outgoing',
+      linkUrl: `/deals/${booking.id}?role=client`,
       metadata: { escrow_id: booking.id, hat_id: booking.hat_id },
     }),
   ])
@@ -328,7 +328,7 @@ export async function notifyBookingCreated(escrowId) {
         type: 'booking_requested',
         title: 'New booking request',
         body: `${clientName} wants to book you for ${title}.`,
-        linkUrl: '/deals?role=talent&tab=incoming',
+        linkUrl: `/deals/${booking.id}?role=talent`,
         metadata: { escrow_id: booking.id, hat_id: booking.hat_id },
       }),
       notifyUser({
@@ -336,7 +336,7 @@ export async function notifyBookingCreated(escrowId) {
         type: 'booking_sent',
         title: 'Booking request sent',
         body: `Your booking request for ${title} was sent to ${talentName}.`,
-        linkUrl: '/deals?role=client&tab=outgoing',
+        linkUrl: `/deals/${booking.id}?role=client`,
         metadata: { escrow_id: booking.id, hat_id: booking.hat_id },
       }),
     ])
@@ -440,7 +440,7 @@ export async function respondBookingRequest(userId, escrowId, status) {
           type: 'booking_accepted',
           title: 'Booking accepted',
           body: `${talentName} accepted your booking request for ${title}.`,
-          linkUrl: '/deals?role=client&tab=active',
+          linkUrl: `/deals/${booking.id}?role=client`,
           metadata: { escrow_id: booking.id, hat_id: booking.hat_id, status },
         }),
         notifyUser({
@@ -448,7 +448,7 @@ export async function respondBookingRequest(userId, escrowId, status) {
           type: 'booking_accepted',
           title: 'Booking accepted',
           body: `You accepted ${clientName}'s booking request for ${title}.`,
-          linkUrl: '/deals?role=talent&tab=active',
+          linkUrl: `/deals/${booking.id}?role=talent`,
           metadata: { escrow_id: booking.id, hat_id: booking.hat_id, status },
         }),
       ])
@@ -459,7 +459,7 @@ export async function respondBookingRequest(userId, escrowId, status) {
           type: 'booking_rejected',
           title: 'Booking rejected',
           body: `${talentName} declined your booking request for ${title}.`,
-          linkUrl: '/deals?role=client&tab=outgoing',
+          linkUrl: `/deals/${booking.id}?role=client`,
           metadata: { escrow_id: booking.id, hat_id: booking.hat_id, status },
         }),
         notifyUser({
@@ -467,7 +467,7 @@ export async function respondBookingRequest(userId, escrowId, status) {
           type: 'booking_rejected',
           title: 'Booking rejected',
           body: `You declined ${clientName}'s booking request for ${title}.`,
-          linkUrl: '/deals?role=talent&tab=incoming',
+          linkUrl: `/deals/${booking.id}?role=talent`,
           metadata: { escrow_id: booking.id, hat_id: booking.hat_id, status },
         }),
       ])
@@ -483,10 +483,12 @@ async function applicationSnapshot(applicationId) {
   const { rows } = await query(
     `SELECT a.id AS application_id, a.hat_id, a.applicant_id, a.status,
             h.user_id AS owner_id, h.hat_title,
+            deal.id AS deal_id,
             owner.username AS owner_username, owner.full_name AS owner_full_name,
             applicant.username AS applicant_username, applicant.full_name AS applicant_full_name
      FROM applications a
      JOIN hats h ON h.id = a.hat_id
+     LEFT JOIN escrows deal ON deal.application_id = a.id
      LEFT JOIN users owner ON owner.id = h.user_id
      LEFT JOIN users applicant ON applicant.id = a.applicant_id
      WHERE a.id = $1`,
@@ -602,7 +604,7 @@ export async function notifyApplicationState(applicationId, status, actor = 'own
             : restored
               ? `Your application for ${title} is pending again.`
               : `${ownerName} declined your application for ${title}.`,
-        linkUrl: accepted ? '/deals?role=talent&tab=active' : '/deals?role=talent&tab=outgoing',
+        linkUrl: accepted && app.deal_id ? `/deals/${app.deal_id}?role=talent` : '/deals?role=talent&tab=outgoing',
         metadata: { application_id: app.application_id, hat_id: app.hat_id, status, actor },
       }),
       notifyUser({
@@ -616,7 +618,7 @@ export async function notifyApplicationState(applicationId, status, actor = 'own
             : restored
               ? `${applicantName}'s application for ${title} is pending again.`
               : `You declined ${applicantName}'s application for ${title}.`,
-        linkUrl: accepted ? '/deals?role=client&tab=active' : '/deals?role=client&tab=incoming',
+        linkUrl: accepted && app.deal_id ? `/deals/${app.deal_id}?role=client` : '/deals?role=client&tab=incoming',
         metadata: { application_id: app.application_id, hat_id: app.hat_id, status, actor },
       }),
     ])
