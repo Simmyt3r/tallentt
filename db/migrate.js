@@ -27,6 +27,8 @@ async function main() {
           ? ['hat-availability-days.sql', 'hat-hiring-duration.sql']
           : process.argv.includes('--deals-runtime')
             ? ['patch-deals-runtime-v1.sql']
+            : process.argv.includes('--push')
+              ? ['push-notifications.sql']
             : ['schema.sql', 'live-support.sql']
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
