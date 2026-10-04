@@ -31,6 +31,12 @@ export default function NotificationsMenu({ className = '', buttonClassName = ''
     return () => connection.close()
   }, [loadCount, user?.id])
 
+  useEffect(() => {
+    const onPush = () => loadCount()
+    window.addEventListener('push:notification', onPush)
+    return () => window.removeEventListener('push:notification', onPush)
+  }, [loadCount])
+
   return (
     <div className={`relative shrink-0 ${className}`}>
       <Link
