@@ -1,6 +1,7 @@
 import { getClient, query } from './db.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from './bookingRules.js'
 import { creditWallet } from './wallet.js'
+import { dispatchStoredNotifications } from './pushNotifications.js'
 
 const titles = {
   submit_delivery: 'Work submitted for review', request_revision: 'Revisions requested',
@@ -119,22 +120,34 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
         previously_released: escrow.start_released_amount, remaining: Number(escrow.amount) - Number(escrow.start_released_amount),
         outcome: settlement, reason: note })],
     )
+    const pushNotifications = []
     const recipients = adminAction ? [escrow.client_id, escrow.talent_id]
       : [userId === escrow.client_id ? escrow.talent_id : escrow.client_id]
-    for (const recipient of recipients) await client.query(
-      `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
-       VALUES ($1, 'booking_lifecycle', $2, $3, $4, $5::jsonb)`,
-      [recipient, titles[action], settlement === 'refunded' ? 'The remaining escrow balance was returned to the client wallet.'
-        : action === 'approve_delivery' ? 'The client approved delivery. Present the completion QR to the talent for the remaining payment.'
-          : 'Open the booking to review the update.', `/messages?escrow=${escrowId}`, JSON.stringify({ escrow_id: escrowId })],
-    )
-    if (action === 'open_dispute') await client.query(
-      `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
-       SELECT id, 'booking_dispute', 'Booking dispute needs review', 'Review the evidence in the admin panel.',
-         '/admin?tab=disputes', $1::jsonb FROM users WHERE is_admin = true AND id NOT IN ($2, $3)`,
-      [JSON.stringify({ escrow_id: escrowId }), escrow.client_id, escrow.talent_id],
-    )
+    for (const recipient of recipients) {
+      const role = recipient === escrow.client_id ? 'client' : 'talent'
+      const { rows: notificationRows } = await client.query(
+        `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
+         VALUES ($1, 'booking_lifecycle', $2, $3, $4, $5::jsonb)
+         RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
+        [recipient, titles[action], settlement === 'refunded' ? 'The remaining escrow balance was returned to the client wallet.'
+          : action === 'approve_delivery' ? 'The client approved delivery. The completion QR checkpoint is now ready.'
+            : 'Open the deal to review the update.', `/deals/${escrowId}?role=${role}`,
+          JSON.stringify({ escrow_id: escrowId, action, settlement: settlement || null })],
+      )
+      if (notificationRows[0]) pushNotifications.push(notificationRows[0])
+    }
+    if (action === 'open_dispute') {
+      const { rows: adminNotifications } = await client.query(
+        `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
+         SELECT id, 'booking_dispute', 'Booking dispute needs review', 'Review the evidence in the admin panel.',
+           '/admin?tab=disputes', $1::jsonb FROM users WHERE is_admin = true AND id NOT IN ($2, $3)
+         RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
+        [JSON.stringify({ escrow_id: escrowId, action }), escrow.client_id, escrow.talent_id],
+      )
+      pushNotifications.push(...adminNotifications)
+    }
     await client.query('COMMIT')
+    if (pushNotifications.length) await dispatchStoredNotifications(pushNotifications)
     return { escrow: publicState(updated[0]), alreadyProcessed: false }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
