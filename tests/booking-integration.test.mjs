@@ -48,6 +48,7 @@ const respond = (sender, id, status) => threads.threadAction(sender, { action: '
 const state = async () => (await pool.query('SELECT * FROM escrows WHERE id = $1', [escrowId])).rows[0]
 const txn = (reference, amount = 1000000) => ({ reference, amount, status: 'success', currency: 'NGN', metadata: { escrow_id: escrowId } })
 const accept = () => pool.query('UPDATE escrows SET contacts_unlocked = true WHERE id = $1', [escrowId])
+const settleNegotiation = () => pool.query('UPDATE escrows SET agreed_at = NOW() WHERE id = $1', [escrowId])
 
 test('migration works fresh and on upgrade, and does not lock new bookings on rerun', async () => {
   await pool.query(schema)
@@ -115,6 +116,20 @@ test('negotiation listing and offer alerts stay separate from chat unread state'
   await threads.threadAction(talentId, { action: 'read_offers', escrow_id: escrowId })
   assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM notifications WHERE user_id = $1 AND type = 'booking_offer' AND read_at IS NULL", [talentId])).rows[0].n, 0)
   await assert.rejects(threads.threadAction(outsiderId, { action: 'read_offers', escrow_id: escrowId }), { status: 404 })
+})
+
+test('negotiable booking cannot fund escrow before a final price is agreed', async () => {
+  await accept()
+  await assert.rejects(
+    checkout.payBookingWithWallet(clientId, escrowId, 10000),
+    { status: 409 },
+  )
+  await assert.rejects(
+    checkout.prepareCheckout(clientId, escrowId, 10000),
+    { status: 409 },
+  )
+  assert.equal((await state()).status, 'not_funded')
+  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [clientId])).rows[0].balance, 100000)
 })
 
 test('Range booking must agree a proposal before the talent can accept it', async () => {
@@ -246,6 +261,7 @@ test('wallet uses accepted price and QR checkpoints credit talent once in two st
 
 test('legacy card checkout enters wallet first, then funds escrow from wallet', async () => {
   await accept()
+  await settleNegotiation()
   const prepared = await checkout.prepareCheckout(clientId, escrowId, 10000)
   assert.equal((await checkout.prepareCheckout(clientId, escrowId, 10000)).reference, prepared.reference)
   await assert.rejects(offer(clientId), { status: 409 })
@@ -275,6 +291,7 @@ test('legacy card checkout enters wallet first, then funds escrow from wallet', 
 
 test('wallet funding is allowed after an abandoned legacy checkout was started', async () => {
   await accept()
+  await settleNegotiation()
   await checkout.prepareCheckout(clientId, escrowId, 10000)
   await checkout.payBookingWithWallet(clientId, escrowId, 10000)
   assert.equal((await state()).status, 'secured')
@@ -284,6 +301,7 @@ test('wallet funding is allowed after an abandoned legacy checkout was started',
 
 test('competing funding requests debit the wallet only once', async () => {
   await accept()
+  await settleNegotiation()
   const results = await Promise.allSettled([
     checkout.payBookingWithWallet(clientId, escrowId, 10000),
     checkout.payBookingWithWallet(clientId, escrowId, 10000),
@@ -358,6 +376,7 @@ test('admin cancellation cannot race a started checkout', async () => {
   await pool.query(`INSERT INTO escrows (id, hat_id, client_id, talent_id, amount)
     VALUES ($1, $2, $3, $4, 10000)`, [escrowId, hatId, clientId, talentId])
   await accept()
+  await settleNegotiation()
   await checkout.prepareCheckout(clientId, escrowId, 10000)
   assert.equal((await cancel()).status, 409)
   assert.equal((await state()).status, 'not_funded')
