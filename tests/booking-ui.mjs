@@ -69,6 +69,7 @@ try {
   await client.reload()
   await client.getByText('Final agreed price', { exact: true }).waitFor()
   await client.goto('http://127.0.0.1:5179/messages?escrow=44444444-4444-4444-8444-444444444444')
+  await client.getByRole('button', { name: /Fund escrow/ }).waitFor()
   assert.equal(await client.getByRole('button', { name: /Fund escrow/ }).count(), 1)
   assert.equal(await client.getByRole('button', { name: /card/i }).count(), 0)
   await client.getByRole('button', { name: /Fund escrow/ }).click()
