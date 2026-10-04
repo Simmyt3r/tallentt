@@ -20,6 +20,14 @@ import {
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { listBanks, resolveBankAccount, createTransferRecipient } from '../_lib/paystack.js'
 import { getNotificationCount, getNotificationInbox, markAllNotificationsRead, markNotificationRead } from '../_lib/notifications.js'
+import {
+  getPushPreferences,
+  getVapidPublicKey,
+  isPushConfigured,
+  removePushSubscription,
+  savePushSubscription,
+  updatePushPreferences,
+} from '../_lib/pushNotifications.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const USERNAME_RE = /^[A-Za-z0-9._-]{3,30}$/
@@ -40,6 +48,7 @@ export default async function handler(req, res) {
     if (action === 'resolve-account') return handleResolveAccount(url, res)
     if (action === 'notifications') return handleNotifications(req, res, url)
     if (action === 'notification-count') return handleNotificationCount(req, res)
+    if (action === 'push-config') return handlePushConfig(req, res)
     return json(res, 400, { error: 'Unknown action.' })
   }
 
@@ -53,6 +62,8 @@ export default async function handler(req, res) {
     if (body?.action === 'login') return handleLogin(body, res)
     if (body?.action === 'register') return handleRegister(body, res)
     if (body?.action === 'logout') return handleLogout(res)
+    if (body?.action === 'push_subscribe') return handlePushSubscribe(req, res, body)
+    if (body?.action === 'push_unsubscribe') return handlePushUnsubscribe(req, res, body)
     return json(res, 400, { error: 'Unknown action.' })
   }
 
@@ -255,6 +266,49 @@ async function handleNotificationCount(req, res) {
   }
 }
 
+
+async function handlePushConfig(req, res) {
+  const session = getSessionUser(req)
+  if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
+  try {
+    return json(res, 200, {
+      configured: isPushConfigured(),
+      publicKey: getVapidPublicKey(),
+      preferences: await getPushPreferences(session.sub),
+    })
+  } catch (err) {
+    if (err.code === '42P01') {
+      return json(res, 503, { error: 'Push notification storage is not migrated yet.' })
+    }
+    console.error('push config error:', err)
+    return json(res, 500, { error: 'Failed to load push notification settings.' })
+  }
+}
+
+async function handlePushSubscribe(req, res, body) {
+  const session = getSessionUser(req)
+  if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
+  if (!isPushConfigured()) return json(res, 503, { error: 'Push notifications are not configured on the server yet.' })
+  try {
+    await savePushSubscription(session.sub, body?.subscription, req.headers['user-agent'])
+    return json(res, 200, { ok: true, preferences: await getPushPreferences(session.sub) })
+  } catch (err) {
+    console.error('push subscription error:', err)
+    return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to save this push subscription.' })
+  }
+}
+
+async function handlePushUnsubscribe(req, res, body) {
+  const session = getSessionUser(req)
+  if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
+  try {
+    return json(res, 200, await removePushSubscription(session.sub, body?.endpoint))
+  } catch (err) {
+    console.error('push unsubscribe error:', err)
+    return json(res, 500, { error: 'Failed to remove this push subscription.' })
+  }
+}
+
 // ---------------------------------------------------------------------------
 // PUT — profile update, plus the two notification-mutation sub-actions
 // api/auth/profile.js already folded in here.
@@ -290,6 +344,17 @@ async function handleProfileUpdate(req, res) {
     } catch (err) {
       console.error('notification bulk read update error:', err)
       return json(res, 500, { error: 'Failed to update notifications.' })
+    }
+  }
+
+
+  if (body?.action === 'update_push_preferences') {
+    try {
+      const preferences = await updatePushPreferences(session.sub, body.preferences || {})
+      return json(res, 200, { preferences })
+    } catch (err) {
+      console.error('push preference update error:', err)
+      return json(res, 500, { error: 'Failed to update push preferences.' })
     }
   }
 
