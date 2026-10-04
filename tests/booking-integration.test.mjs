@@ -106,8 +106,11 @@ test('counteroffers supersede, only recipients accept, and stale responses fail'
     `/negotiations?escrow=${escrowId}`)
 })
 
-test('negotiation listing and offer alerts stay separate from chat unread state', async () => {
+test('negotiation listing contains only deals that actually entered negotiation', async () => {
+  assert.equal((await threads.getNegotiations(clientId)).negotiations.length, 0)
+  assert.equal((await threads.getNegotiations(talentId)).negotiations.length, 0)
   assert.equal((await threads.getNegotiations(outsiderId)).negotiations.length, 0)
+
   const proposal = await offer(clientId, 8500)
   const [talentDeal] = (await threads.getNegotiations(talentId)).negotiations
   assert.equal(talentDeal.pending_offer_id, proposal.id)
