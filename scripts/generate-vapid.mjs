@@ -9,5 +9,5 @@ const privateKey = ecdh.getPrivateKey().toString('base64url')
 console.log(JSON.stringify({
   VAPID_PUBLIC_KEY: publicKey,
   VAPID_PRIVATE_KEY: privateKey,
-  VAPID_SUBJECT: 'mailto:support@chombutar.vercel.app',
+  VAPID_SUBJECT: 'https://chombutar.vercel.app/',
 }, null, 2))
