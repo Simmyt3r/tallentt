@@ -5,6 +5,7 @@ import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
 import DealQrCheckpoint from '../components/DealQrCheckpoint.jsx'
+import EscrowFundingCard from '../components/EscrowFundingCard.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
 import { getPrimaryIdentity, identityFromRow } from '../lib/profile.js'
 
@@ -504,34 +505,25 @@ function BookingThread({ id, onBack }) {
       )}
 
       {thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' && (
-        <div className="shrink-0 mx-3 mt-2 rounded-[16px] border border-[#0A13E6]/15 bg-[#0A13E6]/[0.04] px-3.5 py-3 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-black">Ready to fund</p>
-            <p className="text-[10px] text-black/45">Payment comes from your ChombuTar wallet.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="h-9 px-4 rounded-full bg-[#0A13E6] text-white text-[11px] font-black disabled:opacity-50"
-              disabled={busy || Boolean(thread.pending_offer)}
-              onClick={() =>
-                run(async () => {
-                  await api.fundEscrowWithWallet(id, thread.amount)
-                  await refreshUser()
-                })
-              }
-            >
-              Pay {money(thread.amount)} from wallet
-            </button>
-            {(user.walletBalance || 0) < thread.amount && (
-              <Link
-                to="/wallet"
-                className="h-9 px-4 rounded-full border border-black/15 bg-white text-[11px] font-black inline-flex items-center"
-              >
-                Top up wallet
-              </Link>
-            )}
-          </div>
+        <div className="shrink-0 mx-3 mt-2">
+          <EscrowFundingCard
+            amount={thread.amount}
+            currency={thread.currency}
+            walletBalance={user.walletBalance || 0}
+            busy={busy}
+            returnTo={`/messages?escrow=${id}`}
+            blockedByNegotiation={
+              Boolean(thread.pending_offer) ||
+              ((thread.price_type === 'range' || thread.price_negotiable) && !thread.agreed_at)
+            }
+            negotiationUrl={`/negotiations?escrow=${id}`}
+            onFund={() =>
+              run(async () => {
+                await api.fundEscrowWithWallet(id, thread.amount)
+                await refreshUser()
+              })
+            }
+          />
         </div>
       )}
 
