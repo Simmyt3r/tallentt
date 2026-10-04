@@ -513,22 +513,40 @@ function BookingThread({ id, onBack }) {
           <span className="shrink-0">Open Negotiation Center →</span>
         </Link>
       ) : thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' ? (
-        <button
-          type="button"
-          onClick={() => setDealOpen(true)}
-          aria-label="Fund escrow"
-          className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-emerald-200 bg-emerald-50 px-3 py-2 flex items-center justify-between gap-3 text-left"
-        >
-          <span className="min-w-0">
-            <span className="block text-[9px] font-black uppercase tracking-[0.08em] text-emerald-700">Action required</span>
-            <span className="block truncate text-[11px] font-black text-emerald-950">Fund escrow</span>
-          </span>
-          <span className="shrink-0 text-[11px] font-black text-emerald-800">
-            {(user.walletBalance || 0) >= Number(thread.amount || 0)
-              ? money(thread.amount, thread.currency)
-              : `Top up ${money(Math.max(0, Number(thread.amount || 0) - Number(user.walletBalance || 0)), thread.currency)}`}
-          </span>
-        </button>
+        (user.walletBalance || 0) >= Number(thread.amount || 0) ? (
+          <button
+            type="button"
+            onClick={() =>
+              run(async () => {
+                await api.fundEscrowWithWallet(id, thread.amount)
+                await refreshUser()
+              })
+            }
+            disabled={busy}
+            aria-label="Fund escrow"
+            className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-emerald-200 bg-emerald-50 px-3 py-2 flex items-center justify-between gap-3 text-left disabled:opacity-50"
+          >
+            <span className="min-w-0">
+              <span className="block text-[9px] font-black uppercase tracking-[0.08em] text-emerald-700">Action required</span>
+              <span className="block truncate text-[11px] font-black text-emerald-950">Fund escrow</span>
+            </span>
+            <span className="shrink-0 text-[11px] font-black text-emerald-800">{money(thread.amount, thread.currency)}</span>
+          </button>
+        ) : (
+          <Link
+            to={`/wallet?topup=${encodeURIComponent(String(Math.ceil(Math.max(0, Number(thread.amount || 0) - Number(user.walletBalance || 0)))))}&return=${encodeURIComponent(`/messages?escrow=${id}`)}`}
+            aria-label="Top up wallet for escrow"
+            className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-amber-300 bg-amber-50 px-3 py-2 flex items-center justify-between gap-3 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-[9px] font-black uppercase tracking-[0.08em] text-amber-700">Wallet shortfall</span>
+              <span className="block truncate text-[11px] font-black text-amber-950">Top up to fund escrow</span>
+            </span>
+            <span className="shrink-0 text-[11px] font-black text-amber-800">
+              {money(Math.max(0, Number(thread.amount || 0) - Number(user.walletBalance || 0)), thread.currency)}
+            </span>
+          </Link>
+        )
       ) : thread.status === 'secured' && (
         (!thread.is_client && thread.work_status === 'awaiting_start') ||
         (thread.is_client && thread.work_status === 'awaiting_start') ||
