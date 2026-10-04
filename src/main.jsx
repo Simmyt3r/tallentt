@@ -5,6 +5,9 @@ import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import './styles/index.css'
 import './styles/auth.css'
+import { installPushMessageBridge } from './lib/pushNotifications.js'
+
+installPushMessageBridge()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
