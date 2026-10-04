@@ -4,7 +4,6 @@ import { Menu } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
-import MyDealsModal from './MyDealsModal.jsx'
 import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
 import NotificationsMenu from './NotificationsMenu.jsx'
@@ -152,7 +151,6 @@ export default function Layout({ children }) {
       </header>
 
       <BottomNav />
-      {location.pathname === '/deals' && <MyDealsModal />}
 
       <main
         className={`w-full transition-[padding] duration-200 ease-out ${collapsed ? 'md:pl-[72px]' : 'md:pl-[236px]'}`}
