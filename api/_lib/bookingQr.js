@@ -3,6 +3,7 @@ import { getClient } from './db.js'
 import { bookingError, requireAmount, requireBookingId } from './bookingRules.js'
 import { creditWallet } from './wallet.js'
 import { emitMyDealsEvent } from './myDeals.js'
+import { dispatchStoredNotifications } from './pushNotifications.js'
 
 const TOKEN_LIFETIME_MINUTES = 5
 const TOKEN_PATTERN = /^CT1\.([0-9a-f-]{36})\.(start|completion)\.([a-zA-Z0-9_-]{43})$/
@@ -33,7 +34,26 @@ export async function issueBookingQr(userId, escrowId, stage) {
        RETURNING expires_at`,
       [escrowId, stage, digest(token), TOKEN_LIFETIME_MINUTES],
     )
+    await client.query(
+      `UPDATE notifications SET read_at = NOW()
+       WHERE user_id = $1 AND type = 'booking_checkpoint' AND read_at IS NULL
+         AND metadata->>'escrow_id' = $2 AND metadata->>'stage' = $3 AND metadata->>'event' = 'qr_ready'`,
+      [escrow.talent_id, escrowId, stage],
+    )
+    const { rows: notificationRows } = await client.query(
+      `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
+       VALUES ($1, 'booking_checkpoint', $2, $3, $4, $5::jsonb)
+       RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
+      [escrow.talent_id,
+        stage === 'start' ? 'Start QR ready' : 'Completion QR ready',
+        stage === 'start'
+          ? 'The client generated the Start QR. Open the deal when you are together to begin work.'
+          : 'The client generated the Completion QR. Scan it to receive the remaining escrow balance.',
+        `/deals/${escrowId}?role=talent`,
+        JSON.stringify({ escrow_id: escrowId, stage, event: 'qr_ready' })],
+    )
     await client.query('COMMIT')
+    if (notificationRows[0]) await dispatchStoredNotifications(notificationRows)
     return { token, stage, expiresAt: issued[0].expires_at, amount: stage === 'start'
       ? startShare(escrow.amount) : Number(escrow.amount) - Number(escrow.start_released_amount) }
   } catch (err) {
@@ -91,15 +111,22 @@ export async function redeemBookingQr(userId, escrowId, token) {
        VALUES ($1, $2, $3, '', $4, $5)`,
       [escrowId, userId, stage === 'start' ? 'scan_start' : 'scan_completion', escrow.work_version, randomUUID()],
     )
-    for (const recipient of [escrow.client_id, escrow.talent_id]) await client.query(
-      `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
-       VALUES ($1, 'booking_lifecycle', $2, $3, $4, $5::jsonb)`,
-      [recipient, stage === 'start' ? 'Work started' : 'Booking completed',
-        stage === 'start' ? '30% of the booking was released to the talent wallet.'
-          : 'The remaining escrow balance was released to the talent wallet.',
-        `/messages?escrow=${escrowId}`, JSON.stringify({ escrow_id: escrowId })],
-    )
+    const pushNotifications = []
+    for (const recipient of [escrow.client_id, escrow.talent_id]) {
+      const role = recipient === escrow.client_id ? 'client' : 'talent'
+      const { rows: notificationRows } = await client.query(
+        `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
+         VALUES ($1, 'booking_checkpoint', $2, $3, $4, $5::jsonb)
+         RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
+        [recipient, stage === 'start' ? 'Work started' : 'Booking completed',
+          stage === 'start' ? '30% of the booking was released to the talent wallet.'
+            : 'The remaining escrow balance was released to the talent wallet.',
+          `/deals/${escrowId}?role=${role}`, JSON.stringify({ escrow_id: escrowId, stage, event: 'qr_scanned' })],
+      )
+      if (notificationRows[0]) pushNotifications.push(notificationRows[0])
+    }
     await client.query('COMMIT')
+    if (pushNotifications.length) await dispatchStoredNotifications(pushNotifications)
     participants = [escrow.client_id, escrow.talent_id]
     return { escrow: { id: updated[0].id, status: updated[0].status,
       work_status: updated[0].work_status, work_version: updated[0].work_version,
