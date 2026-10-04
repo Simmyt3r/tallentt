@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Clock, Handshake, MessageCircle, Undo2, X } from 'lucide-react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Check, Clock, Handshake, MessageCircle, Undo2 } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
@@ -70,7 +70,6 @@ function Skeletons() {
 }
 
 export default function MyDealsModal() {
-  const navigate = useNavigate()
   const location = useLocation()
   const { user, refreshUser } = useAuth()
   const params = useMemo(() => new URLSearchParams(location.search), [location.search])
@@ -120,20 +119,9 @@ export default function MyDealsModal() {
     window.dispatchEvent(new Event('storage'))
   }, [role])
 
-  useEffect(() => {
-    document.documentElement.classList.add('modal-open')
-    document.body.classList.add('modal-open')
-    const onKey = (event) => {
-      if (event.key === 'Escape') navigate('/', { replace: true })
-    }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      clearTimeout(undoTimer.current)
-      window.removeEventListener('keydown', onKey)
-      document.documentElement.classList.remove('modal-open')
-      document.body.classList.remove('modal-open')
-    }
-  }, [navigate])
+  useEffect(() => () => {
+    clearTimeout(undoTimer.current)
+  }, [])
 
   useEffect(() => {
     if (!user?.id) return undefined
@@ -287,17 +275,10 @@ export default function MyDealsModal() {
             : 'No outgoing bookings yet.'
 
   return (
-    <div
-      className="fixed inset-0 z-[80] bg-black/45 sm:p-4 flex items-end sm:items-center justify-center"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) navigate('/', { replace: true })
-      }}
-    >
+    <div className="max-w-6xl mx-auto pb-8">
       <section
-        role="dialog"
-        aria-modal="true"
         aria-label="My Deals"
-        className="w-full sm:max-w-[880px] h-[94vh] sm:h-[min(820px,92vh)] bg-[#F7F3EB] border-[1.5px] border-black sm:rounded-[26px] overflow-hidden shadow-[0_30px_80px_rgba(0,0,0,0.28)] flex flex-col"
+        className="w-full bg-[#F7F3EB] border-[1.5px] border-black rounded-[22px] overflow-hidden"
       >
         <header className="sticky top-0 z-10 bg-[#F7F3EB]/95 backdrop-blur-xl border-b-[1.5px] border-black px-4 sm:px-6 py-4">
           <div className="flex items-start justify-between gap-4">
@@ -313,14 +294,7 @@ export default function MyDealsModal() {
                 All your active deals in one place
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => navigate('/', { replace: true })}
-              aria-label="Close My Deals"
-              className="w-9 h-9 rounded-full border-[1.5px] border-black bg-white grid place-items-center hover:bg-black hover:text-white transition"
-            >
-              <X size={17} />
-            </button>
+
           </div>
 
           <div className="mt-4 inline-flex rounded-full border-[1.5px] border-black bg-white p-1">
@@ -343,7 +317,7 @@ export default function MyDealsModal() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
+        <div className="px-4 sm:px-6 py-5">
           <div>
             <h2 className="text-[18px] font-black">{title}</h2>
             <p className="text-[12px] text-black/50 font-medium mt-0.5">{subtitle}</p>
