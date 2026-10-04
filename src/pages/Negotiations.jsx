@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { ArrowLeft, MessageCircle, RefreshCw } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { NegotiationPanel, NegotiationHistory } from '../components/NegotiationPanel.jsx'
@@ -69,7 +69,21 @@ export default function Negotiations() {
     <main className="max-w-5xl mx-auto space-y-4 pb-8">
       <div className={selected ? 'hidden md:block' : ''}>
         <h1 className="text-[23px] font-black">Negotiation Center</h1>
-        <p className="text-[12px] text-black/55">Agree on the price here. Use messages to discuss the work.</p>
+        <p className="text-[12px] text-black/55">Offers, counteroffers, and final price agreement only.</p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[#0A13E6]/15 bg-[#0A13E6]/[0.04] px-4 py-3">
+          <div>
+            <p className="text-[11px] font-black text-[#0A13E6]">Price negotiation only</p>
+            <p className="mt-0.5 text-[10.5px] leading-relaxed text-black/55">
+              Chat about the work in Deals Chat. Escrow funding, delivery updates, QR checkpoints, and settlement happen outside this center.
+            </p>
+          </div>
+          <Link
+            to="/messages"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black"
+          >
+            <MessageCircle size={14} /> Open Deals Chat
+          </Link>
+        </div>
       </div>
       <div className={selected ? 'hidden md:flex gap-2' : 'flex gap-2'} role="tablist" aria-label="Negotiation status">
         {tabs.map((tab) => {
@@ -217,8 +231,30 @@ function NegotiationDetail({ id, user, onBack, onUpdated }) {
             onSubmitOffer={submitOffer}
             onRespond={(status) => act({ action: 'respond_offer', offer_id: pending.id, status })} />
         ) : <p className="text-xs">This deal has a fixed price.</p>}
-        {thread.agreed_at && thread.status === 'not_funded' && thread.is_client && (
-          <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold">Price agreed. Open My Deals to accept the request and fund the booking.</p>
+        {thread.agreed_at && thread.status === 'not_funded' && (
+          <section className="rounded-[16px] border border-emerald-200 bg-emerald-50 p-3.5">
+            <p className="text-[11px] font-black uppercase tracking-[0.08em] text-emerald-700">Negotiation complete</p>
+            <p className="mt-1 text-[12px] font-semibold text-emerald-950/75">
+              The final price is agreed. This center has finished its job.
+              {thread.is_client
+                ? ' Continue in My Deals to accept/fund escrow when the deal is ready.'
+                : ' Continue in My Deals for the booking workflow.'}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                to={thread.is_client ? '/deals?role=client&tab=active' : '/deals?role=talent&tab=active'}
+                className="inline-flex h-9 items-center rounded-full bg-[#0A13E6] px-4 text-[11px] font-black text-white"
+              >
+                Continue to My Deals
+              </Link>
+              <Link
+                to={`/messages?escrow=${id}`}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black"
+              >
+                <MessageCircle size={14} /> Open Deals Chat
+              </Link>
+            </div>
+          </section>
         )}
         {offers.length > 0 && <NegotiationHistory offers={offers} thread={thread} userId={user.id} />}
         {cursor && <button type="button" onClick={async () => {
@@ -228,7 +264,7 @@ function NegotiationDetail({ id, user, onBack, onUpdated }) {
             setCursor(result.nextCursor)
           } catch (err) { setError(err.message) }
         }} className="rounded-full border border-black/20 px-4 py-2 text-xs font-bold">Load older proposals</button>}
-        <Link to={`/messages?escrow=${id}`} className="block text-center rounded-full border border-black/20 px-4 py-2 text-xs font-bold">Open messages about the work</Link>
+        <Link to={`/messages?escrow=${id}`} className="flex items-center justify-center gap-1.5 rounded-full border border-black/20 px-4 py-2 text-xs font-bold"><MessageCircle size={14} /> Open Deals Chat about the work</Link>
       </>}
     </section>
   )
