@@ -14,6 +14,177 @@ export function emitMyDealsEvent(userIds, reason = 'changed') {
   }
 }
 
+
+const DEAL_TABS = new Set(['incoming', 'outgoing', 'active', 'history'])
+const DEAL_ROLES = new Set(['talent', 'client'])
+
+const BOOKING_PROJECTION = `
+  SELECT e.id, e.hat_id, e.client_id, e.talent_id, e.amount, e.status, e.contacts_unlocked,
+         e.created_at, e.funded_at, e.released_at, e.work_status, e.work_version, e.start_released_amount,
+         e.work_started_at, e.request_kind, e.application_id,
+         e.currency AS deal_currency, e.pay_unit, e.agreed_at,
+         (SELECT po.amount FROM booking_messages po WHERE po.escrow_id = e.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_amount,
+         (SELECT po.sender_id FROM booking_messages po WHERE po.escrow_id = e.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_sender_id,
+         CASE
+           WHEN e.status = 'not_funded' AND COALESCE(e.contacts_unlocked, false) = false THEN 'pending'
+           ELSE 'accepted'
+         END AS request_state,
+         h.hat_title, h.hat_name, h.category, h.hat_type, h.hiring_duration,
+         h.lga AS hat_lga, h.currency, h.role AS hat_role, h.price_type, h.price_negotiable, h.price_min, h.price_max,
+         client.username AS client_username, client.full_name AS client_full_name,
+         client.avatar_url AS client_avatar, client.lga AS client_lga,
+         client.role AS client_role, client.company_suffix AS client_company_suffix,
+         talent.username AS talent_username, talent.full_name AS talent_full_name,
+         talent.avatar_url AS talent_avatar, talent.lga AS talent_lga,
+         talent.role AS talent_role, talent.company_suffix AS talent_company_suffix,
+         (SELECT m.url FROM hat_media m WHERE m.hat_id = h.id ORDER BY m.created_at LIMIT 1) AS hat_thumbnail
+  FROM escrows e
+  JOIN hats h ON h.id = e.hat_id
+  LEFT JOIN users client ON client.id = e.client_id
+  LEFT JOIN users talent ON talent.id = e.talent_id
+`
+
+const APPLICATION_PROJECTION = `
+  SELECT a.id AS application_id, a.hat_id, a.applicant_id, a.status, a.message,
+         a.created_at AS applied_at, a.updated_at,
+         h.user_id AS owner_id, h.hat_title, h.hat_name, h.category, h.hat_type,
+         h.hiring_duration, h.lga AS hat_lga, h.currency, h.role AS hat_role,
+         h.price_type, h.price_negotiable, h.rate, h.price_min, h.price_max,
+         deal.id AS negotiation_escrow_id, deal.amount AS agreed_amount, deal.agreed_at,
+         deal.currency AS deal_currency, deal.pay_unit,
+         (SELECT po.amount FROM booking_messages po WHERE po.escrow_id = deal.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_amount,
+         (SELECT po.sender_id FROM booking_messages po WHERE po.escrow_id = deal.id AND po.offer_status = 'pending' ORDER BY po.created_at DESC LIMIT 1) AS pending_offer_sender_id,
+         EXISTS (SELECT 1 FROM booking_messages po WHERE po.escrow_id = deal.id AND po.offer_status = 'pending') AS has_pending_offer,
+         owner.username AS owner_username, owner.full_name AS owner_full_name,
+         owner.avatar_url AS owner_avatar, owner.lga AS owner_lga,
+         owner.role AS owner_role, owner.company_suffix AS owner_company_suffix,
+         applicant.username AS applicant_username, applicant.full_name AS applicant_full_name,
+         applicant.avatar_url AS applicant_avatar, applicant.lga AS applicant_lga,
+         applicant.role AS applicant_role, applicant.company_suffix AS applicant_company_suffix,
+         (SELECT m.url FROM hat_media m WHERE m.hat_id = h.id ORDER BY m.created_at LIMIT 1) AS hat_thumbnail
+  FROM applications a
+  JOIN hats h ON h.id = a.hat_id
+  LEFT JOIN escrows deal ON deal.application_id = a.id
+  LEFT JOIN users owner ON owner.id = h.user_id
+  LEFT JOIN users applicant ON applicant.id = a.applicant_id
+`
+
+export async function getMyDealsCount(userId) {
+  const { rows } = await query(
+    `SELECT
+       (
+         SELECT COUNT(*)::int
+         FROM escrows e
+         WHERE (e.client_id = $1 OR e.talent_id = $1)
+           AND e.request_kind <> 'application'
+           AND e.status = 'not_funded'
+           AND COALESCE(e.contacts_unlocked, false) = false
+       ) +
+       (
+         SELECT COUNT(*)::int
+         FROM applications a
+         JOIN hats h ON h.id = a.hat_id
+         WHERE (a.applicant_id = $1 OR h.user_id = $1)
+           AND a.status = 'pending'
+       ) AS pending_count`,
+    [userId],
+  )
+  return { pendingCount: Number(rows[0]?.pending_count || 0) }
+}
+
+export async function getMyDealsPage(userId, { role = 'talent', tab = 'incoming', before = null } = {}) {
+  if (!DEAL_ROLES.has(role)) throw bookingError(400, 'Choose Talent or Client mode.')
+  if (!DEAL_TABS.has(tab)) throw bookingError(400, 'Choose a valid My Deals tab.')
+  if (before) requireBookingId(before)
+
+  const pageSize = 30
+  let sql
+  let params = [userId, before || null, pageSize + 1]
+
+  if (tab === 'history') {
+    sql = `${BOOKING_PROJECTION}
+      WHERE ${role === 'talent' ? 'e.talent_id' : 'e.client_id'} = $1
+        AND e.status IN ('released', 'refunded', 'cancelled')
+        AND ($2::uuid IS NULL OR (e.created_at, e.id) <
+          (SELECT created_at, id FROM escrows WHERE id = $2 AND (${role === 'talent' ? 'talent_id' : 'client_id'} = $1)))
+      ORDER BY e.created_at DESC, e.id DESC
+      LIMIT $3`
+  } else if (tab === 'active') {
+    sql = `${BOOKING_PROJECTION}
+      WHERE ${role === 'talent' ? 'e.talent_id' : 'e.client_id'} = $1
+        AND e.status IN ('not_funded', 'secured')
+        AND COALESCE(e.contacts_unlocked, false) = true
+        AND ($2::uuid IS NULL OR (e.created_at, e.id) <
+          (SELECT created_at, id FROM escrows WHERE id = $2 AND (${role === 'talent' ? 'talent_id' : 'client_id'} = $1)))
+      ORDER BY e.created_at DESC, e.id DESC
+      LIMIT $3`
+  } else {
+    const applicationTab = (role === 'talent' && tab === 'outgoing') || (role === 'client' && tab === 'incoming')
+    if (applicationTab) {
+      const ownerOrApplicant = role === 'talent' ? 'a.applicant_id' : 'h.user_id'
+      sql = `${APPLICATION_PROJECTION}
+        WHERE ${ownerOrApplicant} = $1
+          AND a.status = 'pending'
+          AND ($2::uuid IS NULL OR (a.created_at, a.id) <
+            (SELECT created_at, id FROM applications WHERE id = $2))
+        ORDER BY a.created_at DESC, a.id DESC
+        LIMIT $3`
+    } else {
+      const partyColumn = role === 'talent' ? 'e.talent_id' : 'e.client_id'
+      sql = `${BOOKING_PROJECTION}
+        WHERE ${partyColumn} = $1
+          AND e.request_kind <> 'application'
+          AND e.status = 'not_funded'
+          AND COALESCE(e.contacts_unlocked, false) = false
+          AND ($2::uuid IS NULL OR (e.created_at, e.id) <
+            (SELECT created_at, id FROM escrows WHERE id = $2 AND ${partyColumn.replace('e.', '')} = $1))
+        ORDER BY e.created_at DESC, e.id DESC
+        LIMIT $3`
+    }
+  }
+
+  const [{ rows }, countsResult] = await Promise.all([
+    query(sql, params),
+    query(
+      `SELECT
+        (SELECT COUNT(*)::int FROM escrows e
+          WHERE e.talent_id = $1 AND e.request_kind <> 'application' AND e.status = 'not_funded' AND COALESCE(e.contacts_unlocked, false) = false) AS talent_incoming,
+        (SELECT COUNT(*)::int FROM applications a WHERE a.applicant_id = $1 AND a.status = 'pending') AS talent_outgoing,
+        (SELECT COUNT(*)::int FROM escrows e WHERE e.talent_id = $1 AND e.status IN ('not_funded','secured') AND COALESCE(e.contacts_unlocked, false) = true) AS talent_active,
+        (SELECT COUNT(*)::int FROM escrows e WHERE e.talent_id = $1 AND e.status IN ('released','refunded','cancelled')) AS talent_history,
+        (SELECT COUNT(*)::int FROM applications a JOIN hats h ON h.id = a.hat_id WHERE h.user_id = $1 AND a.status = 'pending') AS client_incoming,
+        (SELECT COUNT(*)::int FROM escrows e WHERE e.client_id = $1 AND e.request_kind <> 'application' AND e.status = 'not_funded' AND COALESCE(e.contacts_unlocked, false) = false) AS client_outgoing,
+        (SELECT COUNT(*)::int FROM escrows e WHERE e.client_id = $1 AND e.status IN ('not_funded','secured') AND COALESCE(e.contacts_unlocked, false) = true) AS client_active,
+        (SELECT COUNT(*)::int FROM escrows e WHERE e.client_id = $1 AND e.status IN ('released','refunded','cancelled')) AS client_history`,
+      [userId],
+    ),
+  ])
+
+  const items = rows.slice(0, pageSize)
+  const countsRow = countsResult.rows[0] || {}
+  const counts = role === 'talent'
+    ? {
+        incoming: Number(countsRow.talent_incoming || 0),
+        outgoing: Number(countsRow.talent_outgoing || 0),
+        active: Number(countsRow.talent_active || 0),
+        history: Number(countsRow.talent_history || 0),
+      }
+    : {
+        incoming: Number(countsRow.client_incoming || 0),
+        outgoing: Number(countsRow.client_outgoing || 0),
+        active: Number(countsRow.client_active || 0),
+        history: Number(countsRow.client_history || 0),
+      }
+
+  return {
+    items,
+    counts,
+    nextCursor: rows.length > pageSize
+      ? (items[items.length - 1]?.id || items[items.length - 1]?.application_id || null)
+      : null,
+  }
+}
+
 export async function getMyDeals(userId) {
   const [bookingResult, applicationResult] = await Promise.all([
     query(
