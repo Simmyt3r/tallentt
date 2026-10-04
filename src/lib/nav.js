@@ -33,6 +33,7 @@ const TITLES = [
   { test: (p) => p === '/', title: 'Feed' },
   { test: (p) => p.startsWith('/messages'), title: 'Deals Chat' },
   { test: (p) => p.startsWith('/negotiations'), title: 'Negotiation Center' },
+  { test: (p) => p.startsWith('/notifications'), title: 'Notifications' },
   { test: (p) => p.startsWith('/showroom'), title: 'Showroom' },
   { test: (p) => p.startsWith('/deals'), title: 'My Deals' },
   { test: (p) => p.startsWith('/my-hats'), title: 'My Hats' },
