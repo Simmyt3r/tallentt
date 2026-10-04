@@ -274,7 +274,7 @@ function NegotiationDetail({ id, user, readOnly, onBack, onUpdated }) {
             setOlder((current) => [...result.messages, ...current])
             setCursor(result.nextCursor)
           } catch (err) { setError(err.message) }
-        }} className="rounded-full border border-black/20 px-4 py-2 text-xs font-bold">Load older proposals</button>
+        }} className="rounded-full border border-black/20 px-4 py-2 text-xs font-bold">Load older proposals</button>}
       </>}
     </section>
   )
