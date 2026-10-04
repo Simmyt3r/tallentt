@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 import RoleCardBadge from './RoleCardBadge.jsx'
 import DealQrCheckpoint from './DealQrCheckpoint.jsx'
+import EscrowFundingCard from './EscrowFundingCard.jsx'
 import NegotiationParties from './NegotiationParties.jsx'
 
 function money(value, currency = 'NGN') {
@@ -389,10 +390,9 @@ export default function MyDealsModal() {
                   const unresolvedRange = negotiablePrice && !item.agreed_at
                   const outgoingApplication = tab === 'outgoing' && isApplication
                   const activeBooking = tab === 'active' && !isApplication
-                  const canUseWallet =
-                    activeBooking &&
-                    role === 'client' &&
-                    Number(user?.walletBalance || 0) >= Number(item.amount || 0)
+                  const fundingBlockedByNegotiation =
+                    negotiablePrice &&
+                    (!item.agreed_at || item.pending_offer_amount != null)
                   const status = isApplication
                     ? item.status
                     : item.status === 'not_funded'
@@ -537,37 +537,40 @@ export default function MyDealsModal() {
                           </button>
                         )}
 
-                        {!isApplication && (
+                        {!isApplication && negotiablePrice && (
                           <Link
-                            to={`${negotiablePrice ? '/negotiations' : '/messages'}?escrow=${item.id}`}
+                            to={`/negotiations?escrow=${item.id}`}
                             className="h-9 px-4 rounded-full border-[1.5px] border-black text-[11px] font-black inline-flex items-center gap-1.5"
                           >
-                            {negotiablePrice ? <Handshake size={14} /> : <MessageCircle size={14} />} {unresolvedRange ? 'Negotiate' : negotiablePrice && item.agreed_at ? 'View agreement' : 'Conversation'}
+                            <Handshake size={14} /> {unresolvedRange ? 'Negotiate' : 'View agreement'}
                           </Link>
                         )}
 
-                        {activeBooking &&
-                          role === 'client' &&
-                          item.status === 'not_funded' && (
-                            canUseWallet ? (
-                              <button
-                                type="button"
-                                onClick={() => fundBooking(item)}
-                                disabled={busyId === id}
-                                className="h-9 px-4 rounded-full bg-[#0A13E6] text-white border-[1.5px] border-black text-[11px] font-black disabled:opacity-50"
-                              >
-                                Pay from wallet
-                              </button>
-                            ) : (
-                              <Link
-                                to="/wallet"
-                                className="h-9 px-4 rounded-full bg-[#0A13E6] text-white border-[1.5px] border-black text-[11px] font-black inline-flex items-center"
-                              >
-                                Top up wallet
-                              </Link>
-                            )
-                          )}
+                        {!isApplication && (
+                          <Link
+                            to={`/messages?escrow=${item.id}`}
+                            className="h-9 px-4 rounded-full border-[1.5px] border-black text-[11px] font-black inline-flex items-center gap-1.5"
+                          >
+                            <MessageCircle size={14} /> Deals Chat
+                          </Link>
+                        )}
                       </div>
+
+                      {activeBooking && role === 'client' && item.status === 'not_funded' && (
+                        <div className="border-t border-black/10 px-4 sm:px-5 py-3">
+                          <EscrowFundingCard
+                            amount={item.amount}
+                            currency={dealCurrency}
+                            walletBalance={user?.walletBalance || 0}
+                            busy={busyId === id}
+                            returnTo={`/deals?role=client&tab=active`}
+                            blockedByNegotiation={fundingBlockedByNegotiation}
+                            negotiationUrl={`/negotiations?escrow=${item.id}`}
+                            onFund={() => fundBooking(item)}
+                          />
+                        </div>
+                      )}
+
                       {activeBooking && item.status === 'secured' &&
                         ['awaiting_start', 'awaiting_completion'].includes(item.work_status) && (
                           <DealQrCheckpoint booking={item} role={role} onComplete={async () => {
