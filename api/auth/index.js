@@ -19,7 +19,7 @@ import {
 } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { listBanks, resolveBankAccount, createTransferRecipient } from '../_lib/paystack.js'
-import { getNotificationInbox, markAllNotificationsRead, markNotificationRead } from '../_lib/notifications.js'
+import { getNotificationCount, getNotificationInbox, markAllNotificationsRead, markNotificationRead } from '../_lib/notifications.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const USERNAME_RE = /^[A-Za-z0-9._-]{3,30}$/
@@ -38,7 +38,8 @@ export default async function handler(req, res) {
     if (action === 'username-check') return handleUsernameCheck(url, res)
     if (action === 'banks') return handleBanks(res)
     if (action === 'resolve-account') return handleResolveAccount(url, res)
-    if (action === 'notifications') return handleNotifications(req, res)
+    if (action === 'notifications') return handleNotifications(req, res, url)
+    if (action === 'notification-count') return handleNotificationCount(req, res)
     return json(res, 400, { error: 'Unknown action.' })
   }
 
@@ -232,14 +233,25 @@ async function handleResolveAccount(url, res) {
   }
 }
 
-async function handleNotifications(req, res) {
+async function handleNotifications(req, res, url) {
   const session = getSessionUser(req)
   if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
   try {
-    return json(res, 200, await getNotificationInbox(session.sub))
+    return json(res, 200, await getNotificationInbox(session.sub, url.searchParams.get('before')))
   } catch (err) {
     console.error('notification inbox error:', err)
-    return json(res, 500, { error: 'Failed to load notifications.' })
+    return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to load notifications.' })
+  }
+}
+
+async function handleNotificationCount(req, res) {
+  const session = getSessionUser(req)
+  if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
+  try {
+    return json(res, 200, { unreadCount: await getNotificationCount(session.sub) })
+  } catch (err) {
+    console.error('notification count error:', err)
+    return json(res, 500, { error: 'Failed to load notification count.' })
   }
 }
 
@@ -264,8 +276,7 @@ async function handleProfileUpdate(req, res) {
     try {
       const notification = await markNotificationRead(session.sub, notificationId)
       if (!notification) return json(res, 404, { error: 'Notification not found.' })
-      const inbox = await getNotificationInbox(session.sub)
-      return json(res, 200, { notification, unreadCount: inbox.unreadCount })
+      return json(res, 200, { notification, unreadCount: await getNotificationCount(session.sub) })
     } catch (err) {
       console.error('notification read update error:', err)
       return json(res, 500, { error: 'Failed to update notification.' })
