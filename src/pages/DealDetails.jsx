@@ -125,12 +125,14 @@ export default function DealDetails() {
               <h1 className="text-[22px] font-black tracking-tight">{thread.hat_title}</h1>
               <div className="mt-2">
                 <UserIdentity
-                  fullName={thread.peer?.full_name}
-                  username={thread.peer?.username}
-                  avatarUrl={thread.peer?.avatar_url}
-                  role={thread.peer?.role}
-                  companySuffix={thread.peer?.company_suffix}
-                  compact
+                  user={{
+                    fullName: thread.peer?.full_name,
+                    username: thread.peer?.username,
+                    avatarUrl: thread.peer?.avatar_url,
+                    role: thread.peer?.role,
+                    companySuffix: thread.peer?.company_suffix,
+                  }}
+                  layout="inline"
                 />
               </div>
             </div>
