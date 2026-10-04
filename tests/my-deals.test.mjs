@@ -24,7 +24,7 @@ test('mobile nav places My Deals between Showroom and Live and shows pending bad
   assert.match(source, /badge=\{pendingDeals\}/)
 })
 
-test('modal implements requested role modes, direction tabs and skeleton cards without extra sorting controls', () => {
+test('My Deals page implements role modes, direction tabs and skeleton cards without modal behavior', () => {
   const source = read('src/components/MyDealsModal.jsx')
   for (const phrase of [
     'All your active deals in one place',
@@ -39,6 +39,26 @@ test('modal implements requested role modes, direction tabs and skeleton cards w
   for (const removed of ['Search by username LGA', 'Freelance', 'Contract']) {
     assert.ok(!source.includes(removed), removed)
   }
+  assert.doesNotMatch(source, /role="dialog"/)
+  assert.doesNotMatch(source, /aria-modal="true"/)
+  assert.doesNotMatch(source, /fixed inset-0 z-\[80\]/)
+  assert.doesNotMatch(source, /Close My Deals/)
+})
+
+test('My Deals and Notifications are routed as full pages instead of layout overlays', () => {
+  const app = read('src/App.jsx')
+  const layout = read('src/components/Layout.jsx')
+  const notifications = read('src/pages/Notifications.jsx')
+  const bell = read('src/components/NotificationsMenu.jsx')
+
+  assert.match(app, /path="\/deals".*<MyDeals/)
+  assert.match(app, /path="\/notifications".*<Notifications/)
+  assert.doesNotMatch(layout, /location\.pathname === '\/deals'/)
+  assert.doesNotMatch(layout, /MyDealsModal/)
+  assert.match(bell, /to="\/notifications"/)
+  assert.doesNotMatch(bell, /role="dialog"/)
+  assert.match(notifications, /Notification list/)
+  assert.match(notifications, /Mark all read/)
 })
 
 test('acceptance and settled negotiation are required before wallet escrow funding', () => {
