@@ -40,7 +40,7 @@ export default function BottomNav() {
   const loadCount = useCallback(async () => {
     if (!user?.id) return
     try {
-      const data = await api.getMyDeals()
+      const data = await api.getMyDealsCount()
       setPendingDeals(Number(data.pendingCount || 0))
     } catch (error) {
       console.error('my deals count failed:', error)
