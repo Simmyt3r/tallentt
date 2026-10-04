@@ -23,7 +23,7 @@ export const NAV_PRIMARY = [
 
 export const NAV_SECONDARY = [
   { to: '/negotiations', icon: ArrowLeftRight, label: 'Negotiation Center' },
-  { to: '/messages', icon: MessageCircle, label: 'Messages' },
+  { to: '/messages', icon: MessageCircle, label: 'Deals Chat' },
   { to: '/wallet', icon: WalletIcon, label: 'Wallet' },
 ]
 
@@ -31,7 +31,7 @@ export const PROFILE_ITEM = { to: '/profile', icon: UserRound, label: 'Profile' 
 
 const TITLES = [
   { test: (p) => p === '/', title: 'Feed' },
-  { test: (p) => p.startsWith('/messages'), title: 'Messages' },
+  { test: (p) => p.startsWith('/messages'), title: 'Deals Chat' },
   { test: (p) => p.startsWith('/negotiations'), title: 'Negotiation Center' },
   { test: (p) => p.startsWith('/showroom'), title: 'Showroom' },
   { test: (p) => p.startsWith('/deals'), title: 'My Deals' },
