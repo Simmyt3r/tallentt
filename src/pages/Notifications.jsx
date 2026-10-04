@@ -63,6 +63,8 @@ export default function Notifications() {
   const [error, setError] = useState('')
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [nextCursor, setNextCursor] = useState(null)
+  const [paging, setPaging] = useState(false)
 
   const load = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setLoading(true)
@@ -70,6 +72,7 @@ export default function Notifications() {
       const data = await api.getNotifications()
       setNotifications(data.notifications || [])
       setUnreadCount(Number(data.unreadCount || 0))
+      setNextCursor(data.nextCursor || null)
       setError('')
     } catch (err) {
       if (!quiet) setError(err.message || 'Could not load notifications.')
@@ -89,6 +92,24 @@ export default function Notifications() {
     const connection = connectMyDealsRealtime(user.id, { onChange: () => load({ quiet: true }) })
     return () => connection.close()
   }, [load, user?.id])
+
+  async function loadOlder() {
+    if (!nextCursor || paging) return
+    setPaging(true)
+    try {
+      const data = await api.getNotifications(nextCursor)
+      setNotifications((current) => {
+        const seen = new Set(current.map((item) => item.id))
+        return [...current, ...(data.notifications || []).filter((item) => !seen.has(item.id))]
+      })
+      setUnreadCount(Number(data.unreadCount || 0))
+      setNextCursor(data.nextCursor || null)
+    } catch (err) {
+      setError(err.message || 'Could not load older notifications.')
+    } finally {
+      setPaging(false)
+    }
+  }
 
   async function markOne(notification) {
     if (!notification?.unread) return
@@ -214,6 +235,18 @@ export default function Notifications() {
                   </button>
                 )
               })}
+              {nextCursor && (
+                <div className="pt-3 text-center">
+                  <button
+                    type="button"
+                    onClick={loadOlder}
+                    disabled={paging}
+                    className="h-10 rounded-full border-[1.5px] border-black bg-white px-5 text-[11px] font-black disabled:opacity-50"
+                  >
+                    {paging ? 'Loading…' : 'Load older'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
