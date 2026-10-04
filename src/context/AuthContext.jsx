@@ -1,6 +1,7 @@
 // Path: src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { api } from '../lib/api.js'
+import { disablePushNotifications, syncPushSubscription } from '../lib/pushNotifications.js'
 
 const AuthContext = createContext(null)
 
@@ -11,7 +12,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     api
       .me()
-      .then((data) => setUser(data.user))
+      .then((data) => {
+        setUser(data.user)
+        syncPushSubscription()
+      })
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
   }, [])
@@ -19,16 +23,19 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (payload) => {
     const data = await api.register(payload)
     setUser(data.user)
+    syncPushSubscription()
     return data.user
   }, [])
 
   const login = useCallback(async (payload) => {
     const data = await api.login(payload)
     setUser(data.user)
+    syncPushSubscription()
     return data.user
   }, [])
 
   const logout = useCallback(async () => {
+    await disablePushNotifications().catch(() => {})
     await api.logout()
     setUser(null)
   }, [])
