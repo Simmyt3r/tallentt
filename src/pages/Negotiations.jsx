@@ -69,12 +69,12 @@ export default function Negotiations() {
     <main className="max-w-5xl mx-auto space-y-4 pb-8">
       <div className={selected ? 'hidden md:block' : ''}>
         <h1 className="text-[23px] font-black">Negotiation Center</h1>
-        <p className="text-[12px] text-black/55">Offers, counteroffers, and final price agreement only.</p>
+        <p className="text-[12px] text-black/55">Only deals that enter price negotiation appear here. Completed is negotiation history only.</p>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[#0A13E6]/15 bg-[#0A13E6]/[0.04] px-4 py-3">
           <div>
             <p className="text-[11px] font-black text-[#0A13E6]">Price negotiation only</p>
             <p className="mt-0.5 text-[10.5px] leading-relaxed text-black/55">
-              Chat about the work in Deals Chat. Escrow funding, delivery updates, QR checkpoints, and settlement happen outside this center.
+              Offers and counteroffers happen here. Messaging stays in Deals Chat. Payment, escrow, QR checkpoints, delivery and disputes stay in My Deals.
             </p>
           </div>
           <Link
@@ -111,9 +111,13 @@ export default function Negotiations() {
                   <p className="text-[13px] font-black truncate">{item.hat_title}</p>
                   <p className="text-[11px] text-black/55 truncate">With {item.peer_full_name || item.peer_username || 'ChombuTar user'}</p>
                   <p className="mt-1 text-[11px] font-semibold text-[#0A13E6]">
-                    {item.agreed_at ? `Agreed ${money(item.amount, item.currency)}` : item.pending_offer_id
-                      ? `${item.pending_offer_sender_id === user.id ? 'Waiting for response' : 'Respond to'} ${money(item.pending_offer_amount, item.currency)}`
-                      : 'Make a proposal'}
+                    {activeTab === 'Completed'
+                      ? item.agreed_at
+                        ? `Negotiation history • Agreed ${money(item.amount, item.currency)}`
+                        : 'Negotiation history • Closed without agreement'
+                      : item.pending_offer_id
+                        ? `${item.pending_offer_sender_id === user.id ? 'Waiting for response' : 'Respond to'} ${money(item.pending_offer_amount, item.currency)}`
+                        : 'Make a proposal'}
                   </p>
                 </button>
               </li>
@@ -129,7 +133,14 @@ export default function Negotiations() {
           }} className="m-3 px-4 py-2 rounded-full border border-black/20 text-xs font-bold disabled:opacity-50">{paging ? 'Loading…' : 'Load more'}</button>}
         </div>
         {selected ? (
-          <NegotiationDetail key={selected} id={selected} user={user} onBack={() => updateSelection(null)} onUpdated={() => setRefresh((v) => v + 1)} />
+          <NegotiationDetail
+            key={selected}
+            id={selected}
+            user={user}
+            readOnly={activeTab === 'Completed'}
+            onBack={() => updateSelection(null)}
+            onUpdated={() => setRefresh((v) => v + 1)}
+          />
         ) : (
           <div className="hidden md:grid place-items-center p-8 text-sm text-black/45">Select a negotiation to review the offer.</div>
         )}
@@ -138,7 +149,7 @@ export default function Negotiations() {
   )
 }
 
-function NegotiationDetail({ id, user, onBack, onUpdated }) {
+function NegotiationDetail({ id, user, readOnly, onBack, onUpdated }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -222,49 +233,48 @@ function NegotiationDetail({ id, user, onBack, onUpdated }) {
           <p className="text-xs text-black/50">Client and Talent</p>
           <NegotiationParties currentUser={user} peer={thread.peer} currentRole={thread.is_client ? 'client' : 'talent'} />
         </header>
-        {(thread.price_type === 'range' || thread.price_negotiable) ? (
-          <NegotiationPanel thread={thread} offers={offers} pending={pending} userId={user.id} currentUser={user}
-            showParties={false}
-            busy={busy} offerMode={offerMode} amount={amount} note={note} error={offerError}
-            onAmount={(value) => { setAmount(value); setOfferError('') }} onNote={setNote}
-            onOpenOffer={openOffer} onCancelOffer={() => { setOfferMode(false); setOfferError('') }}
-            onSubmitOffer={submitOffer}
-            onRespond={(status) => act({ action: 'respond_offer', offer_id: pending.id, status })} />
-        ) : <p className="text-xs">This deal has a fixed price.</p>}
-        {thread.agreed_at && thread.status === 'not_funded' && (
-          <section className="rounded-[16px] border border-emerald-200 bg-emerald-50 p-3.5">
-            <p className="text-[11px] font-black uppercase tracking-[0.08em] text-emerald-700">Negotiation complete</p>
-            <p className="mt-1 text-[12px] font-semibold text-emerald-950/75">
-              The final price is agreed. This center has finished its job.
-              {thread.is_client
-                ? ' Continue in My Deals to accept/fund escrow when the deal is ready.'
-                : ' Continue in My Deals for the booking workflow.'}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link
-                to={thread.is_client ? '/deals?role=client&tab=active' : '/deals?role=talent&tab=active'}
-                className="inline-flex h-9 items-center rounded-full bg-[#0A13E6] px-4 text-[11px] font-black text-white"
-              >
-                Continue to My Deals
-              </Link>
-              <Link
-                to={`/messages?escrow=${id}`}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black"
-              >
-                <MessageCircle size={14} /> Open Deals Chat
-              </Link>
+        {readOnly || thread.agreed_at || ['cancelled', 'refunded', 'released'].includes(thread.status) ? (
+          <section className="space-y-3">
+            <div className="rounded-[16px] border border-black/10 bg-[#F7F3EB] p-3.5">
+              <p className="text-[10px] font-black uppercase tracking-[0.1em] text-black/40">Negotiation history</p>
+              <p className="mt-1 text-[13px] font-black">
+                {thread.agreed_at
+                  ? `Final agreed price: ${money(thread.amount, thread.currency)}`
+                  : 'Negotiation closed without a final agreement'}
+              </p>
+              <p className="mt-1 text-[10.5px] text-black/50">
+                This record is read-only. Deal management happens in My Deals.
+              </p>
             </div>
+            {offers.length > 0 ? (
+              <NegotiationHistory offers={offers} thread={thread} userId={user.id} />
+            ) : (
+              <p className="text-xs text-black/45">No proposal history is available.</p>
+            )}
           </section>
+        ) : (thread.price_type === 'range' || thread.price_negotiable) ? (
+          <>
+            <NegotiationPanel thread={thread} offers={offers} pending={pending} userId={user.id} currentUser={user}
+              showParties={false}
+              busy={busy} offerMode={offerMode} amount={amount} note={note} error={offerError}
+              onAmount={(value) => { setAmount(value); setOfferError('') }} onNote={setNote}
+              onOpenOffer={openOffer} onCancelOffer={() => { setOfferMode(false); setOfferError('') }}
+              onSubmitOffer={submitOffer}
+              onRespond={(status) => act({ action: 'respond_offer', offer_id: pending.id, status })} />
+            {offers.length > 0 && <NegotiationHistory offers={offers} thread={thread} userId={user.id} />}
+          </>
+        ) : (
+          <p className="rounded-[14px] border border-black/10 bg-[#F7F3EB] p-3 text-xs text-black/55">
+            This deal uses a fixed price and does not belong in Negotiation Center.
+          </p>
         )}
-        {offers.length > 0 && <NegotiationHistory offers={offers} thread={thread} userId={user.id} />}
         {cursor && <button type="button" onClick={async () => {
           try {
             const result = await api.getMessages(id, cursor)
             setOlder((current) => [...result.messages, ...current])
             setCursor(result.nextCursor)
           } catch (err) { setError(err.message) }
-        }} className="rounded-full border border-black/20 px-4 py-2 text-xs font-bold">Load older proposals</button>}
-        <Link to={`/messages?escrow=${id}`} className="flex items-center justify-center gap-1.5 rounded-full border border-black/20 px-4 py-2 text-xs font-bold"><MessageCircle size={14} /> Open Deals Chat about the work</Link>
+        }} className="rounded-full border border-black/20 px-4 py-2 text-xs font-bold">Load older proposals</button>
       </>}
     </section>
   )
