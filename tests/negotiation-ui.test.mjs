@@ -17,11 +17,14 @@ test('Range Hats start with a proposal instead of a fee detour', () => {
   assert.match(shared, /The final deal price is set only when one proposal is accepted/)
 })
 
-test('offers live in the negotiation center while chat remains in messages', () => {
+test('negotiation center, My Deals, and Deals Chat have strict responsibilities', () => {
   const messages = read('src/pages/Messages.jsx')
   const center = read('src/pages/Negotiations.jsx')
   const panel = read('src/components/NegotiationPanel.jsx')
   const parties = read('src/components/NegotiationParties.jsx')
+  const deals = read('src/components/MyDealsModal.jsx')
+  const threads = read('api/_lib/bookingThreads.js')
+
   for (const phrase of [
     'Price negotiation',
     'Proposal received',
@@ -34,20 +37,35 @@ test('offers live in the negotiation center while chat remains in messages', () 
   ]) {
     assert.ok(panel.includes(phrase), phrase)
   }
+
   for (const tab of ['Action needed', 'Ongoing', 'Completed']) assert.ok(center.includes(tab))
   assert.match(center, /Price negotiation only/)
-  assert.match(center, /Open Deals Chat/)
+  assert.match(center, /Completed is negotiation history only/)
+  assert.match(center, /This record is read-only/)
   assert.doesNotMatch(center, /fundEscrowWithWallet/)
-  assert.doesNotMatch(center, /generateBookingQr/)
+  assert.doesNotMatch(center, /DealQrCheckpoint/)
+  assert.doesNotMatch(center, /BookingProgress/)
+
+  assert.match(threads, /EXISTS \([\s\S]*negotiation_offer\.kind = 'offer'/)
+
   assert.match(center, /NegotiationParties/)
   assert.match(parties, /Switch negotiation sides/)
   assert.match(parties, /Client/)
   assert.match(parties, /Talent/)
   assert.match(parties, /ArrowLeftRight/)
   assert.match(center, /filter\(\(message\) => message\.kind === 'offer'\)/)
+
   assert.match(messages, /message\.kind !== 'offer'/)
   assert.match(messages, /Type a message…/)
-  assert.match(messages, /setDealOpen\(true\)/)
+  assert.match(messages, /Messaging only/)
+  assert.doesNotMatch(messages, /fundEscrowWithWallet/)
+  assert.doesNotMatch(messages, /DealQrCheckpoint/)
+  assert.doesNotMatch(messages, /EscrowFundingCard/)
+  assert.doesNotMatch(messages, /BookingProgress\s*\(/)
+
+  assert.match(deals, /EscrowFundingCard/)
+  assert.match(deals, /DealQrCheckpoint/)
+  assert.match(deals, /BookingProgress/)
 })
 
 test('thread API exposes the range and keeps the accepted proposal as the deal price', () => {
