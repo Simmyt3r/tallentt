@@ -1,6 +1,7 @@
 import { query, getClient } from './db.js'
 import { bookingError, requireBookingId, requireAmount, assertNegotiable, assertOfferWithinRange, assertPriceEditable, messageText, canShareContacts } from './bookingRules.js'
 import { lifecycleHistory } from './bookingLifecycle.js'
+import { dispatchStoredNotifications } from './pushNotifications.js'
 
 export async function withBooking(userId, escrowId, operation) {
   requireBookingId(escrowId)
@@ -16,7 +17,13 @@ export async function withBooking(userId, escrowId, operation) {
     )
     if (!rows[0]) throw bookingError(404, 'Booking not found.')
     const result = await operation(client, rows[0])
+    const pushNotifications = result?.__pushNotifications || []
     await client.query('COMMIT')
+    if (pushNotifications.length) await dispatchStoredNotifications(pushNotifications)
+    if (result && typeof result === 'object' && '__pushNotifications' in result) {
+      const { __pushNotifications, ...publicResult } = result
+      return publicResult
+    }
     return result
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
@@ -118,14 +125,16 @@ async function notifyThread(client, escrow, senderId, title, isOffer = false) {
   const peerId = senderId === escrow.client_id ? escrow.talent_id : escrow.client_id
   // Offer alerts lead to the negotiation center; chat alerts stay in messages.
   const type = isOffer ? 'booking_offer' : 'booking_message'
-  await client.query(
+  const { rows } = await client.query(
     `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
      SELECT $1, $2, $3, $4, $5, $6::jsonb
      WHERE NOT EXISTS (SELECT 1 FROM notifications
-       WHERE user_id = $1 AND type = $2 AND read_at IS NULL AND metadata->>'escrow_id' = $7)`,
+       WHERE user_id = $1 AND type = $2 AND read_at IS NULL AND metadata->>'escrow_id' = $7)
+     RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
     [peerId, type, title, isOffer ? 'Open the negotiation center to review the offer.' : 'Open the booking conversation to view the update.',
       `${isOffer ? '/negotiations' : '/messages'}?escrow=${escrow.id}`, JSON.stringify({ escrow_id: escrow.id }), escrow.id],
   )
+  return rows[0] || null
 }
 
 export async function threadAction(userId, body) {
@@ -202,9 +211,9 @@ export async function threadAction(userId, body) {
           isOffer ? 'pending' : null, body.client_token,
           userId === escrow.client_id ? escrow.talent_id : escrow.client_id],
       )
-      await notifyThread(client, escrow, userId, isOffer ? 'New price offer' : 'New booking message', isOffer)
+      const notification = await notifyThread(client, escrow, userId, isOffer ? 'New price offer' : 'New booking message', isOffer)
       await client.query(`UPDATE escrows SET messages_updated_at = NOW() WHERE id = $1`, [escrow.id])
-      return { id: rows[0].id }
+      return { id: rows[0].id, __pushNotifications: notification ? [notification] : [] }
     }
 
     if (body.action === 'respond_offer') {
@@ -236,9 +245,9 @@ export async function threadAction(userId, body) {
           [offer.amount, escrow.id, offer.currency, offer.pay_unit],
         )
       }
-      await notifyThread(client, escrow, userId, `Price offer ${body.status}`, true)
+      const notification = await notifyThread(client, escrow, userId, `Price offer ${body.status}`, true)
       await client.query(`UPDATE escrows SET messages_updated_at = NOW() WHERE id = $1`, [escrow.id])
-      return { ok: true }
+      return { ok: true, __pushNotifications: notification ? [notification] : [] }
     }
     throw bookingError(400, 'Unknown messaging action.')
   })
