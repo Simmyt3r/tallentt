@@ -43,6 +43,47 @@ function ErrorNotice({ message, onRetry }) {
   )
 }
 
+function QrCheckpointSheet({ thread, onClose, onComplete }) {
+  const stage = thread.work_status === 'awaiting_start' ? 'start' : 'completion'
+  return (
+    <div
+      className="fixed inset-0 z-[120] bg-black/45 p-3 sm:p-6 flex items-end sm:items-center justify-center"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label={stage === 'start' ? 'Start QR checkpoint' : 'Completion QR checkpoint'}
+        className="w-full sm:max-w-[460px] max-h-[88dvh] overflow-y-auto rounded-t-[24px] sm:rounded-[24px] border-[1.5px] border-black bg-[#F7F3EB] p-4 shadow-2xl"
+      >
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0A13E6]">
+              {stage === 'start' ? 'Start checkpoint' : 'Completion checkpoint'}
+            </p>
+            <h2 className="mt-1 text-[17px] font-black">
+              {stage === 'start'
+                ? thread.is_client ? 'Generate start QR' : 'Scan start QR'
+                : thread.is_client ? 'Generate completion QR' : 'Scan completion QR'}
+            </h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close QR checkpoint" className="p-2">
+            <X size={18} />
+          </button>
+        </div>
+
+        <DealQrCheckpoint
+          booking={thread}
+          role={thread.is_client ? 'client' : 'talent'}
+          onComplete={onComplete}
+        />
+      </section>
+    </div>
+  )
+}
+
 function DealDetailsSheet({
   thread,
   events,
@@ -128,6 +169,15 @@ function DealDetailsSheet({
             />
           )}
 
+          {thread.status === 'secured' &&
+            ['awaiting_start', 'awaiting_completion'].includes(thread.work_status) && (
+              <DealQrCheckpoint
+                booking={thread}
+                role={thread.is_client ? 'client' : 'talent'}
+                onComplete={onComplete}
+              />
+            )}
+
           {thread.status !== 'not_funded' && thread.status !== 'cancelled' && (
             <BookingProgress
               thread={thread}
@@ -138,15 +188,6 @@ function DealDetailsSheet({
               refreshUser={refreshUser}
             />
           )}
-
-          {thread.status === 'secured' &&
-            ['awaiting_start', 'awaiting_completion'].includes(thread.work_status) && (
-              <DealQrCheckpoint
-                booking={thread}
-                role={thread.is_client ? 'client' : 'talent'}
-                onComplete={onComplete}
-              />
-            )}
         </div>
       </section>
     </div>
@@ -315,6 +356,7 @@ function BookingThread({ id, onBack }) {
   const [busy, setBusy] = useState(false)
   const [history, setHistory] = useState(false)
   const [dealOpen, setDealOpen] = useState(false)
+  const [qrOpen, setQrOpen] = useState(false)
   const [paging, setPaging] = useState(false)
   const scrollRef = useRef(null)
   const mounted = useRef(true)
@@ -557,7 +599,13 @@ function BookingThread({ id, onBack }) {
       ) ? (
         <button
           type="button"
-          onClick={() => setDealOpen(true)}
+          onClick={() => {
+            if (['awaiting_start', 'awaiting_completion'].includes(thread.work_status)) {
+              setQrOpen(true)
+            } else {
+              setDealOpen(true)
+            }
+          }}
           aria-label={
             thread.work_status === 'awaiting_start'
               ? thread.is_client ? 'Generate start QR' : 'Scan start QR'
@@ -683,6 +731,18 @@ function BookingThread({ id, onBack }) {
           </form>
         )}
       </div>
+
+      {qrOpen && (
+        <QrCheckpointSheet
+          thread={thread}
+          onClose={() => setQrOpen(false)}
+          onComplete={async () => {
+            await refreshUser()
+            await load()
+            setQrOpen(false)
+          }}
+        />
+      )}
 
       {dealOpen && (
         <DealDetailsSheet
