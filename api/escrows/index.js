@@ -9,7 +9,7 @@ import { applyVerifiedLegacyBookingCharge } from '../_lib/bookingCheckout.js'
 import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notifications.js'
 import { getConversations, getNegotiations, getThread, threadAction } from '../_lib/bookingThreads.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from '../_lib/bookingRules.js'
-import { emitMyDealsEvent, getMyDeals, respondBookingRequest, writeBookingCreatedNotifications } from '../_lib/myDeals.js'
+import { emitMyDealsEvent, getMyDeals, getMyDealsCount, getMyDealsPage, respondBookingRequest, writeBookingCreatedNotifications } from '../_lib/myDeals.js'
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store')
@@ -33,7 +33,19 @@ export default async function handler(req, res) {
       if (url.searchParams.get('messages') === '1') {
         return json(res, 200, await getThread(session.sub, url.searchParams.get('escrow_id'), url.searchParams.get('before'), url.searchParams.get('events_before')))
       }
+      if (url.searchParams.get('deals_count') === '1') {
+        return json(res, 200, await getMyDealsCount(session.sub))
+      }
       if (url.searchParams.get('deals') === '1') {
+        const role = url.searchParams.get('role')
+        const tab = url.searchParams.get('tab')
+        if (role && tab) {
+          return json(res, 200, await getMyDealsPage(session.sub, {
+            role,
+            tab,
+            before: url.searchParams.get('before'),
+          }))
+        }
         return json(res, 200, await getMyDeals(session.sub))
       }
 
