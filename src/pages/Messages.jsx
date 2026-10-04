@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, RefreshCw, Send, X } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Send } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
-import BookingProgress, { workLabels } from '../components/BookingProgress.jsx'
-import DealQrCheckpoint from '../components/DealQrCheckpoint.jsx'
-import EscrowFundingCard from '../components/EscrowFundingCard.jsx'
+import { workLabels } from '../components/BookingProgress.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
 import { getPrimaryIdentity, identityFromRow } from '../lib/profile.js'
 
@@ -39,157 +37,6 @@ function ErrorNotice({ message, onRetry }) {
           <RefreshCw size={15} />
         </button>
       )}
-    </div>
-  )
-}
-
-function QrCheckpointSheet({ thread, onClose, onComplete }) {
-  const stage = thread.work_status === 'awaiting_start' ? 'start' : 'completion'
-  return (
-    <div
-      className="fixed inset-0 z-[120] bg-black/45 p-3 sm:p-6 flex items-end sm:items-center justify-center"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={stage === 'start' ? 'Start QR checkpoint' : 'Completion QR checkpoint'}
-        className="w-full sm:max-w-[460px] max-h-[88dvh] overflow-y-auto rounded-t-[24px] sm:rounded-[24px] border-[1.5px] border-black bg-[#F7F3EB] p-4 shadow-2xl"
-      >
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0A13E6]">
-              {stage === 'start' ? 'Start checkpoint' : 'Completion checkpoint'}
-            </p>
-            <h2 className="mt-1 text-[17px] font-black">
-              {stage === 'start'
-                ? thread.is_client ? 'Generate start QR' : 'Scan start QR'
-                : thread.is_client ? 'Generate completion QR' : 'Scan completion QR'}
-            </h2>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close QR checkpoint" className="p-2">
-            <X size={18} />
-          </button>
-        </div>
-
-        <DealQrCheckpoint
-          booking={thread}
-          role={thread.is_client ? 'client' : 'talent'}
-          onComplete={onComplete}
-        />
-      </section>
-    </div>
-  )
-}
-
-function DealDetailsSheet({
-  thread,
-  events,
-  eventsCursor,
-  busy,
-  run,
-  refreshUser,
-  user,
-  escrowId,
-  onClose,
-  onComplete,
-}) {
-  const status =
-    ['secured', 'released', 'refunded'].includes(thread.status)
-      ? workLabels[thread.work_status] || statusLabel[thread.status] || 'Active deal'
-      : statusLabel[thread.status] || thread.status
-
-  return (
-    <div
-      className="fixed inset-0 z-[100] bg-black/45 p-3 sm:p-6 flex items-end sm:items-center justify-center"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="Deal details"
-        className="w-full sm:max-w-[560px] max-h-[88dvh] overflow-y-auto rounded-t-[26px] sm:rounded-[26px] border-[1.5px] border-black bg-[#F7F3EB] shadow-2xl"
-      >
-        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur px-4 py-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">Deal details</p>
-            <h2 className="mt-0.5 text-[18px] font-black">{thread.hat_title}</h2>
-            <p className="text-[11px] font-semibold text-black/45">{status}</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close deal details" className="p-2">
-            <X size={18} />
-          </button>
-        </header>
-
-        <div className="p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-[16px] border border-black/10 bg-white p-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Deal price</p>
-              <p className="mt-1 text-[17px] font-black">
-                {money(thread.amount, thread.currency)}
-                {thread.pay_unit ? <span className="text-[10px]"> /{thread.pay_unit}</span> : null}
-              </p>
-            </div>
-            <div className="rounded-[16px] border border-black/10 bg-white p-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Status</p>
-              <p className="mt-1 text-[12px] font-black">{status}</p>
-            </div>
-          </div>
-
-          {thread.contacts_unlocked && (thread.peer?.email || thread.peer?.phone) && (
-            <div className="rounded-[16px] border border-black/10 bg-white p-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.1em] text-black/35">Contact</p>
-              {thread.peer?.email && <p className="mt-1 text-[12px] break-all">{thread.peer.email}</p>}
-              {thread.peer?.phone && <p className="mt-1 text-[12px]">{thread.peer.phone}</p>}
-            </div>
-          )}
-
-          {thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' && (
-            <EscrowFundingCard
-              amount={thread.amount}
-              currency={thread.currency}
-              walletBalance={user?.walletBalance || 0}
-              busy={busy}
-              returnTo={`/messages?escrow=${escrowId}`}
-              blockedByNegotiation={
-                Boolean(thread.pending_offer) ||
-                ((thread.price_type === 'range' || thread.price_negotiable) && !thread.agreed_at)
-              }
-              negotiationUrl={`/negotiations?escrow=${escrowId}`}
-              onFund={() =>
-                run(async () => {
-                  await api.fundEscrowWithWallet(escrowId, thread.amount)
-                  await refreshUser()
-                })
-              }
-            />
-          )}
-
-          {thread.status === 'secured' &&
-            ['awaiting_start', 'awaiting_completion'].includes(thread.work_status) && (
-              <DealQrCheckpoint
-                booking={thread}
-                role={thread.is_client ? 'client' : 'talent'}
-                onComplete={onComplete}
-              />
-            )}
-
-          {thread.status !== 'not_funded' && thread.status !== 'cancelled' && (
-            <BookingProgress
-              thread={thread}
-              events={events}
-              eventsCursor={eventsCursor}
-              busy={busy}
-              run={run}
-              refreshUser={refreshUser}
-            />
-          )}
-        </div>
-      </section>
     </div>
   )
 }
@@ -348,15 +195,13 @@ export default function Messages() {
 }
 
 function BookingThread({ id, onBack }) {
-  const { user, refreshUser } = useAuth()
+  const { user } = useAuth()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [syncError, setSyncError] = useState('')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [history, setHistory] = useState(false)
-  const [dealOpen, setDealOpen] = useState(false)
-  const [qrOpen, setQrOpen] = useState(false)
   const [paging, setPaging] = useState(false)
   const scrollRef = useRef(null)
   const mounted = useRef(true)
@@ -530,109 +375,21 @@ function BookingThread({ id, onBack }) {
               </Link>
             </UserIdentity>
           </div>
-          <button
-            type="button"
-            onClick={() => setDealOpen(true)}
-            className="shrink-0 rounded-full border border-black/10 bg-[#F5F3EF] px-2.5 py-1.5 text-[10px] font-black text-black/60 inline-flex items-center gap-1 hover:border-black/25"
-            aria-label="View deal details"
+          <Link
+            to={thread.is_client ? '/deals?role=client&tab=active' : '/deals?role=talent&tab=active'}
+            className="shrink-0 rounded-full border border-black/10 bg-[#F5F3EF] px-3 py-1.5 text-[10px] font-black text-black/60 hover:border-black/25"
           >
-            Deal <ChevronRight size={13} />
-          </button>
+            My Deals
+          </Link>
         </div>
         <div className="mt-2 ml-8 sm:ml-12 flex min-w-0 items-center gap-2 text-[10px] font-semibold text-black/45">
           <span className="truncate">{dealStatus}</span>
           <span aria-hidden="true">•</span>
           <span className="shrink-0 font-black text-black/65">{money(thread.amount, thread.currency)}</span>
+          <span aria-hidden="true">•</span>
+          <span className="shrink-0">Messaging only</span>
         </div>
       </header>
-
-      {((thread.price_type === 'range' || thread.price_negotiable) && !thread.agreed_at) ? (
-        <Link
-          to={`/negotiations?escrow=${id}`}
-          className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-[#0A13E6]/20 bg-[#0A13E6]/5 px-3 py-2 flex items-center justify-between gap-3 text-[11px] font-bold text-[#0A13E6]"
-        >
-          <span className="truncate">Price needs agreement</span>
-          <span className="shrink-0">Open Negotiation Center →</span>
-        </Link>
-      ) : thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' ? (
-        (user.walletBalance || 0) >= Number(thread.amount || 0) ? (
-          <button
-            type="button"
-            onClick={() =>
-              run(async () => {
-                await api.fundEscrowWithWallet(id, thread.amount)
-                await refreshUser()
-              })
-            }
-            disabled={busy}
-            aria-label="Fund escrow"
-            className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-emerald-200 bg-emerald-50 px-3 py-2 flex items-center justify-between gap-3 text-left disabled:opacity-50"
-          >
-            <span className="min-w-0">
-              <span className="block text-[9px] font-black uppercase tracking-[0.08em] text-emerald-700">Action required</span>
-              <span className="block truncate text-[11px] font-black text-emerald-950">Fund escrow</span>
-            </span>
-            <span className="shrink-0 text-[11px] font-black text-emerald-800">{money(thread.amount, thread.currency)}</span>
-          </button>
-        ) : (
-          <Link
-            to={`/wallet?topup=${encodeURIComponent(String(Math.ceil(Math.max(0, Number(thread.amount || 0) - Number(user.walletBalance || 0)))))}&return=${encodeURIComponent(`/messages?escrow=${id}`)}`}
-            aria-label="Top up wallet for escrow"
-            className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-amber-300 bg-amber-50 px-3 py-2 flex items-center justify-between gap-3 text-left"
-          >
-            <span className="min-w-0">
-              <span className="block text-[9px] font-black uppercase tracking-[0.08em] text-amber-700">Wallet shortfall</span>
-              <span className="block truncate text-[11px] font-black text-amber-950">Top up to fund escrow</span>
-            </span>
-            <span className="shrink-0 text-[11px] font-black text-amber-800">
-              {money(Math.max(0, Number(thread.amount || 0) - Number(user.walletBalance || 0)), thread.currency)}
-            </span>
-          </Link>
-        )
-      ) : thread.status === 'secured' && (
-        (!thread.is_client && thread.work_status === 'awaiting_start') ||
-        (thread.is_client && thread.work_status === 'awaiting_start') ||
-        (!thread.is_client && ['in_progress', 'revision_requested'].includes(thread.work_status)) ||
-        (thread.is_client && thread.work_status === 'submitted') ||
-        (!thread.is_client && thread.work_status === 'awaiting_completion') ||
-        (thread.is_client && thread.work_status === 'awaiting_completion')
-      ) ? (
-        <button
-          type="button"
-          onClick={() => {
-            if (['awaiting_start', 'awaiting_completion'].includes(thread.work_status)) {
-              setQrOpen(true)
-            } else {
-              setDealOpen(true)
-            }
-          }}
-          aria-label={
-            thread.work_status === 'awaiting_start'
-              ? thread.is_client ? 'Generate start QR' : 'Scan start QR'
-              : thread.work_status === 'submitted'
-                ? 'Review delivery'
-                : thread.work_status === 'revision_requested'
-                  ? 'Submit revised work'
-                  : thread.work_status === 'in_progress'
-                    ? 'Submit work'
-                    : thread.is_client ? 'Generate completion QR' : 'Scan completion QR'
-          }
-          className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-amber-300 bg-amber-50 px-3 py-2 flex items-center justify-between gap-3 text-left"
-        >
-          <span className="text-[9px] font-black uppercase tracking-[0.08em] text-amber-700">Action required</span>
-          <span className="shrink-0 text-[11px] font-black text-amber-900">
-            {thread.work_status === 'awaiting_start'
-              ? thread.is_client ? 'Generate start QR' : 'Scan start QR'
-              : thread.work_status === 'submitted'
-                ? 'Review delivery'
-                : thread.work_status === 'revision_requested'
-                  ? 'Submit revised work'
-                  : thread.work_status === 'in_progress'
-                    ? 'Submit work'
-                    : thread.is_client ? 'Generate completion QR' : 'Scan completion QR'}
-          </span>
-        </button>
-      ) : null}
 
       <div
         ref={scrollRef}
@@ -732,35 +489,6 @@ function BookingThread({ id, onBack }) {
         )}
       </div>
 
-      {qrOpen && (
-        <QrCheckpointSheet
-          thread={thread}
-          onClose={() => setQrOpen(false)}
-          onComplete={async () => {
-            await refreshUser()
-            await load()
-            setQrOpen(false)
-          }}
-        />
-      )}
-
-      {dealOpen && (
-        <DealDetailsSheet
-          thread={thread}
-          events={data.events}
-          eventsCursor={data.eventsCursor}
-          busy={busy}
-          run={run}
-          refreshUser={refreshUser}
-          user={user}
-          escrowId={id}
-          onClose={() => setDealOpen(false)}
-          onComplete={async () => {
-            await refreshUser()
-            await load()
-          }}
-        />
-      )}
     </section>
   )
 
