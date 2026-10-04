@@ -50,22 +50,41 @@ function mapNotification(row) {
   }
 }
 
-export async function getNotificationInbox(userId) {
-  const [items, count] = await Promise.all([
+export async function getNotificationCount(userId) {
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL`,
+    [userId],
+  )
+  return Number(rows[0]?.count || 0)
+}
+
+export async function getNotificationInbox(userId, before = null) {
+  if (before && !UUID_RE.test(String(before))) {
+    const err = new Error('Invalid notification cursor.')
+    err.status = 400
+    throw err
+  }
+
+  const pageSize = 30
+  const [items, unreadCount] = await Promise.all([
     query(
       `SELECT id, type, title, body, link_url, metadata, read_at, created_at
        FROM notifications
        WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT 50`,
-      [userId],
+         AND ($2::uuid IS NULL OR (created_at, id) <
+           (SELECT created_at, id FROM notifications WHERE id = $2 AND user_id = $1))
+       ORDER BY created_at DESC, id DESC
+       LIMIT $3`,
+      [userId, before || null, pageSize + 1],
     ),
-    query(`SELECT COUNT(*)::int as count FROM notifications WHERE user_id = $1 AND read_at IS NULL`, [userId]),
+    getNotificationCount(userId),
   ])
 
+  const rows = items.rows.slice(0, pageSize)
   return {
-    notifications: items.rows.map(mapNotification),
-    unreadCount: count.rows[0]?.count || 0,
+    notifications: rows.map(mapNotification),
+    unreadCount,
+    nextCursor: items.rows.length > pageSize ? rows[rows.length - 1]?.id || null : null,
   }
 }
 
@@ -200,7 +219,7 @@ export async function notifyEscrowSecured(escrowId) {
         type: 'escrow_secured',
         title: 'Booking secured',
         body: `${clientName} secured ${title} for ${amount}.`,
-        linkUrl: '/deals?role=talent&tab=active',
+        linkUrl: `/deals/${escrow.id}?role=talent`,
         metadata: { escrow_id: escrow.id, hat_id: escrow.hat_id },
       }),
       notifyUser({
@@ -208,7 +227,7 @@ export async function notifyEscrowSecured(escrowId) {
         type: 'escrow_secured',
         title: 'Booking secured',
         body: `Your booking with ${talentName} for ${title} is now secured.`,
-        linkUrl: '/deals?role=client&tab=active',
+        linkUrl: `/deals/${escrow.id}?role=client`,
         metadata: { escrow_id: escrow.id, hat_id: escrow.hat_id },
       }),
     ])
@@ -253,7 +272,7 @@ export async function notifyEscrowReleased(escrowId) {
         type: 'escrow_released',
         title: 'Booking payment released',
         body: `You released ${amount} to ${talentName} for ${title}.`,
-        linkUrl: '/deals?role=client&tab=active',
+        linkUrl: `/deals/${escrow.id}?role=client`,
         metadata: { escrow_id: escrow.id, hat_id: escrow.hat_id },
       }),
     ])
@@ -283,8 +302,8 @@ export async function notifyEscrowCancelled(escrowId) {
     }
 
     await Promise.all([
-      notifyUser({ ...payload, userId: escrow.client_id, linkUrl: '/deals?role=client&tab=active' }),
-      notifyUser({ ...payload, userId: escrow.talent_id, linkUrl: '/deals?role=talent&tab=active' }),
+      notifyUser({ ...payload, userId: escrow.client_id, linkUrl: `/deals/${escrow.id}?role=client` }),
+      notifyUser({ ...payload, userId: escrow.talent_id, linkUrl: `/deals/${escrow.id}?role=talent` }),
     ])
     return true
   } catch (err) {
