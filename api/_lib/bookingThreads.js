@@ -62,6 +62,12 @@ export async function getNegotiations(userId, before) {
      JOIN users u ON u.id = CASE WHEN e.client_id = $1 THEN e.talent_id ELSE e.client_id END
      WHERE (e.client_id = $1 OR e.talent_id = $1)
        AND (h.price_type = 'range' OR h.price_negotiable = TRUE)
+       AND EXISTS (
+         SELECT 1
+         FROM booking_messages negotiation_offer
+         WHERE negotiation_offer.escrow_id = e.id
+           AND negotiation_offer.kind = 'offer'
+       )
        AND ($2::uuid IS NULL OR (e.created_at, e.id) <
          (SELECT created_at, id FROM escrows WHERE id = $2 AND (client_id = $1 OR talent_id = $1)))
      ORDER BY e.created_at DESC, e.id DESC LIMIT 51`,
