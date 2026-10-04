@@ -192,7 +192,7 @@ export default function Messages() {
 
   return (
     <div className="max-w-6xl mx-auto md:space-y-4">
-      <h1 className={`${selected ? 'hidden md:block' : ''} text-[22px] font-bold mb-4 md:mb-0`}>Messages</h1>
+      <h1 className={`${selected ? 'hidden md:block' : ''} text-[22px] font-bold mb-4 md:mb-0`}>Deals Chat</h1>
       <div
         className={`grid md:grid-cols-[260px_minmax(0,1fr)] border-[1.5px] border-black rounded-[20px] bg-white overflow-hidden ${
           selected
