@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { getClient, query } from './db.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from './bookingRules.js'
 import { notifyUser, notifyUserWithQuery } from './notifications.js'
+import { dispatchStoredNotifications } from './pushNotifications.js'
 import { emitLiveEvent } from './liveRealtime.js'
 
 function displayName(row, prefix, fallback) {
@@ -292,7 +293,7 @@ export async function writeBookingCreatedNotifications(client, escrowId) {
   const talentName = displayName(booking, 'talent', 'the talent')
   const title = booking.hat_title || 'this Hat'
 
-  await Promise.all([
+  const notifications = await Promise.all([
     notifyUserWithQuery(runQuery, {
       userId: booking.talent_id,
       type: 'booking_requested',
@@ -311,7 +312,7 @@ export async function writeBookingCreatedNotifications(client, escrowId) {
     }),
   ])
 
-  return booking
+  return { ...booking, pushNotifications: notifications.filter(Boolean) }
 }
 
 export async function notifyBookingCreated(escrowId) {
@@ -518,7 +519,7 @@ export async function writeApplicationCreatedNotifications(client, applicationId
   const ownerName = displayName(app, 'owner', 'the client')
   const title = app.hat_title || 'this Hat'
 
-  await Promise.all([
+  const notifications = await Promise.all([
     notifyUserWithQuery(runQuery, {
       userId: app.owner_id,
       type: 'application_received',
@@ -537,7 +538,7 @@ export async function writeApplicationCreatedNotifications(client, applicationId
     }),
   ])
 
-  return app
+  return { ...app, pushNotifications: notifications.filter(Boolean) }
 }
 
 export async function notifyApplicationCreated(applicationId) {
@@ -723,6 +724,7 @@ export async function createApplicationRequest(applicantId, hatId, message, prop
 
     await client.query('COMMIT')
     if (notificationApp) {
+      await dispatchStoredNotifications(notificationApp.pushNotifications)
       emitMyDealsEvent([notificationApp.owner_id, notificationApp.applicant_id], 'application_created')
     }
   } catch (error) {
