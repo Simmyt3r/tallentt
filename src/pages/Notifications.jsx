@@ -4,6 +4,7 @@ import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, Wall
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
+import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
 
 function relativeTime(value) {
   if (!value) return ''
@@ -93,6 +94,12 @@ export default function Notifications() {
     return () => connection.close()
   }, [load, user?.id])
 
+  useEffect(() => {
+    const onPush = () => load({ quiet: true })
+    window.addEventListener('push:notification', onPush)
+    return () => window.removeEventListener('push:notification', onPush)
+  }, [load])
+
   async function loadOlder() {
     if (!nextCursor || paging) return
     setPaging(true)
@@ -170,6 +177,8 @@ export default function Notifications() {
           Mark all read
         </button>
       </header>
+
+      <PushNotificationSettings />
 
       <section className="overflow-hidden rounded-[22px] border-[1.5px] border-black bg-[#F7F3EB]" aria-label="Notification list">
         <div className="border-b border-black/10 bg-white px-4 py-3">
