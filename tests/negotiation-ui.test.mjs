@@ -22,7 +22,8 @@ test('negotiation center, My Deals, and Deals Chat have strict responsibilities'
   const center = read('src/pages/Negotiations.jsx')
   const panel = read('src/components/NegotiationPanel.jsx')
   const parties = read('src/components/NegotiationParties.jsx')
-  const deals = read('src/components/MyDealsModal.jsx')
+  const deals = read('src/pages/MyDeals.jsx')
+  const detail = read('src/pages/DealDetails.jsx')
   const threads = read('api/_lib/bookingThreads.js')
 
   for (const phrase of [
@@ -63,9 +64,12 @@ test('negotiation center, My Deals, and Deals Chat have strict responsibilities'
   assert.doesNotMatch(messages, /EscrowFundingCard/)
   assert.doesNotMatch(messages, /BookingProgress\s*\(/)
 
-  assert.match(deals, /EscrowFundingCard/)
-  assert.match(deals, /DealQrCheckpoint/)
-  assert.match(deals, /BookingProgress/)
+  assert.doesNotMatch(deals, /EscrowFundingCard/)
+  assert.doesNotMatch(deals, /DealQrCheckpoint/)
+  assert.doesNotMatch(deals, /BookingProgress/)
+  assert.match(detail, /EscrowFundingCard/)
+  assert.match(detail, /DealQrCheckpoint/)
+  assert.match(detail, /BookingProgress/)
 })
 
 test('thread API exposes the range and keeps the accepted proposal as the deal price', () => {
@@ -77,17 +81,17 @@ test('thread API exposes the range and keeps the accepted proposal as the deal p
   assert.match(threads, /amount = \$1/)
 })
 
-test('My Deals exposes current proposal, agreement state, and both negotiation parties for Range deals', () => {
+test('My Deals index exposes proposal/agreement state while negotiation itself stays in the center', () => {
   const api = read('api/_lib/myDeals.js')
-  const modal = read('src/components/MyDealsModal.jsx')
+  const page = read('src/pages/MyDeals.jsx')
 
   assert.match(api, /pending_offer_amount/)
   assert.match(api, /pending_offer_sender_id/)
-  assert.match(modal, /NegotiationParties/)
-  assert.match(modal, /Listed range/)
-  assert.match(modal, /Your proposal/)
-  assert.match(modal, /Current proposal/)
-  assert.match(modal, /Agreed:/)
+  assert.match(page, /Price negotiation not completed/)
+  assert.match(page, /Proposal:/)
+  assert.match(page, /Agreed at/)
+  assert.match(page, /\/negotiations\?escrow=/)
+  assert.doesNotMatch(page, /NegotiationParties/)
 })
 
 test('live deal reads bypass browser cache so proposals refresh immediately', () => {
