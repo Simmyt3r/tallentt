@@ -5,6 +5,12 @@ import { bookingError, assertExpectedAmount } from './bookingRules.js'
 import { creditWallet, debitWallet } from './wallet.js'
 import { notifyEscrowSecured } from './notifications.js'
 
+function assertNegotiationSettled(escrow) {
+  if ((escrow.price_type === 'range' || escrow.price_negotiable === true) && !escrow.agreed_at) {
+    throw bookingError(409, 'Agree the final price in Negotiation Center before funding escrow.')
+  }
+}
+
 // Legacy compatibility only. Fresh clients no longer call this because every
 // in-platform payment is funded from the ChombuTar wallet. Keeping the
 // endpoint briefly prevents an already-cached PWA from stranding a Paystack
@@ -14,6 +20,7 @@ export async function prepareCheckout(userId, escrowId, expectedAmount) {
     if (escrow.client_id !== userId) throw bookingError(403, 'Only the client can fund this booking.')
     if (escrow.status !== 'not_funded') throw bookingError(409, 'This booking is no longer awaiting payment.')
     if (!escrow.contacts_unlocked) throw bookingError(409, 'The talent must accept this booking request before payment.')
+    assertNegotiationSettled(escrow)
     assertExpectedAmount(escrow, expectedAmount)
     await assertNoPendingOffer(client, escrow.id)
     const { rows } = await client.query(
@@ -30,6 +37,7 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
     if (escrow.client_id !== userId) throw bookingError(403, 'Only the client can fund this booking.')
     if (escrow.status !== 'not_funded') throw bookingError(409, 'This booking is no longer awaiting payment.')
     if (!escrow.contacts_unlocked) throw bookingError(409, 'The talent must accept this booking request before payment.')
+    assertNegotiationSettled(escrow)
     assertExpectedAmount(escrow, expectedAmount)
     await assertNoPendingOffer(client, escrow.id)
 
@@ -73,7 +81,11 @@ export async function applyVerifiedLegacyBookingCharge({ escrowId, reference, tx
     await client.query('BEGIN')
 
     const { rows } = await client.query(
-      `SELECT * FROM escrows WHERE id = $1 FOR UPDATE`,
+      `SELECT e.*, h.price_type, h.price_negotiable
+       FROM escrows e
+       JOIN hats h ON h.id = e.hat_id
+       WHERE e.id = $1
+       FOR UPDATE OF e`,
       [escrowId],
     )
     const escrow = rows[0]
@@ -95,6 +107,7 @@ export async function applyVerifiedLegacyBookingCharge({ escrowId, reference, tx
     if (!escrow.contacts_unlocked) {
       throw bookingError(409, 'The talent must accept this booking request before payment.')
     }
+    assertNegotiationSettled(escrow)
     if (escrow.checkout_reference && escrow.checkout_reference !== cleanReference) {
       throw bookingError(409, 'This payment does not match the booking checkout.')
     }
