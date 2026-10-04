@@ -50,6 +50,8 @@ function DealDetailsSheet({
   busy,
   run,
   refreshUser,
+  user,
+  escrowId,
   onClose,
   onComplete,
 }) {
@@ -105,7 +107,28 @@ function DealDetailsSheet({
             </div>
           )}
 
-          {(thread.contacts_unlocked || thread.status !== 'not_funded') && thread.status !== 'cancelled' && (
+          {thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' && (
+            <EscrowFundingCard
+              amount={thread.amount}
+              currency={thread.currency}
+              walletBalance={user?.walletBalance || 0}
+              busy={busy}
+              returnTo={`/messages?escrow=${escrowId}`}
+              blockedByNegotiation={
+                Boolean(thread.pending_offer) ||
+                ((thread.price_type === 'range' || thread.price_negotiable) && !thread.agreed_at)
+              }
+              negotiationUrl={`/negotiations?escrow=${escrowId}`}
+              onFund={() =>
+                run(async () => {
+                  await api.fundEscrowWithWallet(escrowId, thread.amount)
+                  await refreshUser()
+                })
+              }
+            />
+          )}
+
+          {thread.status !== 'not_funded' && thread.status !== 'cancelled' && (
             <BookingProgress
               thread={thread}
               events={events}
@@ -113,7 +136,6 @@ function DealDetailsSheet({
               busy={busy}
               run={run}
               refreshUser={refreshUser}
-              showActions={false}
             />
           )}
 
@@ -196,7 +218,7 @@ export default function Messages() {
       <div
         className={`grid md:grid-cols-[260px_minmax(0,1fr)] border-[1.5px] border-black rounded-[20px] bg-white overflow-hidden ${
           selected
-            ? 'h-[calc(100dvh-150px)] min-h-[520px] md:h-[calc(100dvh-190px)] md:max-h-[760px]'
+            ? '-mx-4 h-[calc(100dvh-152px)] min-h-0 rounded-none border-x-0 md:mx-0 md:h-[calc(100dvh-190px)] md:min-h-[520px] md:max-h-[760px] md:rounded-[20px] md:border-[1.5px]'
             : 'min-h-[560px]'
         }`}
       >
@@ -437,11 +459,6 @@ function BookingThread({ id, onBack }) {
     ['secured', 'released', 'refunded'].includes(thread.status)
       ? workLabels[thread.work_status] || statusLabel[thread.status] || 'Active deal'
       : statusLabel[thread.status] || thread.status
-  const qrAction =
-    thread.status === 'secured' &&
-    ['awaiting_start', 'awaiting_completion'].includes(thread.work_status)
-  const showCompactProgress = thread.status === 'secured'
-
   return (
     <section className="min-w-0 min-h-0 h-full flex flex-col bg-white">
       <header className="shrink-0 border-b border-black/10 px-3 sm:px-4 py-3">
@@ -471,112 +488,79 @@ function BookingThread({ id, onBack }) {
               </Link>
             </UserIdentity>
           </div>
-          <span className="shrink-0 rounded-full bg-[#F5F3EF] px-2.5 py-1 text-[10px] font-black text-black/60">
-            {dealStatus}
-          </span>
+          <button
+            type="button"
+            onClick={() => setDealOpen(true)}
+            className="shrink-0 rounded-full border border-black/10 bg-[#F5F3EF] px-2.5 py-1.5 text-[10px] font-black text-black/60 inline-flex items-center gap-1 hover:border-black/25"
+            aria-label="View deal details"
+          >
+            Deal <ChevronRight size={13} />
+          </button>
+        </div>
+        <div className="mt-2 ml-8 sm:ml-12 flex min-w-0 items-center gap-2 text-[10px] font-semibold text-black/45">
+          <span className="truncate">{dealStatus}</span>
+          <span aria-hidden="true">•</span>
+          <span className="shrink-0 font-black text-black/65">{money(thread.amount, thread.currency)}</span>
         </div>
       </header>
 
-      <div className="shrink-0 px-3 pt-2">
-        <button
-          type="button"
-          onClick={() => setDealOpen(true)}
-          className="w-full rounded-[15px] border border-black/10 bg-[#FCFBF8] px-3.5 py-2.5 flex items-center gap-3 text-left hover:border-black/20 transition"
+      {((thread.price_type === 'range' || thread.price_negotiable) && !thread.agreed_at) ? (
+        <Link
+          to={`/negotiations?escrow=${id}`}
+          className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-[#0A13E6]/20 bg-[#0A13E6]/5 px-3 py-2 flex items-center justify-between gap-3 text-[11px] font-bold text-[#0A13E6]"
         >
-          <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Deal</p>
-            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="text-[13px] font-black">
-                {money(thread.amount, thread.currency)}
-                {thread.pay_unit ? ` /${thread.pay_unit}` : ''}
-              </span>
-              <span className="text-[10px] font-semibold text-black/45">{dealStatus}</span>
-            </div>
-          </div>
-          <span className="text-[10px] font-black text-[#0A13E6]">View deal</span>
-          <ChevronRight size={16} className="text-black/35" />
-        </button>
-      </div>
-
-      {(thread.price_type === 'range' || thread.price_negotiable) && !thread.agreed_at && (
-        <Link to={`/negotiations?escrow=${id}`} className="mx-3 mt-2 rounded-[14px] border border-[#0A13E6]/20 bg-[#0A13E6]/5 px-3 py-2 text-[11px] font-bold text-[#0A13E6]">
-          Review the price in Negotiation Center →
+          <span className="truncate">Price needs agreement</span>
+          <span className="shrink-0">Open Negotiation Center →</span>
         </Link>
-      )}
-
-      {thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' && (
-        <div className="shrink-0 mx-3 mt-2">
-          <EscrowFundingCard
-            amount={thread.amount}
-            currency={thread.currency}
-            walletBalance={user.walletBalance || 0}
-            busy={busy}
-            returnTo={`/messages?escrow=${id}`}
-            blockedByNegotiation={
-              Boolean(thread.pending_offer) ||
-              ((thread.price_type === 'range' || thread.price_negotiable) && !thread.agreed_at)
-            }
-            negotiationUrl={`/negotiations?escrow=${id}`}
-            onFund={() =>
-              run(async () => {
-                await api.fundEscrowWithWallet(id, thread.amount)
-                await refreshUser()
-              })
-            }
-          />
-        </div>
-      )}
-
-      {showCompactProgress && (
-        <BookingProgress
-          thread={thread}
-          events={data.events}
-          eventsCursor={data.eventsCursor}
-          busy={busy}
-          run={run}
-          refreshUser={refreshUser}
-          compact
-          showHistory={false}
-        />
-      )}
-
-      {qrAction && !thread.is_client && (
-        <div className="shrink-0 mx-3 mt-2">
-          <DealQrCheckpoint
-            booking={thread}
-            role="talent"
-            compact
-            onComplete={async () => {
-              await refreshUser()
-              await load()
-            }}
-          />
-        </div>
-      )}
-
-      {qrAction && thread.is_client && (
+      ) : thread.is_client && thread.contacts_unlocked && thread.status === 'not_funded' ? (
         <button
           type="button"
           onClick={() => setDealOpen(true)}
-          className="shrink-0 mx-3 mt-2 rounded-[16px] border border-amber-300 bg-amber-50 px-3.5 py-3 flex items-center justify-between gap-3 text-left"
+          className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-emerald-200 bg-emerald-50 px-3 py-2 flex items-center justify-between gap-3 text-left"
         >
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-amber-700">Action required</p>
-            <p className="mt-0.5 text-[12px] font-black">
-              {thread.work_status === 'awaiting_start' ? 'Start QR checkpoint' : 'Completion QR checkpoint'}
-            </p>
-          </div>
-          <span className="text-[10px] font-black text-amber-800">
-            {thread.work_status === 'awaiting_start' ? 'Generate start QR' : 'Generate completion QR'}
+          <span className="min-w-0">
+            <span className="block text-[9px] font-black uppercase tracking-[0.08em] text-emerald-700">Action required</span>
+            <span className="block truncate text-[11px] font-black text-emerald-950">Fund escrow</span>
+          </span>
+          <span className="shrink-0 text-[11px] font-black text-emerald-800">
+            {(user.walletBalance || 0) >= Number(thread.amount || 0)
+              ? money(thread.amount, thread.currency)
+              : `Top up ${money(Math.max(0, Number(thread.amount || 0) - Number(user.walletBalance || 0)), thread.currency)}`}
           </span>
         </button>
-      )}
+      ) : thread.status === 'secured' && (
+        (!thread.is_client && thread.work_status === 'awaiting_start') ||
+        (thread.is_client && thread.work_status === 'awaiting_start') ||
+        (!thread.is_client && ['in_progress', 'revision_requested'].includes(thread.work_status)) ||
+        (thread.is_client && thread.work_status === 'submitted') ||
+        (!thread.is_client && thread.work_status === 'awaiting_completion') ||
+        (thread.is_client && thread.work_status === 'awaiting_completion')
+      ) ? (
+        <button
+          type="button"
+          onClick={() => setDealOpen(true)}
+          className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-amber-300 bg-amber-50 px-3 py-2 flex items-center justify-between gap-3 text-left"
+        >
+          <span className="text-[9px] font-black uppercase tracking-[0.08em] text-amber-700">Action required</span>
+          <span className="shrink-0 text-[11px] font-black text-amber-900">
+            {thread.work_status === 'awaiting_start'
+              ? thread.is_client ? 'Generate start QR' : 'Scan start QR'
+              : thread.work_status === 'submitted'
+                ? 'Review delivery'
+                : thread.work_status === 'revision_requested'
+                  ? 'Submit revised work'
+                  : thread.work_status === 'in_progress'
+                    ? 'Submit work'
+                    : thread.is_client ? 'Generate completion QR' : 'Scan completion QR'}
+          </span>
+        </button>
+      ) : null}
 
       <div
         ref={scrollRef}
         role="region"
         aria-label="Message history"
-        className="flex-1 min-h-[220px] overflow-y-auto overscroll-contain px-3 sm:px-4 py-4 space-y-3"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-[#FAFAF8] px-3 sm:px-4 py-3 sm:py-4 space-y-2.5 scroll-smooth"
       >
         {history && (
           <button
@@ -608,12 +592,14 @@ function BookingThread({ id, onBack }) {
           return (
             <article
               key={message.id}
-              className={`max-w-[84%] sm:max-w-[72%] w-fit rounded-[16px] px-3.5 py-2.5 ${
-                own ? 'ml-auto bg-[#0A13E6] text-white' : 'bg-[#F3F3F3] text-black'
+              className={`max-w-[88%] sm:max-w-[72%] w-fit rounded-[16px] px-3.5 py-2.5 shadow-sm ${
+                own
+                  ? 'ml-auto bg-[#0A13E6] text-white'
+                  : 'bg-white text-black border border-black/[0.08]'
               }`}
             >
               {message.body && (
-                <p className="text-[12px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                <p className="text-[13px] leading-[1.45] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                   {message.body}
                 </p>
               )}
@@ -633,7 +619,7 @@ function BookingThread({ id, onBack }) {
         })}
       </div>
 
-      <div className="shrink-0 border-t border-black/10 bg-white p-3 sm:p-4">
+      <div className="shrink-0 border-t border-black/10 bg-white/98 backdrop-blur p-2.5 sm:p-3">
         {error && <ErrorNotice message={error} />}
         {syncError && (
           <div className="mb-2">
@@ -654,7 +640,7 @@ function BookingThread({ id, onBack }) {
               disabled={busy}
               onChange={(event) => setText(event.target.value)}
               placeholder="Type a message…"
-              className="min-h-[44px] max-h-28 flex-1 resize-none rounded-[22px] border-[1.5px] border-black/15 bg-[#FCFBF8] px-4 py-3 text-[12px] outline-none focus:border-black/35"
+              className="min-h-[44px] max-h-24 flex-1 resize-none rounded-[22px] border-[1.5px] border-black/15 bg-[#FCFBF8] px-4 py-3 text-[13px] outline-none focus:border-black/35"
             />
             <button
               type="submit"
@@ -676,6 +662,8 @@ function BookingThread({ id, onBack }) {
           busy={busy}
           run={run}
           refreshUser={refreshUser}
+          user={user}
+          escrowId={id}
           onClose={() => setDealOpen(false)}
           onComplete={async () => {
             await refreshUser()
