@@ -76,7 +76,7 @@ export async function getMyDealsCount(userId) {
          SELECT COUNT(*)::int
          FROM escrows e
          WHERE (e.client_id = $1 OR e.talent_id = $1)
-           AND e.request_kind <> 'application'
+           AND COALESCE(e.request_kind, 'booking') <> 'application'
            AND e.status = 'not_funded'
            AND COALESCE(e.contacts_unlocked, false) = false
        ) +
@@ -133,7 +133,7 @@ export async function getMyDealsPage(userId, { role = 'talent', tab = 'incoming'
       const partyColumn = role === 'talent' ? 'e.talent_id' : 'e.client_id'
       sql = `${BOOKING_PROJECTION}
         WHERE ${partyColumn} = $1
-          AND e.request_kind <> 'application'
+          AND COALESCE(e.request_kind, 'booking') <> 'application'
           AND e.status = 'not_funded'
           AND COALESCE(e.contacts_unlocked, false) = false
           AND ($2::uuid IS NULL OR (e.created_at, e.id) <
@@ -148,12 +148,12 @@ export async function getMyDealsPage(userId, { role = 'talent', tab = 'incoming'
     query(
       `SELECT
         (SELECT COUNT(*)::int FROM escrows e
-          WHERE e.talent_id = $1 AND e.request_kind <> 'application' AND e.status = 'not_funded' AND COALESCE(e.contacts_unlocked, false) = false) AS talent_incoming,
+          WHERE e.talent_id = $1 AND COALESCE(e.request_kind, 'booking') <> 'application' AND e.status = 'not_funded' AND COALESCE(e.contacts_unlocked, false) = false) AS talent_incoming,
         (SELECT COUNT(*)::int FROM applications a WHERE a.applicant_id = $1 AND a.status = 'pending') AS talent_outgoing,
         (SELECT COUNT(*)::int FROM escrows e WHERE e.talent_id = $1 AND e.status IN ('not_funded','secured') AND COALESCE(e.contacts_unlocked, false) = true) AS talent_active,
         (SELECT COUNT(*)::int FROM escrows e WHERE e.talent_id = $1 AND e.status IN ('released','refunded','cancelled')) AS talent_history,
         (SELECT COUNT(*)::int FROM applications a JOIN hats h ON h.id = a.hat_id WHERE h.user_id = $1 AND a.status = 'pending') AS client_incoming,
-        (SELECT COUNT(*)::int FROM escrows e WHERE e.client_id = $1 AND e.request_kind <> 'application' AND e.status = 'not_funded' AND COALESCE(e.contacts_unlocked, false) = false) AS client_outgoing,
+        (SELECT COUNT(*)::int FROM escrows e WHERE e.client_id = $1 AND COALESCE(e.request_kind, 'booking') <> 'application' AND e.status = 'not_funded' AND COALESCE(e.contacts_unlocked, false) = false) AS client_outgoing,
         (SELECT COUNT(*)::int FROM escrows e WHERE e.client_id = $1 AND e.status IN ('not_funded','secured') AND COALESCE(e.contacts_unlocked, false) = true) AS client_active,
         (SELECT COUNT(*)::int FROM escrows e WHERE e.client_id = $1 AND e.status IN ('released','refunded','cancelled')) AS client_history`,
       [userId],
