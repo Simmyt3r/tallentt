@@ -60,6 +60,17 @@ test('acceptance and settled negotiation are required before wallet escrow fundi
   assert.match(rules, /!\['cancelled', 'refunded'\]\.includes/)
 })
 
+test('escrow shortfall opens a prefilled wallet top-up and returns to the deal', () => {
+  const funding = read('src/components/EscrowFundingCard.jsx')
+  const wallet = read('src/pages/Wallet.jsx')
+  assert.match(funding, /You need/)
+  assert.match(funding, /\/wallet\?topup=/)
+  assert.match(funding, /return=/)
+  assert.match(wallet, /useSearchParams/)
+  assert.match(wallet, /initialTopup/)
+  assert.match(wallet, /navigate\(returnTo\)/)
+})
+
 test('server emits myDeals invalidations and promotes accepted applications into active escrows', () => {
   const deals = read('api/_lib/myDeals.js')
   assert.match(deals, /emitLiveEvent\(userId, 'myDeals'/)
