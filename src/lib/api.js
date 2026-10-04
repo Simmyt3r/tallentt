@@ -30,6 +30,22 @@ export const api = {
   updateProfile: (body) => request('/api/auth', { method: 'PUT', body: JSON.stringify(body) }),
   getNotifications: (before) => request(`/api/auth?action=notifications${before ? `&before=${encodeURIComponent(before)}` : ''}`),
   getNotificationCount: () => request('/api/auth?action=notification-count'),
+  getPushConfig: () => request('/api/auth?action=push-config'),
+  savePushSubscription: (subscription) =>
+    request('/api/auth', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'push_subscribe', subscription }),
+    }),
+  removePushSubscription: (endpoint) =>
+    request('/api/auth', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'push_unsubscribe', endpoint }),
+    }),
+  updatePushPreferences: (preferences) =>
+    request('/api/auth', {
+      method: 'PUT',
+      body: JSON.stringify({ action: 'update_push_preferences', preferences }),
+    }),
   markNotificationRead: (notificationId) =>
     request('/api/auth', {
       method: 'PUT',
