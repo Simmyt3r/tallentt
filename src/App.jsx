@@ -16,6 +16,7 @@ import Wallet from './pages/Wallet.jsx'
 import Admin from './pages/Admin.jsx'
 import Messages from './pages/Messages.jsx'
 import Negotiations from './pages/Negotiations.jsx'
+import MyDeals from './components/MyDealsModal.jsx'
 import LiveHub from './pages/Live/LiveHub.jsx'
 import StageRoom from './pages/Live/StageRoom.jsx'
 
@@ -36,7 +37,7 @@ export default function App() {
     <Route path="/create" element={<ProtectedRoute><HatForm /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="/profile/:username" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
-    <Route path="/deals" element={<ProtectedRoute><div /></ProtectedRoute>} />
+    <Route path="/deals" element={<ProtectedRoute><MyDeals /></ProtectedRoute>} />
     <Route path="/my-applications" element={<Navigate to="/deals?role=talent&tab=outgoing" replace />} />
     <Route path="/my-bookings" element={<Navigate to="/deals?role=client&tab=outgoing" replace />} />
     <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
