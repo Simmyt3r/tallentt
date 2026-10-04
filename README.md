@@ -72,17 +72,51 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 
 Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
 
-## 5. Notifications
+## 5. Notifications and Web Push
 
-Signed-in users get an in-app header inbox for important marketplace events:
+Signed-in users have a full Notifications page plus optional standards-based Web Push. The in-app notification row remains the source of truth; browser push is a best-effort delivery channel and can never roll back or block a booking, wallet, escrow, QR, delivery, or dispute transaction.
 
-- New applications on client hats
-- Accepted or rejected application decisions
-- Secured and released booking escrows
-- Wallet top-ups and withdrawal status changes
-- Admin moderation and reconciliation updates
+Push covers:
 
-The inbox intentionally ships as in-app notifications first. Email, SMS, and push notifications should wait until messaging, abuse controls, and user notification preferences are stable.
+- Booking and application activity
+- Negotiation offers and responses
+- New Deals Chat messages
+- Escrow funding and wallet events
+- Start/completion QR readiness and scan settlement
+- Delivery, revisions, approval, disputes, refunds and releases
+- Live activity
+- Optional marketing notifications, disabled by default
+
+Users enable browser notifications explicitly from **Notifications → Push notifications**. ChombuTar never requests browser permission on page load. One account may register multiple devices. When ChombuTar is visible, the push worker updates the in-app UI instead of showing a duplicate system notification. Notification clicks use same-origin deep links to the relevant Negotiation Center, Deals Chat, deal workspace or Wallet page.
+
+Preferences are available for Deals, Negotiations, Deals Chat, Payments, Live and Marketing. Critical escrow, withdrawal, checkpoint, lifecycle and dispute notifications remain deliverable even if a broad category is disabled.
+
+### Deploying Web Push
+
+For an existing Neon database, apply the push migration before enabling VAPID in production:
+
+```bash
+export DATABASE_URL="postgresql://..."
+npm run db:migrate:push
+```
+
+Then create a VAPID key pair:
+
+```bash
+npm run push:vapid
+```
+
+Add the generated values as **server-only** Vercel environment variables:
+
+```
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=https://your-production-domain/
+```
+
+`VAPID_PRIVATE_KEY` must never be exposed as a `VITE_` variable. Keep the same key pair across deployments; replacing it invalidates the relationship with existing browser subscriptions and users may need to subscribe again.
+
+Fresh databases created with `npm run db:migrate` already include `push_subscriptions` and `notification_preferences`. The dedicated `/push-sw.js` worker is intentionally scoped to `/push/`, so it coexists with the root Vite PWA worker rather than replacing offline/cache behavior.
 
 ### Booking Messages and Price Offers
 
