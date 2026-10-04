@@ -516,6 +516,7 @@ function BookingThread({ id, onBack }) {
         <button
           type="button"
           onClick={() => setDealOpen(true)}
+          aria-label="Fund escrow"
           className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-emerald-200 bg-emerald-50 px-3 py-2 flex items-center justify-between gap-3 text-left"
         >
           <span className="min-w-0">
@@ -539,6 +540,17 @@ function BookingThread({ id, onBack }) {
         <button
           type="button"
           onClick={() => setDealOpen(true)}
+          aria-label={
+            thread.work_status === 'awaiting_start'
+              ? thread.is_client ? 'Generate start QR' : 'Scan start QR'
+              : thread.work_status === 'submitted'
+                ? 'Review delivery'
+                : thread.work_status === 'revision_requested'
+                  ? 'Submit revised work'
+                  : thread.work_status === 'in_progress'
+                    ? 'Submit work'
+                    : thread.is_client ? 'Generate completion QR' : 'Scan completion QR'
+          }
           className="shrink-0 mx-3 mt-2 min-h-10 rounded-[13px] border border-amber-300 bg-amber-50 px-3 py-2 flex items-center justify-between gap-3 text-left"
         >
           <span className="text-[9px] font-black uppercase tracking-[0.08em] text-amber-700">Action required</span>
