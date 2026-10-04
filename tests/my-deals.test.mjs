@@ -24,25 +24,27 @@ test('mobile nav places My Deals between Showroom and Live and shows pending bad
   assert.match(source, /badge=\{pendingDeals\}/)
 })
 
-test('My Deals page implements role modes, direction tabs and skeleton cards without modal behavior', () => {
-  const source = read('src/components/MyDealsModal.jsx')
+test('My Deals page is URL-driven, paginated, and includes permanent History', () => {
+  const source = read('src/pages/MyDeals.jsx')
   for (const phrase of [
-    'All your active deals in one place',
     'Talent Mode',
     'Client Mode',
     'Incoming',
     'Outgoing',
-    'Active Deals',
-    'No incoming bookings yet — your Showroom is live',
-    'h-[260px]',
+    'Active',
+    'History',
+    'Deal history',
+    'Load older',
   ]) assert.ok(source.includes(phrase), phrase)
-  for (const removed of ['Search by username LGA', 'Freelance', 'Contract']) {
-    assert.ok(!source.includes(removed), removed)
-  }
+  assert.match(source, /useSearchParams/)
+  assert.match(source, /setView/)
+  assert.match(source, /getMyDealsPage\(role, tab/)
+  assert.match(source, /\/deals\/\$\{item\.id\}/)
+  assert.doesNotMatch(source, /DealQrCheckpoint/)
+  assert.doesNotMatch(source, /EscrowFundingCard/)
+  assert.doesNotMatch(source, /BookingProgress/)
   assert.doesNotMatch(source, /role="dialog"/)
-  assert.doesNotMatch(source, /aria-modal="true"/)
-  assert.doesNotMatch(source, /fixed inset-0 z-\[80\]/)
-  assert.doesNotMatch(source, /Close My Deals/)
+  assert.doesNotMatch(source, /sticky top-0/)
 })
 
 test('My Deals and Notifications are routed as full pages instead of layout overlays', () => {
@@ -52,6 +54,7 @@ test('My Deals and Notifications are routed as full pages instead of layout over
   const bell = read('src/components/NotificationsMenu.jsx')
 
   assert.match(app, /path="\/deals".*<MyDeals/)
+  assert.match(app, /path="\/deals\/:dealId".*<DealDetails/)
   assert.match(app, /path="\/notifications".*<Notifications/)
   assert.doesNotMatch(layout, /location\.pathname === '\/deals'/)
   assert.doesNotMatch(layout, /MyDealsModal/)
@@ -61,11 +64,43 @@ test('My Deals and Notifications are routed as full pages instead of layout over
   assert.match(notifications, /Mark all read/)
 })
 
+test('deal workspace owns payment, QR, delivery, disputes and booking history', () => {
+  const detail = read('src/pages/DealDetails.jsx')
+  const app = read('src/App.jsx')
+  assert.match(app, /path="\/deals\/:dealId"/)
+  assert.match(detail, /EscrowFundingCard/)
+  assert.match(detail, /DealQrCheckpoint/)
+  assert.match(detail, /BookingProgress/)
+  assert.match(detail, /getDealDetail/)
+  assert.match(detail, /Deals Chat/)
+  assert.match(detail, /Escrow/)
+  assert.match(detail, /showHistory/)
+})
+
+test('badges and notification history use lightweight paginated APIs', () => {
+  const api = read('src/lib/api.js')
+  const bell = read('src/components/NotificationsMenu.jsx')
+  const bottom = read('src/components/BottomNav.jsx')
+  const notifications = read('src/pages/Notifications.jsx')
+  const server = read('api/_lib/notifications.js')
+  const deals = read('api/_lib/myDeals.js')
+
+  assert.match(api, /getNotificationCount/)
+  assert.match(api, /getMyDealsCount/)
+  assert.match(bell, /getNotificationCount/)
+  assert.match(bottom, /getMyDealsCount/)
+  assert.match(notifications, /Load older/)
+  assert.match(server, /nextCursor/)
+  assert.match(server, /LIMIT \$3/)
+  assert.match(deals, /getMyDealsPage/)
+  assert.match(deals, /pageSize = 30/)
+})
+
 test('acceptance and settled negotiation are required before wallet escrow funding', () => {
   const checkout = read('api/_lib/bookingCheckout.js')
   const payments = read('api/_lib/escrowPayments.js')
   const rules = read('api/_lib/bookingRules.js')
-  const dealsUi = read('src/components/MyDealsModal.jsx')
+  const dealsUi = read('src/pages/DealDetails.jsx')
   const fundingUi = read('src/components/EscrowFundingCard.jsx')
   assert.match(checkout, /must accept this booking request before payment/)
   assert.match(checkout, /Agree the final price in Negotiation Center before funding escrow/)
