@@ -12,7 +12,7 @@ export default function NotificationsMenu({ className = '', buttonClassName = ''
   const loadCount = useCallback(async () => {
     if (!user?.id) return
     try {
-      const data = await api.getNotifications()
+      const data = await api.getNotificationCount()
       setUnreadCount(Number(data.unreadCount || 0))
     } catch (error) {
       console.error('notification count failed:', error)
