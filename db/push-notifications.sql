@@ -27,4 +27,16 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS push_vapid_config (
+  singleton BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton = true),
+  public_key TEXT NOT NULL,
+  private_key_ciphertext TEXT NOT NULL,
+  private_key_iv TEXT NOT NULL,
+  private_key_tag TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 COMMIT;
