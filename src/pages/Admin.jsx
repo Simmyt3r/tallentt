@@ -574,12 +574,13 @@ function OverviewPanel({ dashboard, setTab }) {
           </div>
           <p className="text-[11px] text-black/40 font-medium">Configuration status only. Secrets are never exposed here.</p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
           <ServiceState label="Database" ready={dashboard?.services?.database} />
           <ServiceState label="Paystack" ready={dashboard?.services?.paystack} />
           <ServiceState label="Cloudinary" ready={dashboard?.services?.cloudinary} />
           <ServiceState label="Live media" ready={dashboard?.services?.live_media} fallback />
           <ServiceState label="Live realtime" ready={dashboard?.services?.live_realtime} />
+          <ServiceState label="Push" ready={dashboard?.services?.push} />
         </div>
       </section>
     </>
