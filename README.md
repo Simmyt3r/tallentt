@@ -93,20 +93,17 @@ Preferences are available for Deals, Negotiations, Deals Chat, Payments, Live an
 
 ### Deploying Web Push
 
-For an existing Neon database, apply the push migration before enabling VAPID in production:
+The primary setup path is now entirely browser-based:
 
-```bash
-export DATABASE_URL="postgresql://..."
-npm run db:migrate:push
-```
+1. Sign in as an administrator.
+2. Open **Admin → Push Setup**.
+3. Set the VAPID subject, normally `https://chombutar.vercel.app/`.
+4. Click **Generate VAPID keys**.
+5. The public key remains visible in Admin. The private key is shown once immediately after generation, then only reported as configured.
 
-Then create a VAPID key pair:
+The Admin Push Setup automatically creates the required `push_subscriptions`, `notification_preferences`, and `push_vapid_config` tables if they do not exist. The VAPID private key is encrypted at rest using `PUSH_CONFIG_SECRET` when provided, otherwise the existing server-side `JWT_SECRET`. Normal Admin/API reads never return the stored private key.
 
-```bash
-npm run push:vapid
-```
-
-Add the generated values as **server-only** Vercel environment variables:
+Environment configuration remains an optional fallback for infrastructure-managed deployments:
 
 ```
 VAPID_PUBLIC_KEY=...
@@ -114,9 +111,9 @@ VAPID_PRIVATE_KEY=...
 VAPID_SUBJECT=https://your-production-domain/
 ```
 
-`VAPID_PRIVATE_KEY` must never be exposed as a `VITE_` variable. Keep the same key pair across deployments; replacing it invalidates the relationship with existing browser subscriptions and users may need to subscribe again.
+Database-managed Admin configuration takes precedence over environment variables. `VAPID_PRIVATE_KEY` must never be exposed as a `VITE_` variable. Replacing the VAPID key pair may require existing devices to subscribe again.
 
-Fresh databases created with `npm run db:migrate` already include `push_subscriptions` and `notification_preferences`. The dedicated `/push-sw.js` worker is intentionally scoped to `/push/`, so it coexists with the root Vite PWA worker rather than replacing offline/cache behavior.
+The dedicated `/push-sw.js` worker is intentionally scoped to `/push/`, so it coexists with the root Vite PWA worker rather than replacing offline/cache behavior.
 
 ### Booking Messages and Price Offers
 
