@@ -3,13 +3,17 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   BadgeCheck,
+  BellRing,
   Briefcase,
   ClipboardList,
+  Copy,
   FileText,
   Gavel,
   Handshake,
+  KeyRound,
   LayoutDashboard,
   RefreshCw,
+  Save,
   Search,
   ShieldCheck,
   Users,
@@ -28,6 +32,7 @@ const SECTIONS = [
   { id: 'disputes', label: 'Disputes', icon: Gavel },
   { id: 'hats', label: 'Hats', icon: Briefcase },
   { id: 'applications', label: 'Applications', icon: ClipboardList },
+  { id: 'push', label: 'Push Setup', icon: BellRing },
   { id: 'audit', label: 'Audit Log', icon: FileText },
 ]
 
@@ -272,10 +277,205 @@ export default function Admin() {
               {tab === 'disputes' && <AdminDisputes />}
               {tab === 'hats' && <HatsTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'applications' && <ApplicationsTable rows={filtered} busy={busy} runAction={runAction} />}
+              {tab === 'push' && <PushSetupPanel />}
               {tab === 'audit' && <AuditTable rows={filtered} />}
             </section>
           )}
         </main>
+      </div>
+    </div>
+  )
+}
+
+function PushSetupPanel() {
+  const [config, setConfig] = useState(null)
+  const [subject, setSubject] = useState('https://chombutar.vercel.app/')
+  const [privateKeyOnce, setPrivateKeyOnce] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState('')
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState('')
+
+  async function loadPushConfig() {
+    setLoading(true)
+    setError('')
+    try {
+      const data = await api.getAdminPushConfig()
+      setConfig(data)
+      setSubject(data.subject || 'https://chombutar.vercel.app/')
+    } catch (err) {
+      setError(err.message || 'Could not load push configuration.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadPushConfig()
+  }, [])
+
+  async function copyValue(value, key) {
+    if (!value) return
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(key)
+      setTimeout(() => setCopied(''), 1600)
+    } catch {
+      setError('Copy failed. Select the value manually.')
+    }
+  }
+
+  async function generateKeys() {
+    if (config?.configured && !confirm('Replace the current VAPID key pair? Existing browser subscriptions may need to subscribe again.')) return
+    setBusy('generate')
+    setError('')
+    try {
+      const data = await api.generateAdminVapid(subject)
+      setConfig(data)
+      setSubject(data.subject)
+      setPrivateKeyOnce(data.privateKey || '')
+    } catch (err) {
+      setError(err.message || 'Could not generate VAPID keys.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function saveSubject() {
+    setBusy('subject')
+    setError('')
+    try {
+      const data = await api.updateAdminVapidSubject(subject)
+      setConfig(data)
+      setSubject(data.subject)
+    } catch (err) {
+      setError(err.message || 'Could not update the VAPID subject.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  if (loading) {
+    return <div className="p-5 text-[12px] font-medium text-black/45">Loading Push Setup…</div>
+  }
+
+  return (
+    <div className="p-4 md:p-5 space-y-4">
+      <div className="rounded-[18px] border border-[#0A13E6]/15 bg-[#EEF0FF] p-4">
+        <div className="flex gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] bg-white text-[#0A13E6] border border-[#0A13E6]/15">
+            <BellRing size={18} />
+          </span>
+          <div>
+            <h3 className="text-[14px] font-bold">Web Push configuration</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-black/55">
+              Generate and manage ChombuTar's VAPID keys here. No terminal, local tools or Vercel environment editing is required.
+              Push tables are created automatically when this section is used.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div role="alert" className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10.5px] font-bold ${
+          config?.configured ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'
+        }`}>
+          <span className={`h-2 w-2 rounded-full ${config?.configured ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+          {config?.configured ? 'Push configured' : 'Push not configured'}
+        </span>
+        {config?.source && (
+          <span className="rounded-full bg-[#F7F3EB] px-3 py-1.5 text-[10.5px] font-bold text-black/50">
+            Source: {config.source === 'database' ? 'Admin Dashboard' : 'Environment'}
+          </span>
+        )}
+      </div>
+
+      <div className="grid gap-4">
+        <div>
+          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-black/40">VAPID_PUBLIC_KEY</label>
+          <div className="flex gap-2">
+            <input
+              readOnly
+              value={config?.publicKey || ''}
+              placeholder="Generate keys to create the public key"
+              className="h-11 min-w-0 flex-1 rounded-[13px] border-[1.5px] border-black/10 bg-[#F7F3EB] px-3 text-[11px] font-mono outline-none"
+            />
+            <button type="button" disabled={!config?.publicKey} onClick={() => copyValue(config.publicKey, 'public')} className="h-11 rounded-[13px] border-[1.5px] border-black bg-white px-3 text-[11px] font-bold disabled:opacity-35">
+              <span className="inline-flex items-center gap-1.5"><Copy size={14} />{copied === 'public' ? 'Copied' : 'Copy'}</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-black/40">VAPID_PRIVATE_KEY</label>
+          {privateKeyOnce ? (
+            <div className="rounded-[15px] border border-amber-300 bg-amber-50 p-3">
+              <p className="mb-2 text-[10.5px] font-bold text-amber-900">
+                Newly generated private key. This is the only time the Admin API reveals it. ChombuTar has already stored an encrypted copy.
+              </p>
+              <div className="flex gap-2">
+                <input readOnly value={privateKeyOnce} className="h-11 min-w-0 flex-1 rounded-[12px] border border-amber-300 bg-white px-3 text-[11px] font-mono outline-none" />
+                <button type="button" onClick={() => copyValue(privateKeyOnce, 'private')} className="h-11 rounded-[12px] border-[1.5px] border-black bg-white px-3 text-[11px] font-bold">
+                  <span className="inline-flex items-center gap-1.5"><Copy size={14} />{copied === 'private' ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="h-11 rounded-[13px] border-[1.5px] border-black/10 bg-[#F7F3EB] px-3 flex items-center gap-2 text-[11px] font-semibold text-black/50">
+              <KeyRound size={14} />
+              {config?.privateKeyConfigured ? 'Configured and encrypted ••••••••••••••••' : 'Not configured'}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-black/40">VAPID_SUBJECT</label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+              placeholder="https://chombutar.vercel.app/"
+              className="h-11 min-w-0 flex-1 rounded-[13px] border-[1.5px] border-black/15 bg-white px-3 text-[12px] outline-none focus:border-black/40"
+            />
+            <button
+              type="button"
+              onClick={saveSubject}
+              disabled={!config?.configured || busy === 'subject' || subject === config?.subject}
+              className="h-11 rounded-[13px] border-[1.5px] border-black bg-white px-4 text-[11px] font-bold disabled:opacity-35"
+            >
+              <span className="inline-flex items-center gap-1.5"><Save size={14} />{busy === 'subject' ? 'Saving…' : 'Save subject'}</span>
+            </button>
+          </div>
+          <p className="mt-1.5 text-[10px] text-black/40">Use an HTTPS site URL or a mailto: address identifying the push sender.</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 pt-1">
+        <button
+          type="button"
+          onClick={generateKeys}
+          disabled={busy === 'generate'}
+          className="h-11 rounded-full bg-[#0A13E6] px-5 text-[11px] font-bold text-white disabled:opacity-50"
+        >
+          <span className="inline-flex items-center gap-1.5"><KeyRound size={14} />{busy === 'generate' ? 'Generating…' : config?.configured ? 'Replace VAPID keys' : 'Generate VAPID keys'}</span>
+        </button>
+        {privateKeyOnce && (
+          <button type="button" onClick={() => setPrivateKeyOnce('')} className="h-11 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-bold">
+            Hide private key
+          </button>
+        )}
+      </div>
+
+      <div className="rounded-[14px] border border-black/10 bg-[#F7F3EB] p-3 text-[10.5px] leading-relaxed text-black/50">
+        The private key is encrypted at rest using the server's existing secret. Normal Admin Dashboard loads never return it.
+        Replacing the VAPID key pair can invalidate existing browser subscriptions, so rotate it only when necessary.
       </div>
     </div>
   )
