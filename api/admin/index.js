@@ -93,6 +93,7 @@ async function requireAdmin(req, res) {
 }
 
 async function getDashboard() {
+  const pushStatusPromise = getAdminVapidStatus()
   const [
     metrics,
     applicationStatuses,
@@ -221,6 +222,8 @@ async function getDashboard() {
     ),
   ])
 
+  const pushStatus = await pushStatusPromise
+
   return {
     metrics: metrics.rows[0],
     services: {
@@ -229,6 +232,7 @@ async function getDashboard() {
       cloudinary: Boolean(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)),
       live_media: Boolean(process.env.LIVE_MEDIA_SERVER_URL && process.env.LIVE_WHIP_URL && process.env.LIVE_HLS_BASE_URL),
       live_realtime: Boolean(process.env.LIVE_REALTIME_PUBLISH_URL && process.env.LIVE_REALTIME_SECRET),
+      push: Boolean(pushStatus.configured),
     },
     statusCounts: {
       applications: applicationStatuses.rows,
