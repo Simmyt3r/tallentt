@@ -158,6 +158,15 @@ export const api = {
   // Admin — one consolidated endpoint to stay within Vercel Hobby's
   // function cap while still giving operations a real control panel.
   getAdminDashboard: () => request('/api/admin'),
+  getAdminPushConfig: () => request('/api/admin?action=push_config'),
+  generateAdminVapid: (subject) => request('/api/admin', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'generate_vapid', subject }),
+  }),
+  updateAdminVapidSubject: (subject) => request('/api/admin', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'update_vapid_subject', subject }),
+  }),
   getDisputes: (status, before) => request(`/api/admin?action=disputes&status=${status}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
   getDispute: (id, before, eventsBefore) => request(`/api/admin?action=dispute&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}${eventsBefore ? `&events_before=${encodeURIComponent(eventsBefore)}` : ''}`),
   getLiveDisputes: () => request('/api/admin?action=live_disputes'),
