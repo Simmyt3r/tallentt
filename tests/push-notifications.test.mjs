@@ -4,15 +4,57 @@ import { readFileSync } from 'node:fs'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('push storage supports multiple devices and marketing defaults off', () => {
+test('push storage supports multiple devices, preferences, and encrypted admin VAPID config', () => {
   const migration = read('db/push-notifications.sql')
   const schema = read('db/schema.sql')
+  const backend = read('api/_lib/pushNotifications.js')
   for (const source of [migration, schema]) {
     assert.match(source, /CREATE TABLE IF NOT EXISTS push_subscriptions/)
     assert.match(source, /endpoint TEXT NOT NULL UNIQUE/)
     assert.match(source, /CREATE TABLE IF NOT EXISTS notification_preferences/)
     assert.match(source, /marketing BOOLEAN NOT NULL DEFAULT false/)
+    assert.match(source, /CREATE TABLE IF NOT EXISTS push_vapid_config/)
+    assert.match(source, /private_key_ciphertext/)
+    assert.match(source, /private_key_iv/)
+    assert.match(source, /private_key_tag/)
   }
+  assert.match(backend, /ensurePushStorage/)
+  assert.match(backend, /aes-256-gcm/)
+  assert.match(backend, /PUSH_CONFIG_SECRET \|\| process\.env\.JWT_SECRET/)
+})
+
+test('admin can generate VAPID in the browser without exposing the stored private key later', () => {
+  const backend = read('api/_lib/pushNotifications.js')
+  const adminApi = read('api/admin/index.js')
+  const adminUi = read('src/pages/Admin.jsx')
+  const api = read('src/lib/api.js')
+
+  assert.match(adminApi, /action.*push_config/)
+  assert.match(adminApi, /generate_vapid/)
+  assert.match(adminApi, /update_vapid_subject/)
+  assert.match(api, /getAdminPushConfig/)
+  assert.match(api, /generateAdminVapid/)
+  assert.match(adminUi, /Push Setup/)
+  assert.match(adminUi, /VAPID_PUBLIC_KEY/)
+  assert.match(adminUi, /VAPID_PRIVATE_KEY/)
+  assert.match(adminUi, /VAPID_SUBJECT/)
+  assert.match(adminUi, /Generate VAPID keys/)
+  assert.match(adminUi, /This is the only time the Admin API reveals it/)
+
+  const statusStart = backend.indexOf('export async function getAdminVapidStatus')
+  const generateStart = backend.indexOf('export async function generateAdminVapidConfig')
+  const statusBlock = backend.slice(statusStart, generateStart)
+  assert.doesNotMatch(statusBlock, /privateKey,/)
+  assert.match(statusBlock, /privateKeyConfigured/)
+  assert.match(backend.slice(generateStart), /privateKey,/)
+})
+
+test('database VAPID takes precedence while environment variables remain fallback only', () => {
+  const backend = read('api/_lib/pushNotifications.js')
+  assert.match(backend, /config = await databaseVapidConfig\(\)/)
+  assert.match(backend, /if \(!config\) config = envVapidConfig\(\)/)
+  assert.match(backend, /source: 'database'/)
+  assert.match(backend, /source: 'environment'/)
 })
 
 test('push backend uses VAPID and encrypted aes128gcm without a new runtime dependency', () => {
