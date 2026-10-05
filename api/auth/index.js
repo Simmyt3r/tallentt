@@ -272,14 +272,11 @@ async function handlePushConfig(req, res) {
   if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
   try {
     return json(res, 200, {
-      configured: isPushConfigured(),
-      publicKey: getVapidPublicKey(),
+      configured: await isPushConfigured(),
+      publicKey: await getVapidPublicKey(),
       preferences: await getPushPreferences(session.sub),
     })
   } catch (err) {
-    if (err.code === '42P01') {
-      return json(res, 503, { error: 'Push notification storage is not migrated yet.' })
-    }
     console.error('push config error:', err)
     return json(res, 500, { error: 'Failed to load push notification settings.' })
   }
@@ -288,7 +285,7 @@ async function handlePushConfig(req, res) {
 async function handlePushSubscribe(req, res, body) {
   const session = getSessionUser(req)
   if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
-  if (!isPushConfigured()) return json(res, 503, { error: 'Push notifications are not configured on the server yet.' })
+  if (!(await isPushConfigured())) return json(res, 503, { error: 'Push notifications are not configured yet. Ask an admin to generate VAPID keys in Admin → Push Setup.' })
   try {
     await savePushSubscription(session.sub, body?.subscription, req.headers['user-agent'])
     return json(res, 200, { ok: true, preferences: await getPushPreferences(session.sub) })
