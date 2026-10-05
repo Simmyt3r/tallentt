@@ -1,5 +1,6 @@
 import {
   createCipheriv,
+  createDecipheriv,
   createECDH,
   createHmac,
   createPrivateKey,
@@ -11,6 +12,8 @@ import { query } from './db.js'
 
 const CATEGORY_KEYS = ['deals', 'negotiations', 'messages', 'payments', 'live', 'marketing']
 const MAX_PUSH_PAYLOAD = 3500
+let storageReadyPromise = null
+let vapidCache = { value: null, expiresAt: 0 }
 
 function base64UrlDecode(value) {
   const raw = String(value || '').replace(/-/g, '+').replace(/_/g, '/')
@@ -40,31 +43,244 @@ function hkdfExpand(prk, info, length) {
   return Buffer.concat(chunks).subarray(0, length)
 }
 
-function getVapidConfig() {
+function validateSubject(subject) {
+  const clean = String(subject || '').trim()
+  if (!/^mailto:.+@.+\..+$/i.test(clean) && !/^https:\/\//i.test(clean)) {
+    throw Object.assign(new Error('VAPID subject must be a mailto: or https: URI.'), { status: 400 })
+  }
+  if (clean.length > 500) {
+    throw Object.assign(new Error('VAPID subject is too long.'), { status: 400 })
+  }
+  return clean
+}
+
+function validateKeyMaterial(publicKey, privateKey) {
+  const publicRaw = base64UrlDecode(publicKey)
+  const privateRaw = base64UrlDecode(privateKey)
+  if (publicRaw.length !== 65 || publicRaw[0] !== 4 || privateRaw.length !== 32) {
+    throw new Error('Invalid VAPID key material.')
+  }
+  return { publicRaw, privateRaw }
+}
+
+function encryptionKey() {
+  const secret = String(process.env.PUSH_CONFIG_SECRET || process.env.JWT_SECRET || '').trim()
+  if (!secret) {
+    throw new Error('JWT_SECRET is required to encrypt admin-managed VAPID configuration.')
+  }
+  return createHash('sha256').update(`chombutar:vapid:v1:${secret}`).digest()
+}
+
+function encryptPrivateKey(value) {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', encryptionKey(), iv)
+  const encrypted = Buffer.concat([cipher.update(String(value), 'utf8'), cipher.final()])
+  return {
+    ciphertext: encrypted.toString('base64'),
+    iv: iv.toString('base64'),
+    tag: cipher.getAuthTag().toString('base64'),
+  }
+}
+
+function decryptPrivateKey(row) {
+  const decipher = createDecipheriv(
+    'aes-256-gcm',
+    encryptionKey(),
+    Buffer.from(row.private_key_iv, 'base64'),
+  )
+  decipher.setAuthTag(Buffer.from(row.private_key_tag, 'base64'))
+  return Buffer.concat([
+    decipher.update(Buffer.from(row.private_key_ciphertext, 'base64')),
+    decipher.final(),
+  ]).toString('utf8')
+}
+
+export async function ensurePushStorage() {
+  if (storageReadyPromise) return storageReadyPromise
+  storageReadyPromise = (async () => {
+    await query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        user_agent TEXT,
+        failure_count INT NOT NULL DEFAULT 0 CHECK (failure_count >= 0),
+        last_success_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user
+      ON push_subscriptions (user_id, updated_at DESC)
+    `)
+    await query(`
+      CREATE TABLE IF NOT EXISTS notification_preferences (
+        user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        deals BOOLEAN NOT NULL DEFAULT true,
+        negotiations BOOLEAN NOT NULL DEFAULT true,
+        messages BOOLEAN NOT NULL DEFAULT true,
+        payments BOOLEAN NOT NULL DEFAULT true,
+        live BOOLEAN NOT NULL DEFAULT true,
+        marketing BOOLEAN NOT NULL DEFAULT false,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+    await query(`
+      CREATE TABLE IF NOT EXISTS push_vapid_config (
+        singleton BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton = true),
+        public_key TEXT NOT NULL,
+        private_key_ciphertext TEXT NOT NULL,
+        private_key_iv TEXT NOT NULL,
+        private_key_tag TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+    return true
+  })().catch((error) => {
+    storageReadyPromise = null
+    throw error
+  })
+  return storageReadyPromise
+}
+
+function envVapidConfig() {
   const publicKey = String(process.env.VAPID_PUBLIC_KEY || '').trim()
   const privateKey = String(process.env.VAPID_PRIVATE_KEY || '').trim()
   const subject = String(process.env.VAPID_SUBJECT || '').trim()
   if (!publicKey || !privateKey || !subject) return null
-
-  const publicRaw = base64UrlDecode(publicKey)
-  const privateRaw = base64UrlDecode(privateKey)
-  if (publicRaw.length !== 65 || publicRaw[0] !== 4 || privateRaw.length !== 32) {
-    console.error('Push disabled: invalid VAPID key material.')
+  try {
+    const { publicRaw, privateRaw } = validateKeyMaterial(publicKey, privateKey)
+    validateSubject(subject)
+    return { publicKey, privateKey, subject, publicRaw, privateRaw, source: 'environment' }
+  } catch (error) {
+    console.error('Push environment configuration is invalid:', error.message)
     return null
   }
-  if (!/^mailto:.+@.+\..+$/i.test(subject) && !/^https:\/\//i.test(subject)) {
-    console.error('Push disabled: VAPID_SUBJECT must be a mailto: or https: URI.')
+}
+
+async function databaseVapidConfig() {
+  await ensurePushStorage()
+  const { rows } = await query(
+    `SELECT public_key, private_key_ciphertext, private_key_iv, private_key_tag, subject, updated_at
+     FROM push_vapid_config
+     WHERE singleton = true`,
+  )
+  const row = rows[0]
+  if (!row) return null
+  try {
+    const privateKey = decryptPrivateKey(row)
+    const publicKey = String(row.public_key || '').trim()
+    const subject = validateSubject(row.subject)
+    const { publicRaw, privateRaw } = validateKeyMaterial(publicKey, privateKey)
+    return {
+      publicKey,
+      privateKey,
+      subject,
+      publicRaw,
+      privateRaw,
+      source: 'database',
+      updatedAt: row.updated_at,
+    }
+  } catch (error) {
+    console.error('Stored VAPID configuration could not be decrypted:', error.message)
     return null
   }
-  return { publicKey, privateKey, subject, publicRaw, privateRaw }
 }
 
-export function isPushConfigured() {
-  return Boolean(getVapidConfig())
+async function getVapidConfig({ fresh = false } = {}) {
+  if (!fresh && vapidCache.expiresAt > Date.now()) return vapidCache.value
+  let config = null
+  try {
+    config = await databaseVapidConfig()
+  } catch (error) {
+    console.error('Could not load database VAPID configuration:', error.message)
+  }
+  if (!config) config = envVapidConfig()
+  vapidCache = { value: config, expiresAt: Date.now() + 60_000 }
+  return config
 }
 
-export function getVapidPublicKey() {
-  return getVapidConfig()?.publicKey || null
+function clearVapidCache() {
+  vapidCache = { value: null, expiresAt: 0 }
+}
+
+export async function isPushConfigured() {
+  return Boolean(await getVapidConfig())
+}
+
+export async function getVapidPublicKey() {
+  return (await getVapidConfig())?.publicKey || null
+}
+
+export async function getAdminVapidStatus() {
+  await ensurePushStorage()
+  const db = await databaseVapidConfig()
+  const config = db || envVapidConfig()
+  return {
+    configured: Boolean(config),
+    source: config?.source || null,
+    publicKey: config?.publicKey || null,
+    subject: config?.subject || 'https://chombutar.vercel.app/',
+    privateKeyConfigured: Boolean(config?.privateKey),
+    updatedAt: config?.updatedAt || null,
+  }
+}
+
+export async function generateAdminVapidConfig(adminId, subject) {
+  await ensurePushStorage()
+  const cleanSubject = validateSubject(subject || 'https://chombutar.vercel.app/')
+  const ecdh = createECDH('prime256v1')
+  ecdh.generateKeys()
+  const publicKey = ecdh.getPublicKey().toString('base64url')
+  const privateKey = ecdh.getPrivateKey().toString('base64url')
+  const encrypted = encryptPrivateKey(privateKey)
+
+  await query(
+    `INSERT INTO push_vapid_config
+       (singleton, public_key, private_key_ciphertext, private_key_iv, private_key_tag, subject, updated_by, updated_at)
+     VALUES (true, $1, $2, $3, $4, $5, $6, NOW())
+     ON CONFLICT (singleton) DO UPDATE SET
+       public_key = EXCLUDED.public_key,
+       private_key_ciphertext = EXCLUDED.private_key_ciphertext,
+       private_key_iv = EXCLUDED.private_key_iv,
+       private_key_tag = EXCLUDED.private_key_tag,
+       subject = EXCLUDED.subject,
+       updated_by = EXCLUDED.updated_by,
+       updated_at = NOW()`,
+    [publicKey, encrypted.ciphertext, encrypted.iv, encrypted.tag, cleanSubject, adminId],
+  )
+  clearVapidCache()
+  return {
+    configured: true,
+    source: 'database',
+    publicKey,
+    privateKey,
+    subject: cleanSubject,
+    privateKeyConfigured: true,
+    generatedNow: true,
+  }
+}
+
+export async function updateAdminVapidSubject(adminId, subject) {
+  await ensurePushStorage()
+  const cleanSubject = validateSubject(subject)
+  const { rowCount } = await query(
+    `UPDATE push_vapid_config
+     SET subject = $1, updated_by = $2, updated_at = NOW()
+     WHERE singleton = true`,
+    [cleanSubject, adminId],
+  )
+  if (!rowCount) {
+    throw Object.assign(new Error('Generate VAPID keys before saving the subject.'), { status: 409 })
+  }
+  clearVapidCache()
+  return getAdminVapidStatus()
 }
 
 function vapidAuthorization(endpoint, config) {
@@ -167,6 +383,7 @@ function cleanPreferences(row = {}) {
 }
 
 export async function getPushPreferences(userId) {
+  await ensurePushStorage()
   const { rows } = await query(
     `SELECT deals, negotiations, messages, payments, live, marketing
      FROM notification_preferences WHERE user_id = $1`,
@@ -176,6 +393,7 @@ export async function getPushPreferences(userId) {
 }
 
 export async function updatePushPreferences(userId, next = {}) {
+  await ensurePushStorage()
   const current = await getPushPreferences(userId)
   const merged = { ...current }
   for (const key of CATEGORY_KEYS) {
@@ -212,6 +430,7 @@ function normalizeSubscription(subscription) {
 }
 
 export async function savePushSubscription(userId, subscription, userAgent = null) {
+  await ensurePushStorage()
   const clean = normalizeSubscription(subscription)
   await query(
     `INSERT INTO push_subscriptions
@@ -230,6 +449,7 @@ export async function savePushSubscription(userId, subscription, userAgent = nul
 }
 
 export async function removePushSubscription(userId, endpoint) {
+  await ensurePushStorage()
   const value = String(endpoint || '').trim()
   if (!value) return { ok: true }
   await query('DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2', [userId, value])
@@ -237,7 +457,7 @@ export async function removePushSubscription(userId, endpoint) {
 }
 
 async function sendEncryptedPush(subscription, payload, { critical = false, topic = null } = {}) {
-  const config = getVapidConfig()
+  const config = await getVapidConfig()
   if (!config) return { skipped: true, reason: 'not_configured' }
 
   const body = encryptPayload(subscription, JSON.stringify(payload))
@@ -281,9 +501,12 @@ function pushPayload(notification) {
 }
 
 export async function dispatchStoredNotification(notification) {
-  if (!notification?.user_id || !isPushConfigured()) return { delivered: 0, skipped: true }
+  if (!notification?.user_id) return { delivered: 0, skipped: true }
+  const config = await getVapidConfig()
+  if (!config) return { delivered: 0, skipped: true, reason: 'not_configured' }
 
   try {
+    await ensurePushStorage()
     const category = categoryFor(notification.type)
     const critical = isCriticalNotification(notification.type)
     const preferences = await getPushPreferences(notification.user_id)
