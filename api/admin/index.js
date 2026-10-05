@@ -10,6 +10,11 @@ import {
   notifyWithdrawalStatusByTransaction,
 } from '../_lib/notifications.js'
 import { resolveDispute as resolveLiveDispute } from '../_lib/live.js'
+import {
+  generateAdminVapidConfig,
+  getAdminVapidStatus,
+  updateAdminVapidSubject,
+} from '../_lib/pushNotifications.js'
 
 const DASHBOARD_LIMIT = 50
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -24,6 +29,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
+      if (params.get('action') === 'push_config') return json(res, 200, await getAdminVapidStatus())
       if (params.get('action') === 'disputes') return json(res, 200, await listDisputes(params.get('status') || 'open', params.get('before')))
       if (params.get('action') === 'dispute') return json(res, 200, await getDispute(params.get('escrow_id'), params.get('before'), params.get('events_before')))
       if (params.get('action') === 'live_disputes') {
@@ -246,6 +252,26 @@ async function handleAdminAction(admin, body) {
   if (!action) throw httpError(400, 'Action is required.')
   if (['resolve_release', 'resolve_refund'].includes(action)) {
     return bookingLifecycle(admin.id, body.escrow_id, action, body, true)
+  }
+
+  if (action === 'generate_vapid') {
+    const result = await generateAdminVapidConfig(admin.id, body.subject)
+    await query(
+      `INSERT INTO admin_audit_logs (admin_id, action, target_type, metadata)
+       VALUES ($1, 'generate_vapid', 'push_config', $2::jsonb)`,
+      [admin.id, JSON.stringify({ subject: result.subject, public_key_prefix: result.publicKey.slice(0, 16) })],
+    )
+    return result
+  }
+
+  if (action === 'update_vapid_subject') {
+    const result = await updateAdminVapidSubject(admin.id, body.subject)
+    await query(
+      `INSERT INTO admin_audit_logs (admin_id, action, target_type, metadata)
+       VALUES ($1, 'update_vapid_subject', 'push_config', $2::jsonb)`,
+      [admin.id, JSON.stringify({ subject: result.subject })],
+    )
+    return result
   }
 
   if (action === 'resolve_live_dispute') {
