@@ -135,6 +135,13 @@ export default function MyHats() {
                 <Paintbrush size={14} aria-hidden="true"/> Customize appearance
               </button>
               <HatFeedToggle hat={h} onChange={handleHatChange} />
+                {(h.media || []).some(m => ['pending','processing','held','rejected'].includes(m.screening_status)) && (
+                  <p className="px-2 text-[11px] font-semibold text-amber-700" role="status">
+                    {h.media.some(m => ['held','rejected'].includes(m.screening_status))
+                      ? 'Media requires review. Replace the media or request an appeal.'
+                      : 'Media screening is underway; Showroom discovery is paused.'}
+                  </p>
+                )
             </div>
           ))}
         </div>
@@ -180,6 +187,13 @@ export default function MyHats() {
               </div>
               <div className="px-4 pb-4">
                 <HatFeedToggle hat={h} onChange={handleHatChange} />
+                {(h.media || []).some(m => ['pending','processing','held','rejected'].includes(m.screening_status)) && (
+                  <p className="px-2 text-[11px] font-semibold text-amber-700" role="status">
+                    {h.media.some(m => ['held','rejected'].includes(m.screening_status))
+                      ? 'Media requires review. Replace the media or request an appeal.'
+                      : 'Media screening is underway; Showroom discovery is paused.'}
+                  </p>
+                )
               </div>
             </li>
           ))}
