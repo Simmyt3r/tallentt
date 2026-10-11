@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -541,6 +541,7 @@ export default function Showroom() {
         className="sticky z-30 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 bg-[#F7F3EB]/95 backdrop-blur-md border-b border-black/10 flex items-center gap-3"
       >
         <h1 className="text-[20px] font-bold tracking-tight shrink-0">Showroom</h1>
+        <Link to="/bento" className="hidden sm:inline-flex items-center justify-center shrink-0 h-9 rounded-full border border-black bg-white px-3 text-[11px] font-bold hover:bg-black hover:text-white">Ready to hire? Bento Feed →</Link>
         <div className="relative flex-1 min-w-0 md:flex-none md:w-[320px] ml-auto">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" />
           <input
@@ -552,6 +553,12 @@ export default function Showroom() {
             className="w-full pl-9 pr-3 h-10 rounded-full border-[1.5px] border-black bg-white text-[13px] font-medium outline-none focus:ring-4 focus:ring-black/[0.04]"
           />
         </div>
+      </div>
+
+      <div className="sm:hidden py-2 text-center">
+        <Link to="/bento" className="inline-flex h-9 items-center rounded-full border border-black bg-white px-4 text-[11px] font-bold">
+          Ready to hire? Go to Bento Feed →
+        </Link>
       </div>
 
       {body}
