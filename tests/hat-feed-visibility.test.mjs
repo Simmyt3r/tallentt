@@ -82,7 +82,8 @@ test('legacy feed requests also exclude hidden Hats', async () => {
   assert.deepEqual(scopedFeed.map((h) => h.id), [fixed])
 })
 
-test('hidden Hats remain in My Hats, Showroom and direct details', async () => {
+test('hidden Hats with media remain in My Hats, Showroom and direct details', async () => {
+  await pool.query(`INSERT INTO hat_media (hat_id, url, public_id, type) VALUES ($1, 'https://example.test/portfolio.jpg', 'showroom-test', 'image')`, [range])
   const mine = await request(hatsHandler, `/api/hats?user_id=${owner}`)
   assert.equal(mine.body.hats.length, 3)
   const showroom = await request(showroomHandler, '/api/showroom')
