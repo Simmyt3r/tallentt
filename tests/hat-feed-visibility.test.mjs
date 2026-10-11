@@ -184,8 +184,8 @@ test('Showroom pages eligible media-backed Hats without recycling the same posts
     const id = randomUUID()
     ids.push(id)
     await pool.query(
-      `INSERT INTO hats (id, user_id, hat_title, hat_name, username, category, role, active, created_at)
-       VALUES ($1, $2, $3, $3, 'owner', 'Film', 'talent', true, NOW() - $4::int * interval '1 hour')`,
+      `INSERT INTO hats (id, user_id, hat_title, hat_name, username, category, role, active, created_at, lga)
+       VALUES ($1, $2, $3, $3, 'owner', 'Film', 'talent', true, NOW() - $4::int * interval '1 hour', 'Abuja')`,
       [id, owner, `Creative ${i}`, i],
     )
     await pool.query(
