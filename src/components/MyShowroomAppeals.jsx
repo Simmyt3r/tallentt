@@ -36,6 +36,7 @@ export default function MyShowroomAppeals() {
       {error && <p role="alert" className="text-[12px] font-semibold text-red-700">{error}</p>}
       {items.map(item => {
         const restricted = item.moderation_status === 'restricted'
+        const mediaHeld = Number(item.held_media_count) > 0
         const pending = item.appeal_status === 'pending'
         const deniedRecently = item.appeal_status === 'denied' &&
           Date.now() - new Date(item.appeal_created_at).getTime() < 7 * 86400000
@@ -43,13 +44,13 @@ export default function MyShowroomAppeals() {
           <article key={item.hat_id} className="rounded-[14px] border border-black/10 bg-white p-4 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[12px] font-black">{item.hat_title}</p>
-              <span className="text-[11px] font-bold text-amber-700">{restricted ? 'Restricted' : 'Under review'}</span>
+              <span className="text-[11px] font-bold text-amber-700">{restricted ? 'Restricted' : mediaHeld ? 'Media held' : 'Under review'}</span>
             </div>
-            <p className="text-[12px] text-black/60">{!restricted ? 'This Hat has been temporarily paused after multiple reports. A moderator will check it.' : pending ? 'Appeal awaiting admin review.' :
+            <p className="text-[12px] text-black/60">{!restricted && !mediaHeld ? 'This Hat has been temporarily paused after multiple reports. A moderator will check it.' : pending ? 'Appeal awaiting admin review.' :
               deniedRecently ? 'Appeal denied. You may resubmit after seven days.' :
               'Review your content and explain why this restriction should be reconsidered.'}</p>
             {item.resolution_note && <p className="text-[12px] text-black/65">Review note: {item.resolution_note}</p>}
-            {restricted && !pending && !deniedRecently && (
+            {(restricted || mediaHeld) && !pending && !deniedRecently && (
               <>
                 <textarea aria-label={`Appeal for ${item.hat_title}`}
                   value={notes[item.hat_id] || ''} maxLength={1000} rows={3}
