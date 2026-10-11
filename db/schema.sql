@@ -242,6 +242,29 @@ CREATE TABLE IF NOT EXISTS hat_media (
 ALTER TABLE hat_media ADD COLUMN IF NOT EXISTS caption TEXT;
 CREATE INDEX IF NOT EXISTS idx_hat_media_hat ON hat_media (hat_id);
 
+-- Showroom users publish automatically. Reports are deduplicated per user and
+-- grouped into an exceptions-only admin queue, not a manual approval pipeline.
+CREATE TABLE IF NOT EXISTS showroom_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  hat_id UUID NOT NULL REFERENCES hats(id) ON DELETE CASCADE,
+  reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL CHECK (reason IN ('contact_bypass','spam','unsafe_content','impersonation','other')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (hat_id, reporter_id)
+);
+CREATE INDEX IF NOT EXISTS idx_showroom_reports_reporter ON showroom_reports (reporter_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS showroom_review_state (
+  hat_id UUID PRIMARY KEY REFERENCES hats(id) ON DELETE CASCADE,
+  report_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'clear' CHECK (status IN ('clear','flagged','dismissed','restricted')),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_showroom_review_queue ON showroom_review_state (updated_at DESC) WHERE status = 'flagged';
+
+
 CREATE TABLE IF NOT EXISTS hat_likes (
   hat_id UUID REFERENCES hats(id) ON DELETE CASCADE,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
