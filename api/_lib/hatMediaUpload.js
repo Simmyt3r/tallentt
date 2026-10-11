@@ -1,15 +1,11 @@
 // Signed browser upload permits for Hat media.
 // Provider credentials never reach the browser. A server-issued public ID is
 // bound to the authenticated user and checked with Cloudinary before use.
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
+import { supportedHatMediaMime, MAX_HAT_MEDIA_BYTES } from '../../shared/hatMediaTypes.js'
 import { query } from './db.js'
 
-const MAX_BYTES = 20 * 1024 * 1024
-const mimeTypes = new Set([
-  'image/jpeg','image/png','image/webp','image/gif','image/avif',
-  'video/mp4','video/webm','video/quicktime',
-  'audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/ogg','audio/mp4',
-])
+const MAX_BYTES = MAX_HAT_MEDIA_BYTES
 const validUUID = v => /^[a-f\d]{8}-[a-f\d]{4}-[1-8][a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(String(v || ''))
 const bad = (status, message) => Object.assign(new Error(message), { status })
 
@@ -40,7 +36,7 @@ export async function issueHatUploadPermit(userId, meta) {
   if (!validUUID(userId)) throw bad(401, 'Please sign in to upload media.')
   const mime = String(meta?.mime || '').toLowerCase().trim()
   const size = meta?.bytes
-  if (!mimeTypes.has(mime) || !Number.isSafeInteger(size) || size < 1 || size > MAX_BYTES) {
+  if (!supportedHatMediaMime(mime) || !Number.isSafeInteger(size) || size < 1 || size > MAX_BYTES) {
     throw bad(400, 'Unsupported media format or file larger than 20MB.')
   }
   const {cloudName,apiKey,apiSecret} = uploadCloudCredentials()
