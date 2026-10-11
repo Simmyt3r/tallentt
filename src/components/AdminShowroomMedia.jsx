@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ImageOff } from 'lucide-react'
 import { api } from '../lib/api.js'
-import { cldImage, cldVideoPoster } from '../lib/cloudinary.js'
+import { cldImage } from '../lib/cloudinary.js'
 
 export default function AdminShowroomMedia() {
   const [data, setData] = useState({ items: [], counts: {} })
