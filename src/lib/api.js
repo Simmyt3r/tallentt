@@ -333,7 +333,9 @@ export async function uploadToCloudinary(file, options = {}) {
   return {
     url: data.secure_url,
     public_id: data.public_id,
-    type: data.resource_type || 'image',
+    // Cloudinary stores audio under the video resource type. Preserve the
+    // user's audio identity in Hat metadata for correct playback/review.
+    type: file.type?.startsWith('audio/') ? 'audio' : (data.resource_type || 'image'),
     ...(signed ? { upload_id: permit.permitId } : {}),
   }
 }
