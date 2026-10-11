@@ -124,6 +124,15 @@ export async function saveAdminScreeningConfig(adminId, change = {}) {
       updated_by=EXCLUDED.updated_by, updated_at=NOW()`,
     ['cloudName' in change ? next.cloudName : stored.cloud_name || null, encryptedVision, encryptedWorker,
      'enabled' in change ? next.enabled : stored.enabled ?? null, adminId])
+    // Switching enforcement off must not strand already queued media. Only
+    // pending and processing jobs are returned to legacy admission; held and
+    // rejected safety decisions remain hidden for human review.
+    if (change.enabled === false) {
+      await client.query(`UPDATE hat_media SET screening_status = 'legacy',
+        screening_locked_at = NULL, screening_lock_token = NULL,
+        screening_reason = 'screening_disabled', screening_retry_at = NOW()
+        WHERE screening_status IN ('pending','processing')`)
+    }
     await client.query(`INSERT INTO admin_audit_logs
       (admin_id,action,target_type,metadata) VALUES
       ($1,'update_showroom_screening_config','showroom_config',$2::jsonb)`,
