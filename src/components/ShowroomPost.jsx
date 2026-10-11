@@ -1,6 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Eye, Flag, Heart, Maximize2, Share2 } from 'lucide-react'
 import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
+import { getHatAccent, getShowroomTemplate } from '../lib/hatPresentation.js'
 import AvailabilityBadge from './AvailabilityBadge'
 import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
@@ -54,6 +55,8 @@ function ShowroomPost({
   const location = [hat.lga, hat.country].filter(Boolean).join(', ')
   const owner = identityFromHat(hat)
   const ownerName = getPrimaryIdentity(owner)
+  const template = getShowroomTemplate(hat.showroom_template)
+  const accent = getHatAccent(hat.bento_accent)
 
   // Register with the parent's shared IntersectionObserver so it can tell
   // which single post is in view.
@@ -66,8 +69,12 @@ function ShowroomPost({
     <article
       ref={rootRef}
       data-post-key={postKey}
+      data-template={template}
+      style={{ borderTop: `4px solid ${accent}` }}
       aria-label={`Showroom post by ${ownerName}`}
-      className="sr-post flex flex-col overflow-hidden bg-white border-y md:border border-black/15 md:rounded-[20px] md:shadow-[0_6px_20px_-12px_rgba(0,0,0,0.25)]"
+      className={`sr-post flex flex-col overflow-hidden border-y md:border border-black/15 md:rounded-[20px] md:shadow-[0_6px_20px_-12px_rgba(0,0,0,0.25)] ${
+        template === 'dark' ? 'bg-[#182033]' : 'bg-white'
+      }`}
     >
       <div className="relative flex-1 min-h-0 bg-[#0b0b0b]">
         <ShowroomMedia
@@ -89,7 +96,9 @@ function ShowroomPost({
         </div>
       </div>
 
-      <div className="shrink-0 flex items-center gap-0.5 px-2 sm:px-3 pt-1">
+      <div className={`shrink-0 flex items-center gap-0.5 px-2 sm:px-3 pt-1 ${
+        template === 'dark' ? 'bg-[#182033] text-white' : 'bg-white'
+      }`}>
         <button
           type="button"
           onClick={() => onLike(hat.id)}
@@ -134,11 +143,13 @@ function ShowroomPost({
         </span>
       </div>
 
-      <div className="shrink-0 px-3 sm:px-4 pt-1.5 pb-3 min-w-0">
+      <div className={`shrink-0 px-3 sm:px-4 pt-1.5 pb-3 min-w-0 ${
+          template === 'dark' ? 'bg-[#182033] text-white' : 'bg-white'
+        }`}>
         <UserIdentity
           user={owner}
+          nameClassName={template === 'dark' ? 'font-bold text-white' : 'font-bold text-[14px] leading-tight'}
           align="start"
-          nameClassName="font-bold text-[14px] leading-tight"
           nameBadge={
             hat.is_verified ? (
               <span className="text-[#0A13E6] text-[12px] shrink-0" title="Verified" aria-label="Verified">
@@ -152,7 +163,9 @@ function ShowroomPost({
             <div className="flex items-end gap-1.5 mt-1">
               <p
                 ref={captionRef}
-                className="text-[13px] leading-snug text-black/80 line-clamp-2 break-words min-w-0"
+                className={`text-[13px] leading-snug line-clamp-2 break-words min-w-0 ${
+                  template === 'dark' ? 'text-white/90' : 'text-black/80'
+                } ${template === 'editorial' ? 'italic' : ''} ${template === 'bold' ? 'font-black' : ''}`}
               >
                 {caption}
               </p>
