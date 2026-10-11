@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   scan:
+    # Avoid consuming CI minutes until the deployment is explicitly configured.
+    if: ${{ vars.SHOWROOM_SCREENING_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     env:
