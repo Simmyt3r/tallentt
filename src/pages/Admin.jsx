@@ -23,6 +23,7 @@ import {
 import { api } from '../lib/api.js'
 import AdminDisputes from '../components/AdminDisputes.jsx'
 import AdminShowroomReports from '../components/AdminShowroomReports.jsx'
+import AdminShowroomConfig from '../components/AdminShowroomConfig.jsx'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromHat, identityFromRow, resolveIdentity } from '../lib/profile.js'
 
@@ -35,6 +36,7 @@ const SECTIONS = [
   { id: 'hats', label: 'Hats', icon: Briefcase },
   { id: 'applications', label: 'Applications', icon: ClipboardList },
   { id: 'showroom', label: 'Showroom Reports', icon: Flag },
+  { id: 'showroom-config', label: 'Showroom Settings', icon: ShieldCheck },
   { id: 'push', label: 'Push Setup', icon: BellRing },
   { id: 'audit', label: 'Audit Log', icon: FileText },
 ]
@@ -281,6 +283,7 @@ export default function Admin() {
               {tab === 'hats' && <HatsTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'applications' && <ApplicationsTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'showroom' && <AdminShowroomReports />}
+              {tab === 'showroom-config' && <AdminShowroomConfig />}
               {tab === 'push' && <PushSetupPanel />}
               {tab === 'audit' && <AuditTable rows={filtered} />}
             </section>
