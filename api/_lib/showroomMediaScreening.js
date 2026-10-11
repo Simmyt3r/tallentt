@@ -136,7 +136,11 @@ export async function screenQueuedMedia({
         )
         const finding = duplicates[0]?.duplicated
           ? { status: 'held', reason: 'asset_used_by_another_creator' }
-          : await inspect(job, { cloud: config.cloudName, apiKey: config.visionKey })
+          : job.type !== 'image' && job.type !== 'video'
+            // Cloud Vision SafeSearch is image-only. Never present audio as
+            // screened or burn retries on a modality the provider cannot scan.
+            ? { status: 'held', reason: 'audio_requires_manual_review' }
+            : await inspect(job, { cloud: config.cloudName, apiKey: config.visionKey })
         const written = await finalizeJob(job, finding.status, finding.reason, false)
         if (written) result[finding.status === 'passed' ? 'passed' : 'held']++
       } catch {
