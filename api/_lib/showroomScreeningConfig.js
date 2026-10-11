@@ -4,6 +4,7 @@
 // encryption root itself must stay outside the database and browser.
 import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { getClient, query } from './db.js'
+import { signedHatMediaEnabled, uploadCloudCredentials } from './hatMediaUpload.js'
 
 const bad = (message, status = 400) => Object.assign(new Error(message), { status })
 const keyName = 'showroom:v1:'
@@ -65,7 +66,15 @@ export async function effectiveScreeningConfig() {
 }
 export async function adminScreeningStatus() {
   const config = await effectiveScreeningConfig()
+  let uploadCredentialsReady = false
+  try { uploadCloudCredentials(); uploadCredentialsReady = true } catch {}
+  const { rows: uploadTables } = await query("SELECT to_regclass('hat_media_upload_permits') IS NOT NULL AS installed")
   return {
+    signedUploadStatus: {
+      enabled: signedHatMediaEnabled(),
+      credentialsConfigured: uploadCredentialsReady,
+      migrationInstalled: Boolean(uploadTables[0]?.installed),
+    },
     cloudName: config.cloudName, enabled: config.enabled, ready: config.ready,
     visionConfigured: validVisionKey(config.visionKey),
     workerConfigured: validWorkerSecret(config.workerSecret),
