@@ -15,6 +15,7 @@
     "db:migrate:hat-form": "node db/migrate.js --hat-form",
     "db:migrate:hat-feed": "node db/migrate.js --hat-feed",
     "db:migrate:push": "node db/migrate.js --push",
+    "db:migrate:showroom": "node db/migrate.js --showroom",
     "push:vapid": "node scripts/generate-vapid.mjs",
     "check:api": "node scripts/check-api.mjs",
     "test": "node --test tests/*.test.mjs",
