@@ -362,7 +362,8 @@ export default async function handler(req, res) {
                VALUES ($1,$2,$3,$4,$5, NOW() + $6::int * interval '1 millisecond', $7)`,
               [id, m.url, m.public_id, m.type || 'image', m.caption || null, i,
                 previousMedia.get(m.public_id)?.url === m.url
-                  ? previousMedia.get(m.public_id).screening_status || 'legacy'
+                  ? (previousMedia.get(m.public_id).screening_status === 'processing'
+                      ? 'pending' : previousMedia.get(m.public_id).screening_status || 'legacy')
                   : newMediaScreeningStatus()],
             )
           }
