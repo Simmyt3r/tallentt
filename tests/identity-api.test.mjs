@@ -45,6 +45,8 @@ before(async () => {
     VALUES ($1, $2, 'Wedding Photographer', 'Wedding Photographer', 'simeon', 'Film', 25000, 'talent', true)`, [ids.talentHat, ids.talent])
   await pool.query(`INSERT INTO hats (id, user_id, hat_title, hat_name, username, category, rate, role, active, feed_visible)
     VALUES ($1, $2, 'Need a photographer', 'Need a photographer', 'silabs', 'Film', 30000, 'client', true, true)`, [ids.clientHat, ids.client])
+  await pool.query(`INSERT INTO hat_media (hat_id, url, public_id, type)
+    VALUES ($1, 'https://example.test/portfolio.jpg', 'portfolio', 'image')`, [ids.talentHat])
   await pool.query(`INSERT INTO escrows (id, hat_id, client_id, talent_id, amount, contacts_unlocked) VALUES ($1, $2, $3, $4, 10000, true)`,
     [ids.escrow, ids.talentHat, ids.client, ids.talent])
   await pool.query(`INSERT INTO wallets (user_id, balance) VALUES ($1, 50000)`, [ids.client])
