@@ -5,6 +5,7 @@ import BentoCardDetailModal from './BentoCardDetailModal'
 import UserIdentity from './UserIdentity'
 import RoleCardBadge from './RoleCardBadge'
 import { identityFromHat } from '../lib/profile.js'
+import { getHatAccent } from '../lib/hatPresentation.js'
 import {
   formatAvailabilityWindow,
   formatPrice,
@@ -41,6 +42,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
   return (
     <>
       <article
+        style={{ borderTopColor: getHatAccent(hat.bento_accent), borderTopWidth: 4 }}
         className={`relative bg-white rounded-[24px] p-4 border border-black/5 shadow-[0_8px_24px_rgba(0,0,0,0.04)] min-h-[264px] flex flex-col w-full ${
           fullWidth ? '' : 'max-w-[300px]'
         }`}
@@ -70,7 +72,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
         </UserIdentity>
 
         {motto && (
-          <div className="mt-3 border-l-4 pl-3 py-1 bg-[#FFEBE0]/20 rounded-r-xl" style={{ borderLeftColor: '#0A13E6' }}>
+          <div className="mt-3 border-l-4 pl-3 py-1 bg-[#FFEBE0]/20 rounded-r-xl" style={{ borderLeftColor: getHatAccent(hat.bento_accent) }}>
             <p className="text-[12px] italic text-black/60 leading-snug">&quot;{motto}&quot;</p>
           </div>
         )}
@@ -85,7 +87,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           <span className="font-bold text-black/70 shrink-0">{isTalent ? 'Available:' : 'Hiring:'}</span>
           <span className="font-semibold text-black truncate">{hat.hat_title}</span>
           <span className="text-black/40 font-bold mx-0.5">:</span>
-          <span className="font-bold text-[#0A13E6] shrink-0">{formatPrice(hat, currency)}</span>
+          <span className="font-bold shrink-0" style={{ color: getHatAccent(hat.bento_accent) }}>{formatPrice(hat, currency)}</span>
         </div>
 
         {isTalent ? (
