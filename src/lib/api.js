@@ -1,4 +1,5 @@
 // Path: src/lib/api.js
+import { supportedHatMediaMime, MAX_HAT_MEDIA_BYTES } from '../../shared/hatMediaTypes.js'
 const base = ''
 
 async function request(path, options = {}) {
@@ -226,7 +227,7 @@ export const api = {
   liveAction: (body) => request('/api/live', { method: 'POST', body: JSON.stringify(body) }),
 }
 
-export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+export const MAX_UPLOAD_BYTES = MAX_HAT_MEDIA_BYTES
 export const ALLOWED_UPLOAD_PREFIXES = ['image/', 'video/', 'audio/']
 
 // Returns a user-facing message when `file` can't be uploaded, else ''.
@@ -234,8 +235,8 @@ export const ALLOWED_UPLOAD_PREFIXES = ['image/', 'video/', 'audio/']
 export function validateUploadFile(file) {
   if (!file) return 'Choose a file to upload.'
   if (file.size > MAX_UPLOAD_BYTES) return 'File is too large. Upload a file of 20MB or less.'
-  if (!ALLOWED_UPLOAD_PREFIXES.some((prefix) => file.type?.startsWith(prefix))) {
-    return 'Only image, video, and audio uploads are supported.'
+  if (!supportedHatMediaMime(file.type)) {
+    return 'Unsupported format. Use JPG, PNG, WebP, GIF, AVIF, MP4, WebM, MOV, MP3, WAV, OGG or M4A.'
   }
   return ''
 }
