@@ -4,6 +4,7 @@ import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { reportShowroomHat } from '../_lib/showroomReports.js'
 import { myShowroomModeration, submitShowroomAppeal } from '../_lib/showroomAppeals.js'
 import { getHatPresentationMap } from '../_lib/hatPresentation.js'
+import { authorizedScreeningWorker, screenQueuedMedia } from '../_lib/showroomMediaScreening.js'
 import {
   SHOWROOM_SQL_CONTACT_PATTERN,
   decodeShowroomCursor,
@@ -31,8 +32,13 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store')
 
   try {
-    const session = getSessionUser(req)
     const url = new URL(req.url, `http://${req.headers.host}`)
+    // A signed background worker shares this existing serverless endpoint.
+    if (url.searchParams.get('worker') === '1') {
+      if (!authorizedScreeningWorker(req.headers.authorization)) return json(res, 401, { error: 'Unauthorized worker.' })
+      return json(res, 200, await screenQueuedMedia())
+    }
+    const session = getSessionUser(req)
     if (url.searchParams.get('action') === 'my_moderation') {
       if (!session?.sub) return json(res, 401, { error: 'Sign in to see your moderation status.' })
       return json(res, 200, await myShowroomModeration(session.sub))
@@ -87,6 +93,10 @@ export default async function handler(req, res) {
          JOIN users u ON u.id = h.user_id
          WHERE h.active = true AND h.role = 'talent'
            AND EXISTS (SELECT 1 FROM hat_media m WHERE m.hat_id = h.id)
+           AND NOT EXISTS (
+             SELECT 1 FROM hat_media scanned WHERE scanned.hat_id = h.id
+               AND scanned.screening_status IN ('pending', 'processing', 'held', 'rejected')
+           )
            -- Flagged posts are paused from discovery pending exceptional review,
            -- but existing Hats/deals remain intact and can be appealed.
            AND NOT EXISTS (
@@ -117,7 +127,7 @@ export default async function handler(req, res) {
     const mediaByHat = {}
     if (ids.length) {
       const { rows: media } = await query(
-        'SELECT id, hat_id, url, public_id, type, caption FROM hat_media WHERE hat_id = ANY($1::uuid[]) ORDER BY created_at, id',
+        'SELECT id, hat_id, url, public_id, type, caption, screening_status FROM hat_media WHERE hat_id = ANY($1::uuid[]) ORDER BY created_at, id',
         [ids],
       )
       for (const m of media) {
