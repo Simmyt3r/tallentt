@@ -4,10 +4,8 @@ import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { testDatabase } from './database.mjs'
-import {
-  authorizedScreeningWorker, classifyImageAnnotations, trustedMediaImageUri,
-  screenQueuedMedia, inspectMediaAsset, newMediaScreeningStatus,
-} from '../api/_lib/showroomMediaScreening.js'
+let authorizedScreeningWorker, classifyImageAnnotations, trustedMediaImageUri
+let screenQueuedMedia, inspectMediaAsset, newMediaScreeningStatus
 
 let db, pool, showroom, admin, signSession
 const owners = [randomUUID(),randomUUID(),randomUUID()]
@@ -18,6 +16,10 @@ before(async () => {
   db = await testDatabase()
   pool = db.pool
   global.__tworldPool = pool
+  ;({
+    authorizedScreeningWorker, classifyImageAnnotations, trustedMediaImageUri,
+    screenQueuedMedia, inspectMediaAsset, newMediaScreeningStatus,
+  } = await import('../api/_lib/showroomMediaScreening.js'))
   process.env.JWT_SECRET = 'screening-test-jwt-secret'
   process.env.SHOWROOM_MEDIA_SCREENING = 'enforce'
   process.env.GOOGLE_CLOUD_VISION_API_KEY = 'unit-test-key'
