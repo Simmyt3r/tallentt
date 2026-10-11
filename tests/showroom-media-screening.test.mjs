@@ -91,7 +91,9 @@ test('Cloudinary media URI validation prevents passing arbitrary URLs to remote 
 test('Vision adapter uses both OCR and SafeSearch and never returns a PASS from an incomplete response',async()=>{
   const media={type:'image',public_id:'artist/portrait',
     url:'https://res.cloudinary.com/demo/image/upload/v123/artist/portrait.jpg'}
-  const stub=async (_url,options)=>{
+  const stub=async (url,options)=>{
+    assert.equal(url,'https://vision.googleapis.com/v1/images:annotate')
+    assert.equal(options.headers['x-goog-api-key'],'dummy')
     const body=JSON.parse(options.body)
     assert.deepEqual(body.requests[0].features.map(x=>x.type),['TEXT_DETECTION','SAFE_SEARCH_DETECTION'])
     return {ok:true,json:async()=>({responses:[{safeSearchAnnotation:{adult:'UNLIKELY'},fullTextAnnotation:{text:'Contact my WhatsApp'}}]})}
