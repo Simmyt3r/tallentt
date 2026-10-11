@@ -4,6 +4,7 @@ import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.j
 import { computeOrbitScore } from '../_lib/orbitScore.js'
 import { showroomTextIssue } from '../_lib/showroomEligibility.js'
 import { newMediaScreeningStatus } from '../_lib/showroomMediaScreening.js'
+import { verifyNewHatMedia, claimHatMediaPermits } from '../_lib/hatMediaUpload.js'
 import { getHatPresentationMap, saveHatPresentation } from '../_lib/hatPresentation.js'
 import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing, normalizeAvailableDays, normalizeHiringDuration } from '../_lib/hatFields.js'
 import { createApplicationRequest, notifyApplicationState, respondApplicationDeal } from '../_lib/myDeals.js'
@@ -318,6 +319,7 @@ export default async function handler(req, res) {
       const previousMedia = new Map((existing.media || []).map(m => [m.public_id, m]))
       // Resolve the policy BEFORE a DB transaction (the production pool has max:1).
       const newScreeningStatus = nextMedia ? await newMediaScreeningStatus() : null
+      const verifiedPermits = nextMedia ? await verifyNewHatMedia(session.sub, nextMedia, existing.media || []) : []
 
       // Re-check visible Showroom text on new media and text edits.
       // Legacy content that fails is omitted from discovery until corrected.
@@ -354,6 +356,7 @@ export default async function handler(req, res) {
       try {
         await client.query('BEGIN')
         if (nextMedia) {
+          await claimHatMediaPermits(client, session.sub, id, verifiedPermits)
           await client.query(`DELETE FROM hat_media WHERE hat_id = $1`, [id])
           for (let i = 0; i < nextMedia.length; i++) {
             const m = nextMedia[i]
