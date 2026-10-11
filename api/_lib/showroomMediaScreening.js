@@ -9,10 +9,11 @@ import { effectiveScreeningConfig } from './showroomScreeningConfig.js'
 export const mediaScreeningEnabled = async () => (await effectiveScreeningConfig()).enabled
 export const newMediaScreeningStatus = async () => (await mediaScreeningEnabled()) ? 'pending' : 'legacy'
 
-export async function authorizedScreeningWorker(header, secret = (await effectiveScreeningConfig()).workerSecret) {
-  if (!secret || secret.length < 16 || typeof header !== 'string') return false
+export async function authorizedScreeningWorker(header, secret = null) {
+  const actualSecret = secret ?? (await effectiveScreeningConfig()).workerSecret
+  if (!actualSecret || actualSecret.length < 16 || typeof header !== 'string') return false
   const supplied = Buffer.from(header)
-  const expected = Buffer.from('Bearer ' + secret)
+  const expected = Buffer.from('Bearer ' + actualSecret)
   return supplied.length === expected.length && timingSafeEqual(supplied, expected)
 }
 
