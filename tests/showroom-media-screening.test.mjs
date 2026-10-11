@@ -76,7 +76,7 @@ test('image annotation thresholds hold possible unsafe content or embedded conta
     {status:'passed',reason:null})
 })
 
-test('Cloudinary media URI validation prevents passing arbitrary URLs to remote OCR',()=>{
+test('Cloudinary media URI validation prevents passing arbitrary URLs to remote OCR',async()=>{
   const media={type:'image',public_id:'artist/portrait',
     url:'https://res.cloudinary.com/demo/image/upload/v1760000000/artist/portrait.jpg'}
   assert.equal(trustedMediaImageUri(media,'demo'),media.url)
@@ -85,7 +85,7 @@ test('Cloudinary media URI validation prevents passing arbitrary URLs to remote 
   assert.equal(trustedMediaImageUri({...media,url:'http://res.cloudinary.com/demo/image/upload/v123/artist/portrait.jpg'},'demo'),null)
   assert.match(trustedMediaImageUri({...media,type:'video',
     url:'https://res.cloudinary.com/demo/video/upload/v123/artist/portrait.mp4'},'demo'),/so_0,w_640,c_limit/)
-  assert.equal(newMediaScreeningStatus(),'pending')
+  assert.equal(await newMediaScreeningStatus(),'pending')
 })
 
 test('Vision adapter uses both OCR and SafeSearch and never returns a PASS from an incomplete response',async()=>{
@@ -101,8 +101,8 @@ test('Vision adapter uses both OCR and SafeSearch and never returns a PASS from 
 })
 
 test('background worker requires a strong secret and cannot be executed by ordinary users',async()=>{
-  assert.equal(authorizedScreeningWorker('Bearer wrongsecret'),false)
-  assert.equal(authorizedScreeningWorker('Bearer very-long-screening-test-secret'),true)
+  assert.equal(await authorizedScreeningWorker('Bearer wrongsecret'),false)
+  assert.equal(await authorizedScreeningWorker('Bearer very-long-screening-test-secret'),true)
   const anon=await request(showroom,'/api/showroom?worker=1')
   assert.equal(anon.statusCode,401)
   const user=await request(showroom,'/api/showroom?worker=1',{who:0})
