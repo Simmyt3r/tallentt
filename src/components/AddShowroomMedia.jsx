@@ -5,6 +5,7 @@ import { api, uploadToCloudinary, validateUploadFile } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { compressImageFile } from '../lib/media'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
+import Dialog from './hatform/Dialog.jsx'
 
 const MAX_CAPTION = 200
 
@@ -118,8 +119,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   }
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="showroom-add-title" onClick={handleClose}>
-      <div className="modal-panel !max-w-[440px] animate-slide-up" onClick={(e) => e.stopPropagation()}>
+    <Dialog open onClose={handleClose} labelledBy="showroom-add-title" maxWidth={440}>
         <button
           type="button"
           onClick={handleClose}
@@ -266,7 +266,6 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
