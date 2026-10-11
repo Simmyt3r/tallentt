@@ -13,7 +13,9 @@ async function main() {
     process.exit(1)
   }
 
-  const files = process.argv.includes('--showroom')
+  const files = process.argv.includes('--showroom-media')
+    ? ['showroom-media-screening.sql']
+    : process.argv.includes('--showroom')
     ? ['showroom-appeals.sql']
     : process.argv.includes('--hat-feed')
     ? ['hat-feed-visibility.sql']
