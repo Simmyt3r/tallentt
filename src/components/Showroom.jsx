@@ -103,6 +103,9 @@ export default function Showroom() {
   }, [search])
 
   const filters = useMemo(() => ({ view, category, search: serverSearch }), [view, category, serverSearch])
+  const filtersKey = [view, category, serverSearch].join('|')
+  const filtersKeyRef = useRef(filtersKey)
+  filtersKeyRef.current = filtersKey
   const applyList = useCallback((data, append = false) => {
     const hats = data.hats || []
     setHatMap((prev) => {
@@ -152,15 +155,16 @@ export default function Showroom() {
   const loadMore = useCallback(async () => {
     if (!nextCursor || loading || loadingMore) return
     setLoadingMore(true)
+    const requestedKey = filtersKey
     try {
       const data = await api.getShowroom({ ...filters, cursor: nextCursor })
-      applyList(data, true)
+      if (filtersKeyRef.current === requestedKey) applyList(data, true)
     } catch (error) {
-      setToast(error.message || 'Could not load more posts.')
+      if (filtersKeyRef.current === requestedKey) setToast(error.message || 'Could not load more posts.')
     } finally {
       setLoadingMore(false)
     }
-  }, [applyList, filters, nextCursor, loading, loadingMore])
+  }, [applyList, filters, filtersKey, nextCursor, loading, loadingMore])
 
   const patchHat = useCallback((id, patch) => {
     setHatMap((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev))
@@ -177,6 +181,7 @@ export default function Showroom() {
       return (
         (h.username || '').toLowerCase().includes(q) ||
         (h.hat_title || '').toLowerCase().includes(q) ||
+        (h.category || '').toLowerCase().includes(q) ||
         (h.skills || []).some((s) => s.toLowerCase().includes(q))
       )
     })
