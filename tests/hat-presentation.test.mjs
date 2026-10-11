@@ -4,9 +4,8 @@ import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { readFile } from 'node:fs/promises'
 import { testDatabase } from './database.mjs'
-import { validateHatPresentation } from '../api/_lib/hatPresentation.js'
 
-let database, pool, hatHandler, hatsHandler, showroomHandler, signSession
+let database, pool, hatHandler, hatsHandler, showroomHandler, signSession, validateHatPresentation
 const owner = randomUUID()
 const visitor = randomUUID()
 const hatId = randomUUID()
@@ -18,6 +17,7 @@ before(async () => {
   process.env.JWT_SECRET = 'hat-style-test-secret'
   await pool.query(await readFile(new URL('../db/schema.sql', import.meta.url), 'utf8'))
   signSession = (await import('../api/_lib/auth.js')).signSession
+  validateHatPresentation = (await import('../api/_lib/hatPresentation.js')).validateHatPresentation
   hatHandler = (await import('../api/hats/[id].js')).default
   hatsHandler = (await import('../api/hats/index.js')).default
   showroomHandler = (await import('../api/showroom/index.js')).default
