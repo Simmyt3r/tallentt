@@ -117,6 +117,9 @@ export const api = {
   }),
   getAdminScreeningConfig: () => request('/api/admin?action=showroom_screening_config'),
   getAdminScreeningOps: () => request('/api/admin?action=showroom_screening_ops'),
+  testAdminShowroomVision: () => request('/api/admin', {
+    method: 'POST', body: JSON.stringify({ action: 'test_showroom_vision' }),
+  }),
   runAdminShowroomScreening: () => request('/api/admin', {
     method: 'POST', body: JSON.stringify({ action: 'run_showroom_screening' }),
   }),
