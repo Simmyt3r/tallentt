@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { LayoutGrid, List, Paintbrush, Pencil, Trash2 } from 'lucide-react'
 import HatStyleDialog from './HatStyleDialog.jsx'
+import MyShowroomAppeals from './MyShowroomAppeals.jsx'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import BentoCard from './BentoCard'
@@ -94,6 +95,8 @@ export default function MyHats() {
           </Link>
         </div>
       </div>
+
+      <MyShowroomAppeals />
 
       {hats.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-[24px] border-[1.5px] border-dashed border-black/20">
