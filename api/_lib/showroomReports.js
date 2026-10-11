@@ -52,10 +52,11 @@ export async function reportShowroomHat(userId, hatId, reason) {
   try {
     await client.query('BEGIN')
     const { rows: target } = await client.query(
-      `SELECT h.user_id, h.active, h.role
+      `SELECT h.user_id, h.active, h.role,
+              EXISTS (SELECT 1 FROM hat_media m WHERE m.hat_id = h.id) AS has_media
        FROM hats h WHERE h.id = $1 FOR UPDATE`, [hatId],
     )
-    if (!target.length || !target[0].active || target[0].role !== 'talent') {
+    if (!target.length || !target[0].active || target[0].role !== 'talent' || !target[0].has_media) {
       throw httpError(404, 'Showroom listing not found.')
     }
     if (target[0].user_id === userId) throw httpError(403, 'You cannot report your own listing.')
