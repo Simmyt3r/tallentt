@@ -95,13 +95,16 @@ export default function AdminShowroomConfig() {
     <section aria-label="Showroom screening configuration" className="space-y-5 p-4 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-[16px] font-black">Automated Showroom screening</h3>
+          <h3 className="text-[18px] font-black">Showroom safety setup</h3>
           <p className="mt-1 max-w-xl text-[12px] text-black/60">
-            Configure media screening directly in Admin. API keys and worker secrets are encrypted on the server
-            and are never returned when reopening this page.
+            Add the credentials, test the services, then switch on moderation. New media waits for screening before entering the Showroom when enforcement is enabled.
           </p>
         </div>
-        <button type="button" onClick={refresh} disabled={working}
+        <button type="button" onClick={() => {
+          if ((cloudName.trim() !== (status?.cloudName || '') || visionKey.trim() || workerSecret.trim()) &&
+              !window.confirm('Discard unsaved changes and reload settings?')) return
+          refresh()
+        }} disabled={working}
           className="inline-flex h-10 items-center gap-2 rounded-full border border-black px-4 text-[11px] font-bold disabled:opacity-40">
           <RefreshCw size={14} /> Refresh
         </button>
@@ -110,6 +113,18 @@ export default function AdminShowroomConfig() {
       {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-[12px] font-bold text-red-700">{error}</p>}
       {notice && <p role="status" className="rounded-xl border border-black/10 bg-[#F7F3EB] p-3 text-[12px] font-semibold">{notice}</p>}
 
+      <nav aria-label="Showroom setup steps" className="grid gap-2 sm:grid-cols-3">
+        {[
+          ['1', 'Add credentials', '#showroom-credentials'],
+          ['2', 'Check connections', '#showroom-deployment-checks'],
+          ['3', 'Enable screening', '#showroom-enforcement'],
+        ].map(([number, label, href]) => (
+          <a href={href} key={number}
+            className="flex min-h-12 items-center gap-2 rounded-xl border border-black/15 bg-white px-3 text-[12px] font-bold hover:border-[#0A13E6] focus-visible:outline-2 focus-visible:outline-[#0A13E6]">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#0A13E6] text-white">{number}</span>{label}
+          </a>
+        ))}
+      </nav>
       <div className="grid gap-2 sm:grid-cols-3">
         {[
           ['Cloudinary', status?.cloudConfigured],
@@ -118,25 +133,26 @@ export default function AdminShowroomConfig() {
         ].map(([name, ok]) => (
           <div key={name} className="flex items-center gap-2 rounded-xl border border-black/10 bg-[#F7F3EB] p-3 text-[11px] font-bold">
             {ok ? <CheckCircle2 size={15} className="text-emerald-700" /> : <ShieldAlert size={15} className="text-amber-700" />}
-            {name}: {ok ? 'Configured' : 'Missing'}
+            {name}: {ok ? 'Saved' : 'Not set'}
           </div>
         ))}
       </div>
 
-      <form className="space-y-4" onSubmit={handleSave}>
+      <form id="showroom-credentials" className="space-y-4 scroll-mt-24" onSubmit={handleSave}>
+        <h4 className="text-[15px] font-black">1. Screening credentials</h4>
         <div className="space-y-1.5">
-          <label htmlFor="showroom-cloud" className="block text-[11px] font-black">CLOUDINARY_CLOUD_NAME</label>
+          <label htmlFor="showroom-cloud" className="block text-[13px] font-bold">Cloudinary cloud name <span className="block text-[10px] font-medium text-black/45">CLOUDINARY_CLOUD_NAME</span></label>
           <input id="showroom-cloud" autoComplete="off" value={cloudName}
             onChange={e => setCloudName(e.target.value)} placeholder="Your Cloudinary cloud name"
-            className="h-11 w-full rounded-xl border border-black/20 bg-white px-3 text-[12px] outline-none focus:border-black" />
+            className="h-12 w-full min-w-0 rounded-xl border border-black/20 bg-white px-3 text-[14px] outline-none focus:border-[#0A13E6]" />
           <p className="text-[11px] text-black/50">Must match the Cloudinary account used to upload Hat media.</p>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="showroom-vision" className="block text-[11px] font-black">GOOGLE_CLOUD_VISION_API_KEY</label>
+          <label htmlFor="showroom-vision" className="block text-[13px] font-bold">Google Vision API key <span className="block text-[10px] font-medium text-black/45">GOOGLE_CLOUD_VISION_API_KEY</span></label>
           <input id="showroom-vision" type="password" autoComplete="new-password"
             value={visionKey} onChange={e => setVisionKey(e.target.value)}
             placeholder={status?.visionConfigured ? 'Configured and encrypted · Enter only to replace' : 'Enter a Cloud Vision API key'}
-            className="h-11 w-full rounded-xl border border-black/20 bg-white px-3 text-[12px] outline-none focus:border-black" />
+            className="h-12 w-full min-w-0 rounded-xl border border-black/20 bg-white px-3 text-[14px] outline-none focus:border-[#0A13E6]" />
           <p className="text-[11px] text-black/50">Server-side key, never displayed again. Restrict it to the required Google Cloud APIs.</p>
           <button type="button" onClick={testVision} disabled={working || !status?.visionConfigured}
             className="inline-flex h-10 items-center gap-2 rounded-full border border-black px-4 text-[11px] font-bold disabled:opacity-40">
@@ -146,11 +162,11 @@ export default function AdminShowroomConfig() {
           <p className="text-[10px] text-black/45">The test submits a synthetic image and may count against your API quota. Save a new key before testing it.</p>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="showroom-worker" className="block text-[11px] font-black">SHOWROOM_WORKER_SECRET</label>
+          <label htmlFor="showroom-worker" className="block text-[13px] font-bold">Scheduled worker secret <span className="block text-[10px] font-medium text-black/45">SHOWROOM_WORKER_SECRET</span></label>
           <input id="showroom-worker" type="password" autoComplete="new-password"
             value={workerSecret} onChange={e => setWorkerSecret(e.target.value)}
             placeholder={status?.workerConfigured ? 'Configured and encrypted · Enter only to replace' : 'Paste a 24+ character worker secret'}
-            className="h-11 w-full rounded-xl border border-black/20 bg-white px-3 text-[12px] outline-none focus:border-black" />
+            className="h-12 w-full min-w-0 rounded-xl border border-black/20 bg-white px-3 text-[14px] outline-none focus:border-[#0A13E6]" />
           <button type="button" onClick={generateSecret} disabled={working}
             className="inline-flex h-10 items-center gap-2 rounded-full border border-black px-4 text-[11px] font-bold disabled:opacity-50">
             <KeyRound size={14} /> {busy === 'generate' ? 'Generating…' : status?.workerConfigured ? 'Rotate worker secret' : 'Generate secure secret'}
@@ -175,9 +191,9 @@ export default function AdminShowroomConfig() {
         </button>
       </form>
 
-      <div className="rounded-2xl border border-black/15 p-4 space-y-3">
+      <div id="showroom-enforcement" className="scroll-mt-24 rounded-2xl border border-black/15 p-4 space-y-3">
         <div>
-          <h4 className="text-[14px] font-black">SHOWROOM_MEDIA_SCREENING</h4>
+          <h4 className="text-[15px] font-black">3. Activate media screening</h4>
           <p className="text-[12px] text-black/60">Enable enforcement after the worker is configured and the database migration is applied.
             Until then, legacy admission remains active.</p>
         </div>
@@ -217,7 +233,10 @@ export default function AdminShowroomConfig() {
           The Cloudinary API secret must remain on the server, not in Admin or browser code.
         </p>
       </section>
-      <AdminShowroomPreflight />
+      <div id="showroom-deployment-checks" className="scroll-mt-24 space-y-3">
+        <h4 className="text-[15px] font-black">2. Check service connections</h4>
+        <AdminShowroomPreflight />
+      </div>
       <AdminShowroomOps enabled={Boolean(status?.enabled)} configured={Boolean(status?.ready)} />
 
       <p className="text-[11px] text-black/55">
