@@ -18,7 +18,7 @@
 2. Enable the **Cloud Vision API** in your Google Cloud project and obtain a restricted server-side API key. Configure `GOOGLE_CLOUD_VISION_API_KEY` in Vercel, not in the browser.
 3. Set the correct `CLOUDINARY_CLOUD_NAME` that owns uploaded media.
 4. Create a fresh 32+ character secret and set it as `SHOWROOM_WORKER_SECRET` in Vercel.
-5. In GitHub Actions repository secrets, configure `SHOWROOM_WORKER_URL` (your deployed base URL, HTTPS) and the same `SHOWROOM_WORKER_SECRET`. The workflow `showroom-media-screening.yml` executes every 15 minutes after merge into the default branch, and also allows manual dispatch.
+5. In GitHub Actions repository secrets, configure `SHOWROOM_WORKER_URL` (your deployed base URL, HTTPS) and the same `SHOWROOM_WORKER_SECRET`. Also add repository variable `SHOWROOM_SCREENING_ENABLED=true` when ready; without it, scheduled runs skip the worker job. The workflow `showroom-media-screening.yml` executes every 15 minutes after merge into the default branch, and also allows manual dispatch.
 6. Once the worker has passed a controlled deployment test, set `SHOWROOM_MEDIA_SCREENING=enforce` in Vercel and redeploy. The default `off` mode keeps previous behavior.
 7. Inspect held assets under **Admin → Showroom exceptions → Media screening exceptions**.
 
