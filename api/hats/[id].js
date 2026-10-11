@@ -390,7 +390,11 @@ export default async function handler(req, res) {
             rate_unit = $20,
             rate_unit_custom = $21,
             availability = COALESCE($22, availability),
-            active = COALESCE($23, active),
+            -- A restricted listing cannot reactivate itself through owner edits.
+            active = CASE WHEN EXISTS (
+              SELECT 1 FROM showroom_review_state sr
+              WHERE sr.hat_id = hats.id AND sr.status = 'restricted'
+            ) THEN false ELSE COALESCE($23, active) END,
             available_days = $24,
             available_from = $25,
             available_to = $26,
