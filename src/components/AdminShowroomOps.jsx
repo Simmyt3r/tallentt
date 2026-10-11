@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Activity, ArrowClockwise, Clock3, PlayCircle, ShieldAlert } from 'lucide-react'
+import { Activity, RefreshCw, Clock3, PlayCircle, ShieldAlert } from 'lucide-react'
 import { api } from '../lib/api.js'
 
 function stamp(value) {
@@ -49,7 +49,7 @@ export default function AdminShowroomOps({ enabled, configured }) {
         </div>
         <button type="button" onClick={refresh} disabled={busy}
           className="inline-flex h-10 items-center gap-2 rounded-full border border-black px-3 text-[11px] font-bold disabled:opacity-40">
-          <ArrowClockwise size={14} /> Refresh
+          <RefreshCw size={14} /> Refresh
         </button>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
