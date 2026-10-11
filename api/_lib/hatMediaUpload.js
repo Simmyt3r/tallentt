@@ -80,7 +80,7 @@ export async function verifyNewHatMedia(userId, mediaList, previousMedia = [], {
     if (prev && prev.url === m.url && prev.type === m.type) continue
     if (!validUUID(m.upload_id)) throw bad(422,'New media must be uploaded through the secure uploader.')
     const {rows} = await query(
-      `SELECT id,user_id,public_id,resource_type,declared_bytes,claimed_hat_id,
+      `SELECT id,user_id,public_id,resource_type,declared_mime,declared_bytes,claimed_hat_id,
               expires_at FROM hat_media_upload_permits
        WHERE id = $1 AND user_id = $2 AND public_id = $3 AND claimed_at IS NULL`,
       [m.upload_id,userId,m.public_id],
@@ -89,7 +89,8 @@ export async function verifyNewHatMedia(userId, mediaList, previousMedia = [], {
     if (!permit || Date.parse(permit.expires_at) <= Date.now()) throw bad(422,'Upload authorization has expired. Upload this file again.')
     const {cloudName,apiKey,apiSecret}=uploadCloudCredentials()
     const resourceType=permit.resource_type
-    if (m.type !== resourceType) throw bad(422,'Media resource type does not match its upload authorization.')
+    const expectedType = permit.declared_mime.startsWith('audio/') ? 'audio' : resourceType
+    if (m.type !== expectedType) throw bad(422,'Media resource type does not match its upload authorization.')
     // The authoritative resource record proves that the signed public ID
     // actually exists in our Cloudinary account and has the expected URL.
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/resources/${resourceType}/upload/${encodeURIComponent(permit.public_id)}`
