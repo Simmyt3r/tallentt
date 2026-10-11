@@ -242,6 +242,17 @@ CREATE TABLE IF NOT EXISTS hat_media (
 ALTER TABLE hat_media ADD COLUMN IF NOT EXISTS caption TEXT;
 CREATE INDEX IF NOT EXISTS idx_hat_media_hat ON hat_media (hat_id);
 
+-- Approved creator customization. No arbitrary user CSS/HTML or poster overlays.
+CREATE TABLE IF NOT EXISTS hat_presentation (
+  hat_id UUID PRIMARY KEY REFERENCES hats(id) ON DELETE CASCADE,
+  accent TEXT NOT NULL DEFAULT 'electric'
+    CHECK (accent IN ('electric','coral','forest','violet','rose','slate','ocean','amber')),
+  template TEXT NOT NULL DEFAULT 'minimal'
+    CHECK (template IN ('minimal','bold','media-first','editorial','dark')),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
 -- Showroom users publish automatically. Reports are deduplicated per user and
 -- grouped into an exceptions-only admin queue, not a manual approval pipeline.
 CREATE TABLE IF NOT EXISTS showroom_reports (
