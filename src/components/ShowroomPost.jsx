@@ -143,9 +143,9 @@ function ShowroomPost({
         </span>
       </div>
 
-      <div className={`shrink-0 px-3 sm:px-4 pt-1.5 pb-3 min-w-0 ${
-          template === 'dark' ? 'bg-[#182033] text-white' : 'bg-white'
-        }`}>
+      <div className={`shrink-0 px-3 sm:px-4 pt-1.5 min-w-0 ${
+          template === 'media-first' ? 'pb-2' : 'pb-3'
+        } ${template === 'dark' ? 'bg-[#182033] text-white' : 'bg-white'}`}>
         <UserIdentity
           user={owner}
           nameClassName={template === 'dark' ? 'font-bold text-white' : 'font-bold text-[14px] leading-tight'}
@@ -165,7 +165,7 @@ function ShowroomPost({
                 ref={captionRef}
                 className={`text-[13px] leading-snug line-clamp-2 break-words min-w-0 ${
                   template === 'dark' ? 'text-white/90' : 'text-black/80'
-                } ${template === 'editorial' ? 'italic' : ''} ${template === 'bold' ? 'font-black' : ''}`}
+                } ${template === 'editorial' ? 'italic' : ''} ${template === 'bold' ? 'font-black text-[15px]' : ''} ${template === 'media-first' ? 'line-clamp-1' : ''}`}
               >
                 {caption}
               </p>
