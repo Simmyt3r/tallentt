@@ -4,11 +4,12 @@
 import { timingSafeEqual } from 'node:crypto'
 import { query, getClient } from './db.js'
 import { containsContactBypass } from './showroomEligibility.js'
+import { effectiveScreeningConfig } from './showroomScreeningConfig.js'
 
-export const mediaScreeningEnabled = () => process.env.SHOWROOM_MEDIA_SCREENING === 'enforce'
-export const newMediaScreeningStatus = () => mediaScreeningEnabled() ? 'pending' : 'legacy'
+export const mediaScreeningEnabled = async () => (await effectiveScreeningConfig()).enabled
+export const newMediaScreeningStatus = async () => (await mediaScreeningEnabled()) ? 'pending' : 'legacy'
 
-export function authorizedScreeningWorker(header, secret = process.env.SHOWROOM_WORKER_SECRET) {
+export async function authorizedScreeningWorker(header, secret = (await effectiveScreeningConfig()).workerSecret) {
   if (!secret || secret.length < 16 || typeof header !== 'string') return false
   const supplied = Buffer.from(header)
   const expected = Buffer.from('Bearer ' + secret)
@@ -102,8 +103,9 @@ async function finalizeJob(job, status, reason, retry = false) {
 }
 
 export async function screenQueuedMedia({ inspect = inspectMediaAsset, maxItems = 4 } = {}) {
-  if (!mediaScreeningEnabled()) return { disabled: true, checked: 0, held: 0, passed: 0, retried: 0 }
-  if (!process.env.GOOGLE_CLOUD_VISION_API_KEY) {
+  const config = await effectiveScreeningConfig()
+  if (!config.enabled) return { disabled: true, checked: 0, held: 0, passed: 0, retried: 0 }
+  if (!config.visionKey) {
     const err = new Error('Screening is enforced but GOOGLE_CLOUD_VISION_API_KEY is missing.')
     err.status = 503
     throw err
@@ -126,7 +128,7 @@ export async function screenQueuedMedia({ inspect = inspectMediaAsset, maxItems 
       )
       const finding = duplicates[0]?.duplicated
         ? { status: 'held', reason: 'asset_used_by_another_creator' }
-        : await inspect(job)
+        : await inspect(job, { cloud: config.cloudName, apiKey: config.visionKey })
       await finalizeJob(job, finding.status, finding.reason, false)
       result[finding.status === 'passed' ? 'passed' : 'held']++
     } catch {
@@ -155,10 +157,10 @@ export async function mediaScreeningReviewQueue() {
      WHERE screening_status IN ('pending','processing','held','rejected')
      GROUP BY screening_status`,
   )
+  const config = await effectiveScreeningConfig()
   return { items: rows, counts: Object.fromEntries(totals.map(x => [x.screening_status, x.count])),
-    screeningEnabled: mediaScreeningEnabled(),
-    providerConfigured: Boolean(process.env.GOOGLE_CLOUD_VISION_API_KEY),
-    workerConfigured: Boolean(process.env.SHOWROOM_WORKER_SECRET?.length >= 16) }
+    screeningEnabled: config.enabled, providerConfigured: Boolean(config.visionKey),
+    workerConfigured: Boolean(config.workerSecret) }
 }
 
 export async function decideMediaScreening(adminId, mediaId, decision) {
