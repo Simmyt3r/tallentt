@@ -12,6 +12,7 @@ export default function AdminShowroomConfig() {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [visionHealth, setVisionHealth] = useState(null)
 
   const refresh = useCallback(async () => {
     setBusy('load')
@@ -37,8 +38,22 @@ export default function AdminShowroomConfig() {
       setCloudName(data.cloudName || '')
       setVisionKey('')
       setWorkerSecret('')
+      setVisionHealth(null)
       setNotice('Settings saved securely. Future media submissions will use these values.')
     } catch (err) { setError(err.message || 'Could not save screening configuration.') }
+    finally { setBusy('') }
+  }
+
+  async function testVision() {
+    if (busy) return
+    setBusy('vision')
+    setError('')
+    setVisionHealth(null)
+    try {
+      const response = await api.testAdminShowroomVision()
+      setVisionHealth(response)
+      setNotice('Google Cloud Vision accepted a test request. This verifies current connectivity and permissions.')
+    } catch (err) { setError(err.message || 'Cloud Vision connectivity test failed.') }
     finally { setBusy('') }
   }
 
@@ -122,6 +137,12 @@ export default function AdminShowroomConfig() {
             placeholder={status?.visionConfigured ? 'Configured and encrypted · Enter only to replace' : 'Enter a Cloud Vision API key'}
             className="h-11 w-full rounded-xl border border-black/20 bg-white px-3 text-[12px] outline-none focus:border-black" />
           <p className="text-[11px] text-black/50">Server-side key, never displayed again. Restrict it to the required Google Cloud APIs.</p>
+          <button type="button" onClick={testVision} disabled={working || !status?.visionConfigured}
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-black px-4 text-[11px] font-bold disabled:opacity-40">
+            {busy === 'vision' ? 'Testing connection…' : 'Test Cloud Vision connection'}
+          </button>
+          {visionHealth?.ok && <p role="status" className="text-[11px] font-bold text-emerald-800">Vision API responded successfully at {new Date(visionHealth.validatedAt).toLocaleString()}.</p>}
+          <p className="text-[10px] text-black/45">The test submits a synthetic image and may count against your API quota. Save a new key before testing it.</p>
         </div>
         <div className="space-y-1.5">
           <label htmlFor="showroom-worker" className="block text-[11px] font-black">SHOWROOM_WORKER_SECRET</label>
