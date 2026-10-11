@@ -34,6 +34,17 @@ export default async function handler(req, res) {
       if (url.searchParams.get('messages') === '1') {
         return json(res, 200, await getThread(session.sub, url.searchParams.get('escrow_id'), url.searchParams.get('before'), url.searchParams.get('events_before')))
       }
+      if (url.searchParams.get('landing_context') === '1') {
+        const { rows } = await query(
+          `SELECT EXISTS (
+             SELECT 1 FROM escrows
+             WHERE client_id = $1 AND status IN ('not_funded', 'secured')
+               AND COALESCE(contacts_unlocked, false) = true
+           ) AS has_active_client_deals`,
+          [session.sub],
+        )
+        return json(res, 200, { hasActiveClientDeals: rows[0]?.has_active_client_deals === true })
+      }
       if (url.searchParams.get('deals_count') === '1') {
         return json(res, 200, await getMyDealsCount(session.sub))
       }
