@@ -93,3 +93,31 @@ attachment will reject them without a valid server permit.
 Do not merge/deploy as enforcement before reviewing the Cloudinary account
 and migration status. A CI-successful branch does not confirm that production
 keys, billing or API quotas are ready.
+
+## Release preflight in Admin
+
+Open **Admin → Showroom Settings → Deployment readiness** to check that
+all five Showroom tables and required media/listing columns exist. The
+panel also checks whether the application has a server-side encryption
+root and Cloudinary upload credentials. Click **Test Cloudinary connection**
+to make an explicitly requested read-only, single-result Admin API request.
+This checks the actual API key/secret permissions without returning provider
+data or credentials. The test uses a small amount of Cloudinary Admin API
+quota. A green database check does not mean GitHub Actions is configured.
+
+Before enabling `HAT_MEDIA_SIGNED_UPLOADS=enforce`, all migration and
+Cloudinary credential checks must pass, and a real end-to-end upload should
+succeed on the staging deployment. This is a server-side feature flag
+rather than an Admin toggle because misconfiguring the signed upload
+credentials would block new portfolio submissions.
+
+## Media format and moderation policy
+
+Client file selection and server upload permits now use one shared allowlist
+for JPG, PNG, WebP, GIF, AVIF, MP4, WebM, MOV, MP3, WAV, OGG and M4A.
+Unsupported formats fail before a browser uploads the file.
+
+Video moderation currently inspects only a representative frame.
+Audio cannot be checked by Google Vision and is automatically held for
+**manual review** with reason `audio_requires_manual_review`.
+It must never be labeled automatically passed by image-only scanning.
