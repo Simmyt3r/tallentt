@@ -196,6 +196,26 @@ export default function AdminShowroomConfig() {
         </p>}
       </div>
 
+      <section aria-label="Signed Hat upload rollout" className="rounded-2xl border border-black/15 p-4 space-y-2">
+        <h4 className="text-[14px] font-black">Signed Hat uploads</h4>
+        <p className="text-[12px] text-black/60">Protects portfolios from forged media links by requiring server-issued Cloudinary uploads and verifying each asset before publication.</p>
+        <div className="flex flex-wrap gap-2 text-[11px] font-bold">
+          <span className="rounded-full bg-[#F7F3EB] px-3 py-2">
+            Policy: {status?.signedUploadStatus?.enabled ? 'Enforced' : 'Legacy mode'}
+          </span>
+          <span className="rounded-full bg-[#F7F3EB] px-3 py-2">
+            Server keys: {status?.signedUploadStatus?.credentialsConfigured ? 'Ready' : 'Missing'}
+          </span>
+          <span className="rounded-full bg-[#F7F3EB] px-3 py-2">
+            DB migration: {status?.signedUploadStatus?.migrationInstalled ? 'Applied' : 'Pending'}
+          </span>
+        </div>
+        <p className="text-[11px] text-black/55">
+          Enable with the server-side HAT_MEDIA_SIGNED_UPLOADS=enforce only after
+          confirming the Cloudinary API credentials and applying the migration.
+          The Cloudinary API secret must remain on the server, not in Admin or browser code.
+        </p>
+      </section>
       <AdminShowroomOps enabled={Boolean(status?.enabled)} configured={Boolean(status?.ready)} />
 
       <p className="text-[11px] text-black/55">
