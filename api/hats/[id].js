@@ -316,6 +316,8 @@ export default async function handler(req, res) {
       const nextMedia = Array.isArray(body.media) ? body.media.filter((m) => m && m.url && m.public_id) : null
       const mediaCount = nextMedia ? nextMedia.length : existing.media?.length || 0
       const previousMedia = new Map((existing.media || []).map(m => [m.public_id, m]))
+      // Resolve the policy BEFORE a DB transaction (the production pool has max:1).
+      const newScreeningStatus = nextMedia ? await newMediaScreeningStatus() : null
 
       // Re-check visible Showroom text on new media and text edits.
       // Legacy content that fails is omitted from discovery until corrected.
@@ -364,7 +366,7 @@ export default async function handler(req, res) {
                 previousMedia.get(m.public_id)?.url === m.url
                   ? (previousMedia.get(m.public_id).screening_status === 'processing'
                       ? 'pending' : previousMedia.get(m.public_id).screening_status || 'legacy')
-                  : newMediaScreeningStatus()],
+                  : newScreeningStatus],
             )
           }
         }
