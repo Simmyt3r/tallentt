@@ -151,6 +151,25 @@ test('same exact asset reused across creators is automatically held rather than 
   assert.equal(status.screening_reason,'asset_used_by_another_creator')
 })
 
+test('audio files route directly to human review rather than retrying image OCR',async()=>{
+  const id=randomUUID()
+  await pool.query(
+    `INSERT INTO hat_media (id,hat_id,url,public_id,type,screening_status)
+     VALUES ($1,$2,'https://res.cloudinary.com/demo/video/upload/v123/artist/sound.mp3',
+       'artist/sound','audio','pending')`,
+    [id,hatIds[1]],
+  )
+  const result=await screenQueuedMedia({inspect:async()=>{throw Error('Vision must not inspect audio')}})
+  assert.equal(result.checked,1)
+  assert.equal(result.held,1)
+  assert.equal(result.retried,0)
+  const {rows}=await pool.query(
+    'SELECT screening_status,screening_reason,screening_attempts FROM hat_media WHERE id=$1',[id])
+  assert.equal(rows[0].screening_status,'held')
+  assert.equal(rows[0].screening_reason,'audio_requires_manual_review')
+  assert.equal(rows[0].screening_attempts,1)
+})
+
 test('temporary scanner failures retry with backoff then hold instead of silently publishing',async()=>{
   const id=randomUUID()
   await pool.query(
