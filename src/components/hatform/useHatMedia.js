@@ -26,6 +26,7 @@ function fromExisting(m, i) {
     origin: 'existing',
     url: m.url,
     public_id: m.public_id,
+    upload_id: m.upload_id || null,
     type: m.type || 'image',
     kind: mediaKind(m.type),
     caption: m.caption || null,
@@ -283,7 +284,7 @@ export function useHatMedia() {
 
   // Ordered list the API should store (index 0 = cover).
   const readyMedia = useMemo(
-    () => items.filter((it) => it.status === 'ready').map((it) => ({ url: it.url, public_id: it.public_id, type: it.type, caption: it.caption || null })),
+    () => items.filter((it) => it.status === 'ready').map((it) => ({ url: it.url, public_id: it.public_id, type: it.type, caption: it.caption || null, ...(it.upload_id ? { upload_id: it.upload_id } : {}) })),
     [items],
   )
 
