@@ -185,3 +185,24 @@ test('owner can appeal automated held media and moderator can restore discovery'
   assert.equal(held,0)
   assert.ok((await request(showroom,'/api/showroom?view=new')).body.hats.some(h=>h.id===hatIds[1]))
 })
+
+test('editing a Hat while its media is being screened requeues it rather than losing the lease',async()=>{
+  const hatHandler=(await import('../api/hats/[id].js')).default
+  await pool.query(
+    `UPDATE hat_media SET screening_status='processing',screening_locked_at=NOW(),
+     screening_lock_token=gen_random_uuid() WHERE id=$1`,[mediaIds[1]],
+  )
+  const {rows}=await pool.query(
+    'SELECT url,public_id,type,caption FROM hat_media WHERE hat_id=$1 ORDER BY created_at,id',[hatIds[1]],
+  )
+  const response=await request(hatHandler,`/api/hats/${hatIds[1]}`,{
+    who:1,method:'PUT',body:{media:rows,motto:'Available for professional events'},
+  })
+  assert.equal(response.statusCode,200,JSON.stringify(response.body))
+  const after=(await pool.query(
+    "SELECT screening_status FROM hat_media WHERE hat_id=$1 AND public_id='artist/picture1'",[hatIds[1]],
+  )).rows[0]
+  assert.equal(after.screening_status,'pending')
+  const scanned=await screenQueuedMedia({inspect:async()=>({status:'passed',reason:null})})
+  assert.equal(scanned.passed,1)
+})
