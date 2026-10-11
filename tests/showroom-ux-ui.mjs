@@ -124,6 +124,12 @@ try{
     await page.goto('http://127.0.0.1:5185/showroom')
     const open=page.getByRole('button',{name:'Add to Showroom'})
     await open.waitFor()
+    await open.click()
+    await page.getByRole('heading',{name:'Pick a card'}).waitFor()
+    await page.keyboard.press('Escape')
+    await page.getByRole('heading',{name:'Pick a card'}).waitFor({state:'detached'})
+    assert.equal(await open.evaluate(el=>document.activeElement===el),true,
+      'closing the dialog must restore keyboard focus')
     for(let round=1;round<=2;round++){
       await open.click()
       await page.getByRole('heading',{name:'Pick a card'}).waitFor()
