@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Eye, Heart, Maximize2, Share2 } from 'lucide-react'
+import { Eye, Flag, Heart, Maximize2, Share2 } from 'lucide-react'
 import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import AvailabilityBadge from './AvailabilityBadge'
 import ShowroomMedia from './ShowroomMedia'
@@ -41,6 +41,7 @@ function ShowroomPost({
   onMutedChange,
   onLike,
   onShare,
+  onReport,
   onView,
   observe,
 }) {
@@ -117,6 +118,13 @@ function ShowroomPost({
           <Maximize2 size={15} aria-hidden="true" />
           <span>View</span>
         </button>
+        {onReport && (
+          <button type="button" onClick={() => onReport(hat)}
+            aria-label="Report Showroom post" title="Report post"
+            className="inline-flex h-11 w-10 items-center justify-center rounded-full text-black/45 hover:text-red-700">
+            <Flag size={16} aria-hidden="true" />
+          </button>
+        )}
         <span
           className="ml-auto pr-1 inline-flex items-center gap-1 text-[12px] font-medium text-black/45 tabular-nums"
           title={`${hat.views || 0} views`}
