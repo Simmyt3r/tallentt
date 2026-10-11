@@ -2,6 +2,7 @@ import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
+import { showroomTextIssue } from '../_lib/showroomEligibility.js'
 import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing, normalizeAvailableDays, normalizeHiringDuration } from '../_lib/hatFields.js'
 import { createApplicationRequest, notifyApplicationState, respondApplicationDeal } from '../_lib/myDeals.js'
 
@@ -309,6 +310,18 @@ export default async function handler(req, res) {
       // is the display order (index 0 = cover).
       const nextMedia = Array.isArray(body.media) ? body.media.filter((m) => m && m.url && m.public_id) : null
       const mediaCount = nextMedia ? nextMedia.length : existing.media?.length || 0
+
+      // Re-check visible Showroom text on new media and text edits.
+      // Legacy content that fails is omitted from discovery until corrected.
+      if (existing.role === 'talent' &&
+          (nextMedia || body.hat_title != null || body.hat_name != null || body.motto != null)) {
+        const issue = showroomTextIssue({
+          title: [body.hat_title ?? existing.hat_title, body.hat_name ?? existing.hat_name].join(' '),
+          motto: nextMotto,
+          media: nextMedia || existing.media || [],
+        })
+        if (issue) return json(res, 422, { error: issue, code: 'SHOWROOM_TEXT_REJECTED' })
+      }
 
       // The daily availability window can be cleared: `undefined` (key absent)
       // keeps what's on file, `null`/'' clears it.
