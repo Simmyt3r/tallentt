@@ -20,6 +20,13 @@ export default function AdminShowroomMedia() {
     catch (err) { setError(err.message || 'Could not update media.') }
     finally { setBusy(null) }
   }
+  async function retry(item) {
+    if (busy) return
+    setBusy(item.media_id)
+    try { await api.retryAdminShowroomMedia(item.media_id); await refresh() }
+    catch (err) { setError(err.message || 'Unable to queue another screening attempt.') }
+    finally { setBusy(null) }
+  }
   return (
     <section className="space-y-3 border-t border-black/10 pt-5" aria-label="Media screening exceptions">
       <h3 className="flex items-center gap-2 text-[15px] font-black"><ImageOff size={18}/> Media screening exceptions</h3>
@@ -59,6 +66,10 @@ export default function AdminShowroomMedia() {
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={Boolean(busy)} onClick={() => decide(item, 'approve')}
                 className="h-10 rounded-full bg-black px-4 text-[11px] font-bold text-white disabled:opacity-40">Approve media</button>
+              {item.screening_status === 'held' && item.screening_reason === 'screening_unavailable' && (
+                <button type="button" disabled={Boolean(busy)} onClick={() => retry(item)}
+                  className="h-10 rounded-full border border-amber-700 px-4 text-[11px] font-bold text-amber-800 disabled:opacity-40">Retry scanning</button>
+              )}
               {item.screening_status !== 'rejected' && (
                 <button type="button" disabled={Boolean(busy)} onClick={() => decide(item, 'reject')}
                   className="h-10 rounded-full border border-red-700 px-4 text-[11px] font-bold text-red-700 disabled:opacity-40">Reject media</button>
