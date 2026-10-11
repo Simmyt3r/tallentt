@@ -107,6 +107,28 @@ test('admin run-now records a safe operational history and excludes ordinary use
   assert.equal(JSON.stringify(ops.body).includes('testGoogleVisionKey'),false)
 })
 
+test('Cloud Vision test sends only a synthetic image and never exposes credentials',async()=>{
+  const {testVisionConnection} = await import('../api/_lib/showroomVisionHealth.js')
+  const stub = async (url,options) => {
+    assert.equal(url,'https://vision.googleapis.com/v1/images:annotate')
+    assert.equal(options.headers['x-goog-api-key'],'testGoogleVisionKey_123456789')
+    assert.equal(url.includes('testGoogleVisionKey'),false)
+    const payload=JSON.parse(options.body)
+    assert.equal(payload.requests.length,1)
+    assert.ok(payload.requests[0].image.content.startsWith('iVBORw'))
+    assert.equal(payload.requests[0].image.source,undefined)
+    return {ok:true,json:async()=>({responses:[{safeSearchAnnotation:{adult:'VERY_UNLIKELY'}}]})}
+  }
+  const result=await testVisionConnection({fetchImpl:stub})
+  assert.equal(result.ok,true)
+  assert.equal(JSON.stringify(result).includes('testGoogleVisionKey'),false)
+  await assert.rejects(
+    testVisionConnection({fetchImpl:async()=>({ok:false,status:403})}),
+    /refused the test request/,
+  )
+  assert.equal((await request({who:normalId,method:'POST',action:'test_showroom_vision'})).statusCode,403)
+})
+
 test('disabling screening releases in-flight media but preserves human-review holds',async()=>{
   const hat=randomUUID()
   await pool.query(
