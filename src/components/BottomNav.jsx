@@ -70,7 +70,7 @@ export default function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       aria-label="Primary"
     >
-      <BottomNavLink to="/" end icon={Home} label="Home" />
+      <BottomNavLink to="/bento" icon={Home} label="Bento" />
       <BottomNavLink to="/showroom" icon={Store} label="Showroom" />
       <BottomNavLink to="/deals" icon={Handshake} label="My Deals" badge={pendingDeals} />
       <BottomNavLink to="/live" icon={Radio} label="Live" />
