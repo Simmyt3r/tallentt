@@ -1,11 +1,12 @@
 // Path: api/hats/index.js
-import { query } from '../_lib/db.js'
+import { query, getClient } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
 import { getHatPresentationMap } from '../_lib/hatPresentation.js'
 import { showroomTextIssue } from '../_lib/showroomEligibility.js'
 import { newMediaScreeningStatus } from '../_lib/showroomMediaScreening.js'
+import { issueHatUploadPermit, verifyNewHatMedia, claimHatMediaPermits } from '../_lib/hatMediaUpload.js'
 import {
   HAT_TYPES,
   DELIVERY_MODES,
@@ -221,6 +222,9 @@ export default async function handler(req, res) {
       if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
       const body = await readBody(req)
+      if (body.action === 'upload_sign') {
+        return json(res, 200, await issueHatUploadPermit(session.sub, body))
+      }
       if (body.action === 'create_category') {
         const name = (body.name || '').trim()
         if (!name || name.length < 2) {
@@ -333,7 +337,15 @@ export default async function handler(req, res) {
         rating: 0,
       })
 
-      const { rows } = await query(
+      // Cloudinary is checked BEFORE creating a Hat. Within enforcement mode,
+      // arbitrary browser-supplied URLs are not accepted as portfolio media.
+      const verifiedPermits = await verifyNewHatMedia(session.sub, media)
+      const screeningStatus = await newMediaScreeningStatus()
+      const client = await getClient()
+      let hat
+      try {
+        await client.query('BEGIN')
+      const { rows } = await client.query(
         `INSERT INTO hats (
           user_id, hat_title, hat_name, username, verified_name, is_verified, category, skills,
           hat_type, hiring_duration, delivery_mode, country, country_flag, currency, lga, motto,
@@ -374,22 +386,26 @@ export default async function handler(req, res) {
           feedVisible,
         ],
       )
-      const hat = rows[0]
-
-      const screeningStatus = await newMediaScreeningStatus()
+      hat = rows[0]
+      await claimHatMediaPermits(client, session.sub, hat.id, verifiedPermits)
       for (const m of media) {
         if (!m.url || !m.public_id) continue
-        await query(
+        await client.query(
           `INSERT INTO hat_media (hat_id, url, public_id, type, caption, screening_status) VALUES ($1,$2,$3,$4,$5,$6)`,
           [hat.id, m.url, m.public_id, m.type || 'image', m.caption || null, screeningStatus],
         )
       }
 
+      await client.query('COMMIT')
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => {})
+        throw error
+      } finally { client.release() }
       const withMedia = await attachMedia([hat], session.sub)
       return json(res, 201, { hat: withMedia[0] })
     } catch (err) {
       console.error(err)
-      return json(res, 500, { error: err.message || 'Failed to create hat' })
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to create hat' })
     }
   }
 
