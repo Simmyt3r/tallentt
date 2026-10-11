@@ -2,6 +2,7 @@ import { query } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { reportShowroomHat } from '../_lib/showroomReports.js'
+import { getHatPresentationMap } from '../_lib/hatPresentation.js'
 import {
   SHOWROOM_SQL_CONTACT_PATTERN,
   decodeShowroomCursor,
@@ -100,6 +101,7 @@ export default async function handler(req, res) {
 
     const hats = candidates.slice(0, PAGE_SIZE)
     const ids = hats.map((h) => h.id)
+    const presentations = await getHatPresentationMap(ids)
     const mediaByHat = {}
     if (ids.length) {
       const { rows: media } = await query(
@@ -126,6 +128,8 @@ export default async function handler(req, res) {
       hats: hats.map((h, index) => ({
         ...h,
         media: mediaByHat[h.id] || [],
+        bento_accent: presentations[h.id]?.accent || 'electric',
+        showroom_template: presentations[h.id]?.template || 'minimal',
         liked_by_me: liked.has(h.id),
         isHost: !cursor && index === 0 && view === 'for_you',
       })),
