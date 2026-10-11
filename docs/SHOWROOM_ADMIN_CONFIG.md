@@ -17,7 +17,7 @@ they can copy it into GitHub Actions. Subsequent API reads show only its presenc
 
 ### Production prerequisites
 
-1. Apply `npm run db:migrate:showroom-config` after the earlier Showroom migrations.
+1. Apply `npm run db:migrate:showroom-config` and `npm run db:migrate:showroom-ops` after the earlier Showroom migrations.
 2. Keep the server's `JWT_SECRET` (existing auth secret) configured. For future
    key rotation, preferably configure `SHOWROOM_CONFIG_ENCRYPTION_KEY` as a
    separate server-only encryption root. Do not rotate that root without
@@ -58,3 +58,31 @@ permissions are enabled. Test the actual worker after configuration.
 - This is a small-scale scanning pipeline, not a verified million-user
   architecture; a durable autoscaled worker is still required at high volume.
 
+
+
+## Screening operations in Admin
+
+**Showroom Settings → Worker & queue** shows the number of posts due for scanning,
+currently processing, held and rejected, as well as recent worker invocations.
+
+- **Process next 4 media** launches a small, admin-authenticated moderation batch
+  immediately. It is useful for staging and diagnosis and does not require a
+  matching GitHub Actions secret. A Google Cloud Vision key and enabled
+  screening policy are required.
+- **Test Cloud Vision connection** sends a synthetic 128×128 image to Google's
+  SafeSearch API to verify that billing/credentials/permissions work. It does
+  not transmit any user's media. The test may incur API charges.
+- In **Showroom Reports → Media screening exceptions**, media marked
+  `screening_unavailable` can be requeued for an automatic retry. Other holds
+  still require human judgment, not a blind retry.
+- A moderation history entry records the batch source, counts and completion
+  status, **never** the API key, worker token or provider response bodies.
+
+Disabling screening returns pending and in-progress jobs to legacy admission
+but does not reinstate content held for safety review. The next run after
+re-enabling scans newly queued submissions; older legacy content is not
+silently treated as newly screened.
+
+The GitHub worker remains necessary for **unattended automatic** screening.
+The Admin run-now button is a temporary manual fallback, not continuous
+scheduled delivery.
