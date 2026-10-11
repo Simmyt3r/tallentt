@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Flag, ShieldAlert } from 'lucide-react'
 import { api } from '../lib/api.js'
 import AdminShowroomAppeals from './AdminShowroomAppeals.jsx'
+import AdminShowroomMedia from './AdminShowroomMedia.jsx'
 
 export default function AdminShowroomReports() {
   const [data, setData] = useState({ items: [], flagged: 0 })
@@ -82,6 +83,7 @@ export default function AdminShowroomReports() {
         ))}
       </div>
       <AdminShowroomAppeals />
+      <AdminShowroomMedia />
     </section>
   )
 }
