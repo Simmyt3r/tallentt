@@ -165,3 +165,23 @@ test('temporary scanner failures retry with backoff then hold instead of silentl
     assert.equal(row.screening_status,attempt<3?'pending':'held')
   }
 })
+
+test('owner can appeal automated held media and moderator can restore discovery',async()=>{
+  const own=await request(showroom,'/api/showroom?action=my_moderation',{who:1})
+  const item=own.body.items.find(item=>item.hat_id===hatIds[1])
+  assert.ok(item)
+  assert.ok(item.held_media_count>=1)
+  const requestBody={action:'appeal',hat_id:hatIds[1],explanation:'These are my original photos. I have removed the contact information.'}
+  const submitted=await request(showroom,'/api/showroom',{who:1,method:'POST',body:requestBody})
+  assert.equal(submitted.statusCode,201,JSON.stringify(submitted.body))
+  const queue=await request(admin,'/api/admin?action=showroom_appeals',{who:2})
+  const appeal=queue.body.items.find(x=>x.hat_id===hatIds[1])
+  assert.ok(appeal)
+  const approved=await request(admin,'/api/admin',{who:2,method:'POST',body:{
+    action:'resolve_showroom_appeal',appealId:appeal.id,decision:'approve',note:'Reviewed evidence and image.',
+  }})
+  assert.equal(approved.statusCode,200,JSON.stringify(approved.body))
+  const held=(await pool.query("SELECT COUNT(*)::int AS count FROM hat_media WHERE hat_id=$1 AND screening_status IN ('held','rejected')",[hatIds[1]])).rows[0].count
+  assert.equal(held,0)
+  assert.ok((await request(showroom,'/api/showroom?view=new')).body.hats.some(h=>h.id===hatIds[1]))
+})
