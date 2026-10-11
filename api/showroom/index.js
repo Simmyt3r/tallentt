@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     const url = new URL(req.url, `http://${req.headers.host}`)
     // A signed background worker shares this existing serverless endpoint.
     if (url.searchParams.get('worker') === '1') {
-      if (!authorizedScreeningWorker(req.headers.authorization)) return json(res, 401, { error: 'Unauthorized worker.' })
+      if (!(await authorizedScreeningWorker(req.headers.authorization))) return json(res, 401, { error: 'Unauthorized worker.' })
       return json(res, 200, await screenQueuedMedia())
     }
     const session = getSessionUser(req)
