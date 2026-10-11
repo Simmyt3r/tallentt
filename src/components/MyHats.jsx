@@ -141,7 +141,7 @@ export default function MyHats() {
                       ? 'Media requires review. Replace the media or request an appeal.'
                       : 'Media screening is underway; Showroom discovery is paused.'}
                   </p>
-                )
+                )}
             </div>
           ))}
         </div>
@@ -193,7 +193,7 @@ export default function MyHats() {
                       ? 'Media requires review. Replace the media or request an appeal.'
                       : 'Media screening is underway; Showroom discovery is paused.'}
                   </p>
-                )
+                )}
               </div>
             </li>
           ))}
