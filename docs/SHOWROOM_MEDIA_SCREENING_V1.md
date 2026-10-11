@@ -14,6 +14,9 @@
 
 ## Setup
 
+**Preferred:** Use **Admin → Showroom Settings** after applying migrations. All four previously documented environment options now have secure Admin controls, and the runtime reads the Admin-managed configuration without requiring a redeploy. See [SHOWROOM_ADMIN_CONFIG.md](SHOWROOM_ADMIN_CONFIG.md). Environment variables remain fallback options only.
+
+
 1. First apply `npm run db:migrate:showroom-media` with `DATABASE_URL` set, or run `db/showroom-media-screening.sql` through the PostgreSQL console.
 2. Enable the **Cloud Vision API** in your Google Cloud project and obtain a restricted server-side API key. Configure `GOOGLE_CLOUD_VISION_API_KEY` in Vercel, not in the browser.
 3. Set the correct `CLOUDINARY_CLOUD_NAME` that owns uploaded media.
