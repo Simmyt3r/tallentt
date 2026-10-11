@@ -3,6 +3,7 @@ import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
 import { showroomTextIssue } from '../_lib/showroomEligibility.js'
+import { getHatPresentationMap, saveHatPresentation } from '../_lib/hatPresentation.js'
 import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing, normalizeAvailableDays, normalizeHiringDuration } from '../_lib/hatFields.js'
 import { createApplicationRequest, notifyApplicationState, respondApplicationDeal } from '../_lib/myDeals.js'
 
@@ -67,9 +68,12 @@ async function getHat(id, viewerId) {
       console.error('my_application lookup failed (has patch-applications.sql been run?):', appErr)
     }
   }
+  const presentations = await getHatPresentationMap([id])
   return {
     ...rows[0],
     media,
+    bento_accent: presentations[id]?.accent || 'electric',
+    showroom_template: presentations[id]?.template || 'minimal',
     confidence: rows[0].orbit_score,
     liked_by_me: likedByMe,
     my_application: myApplication,
@@ -452,6 +456,16 @@ export default async function handler(req, res) {
       const body = await readBody(req)
       let application = null
       let alreadyApplied = false
+
+      if (body.action === 'set_card_style') {
+        const presentation = await saveHatPresentation(session.sub, id, {
+          accent: body.accent, template: body.template,
+        })
+        return json(res, 200, { hat: {
+          id, bento_accent: presentation.accent,
+          showroom_template: presentation.template,
+        } })
+      }
 
       if (body.action === 'set_feed_visibility') {
         if (existing.user_id !== session.sub) return json(res, 403, { error: 'Forbidden' })
