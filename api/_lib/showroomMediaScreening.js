@@ -65,7 +65,7 @@ export async function inspectMediaAsset(media, { fetchImpl = fetch, cloud = proc
   })
   if (!response.ok) throw new Error('Vision API unavailable')
   const result = await response.json()
-  if (!result.responses?.length || result.responses[0].error) throw new Error('Vision analysis failed')
+  if (!result.responses?.length || result.responses[0].error || !result.responses[0].safeSearchAnnotation) throw new Error('Vision analysis incomplete')
   return classifyImageAnnotations(result.responses[0])
 }
 
