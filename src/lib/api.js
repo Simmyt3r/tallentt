@@ -99,6 +99,13 @@ export const api = {
     }
     return request(`/api/showroom?${params.toString()}`)
   },
+  reportShowroom: (hat_id, reason) => request('/api/showroom', {
+    method: 'POST', body: JSON.stringify({ action: 'report', hat_id, reason }),
+  }),
+  getAdminShowroomReports: () => request('/api/admin?action=showroom_reports'),
+  resolveAdminShowroomReport: (hatId, decision) => request('/api/admin', {
+    method: 'POST', body: JSON.stringify({ action: 'resolve_showroom_report', hatId, decision }),
+  }),
   getCategories: () => request('/api/hats?categories=1'),
   createCategory: (name) =>
     request('/api/hats', { method: 'POST', body: JSON.stringify({ action: 'create_category', name }) }),
