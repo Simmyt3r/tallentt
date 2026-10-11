@@ -14,6 +14,7 @@ import { getShowroomReviewQueue, resolveShowroomReport } from '../_lib/showroomR
 import { showroomAppealsQueue, resolveShowroomAppeal } from '../_lib/showroomAppeals.js'
 import { mediaScreeningReviewQueue, decideMediaScreening, screenQueuedMedia } from '../_lib/showroomMediaScreening.js'
 import { screeningOperationalStatus, retryHeldScreening } from '../_lib/showroomScreeningOps.js'
+import { testVisionConnection } from '../_lib/showroomVisionHealth.js'
 import { adminScreeningStatus, saveAdminScreeningConfig, newGeneratedWorkerSecret } from '../_lib/showroomScreeningConfig.js'
 import {
   generateAdminVapidConfig,
@@ -306,6 +307,7 @@ async function handleAdminAction(admin, body) {
     const status = await saveAdminScreeningConfig(admin.id, { workerSecret: secret })
     return { ...status, workerSecretOnce: secret }
   }
+  if (action === 'test_showroom_vision') return testVisionConnection()
   if (action === 'run_showroom_screening') return screenQueuedMedia({source:'admin', triggeredBy:admin.id, maxItems:4})
   if (action === 'retry_showroom_media') return retryHeldScreening(admin.id, body.mediaId)
   if (action === 'resolve_showroom_media') return decideMediaScreening(admin.id, body.mediaId, body.decision)
