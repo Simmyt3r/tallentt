@@ -19,8 +19,8 @@ const columns = [
 
 export async function getShowroomDeploymentPreflight() {
   const [{rows: tableRows},{rows: columnRows}] = await Promise.all([
-    query(`SELECT table_name, to_regclass('public.' || table_name) IS NOT NULL AS installed
-      FROM unnest($1::text[]) AS table_name`, [tables.map(x=>x[0])]),
+    query(`SELECT table_name, to_regclass(table_name) IS NOT NULL AS installed
+      FROM unnest($1::text[]) AS t(table_name)`, [tables.map(x=>x[0])]),
     query(`SELECT table_name,column_name FROM information_schema.columns
       WHERE table_schema=current_schema() AND
       (table_name,column_name) IN (
