@@ -12,7 +12,8 @@ import {
 import { resolveDispute as resolveLiveDispute } from '../_lib/live.js'
 import { getShowroomReviewQueue, resolveShowroomReport } from '../_lib/showroomReports.js'
 import { showroomAppealsQueue, resolveShowroomAppeal } from '../_lib/showroomAppeals.js'
-import { mediaScreeningReviewQueue, decideMediaScreening } from '../_lib/showroomMediaScreening.js'
+import { mediaScreeningReviewQueue, decideMediaScreening, screenQueuedMedia } from '../_lib/showroomMediaScreening.js'
+import { screeningOperationalStatus, retryHeldScreening } from '../_lib/showroomScreeningOps.js'
 import { adminScreeningStatus, saveAdminScreeningConfig, newGeneratedWorkerSecret } from '../_lib/showroomScreeningConfig.js'
 import {
   generateAdminVapidConfig,
@@ -38,6 +39,7 @@ export default async function handler(req, res) {
       if (params.get('action') === 'showroom_appeals') return json(res, 200, await showroomAppealsQueue())
       if (params.get('action') === 'showroom_media') return json(res, 200, await mediaScreeningReviewQueue())
       if (params.get('action') === 'showroom_screening_config') return json(res, 200, await adminScreeningStatus())
+      if (params.get('action') === 'showroom_screening_ops') return json(res, 200, await screeningOperationalStatus())
       if (params.get('action') === 'disputes') return json(res, 200, await listDisputes(params.get('status') || 'open', params.get('before')))
       if (params.get('action') === 'dispute') return json(res, 200, await getDispute(params.get('escrow_id'), params.get('before'), params.get('events_before')))
       if (params.get('action') === 'live_disputes') {
@@ -304,6 +306,8 @@ async function handleAdminAction(admin, body) {
     const status = await saveAdminScreeningConfig(admin.id, { workerSecret: secret })
     return { ...status, workerSecretOnce: secret }
   }
+  if (action === 'run_showroom_screening') return screenQueuedMedia({source:'admin', triggeredBy:admin.id, maxItems:4})
+  if (action === 'retry_showroom_media') return retryHeldScreening(admin.id, body.mediaId)
   if (action === 'resolve_showroom_media') return decideMediaScreening(admin.id, body.mediaId, body.decision)
 
   if (action === 'resolve_showroom_appeal') {
