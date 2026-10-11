@@ -2,6 +2,7 @@ import { query } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { reportShowroomHat } from '../_lib/showroomReports.js'
+import { myShowroomModeration, submitShowroomAppeal } from '../_lib/showroomAppeals.js'
 import { getHatPresentationMap } from '../_lib/hatPresentation.js'
 import {
   SHOWROOM_SQL_CONTACT_PATTERN,
@@ -18,8 +19,9 @@ export default async function handler(req, res) {
       const session = getSessionUser(req)
       if (!session?.sub) return json(res, 401, { error: 'Sign in to report a listing.' })
       const body = await readBody(req)
-      if (body?.action !== 'report') return json(res, 400, { error: 'Unknown Showroom action.' })
-      return json(res, 200, await reportShowroomHat(session.sub, body.hat_id, body.reason))
+      if (body?.action === 'report') return json(res, 200, await reportShowroomHat(session.sub, body.hat_id, body.reason))
+      if (body?.action === 'appeal') return json(res, 201, await submitShowroomAppeal(session.sub, body.hat_id, body.explanation))
+      return json(res, 400, { error: 'Unknown Showroom action.' })
     } catch (error) {
       if (!error.status) console.error('Showroom report failed:', error)
       return json(res, error.status || 500, { error: error.status ? error.message : 'Could not submit the report.' })
@@ -31,6 +33,10 @@ export default async function handler(req, res) {
   try {
     const session = getSessionUser(req)
     const url = new URL(req.url, `http://${req.headers.host}`)
+    if (url.searchParams.get('action') === 'my_moderation') {
+      if (!session?.sub) return json(res, 401, { error: 'Sign in to see your moderation status.' })
+      return json(res, 200, await myShowroomModeration(session.sub))
+    }
     const view = url.searchParams.get('view') || 'for_you'
     if (!VIEWS.has(view)) return json(res, 400, { error: 'Unknown Showroom view.' })
     const category = String(url.searchParams.get('category') || '').trim().slice(0, 80)
@@ -81,6 +87,12 @@ export default async function handler(req, res) {
          JOIN users u ON u.id = h.user_id
          WHERE h.active = true AND h.role = 'talent'
            AND EXISTS (SELECT 1 FROM hat_media m WHERE m.hat_id = h.id)
+           -- Flagged posts are paused from discovery pending exceptional review,
+           -- but existing Hats/deals remain intact and can be appealed.
+           AND NOT EXISTS (
+             SELECT 1 FROM showroom_review_state s
+             WHERE s.hat_id = h.id AND s.status IN ('flagged', 'restricted')
+           )
            AND NOT (COALESCE(h.hat_title, '') || ' ' || COALESCE(h.hat_name, '') || ' ' || COALESCE(h.motto, '') ~* $8)
            AND NOT EXISTS (
              SELECT 1 FROM hat_media m
