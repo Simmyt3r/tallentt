@@ -24,6 +24,16 @@ export default function AdminShowroomMedia() {
     <section className="space-y-3 border-t border-black/10 pt-5" aria-label="Media screening exceptions">
       <h3 className="flex items-center gap-2 text-[15px] font-black"><ImageOff size={18}/> Media screening exceptions</h3>
       <p className="text-[12px] text-black/55">OCR or visual-safety concerns await human judgement. This does not automatically suspend the creator.</p>
+      <p className="text-[11px] font-bold text-black/60" role="status">
+        Screening: {data.screeningEnabled ? 'enforced' : 'disabled (legacy admission)'} ·
+        Vision: {data.providerConfigured ? 'configured' : 'not configured'} ·
+        Worker secret: {data.workerConfigured ? 'configured' : 'not configured'}
+      </p>
+      {data.screeningEnabled && (!data.providerConfigured || !data.workerConfigured) && (
+        <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-800">
+          Screening enforcement needs the Cloud Vision key and worker secret. New media will remain pending until configuration is complete.
+        </p>
+      )}
       <p className="text-[11px] font-bold text-black/55">
         Pending: {data.counts.pending || 0} · Processing: {data.counts.processing || 0} ·
         Held: {data.counts.held || 0} · Rejected: {data.counts.rejected || 0}
