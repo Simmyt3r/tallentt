@@ -1,6 +1,7 @@
 import { query } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
-import { json, methodNotAllowed } from '../_lib/http.js'
+import { json, methodNotAllowed, readBody } from '../_lib/http.js'
+import { reportShowroomHat } from '../_lib/showroomReports.js'
 import {
   SHOWROOM_SQL_CONTACT_PATTERN,
   decodeShowroomCursor,
@@ -11,7 +12,19 @@ const VIEWS = new Set(['for_you', 'trending', 'new', 'near'])
 const PAGE_SIZE = 24
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') return methodNotAllowed(res, ['GET'])
+  if (req.method === 'POST') {
+    try {
+      const session = getSessionUser(req)
+      if (!session?.sub) return json(res, 401, { error: 'Sign in to report a listing.' })
+      const body = await readBody(req)
+      if (body?.action !== 'report') return json(res, 400, { error: 'Unknown Showroom action.' })
+      return json(res, 200, await reportShowroomHat(session.sub, body.hat_id, body.reason))
+    } catch (error) {
+      if (!error.status) console.error('Showroom report failed:', error)
+      return json(res, error.status || 500, { error: error.status ? error.message : 'Could not submit the report.' })
+    }
+  }
+  if (req.method !== 'GET') return methodNotAllowed(res, ['GET', 'POST'])
   res.setHeader('Cache-Control', 'private, no-store')
 
   try {
