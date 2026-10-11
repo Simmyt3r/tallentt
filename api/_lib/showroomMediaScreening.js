@@ -2,7 +2,7 @@
 // worker can resume after a crash. External OCR is deliberately not decisive
 // for account suspensions: detections hold only the specific Showroom media.
 import { timingSafeEqual } from 'node:crypto'
-import { query } from './db.js'
+import { query, getClient } from './db.js'
 import { containsContactBypass } from './showroomEligibility.js'
 
 export const mediaScreeningEnabled = () => process.env.SHOWROOM_MEDIA_SCREENING === 'enforce'
@@ -146,7 +146,8 @@ export async function mediaScreeningReviewQueue() {
             h.hat_title, u.username AS owner_username
      FROM hat_media m JOIN hats h ON h.id = m.hat_id JOIN users u ON u.id = h.user_id
      WHERE m.screening_status IN ('held','rejected')
-     ORDER BY m.screening_checked_at ASC NULLS LAST, m.id
+     ORDER BY CASE WHEN m.screening_status = 'held' THEN 0 ELSE 1 END,
+              m.screening_checked_at ASC NULLS LAST, m.id
      LIMIT 40`,
   )
   const { rows: totals } = await query(
@@ -167,21 +168,31 @@ export async function decideMediaScreening(adminId, mediaId, decision) {
   if (!['approve','reject'].includes(decision)) {
     throw Object.assign(new Error('Invalid decision.'), { status: 400 })
   }
-  // Restriction: all new media on this Hat must pass before Showroom admission.
-  const { rows } = await query(
-    `UPDATE hat_media SET screening_status = $2, screening_reason = $3,
-            screening_checked_at = NOW(), screening_locked_at = NULL,
-            screening_lock_token = NULL
-     WHERE id = $1 AND screening_status IN ('held','rejected')
-     RETURNING hat_id`,
-    [mediaId, decision === 'approve' ? 'passed' : 'rejected',
-     decision === 'approve' ? 'manually_approved' : 'manually_rejected'],
-  )
-  if (!rows[0]) throw Object.assign(new Error('Media is no longer awaiting review.'), { status: 409 })
-  await query(
-    `INSERT INTO admin_audit_logs (admin_id, action, target_type, target_id, metadata)
-     VALUES ($1,'resolve_showroom_media','hat',$2,$3::jsonb)`,
-    [adminId, rows[0].hat_id, JSON.stringify({ mediaId, decision })],
-  )
+  // Audit and moderation changes must commit together.
+  const client = await getClient()
+  try {
+    await client.query('BEGIN')
+    const { rows } = await client.query(
+      `UPDATE hat_media SET screening_status = $2, screening_reason = $3,
+              screening_checked_at = NOW(), screening_locked_at = NULL,
+              screening_lock_token = NULL
+       WHERE id = $1 AND screening_status IN ('held','rejected')
+       RETURNING hat_id`,
+      [mediaId, decision === 'approve' ? 'passed' : 'rejected',
+       decision === 'approve' ? 'manually_approved' : 'manually_rejected'],
+    )
+    if (!rows[0]) throw Object.assign(new Error('Media is no longer awaiting review.'), { status: 409 })
+    await client.query(
+      `INSERT INTO admin_audit_logs (admin_id, action, target_type, target_id, metadata)
+       VALUES ($1,'resolve_showroom_media','hat',$2,$3::jsonb)`,
+      [adminId, rows[0].hat_id, JSON.stringify({ mediaId, decision })],
+    )
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw error
+  } finally {
+    client.release()
+  }
   return { ok: true, mediaId, decision }
 }
