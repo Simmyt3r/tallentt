@@ -105,6 +105,9 @@ test('consolidated patch refuses an installation without the base Showroom schem
       db.pool.query(await readFile(sqlFile, 'utf8')),
       /Missing base chombuTar schema/,
     )
+    // A rejected statement inside BEGIN leaves the connection in an aborted
+    // transaction until ROLLBACK. Production db/migrate.js closes its pool.
+    await db.pool.query('ROLLBACK')
     const {rows}=await db.pool.query("SELECT to_regclass('showroom_appeals') AS t")
     assert.equal(rows[0].t,null,'the failure must roll back without partial changes')
   } finally { await db.close() }
