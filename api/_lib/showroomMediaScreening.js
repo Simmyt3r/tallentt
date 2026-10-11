@@ -10,8 +10,10 @@ export const mediaScreeningEnabled = async () => (await effectiveScreeningConfig
 export const newMediaScreeningStatus = async () => (await mediaScreeningEnabled()) ? 'pending' : 'legacy'
 
 export async function authorizedScreeningWorker(header, secret = null) {
+  // Reject malformed/anonymous worker calls BEFORE doing any database lookup.
+  if (typeof header !== 'string' || !header.startsWith('Bearer ') || header.length > 1024) return false
   const actualSecret = secret ?? (await effectiveScreeningConfig()).workerSecret
-  if (!actualSecret || actualSecret.length < 16 || typeof header !== 'string') return false
+  if (!actualSecret || actualSecret.length < 16) return false
   const supplied = Buffer.from(header)
   const expected = Buffer.from('Bearer ' + actualSecret)
   return supplied.length === expected.length && timingSafeEqual(supplied, expected)
