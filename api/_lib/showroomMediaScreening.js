@@ -56,9 +56,9 @@ export async function inspectMediaAsset(media, { fetchImpl = fetch, cloud = proc
   const uri = trustedMediaImageUri(media, cloud)
   if (!uri) return { status: 'held', reason: 'unverified_media_source' }
   if (!apiKey) throw new Error('Vision screening credentials are not configured.')
-  const response = await fetchImpl('https://vision.googleapis.com/v1/images:annotate?key=' + encodeURIComponent(apiKey), {
+  const response = await fetchImpl('https://vision.googleapis.com/v1/images:annotate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     signal: AbortSignal.timeout(12000),
     body: JSON.stringify({ requests: [{
       image: { source: { imageUri: uri } },
