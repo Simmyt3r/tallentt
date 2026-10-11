@@ -8,6 +8,7 @@
 - Holds for apparent embedded contact information, high-confidence visual-risk signals, unsupported sources, exact public-ID reuse across creators, and repeated scanner failures.
 - A hold hides the affected Hat **only from Showroom discovery**, not from My Hats or existing escrow/deals.
 - Admin exception screen to inspect and approve/reject media, with audit logs.
+- A creator can request an exception appeal for held or rejected media; a human admin can approve the appeal and reinstate those assets without manually approving routine submissions.
 - Rate-limited small-batch, secret-authenticated worker in the existing `/api/showroom?worker=1` function.
 - Idempotent `db/showroom-media-screening.sql` upgrade and automated regression tests.
 
