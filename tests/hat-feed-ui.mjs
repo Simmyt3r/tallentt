@@ -67,7 +67,7 @@ try {
     await page.getByRole('switch', { name: 'Show Range package in feed', checked: true }).waitFor()
     await page.screenshot({ path: `test-results/hat-feed-${mode}-${width}.png`, fullPage: true })
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
-    await page.goto('http://127.0.0.1:5181/')
+    await page.goto('http://127.0.0.1:5181/bento')
     await page.getByText('Range package', { exact: true }).waitFor()
     assert.equal(await page.getByText('Fixed package', { exact: true }).count(), 0)
     assert.equal(await page.getByText(/\+1 more/).count(), 0, 'hidden Hats must not contribute to the feed group')
