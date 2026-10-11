@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, Copy, KeyRound, RefreshCw, Save, ShieldAlert } from 'lucide-react'
 import { api } from '../lib/api.js'
+import AdminShowroomOps from './AdminShowroomOps.jsx'
 
 export default function AdminShowroomConfig() {
   const [status, setStatus] = useState(null)
@@ -173,6 +174,8 @@ export default function AdminShowroomConfig() {
           All three credentials must be configured before enforcement can be activated.
         </p>}
       </div>
+
+      <AdminShowroomOps enabled={Boolean(status?.enabled)} configured={Boolean(status?.ready)} />
 
       <p className="text-[11px] text-black/55">
         One-time server setup is still required for the encryption root (JWT_SECRET or SHOWROOM_CONFIG_ENCRYPTION_KEY).
