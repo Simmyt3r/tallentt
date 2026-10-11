@@ -65,6 +65,8 @@ test('flagged listings are held out of Showroom automatically, without disabling
   assert.ok(!feed.body.hats.some(h => h.id === hatId))
   assert.equal((await pool.query('SELECT active FROM hats WHERE id = $1', [hatId])).rows[0].active, true)
   assert.equal((await request(admin, '/api/admin?action=showroom_reports', { who: 4 })).body.flagged, 1)
+  const ownerStatus = await request(showroom, '/api/showroom?action=my_moderation', { who: 0 })
+  assert.equal(ownerStatus.body.items[0].moderation_status, 'flagged')
 })
 
 test('an owner cannot appeal a pending flag, but can appeal an admin restriction', async () => {
