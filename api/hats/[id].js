@@ -454,7 +454,7 @@ export default async function handler(req, res) {
       return json(res, 200, { hat })
     } catch (err) {
       console.error(err)
-      return json(res, 500, { error: err.message || 'Failed to update hat' })
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to update hat' })
     }
   }
 
