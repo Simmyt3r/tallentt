@@ -107,6 +107,14 @@ export const api = {
   reportShowroom: (hat_id, reason) => request('/api/showroom', {
     method: 'POST', body: JSON.stringify({ action: 'report', hat_id, reason }),
   }),
+  getMyShowroomModeration: () => request('/api/showroom?action=my_moderation'),
+  submitShowroomAppeal: (hat_id, explanation) => request('/api/showroom', {
+    method: 'POST', body: JSON.stringify({ action: 'appeal', hat_id, explanation }),
+  }),
+  getAdminShowroomAppeals: () => request('/api/admin?action=showroom_appeals'),
+  resolveAdminShowroomAppeal: (appealId, decision, note = '') => request('/api/admin', {
+    method: 'POST', body: JSON.stringify({ action: 'resolve_showroom_appeal', appealId, decision, note }),
+  }),
   getAdminShowroomReports: () => request('/api/admin?action=showroom_reports'),
   resolveAdminShowroomReport: (hatId, decision) => request('/api/admin', {
     method: 'POST', body: JSON.stringify({ action: 'resolve_showroom_report', hatId, decision }),
