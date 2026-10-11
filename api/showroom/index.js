@@ -76,7 +76,7 @@ export default async function handler(req, res) {
            AND ($2::text IS NULL OR h.hat_title ILIKE '%' || $2 || '%'
              OR h.username ILIKE '%' || $2 || '%'
              OR h.category ILIKE '%' || $2 || '%')
-           AND ($3::text IS NULL OR LOWER(COALESCE(NULLIF(h.lga, ''), u.lga, '')) = LOWER($3))
+           AND ($7 <> 'near' OR ($3::text IS NOT NULL AND LOWER(COALESCE(NULLIF(h.lga, ''), u.lga, '')) = LOWER($3)))
        )
        SELECT * FROM eligible
        WHERE ($4::int IS NULL OR (rank_score, created_at, id) < ($4::int, $5::timestamptz, $6::uuid))
