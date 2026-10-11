@@ -8,6 +8,7 @@ import { getPrimaryIdentity, identityFromHat, normalizeUsername } from '../lib/p
 import AddShowroomMedia from './AddShowroomMedia'
 import ShowroomDetailModal from './ShowroomDetailModal'
 import ShowroomPost from './ShowroomPost'
+import ShowroomReportDialog from './ShowroomReportDialog.jsx'
 
 // How many posts are kept mounted above/below the ones on screen, and how far
 // ahead of the last visible post the endless sequence is topped up.
@@ -66,6 +67,7 @@ export default function Showroom() {
   // ── ui ────────────────────────────────────────────────────────────────
   const [muted, setMuted] = useState(false) // shared across posts; sound on by default
   const [showAdd, setShowAdd] = useState(false)
+  const [reportHat, setReportHat] = useState(null)
   const [toast, setToast] = useState('')
   const [pageVisible, setPageVisible] = useState(() => !document.hidden)
   const [activeKey, setActiveKey] = useState(null)
@@ -551,6 +553,7 @@ export default function Showroom() {
                 onMutedChange={setMuted}
                 onLike={toggleLike}
                 onShare={handleShare}
+                onReport={user?.id && hat.user_id !== user.id ? setReportHat : undefined}
                 onView={openDetail}
                 observe={observePost}
               />
@@ -640,6 +643,9 @@ export default function Showroom() {
         </div>
       )}
 
+      <ShowroomReportDialog hat={reportHat} onClose={() => setReportHat(null)}
+        onReported={(message) => { setReportHat(null); notify(message) }} />
+
       {canAdd && <AddShowroomMedia open={showAdd} onClose={() => setShowAdd(false)} onAdded={refreshShowroom} />}
 
       <div
@@ -665,6 +671,7 @@ export default function Showroom() {
           onSelect={selectRelated}
           onLike={toggleLike}
           onShare={handleShare}
+          onReport={user?.id && activeHat?.user_id !== user.id ? setReportHat : undefined}
           onRetry={() => setRetryTick((t) => t + 1)}
           onNotify={notify}
         />
