@@ -288,15 +288,29 @@ export async function uploadToCloudinary(file, options = {}) {
   const invalid = validateUploadFile(file)
   if (invalid) throw new Error(invalid)
 
-  const cloud = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+  // Ask the authenticated backend to issue a user-bound, short-lived
+  // Cloudinary signature. The legacy unsigned preset is a temporary fallback
+  // ONLY while the explicit server rollout flag remains off.
+  const permit = await request('/api/hats', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'upload_sign', mime: file.type, bytes: file.size }),
+  })
+  const signed = permit?.enabled === true
+  const cloud = signed ? permit.cloudName : import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
   const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
   const folder = import.meta.env.VITE_CLOUDINARY_FOLDER || 'chombutar_hats'
-  if (!cloud || !preset) throw new Error('Cloudinary env vars missing')
+  if (!cloud || (!signed && !preset)) throw new Error('Cloudinary upload is not configured')
 
   const fd = new FormData()
   fd.append('file', file)
-  fd.append('upload_preset', preset)
-  fd.append('folder', folder)
+  if (signed) {
+    fd.append('api_key', permit.apiKey)
+    fd.append('signature', permit.signature)
+    for (const [key, value] of Object.entries(permit.params)) fd.append(key, String(value))
+  } else {
+    fd.append('upload_preset', preset)
+    fd.append('folder', folder)
+  }
 
   const endpoint = `https://api.cloudinary.com/v1_1/${cloud}/auto/upload`
   let data
@@ -307,10 +321,15 @@ export async function uploadToCloudinary(file, options = {}) {
     data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.error?.message || 'Upload failed')
   }
+  if (signed && (data.public_id !== permit.params.public_id ||
+      data.resource_type !== permit.resourceType || !data.secure_url)) {
+    throw new Error('Cloudinary returned media that did not match your upload authorization.')
+  }
   return {
     url: data.secure_url,
     public_id: data.public_id,
     type: data.resource_type || 'image',
+    ...(signed ? { upload_id: permit.permitId } : {}),
   }
 }
 
