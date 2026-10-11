@@ -191,6 +191,10 @@ export default function AdminShowroomConfig() {
         </button>
       </form>
 
+      <div id="showroom-deployment-checks" className="scroll-mt-24 space-y-3">
+        <h4 className="text-[15px] font-black">2. Check service connections</h4>
+        <AdminShowroomPreflight />
+      </div>
       <div id="showroom-enforcement" className="scroll-mt-24 rounded-2xl border border-black/15 p-4 space-y-3">
         <div>
           <h4 className="text-[15px] font-black">3. Activate media screening</h4>
@@ -233,10 +237,6 @@ export default function AdminShowroomConfig() {
           The Cloudinary API secret must remain on the server, not in Admin or browser code.
         </p>
       </section>
-      <div id="showroom-deployment-checks" className="scroll-mt-24 space-y-3">
-        <h4 className="text-[15px] font-black">2. Check service connections</h4>
-        <AdminShowroomPreflight />
-      </div>
       <AdminShowroomOps enabled={Boolean(status?.enabled)} configured={Boolean(status?.ready)} />
 
       <p className="text-[11px] text-black/55">
