@@ -138,6 +138,28 @@ test('Hat creation rejects forged media and atomically claims a verified upload'
   }finally{global.fetch=originalFetch}
 })
 
+test('Admin preflight checks real migrations, signed key readiness and provider access safely',async()=>{
+  const {getShowroomDeploymentPreflight,testCloudinaryAdminConnection}
+    = await import('../api/_lib/showroomPreflight.js')
+  const result=await getShowroomDeploymentPreflight()
+  assert.equal(result.readyToDeploy,true,JSON.stringify(result))
+  assert.deepEqual(result.missingMigrations,[])
+  assert.equal(result.signedUploads.enabled,true)
+  assert.equal(result.signedUploads.credentialsConfigured,true)
+  assert.equal(result.signedUploads.cloudName,cloud)
+  assert.equal(JSON.stringify(result).includes(SECRET),false)
+  const good=await testCloudinaryAdminConnection({fetchImpl:async(url,options)=>{
+    assert.equal(url,'https://api.cloudinary.com/v1_1/testcloud/resources/image?max_results=1')
+    assert.equal(options.headers.Authorization,
+      'Basic '+Buffer.from('key-123:'+SECRET).toString('base64'))
+    return {ok:true}
+  }})
+  assert.equal(good.ok,true)
+  assert.equal(JSON.stringify(good).includes(SECRET),false)
+  await assert.rejects(testCloudinaryAdminConnection({fetchImpl:async()=>({ok:false,status:401})}),
+    /rejected the request/)
+})
+
 test('rollout disabled keeps legacy upload path temporarily, without issuing signed permits',async()=>{
   process.env.HAT_MEDIA_SIGNED_UPLOADS='off'
   try{
