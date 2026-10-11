@@ -12,6 +12,7 @@ import {
 import { resolveDispute as resolveLiveDispute } from '../_lib/live.js'
 import { getShowroomReviewQueue, resolveShowroomReport } from '../_lib/showroomReports.js'
 import { showroomAppealsQueue, resolveShowroomAppeal } from '../_lib/showroomAppeals.js'
+import { mediaScreeningReviewQueue, decideMediaScreening } from '../_lib/showroomMediaScreening.js'
 import {
   generateAdminVapidConfig,
   getAdminVapidStatus,
@@ -34,6 +35,7 @@ export default async function handler(req, res) {
       if (params.get('action') === 'push_config') return json(res, 200, await getAdminVapidStatus())
       if (params.get('action') === 'showroom_reports') return json(res, 200, await getShowroomReviewQueue())
       if (params.get('action') === 'showroom_appeals') return json(res, 200, await showroomAppealsQueue())
+      if (params.get('action') === 'showroom_media') return json(res, 200, await mediaScreeningReviewQueue())
       if (params.get('action') === 'disputes') return json(res, 200, await listDisputes(params.get('status') || 'open', params.get('before')))
       if (params.get('action') === 'dispute') return json(res, 200, await getDispute(params.get('escrow_id'), params.get('before'), params.get('events_before')))
       if (params.get('action') === 'live_disputes') {
@@ -293,6 +295,8 @@ async function handleAdminAction(admin, body) {
     }
     return result
   }
+
+  if (action === 'resolve_showroom_media') return decideMediaScreening(admin.id, body.mediaId, body.decision)
 
   if (action === 'resolve_showroom_appeal') {
     const result = await resolveShowroomAppeal(admin.id, body.appealId, body.decision, body.note)
