@@ -87,6 +87,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ action: 'set_feed_visibility', feed_visible: visible, negotiation_fee_confirmed: confirmed }),
     }),
+  updateHatStyle: (id, accent, template) =>
+    request(`/api/hats/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'set_card_style', accent, template }),
+    }),
   deleteHat: (id) => request(`/api/hats/${id}`, { method: 'DELETE' }),
   recordView: (id) =>
   request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'view' }) }),
