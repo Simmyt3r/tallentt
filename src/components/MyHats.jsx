@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { LayoutGrid, List, Pencil, Trash2 } from 'lucide-react'
+import { LayoutGrid, List, Paintbrush, Pencil, Trash2 } from 'lucide-react'
+import HatStyleDialog from './HatStyleDialog.jsx'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import BentoCard from './BentoCard'
@@ -12,6 +13,7 @@ import { identityFromHat } from '../lib/profile.js'
 export default function MyHats() {
   const { user } = useAuth()
   const [hats, setHats] = useState([])
+  const [stylingHat, setStylingHat] = useState(null)
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('chombutar_viewMode') || 'grid')
   useEffect(() => {
@@ -125,6 +127,10 @@ export default function MyHats() {
                   </button>
                 </div>
               </div>
+              <button type="button" onClick={() => setStylingHat(h)}
+                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-black/20 bg-white px-4 text-[11px] font-bold hover:border-black">
+                <Paintbrush size={14} aria-hidden="true"/> Customize appearance
+              </button>
               <HatFeedToggle hat={h} onChange={handleHatChange} />
             </div>
           ))}
@@ -151,6 +157,10 @@ export default function MyHats() {
                 <span className="text-[13px] font-bold">
                   ₦{(h.price_type === 'range' ? h.price_min : h.rate || 0).toLocaleString()}
                 </span>
+                <button type="button" onClick={() => setStylingHat(h)} aria-label="Customize Hat appearance"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/15 text-black/60 hover:border-black hover:text-black">
+                  <Paintbrush size={14}/>
+                </button>
                 <Link
                   to={`/create?edit=${h.id}`}
                   className="w-9 h-9 rounded-full border-[1.5px] border-black/10 flex items-center justify-center text-black/50 hover:border-black hover:text-black transition"
@@ -172,6 +182,9 @@ export default function MyHats() {
           ))}
         </ul>
       )}
+      <HatStyleDialog key={stylingHat?.id || 'none'} hat={stylingHat}
+        onClose={() => setStylingHat(null)}
+        onSaved={(patch) => { handleHatChange(patch); setStylingHat(null) }} />
     </div>
   )
 }
