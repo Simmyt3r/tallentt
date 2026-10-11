@@ -115,6 +115,13 @@ export const api = {
   resolveAdminShowroomAppeal: (appealId, decision, note = '') => request('/api/admin', {
     method: 'POST', body: JSON.stringify({ action: 'resolve_showroom_appeal', appealId, decision, note }),
   }),
+  getAdminScreeningConfig: () => request('/api/admin?action=showroom_screening_config'),
+  saveAdminScreeningConfig: (settings) => request('/api/admin', {
+    method: 'POST', body: JSON.stringify({ action: 'save_showroom_screening_config', settings }),
+  }),
+  generateAdminScreeningWorkerSecret: () => request('/api/admin', {
+    method: 'POST', body: JSON.stringify({ action: 'generate_showroom_worker_secret' }),
+  }),
   getAdminShowroomMedia: () => request('/api/admin?action=showroom_media'),
   resolveAdminShowroomMedia: (mediaId, decision) => request('/api/admin', {
     method: 'POST', body: JSON.stringify({ action: 'resolve_showroom_media', mediaId, decision }),
