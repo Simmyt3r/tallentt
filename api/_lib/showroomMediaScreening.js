@@ -154,7 +154,10 @@ export async function mediaScreeningReviewQueue() {
      WHERE screening_status IN ('pending','processing','held','rejected')
      GROUP BY screening_status`,
   )
-  return { items: rows, counts: Object.fromEntries(totals.map(x => [x.screening_status, x.count])) }
+  return { items: rows, counts: Object.fromEntries(totals.map(x => [x.screening_status, x.count])),
+    screeningEnabled: mediaScreeningEnabled(),
+    providerConfigured: Boolean(process.env.GOOGLE_CLOUD_VISION_API_KEY),
+    workerConfigured: Boolean(process.env.SHOWROOM_WORKER_SECRET?.length >= 16) }
 }
 
 export async function decideMediaScreening(adminId, mediaId, decision) {
