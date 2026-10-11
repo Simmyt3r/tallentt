@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { api } from '../lib/api'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import BentoCard from '../components/BentoCard'
 import { useBrowseRole } from '../components/Layout'
 import { bookHat, submitApplication } from '../lib/hatActions'
@@ -72,10 +72,13 @@ export default function Feed() {
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight">Feed</h1>
+          <h1 className="text-[22px] font-bold tracking-tight">Bento Feed</h1>
           <p className="text-[12px] text-black/50 font-medium mt-0.5">
             {hatRole === 'talent' ? 'Browsing talent hats' : 'Browsing client hats'}
           </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/showroom" className="inline-flex h-10 items-center rounded-full border border-black bg-white px-3 text-[11px] font-bold hover:bg-black hover:text-white">Inspired? Explore Showroom →</Link>
         </div>
         <div className="relative sm:w-72">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40" />
