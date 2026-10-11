@@ -92,7 +92,13 @@ export const api = {
   request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'view' }) }),
   toggleLike: (id) =>
   request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'like' }) }),
-  getShowroom: () => request('/api/showroom'),
+  getShowroom: (options = {}) => {
+    const params = new URLSearchParams()
+    for (const key of ['view', 'category', 'search', 'cursor']) {
+      if (options[key]) params.set(key, String(options[key]))
+    }
+    return request(`/api/showroom?${params.toString()}`)
+  },
   getCategories: () => request('/api/hats?categories=1'),
   createCategory: (name) =>
     request('/api/hats', { method: 'POST', body: JSON.stringify({ action: 'create_category', name }) }),
