@@ -5,6 +5,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { query, getClient } from './db.js'
 import { containsContactBypass } from './showroomEligibility.js'
 import { effectiveScreeningConfig } from './showroomScreeningConfig.js'
+import { startScreeningRun, finishScreeningRun } from './showroomScreeningOps.js'
 
 export const mediaScreeningEnabled = async () => (await effectiveScreeningConfig()).enabled
 export const newMediaScreeningStatus = async () => (await mediaScreeningEnabled()) ? 'pending' : 'legacy'
@@ -105,43 +106,54 @@ async function finalizeJob(job, status, reason, retry = false) {
   return rowCount > 0
 }
 
-export async function screenQueuedMedia({ inspect = inspectMediaAsset, maxItems = 4 } = {}) {
+export async function screenQueuedMedia({
+  inspect = inspectMediaAsset, maxItems = 4, source = 'worker', triggeredBy = null,
+} = {}) {
   const config = await effectiveScreeningConfig()
   if (!config.enabled) return { disabled: true, checked: 0, held: 0, passed: 0, retried: 0 }
   if (!config.visionKey) {
-    const err = new Error('Screening is enforced but GOOGLE_CLOUD_VISION_API_KEY is missing.')
+    const err = new Error('Screening is enforced but the Google Cloud Vision API key is missing.')
     err.status = 503
     throw err
   }
+  const runId = await startScreeningRun(source, triggeredBy)
   const result = { checked: 0, held: 0, passed: 0, retried: 0 }
-  for (let i = 0; i < Math.min(6, Math.max(1, maxItems)); i++) {
-    const job = await claimScreeningJob()
-    if (!job) break
-    result.checked++
-    try {
-      // Cheap exact-asset collision check against other creators. Not perceptual hashing.
-      const { rows: duplicates } = await query(
-        `SELECT EXISTS (
-           SELECT 1 FROM hat_media other
-           JOIN hats a ON a.id = other.hat_id
-           JOIN hats b ON b.id = $1
-           WHERE other.id <> $2 AND other.public_id = $3 AND a.user_id <> b.user_id
-         ) AS duplicated`,
-        [job.hat_id, job.id, job.public_id],
-      )
-      const finding = duplicates[0]?.duplicated
-        ? { status: 'held', reason: 'asset_used_by_another_creator' }
-        : await inspect(job, { cloud: config.cloudName, apiKey: config.visionKey })
-      await finalizeJob(job, finding.status, finding.reason, false)
-      result[finding.status === 'passed' ? 'passed' : 'held']++
-    } catch {
-      const retry = Number(job.screening_attempts) < 3
-      await finalizeJob(job, retry ? 'pending' : 'held',
-        retry ? 'screening_retry_scheduled' : 'screening_unavailable', retry)
-      result[retry ? 'retried' : 'held']++
+  try {
+    for (let i = 0; i < Math.min(6, Math.max(1, maxItems)); i++) {
+      const job = await claimScreeningJob()
+      if (!job) break
+      result.checked++
+      try {
+        // Exact asset collision check across creators, not perceptual hashing.
+        const { rows: duplicates } = await query(
+          `SELECT EXISTS (
+             SELECT 1 FROM hat_media other
+             JOIN hats a ON a.id = other.hat_id
+             JOIN hats b ON b.id = $1
+             WHERE other.id <> $2 AND other.public_id = $3 AND a.user_id <> b.user_id
+           ) AS duplicated`,
+          [job.hat_id, job.id, job.public_id],
+        )
+        const finding = duplicates[0]?.duplicated
+          ? { status: 'held', reason: 'asset_used_by_another_creator' }
+          : await inspect(job, { cloud: config.cloudName, apiKey: config.visionKey })
+        const written = await finalizeJob(job, finding.status, finding.reason, false)
+        if (written) result[finding.status === 'passed' ? 'passed' : 'held']++
+      } catch {
+        const retry = Number(job.screening_attempts) < 3
+        const written = await finalizeJob(job, retry ? 'pending' : 'held',
+          retry ? 'screening_retry_scheduled' : 'screening_unavailable', retry)
+        if (written) result[retry ? 'retried' : 'held']++
+      }
     }
+    await finishScreeningRun(runId, result)
+    return { ...result, runId }
+  } catch (error) {
+    // Never record exception messages here: upstream services may include URLs
+    // or operational credentials in their error text.
+    await finishScreeningRun(runId, result, 'SCREENING_RUN_FAILED').catch(() => {})
+    throw error
   }
-  return result
 }
 
 export async function mediaScreeningReviewQueue() {
