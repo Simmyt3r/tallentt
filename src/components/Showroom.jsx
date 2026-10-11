@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { UUID_RE, getScroller, nextLap, shareShowroomPost, showroomPath } from '../lib/showroom'
+import { UUID_RE, getScroller, shareShowroomPost, showroomPath } from '../lib/showroom'
 import { getPrimaryIdentity, identityFromHat, normalizeUsername } from '../lib/profile.js'
 import AddShowroomMedia from './AddShowroomMedia'
 import ShowroomDetailModal from './ShowroomDetailModal'
@@ -53,6 +53,13 @@ export default function Showroom() {
   const [loadError, setLoadError] = useState('')
   const [reloadTick, setReloadTick] = useState(0)
   const [search, setSearch] = useState('')
+  const [serverSearch, setServerSearch] = useState('')
+  const [view, setView] = useState('for_you')
+  const [category, setCategory] = useState('')
+  const [categories, setCategories] = useState([])
+  const [nextCursor, setNextCursor] = useState(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [nearbyAvailable, setNearbyAvailable] = useState(true)
   const [postState, setPostState] = useState({ id: null, state: 'idle' })
   const [retryTick, setRetryTick] = useState(0)
 
@@ -75,7 +82,6 @@ export default function Showroom() {
   const filteredRef = useRef([])
   const stepRef = useRef(0)
   const anchorRef = useRef(null)
-  const cycleRef = useRef(1)
   const lastResetRef = useRef(null)
   const ioRef = useRef(null)
   const intersectingRef = useRef(new Set())
@@ -90,48 +96,71 @@ export default function Showroom() {
   seqRef.current = seq
   fromShowroomRef.current = Boolean(location.state?.fromShowroom)
 
-  // ── loading the list ──────────────────────────────────────────────────
-  const applyList = useCallback((hats) => {
+  // ── server-paginated discovery ─────────────────────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => setServerSearch(normalizeUsername(search).trim()), 280)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const filters = useMemo(() => ({ view, category, search: serverSearch }), [view, category, serverSearch])
+  const applyList = useCallback((data, append = false) => {
+    const hats = data.hats || []
     setHatMap((prev) => {
       const next = { ...prev }
-      for (const h of hats) next[h.id] = h
+      for (const hat of hats) next[hat.id] = hat
       return next
     })
-    setListIds(hats.map((h) => h.id))
+    setListIds((prev) => {
+      if (!append) return hats.map((hat) => hat.id)
+      const seen = new Set(prev)
+      return [...prev, ...hats.filter((hat) => !seen.has(hat.id)).map((hat) => hat.id)]
+    })
+    setNextCursor(data.nextCursor || null)
+    setNearbyAvailable(data.nearbyAvailable !== false)
+    if (data.categories) setCategories(data.categories)
   }, [])
 
-  // `cancelled` makes sure only the response for the current mount is applied
-  // (React.StrictMode double-invokes mount effects in dev — see main.jsx).
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
+    setLoadError('')
+    setListIds([])
+    setSeq([])
+    setNextCursor(null)
     ;(async () => {
       try {
-        const data = await api.getShowroom()
-        if (!cancelled) applyList(data.hats || [])
-      } catch (e) {
-        if (!cancelled) {
-          console.error(e)
-          setLoadError(e.message || 'Could not load the Showroom.')
-        }
+        const data = await api.getShowroom(filters)
+        if (!cancelled) applyList(data)
+      } catch (error) {
+        if (!cancelled) setLoadError(error.message || 'Could not load Showroom.')
       } finally {
         if (!cancelled) setLoading(false)
       }
     })()
-    return () => {
-      cancelled = true
-    }
-  }, [applyList, reloadTick])
+    return () => { cancelled = true }
+  }, [applyList, filters, reloadTick])
 
-  // After a Talent adds media: refresh in place — no skeleton, and the feed's
-  // sequence and scroll position are left alone.
   const refreshShowroom = useCallback(async () => {
     try {
-      const data = await api.getShowroom()
-      applyList(data.hats || [])
-    } catch (e) {
-      console.error(e)
+      const data = await api.getShowroom(filters)
+      applyList(data)
+    } catch (error) {
+      console.error(error)
     }
-  }, [applyList])
+  }, [applyList, filters])
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loading || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const data = await api.getShowroom({ ...filters, cursor: nextCursor })
+      applyList(data, true)
+    } catch (error) {
+      setToast(error.message || 'Could not load more posts.')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [applyList, filters, nextCursor, loading, loadingMore])
 
   const patchHat = useCallback((id, patch) => {
     setHatMap((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev))
@@ -155,7 +184,7 @@ export default function Showroom() {
   // Likes/views patch hatMap constantly; the *set of ids* rarely changes.
   const idsSig = filteredIds.join('|')
   filteredRef.current = filteredIds
-  const resetKey = search.trim().toLowerCase()
+  const resetKey = [view, category, serverSearch].join('|')
 
   // First lap = the API's curated order. Rebuilt only for a new search (which
   // also returns to the top); a refresh merely drops posts that disappeared.
@@ -165,7 +194,6 @@ export default function Showroom() {
     const prev = seqRef.current
     if (lastResetRef.current !== resetKey || prev.length === 0) {
       if (!(ids.length === 0 && prev.length === 0)) {
-        cycleRef.current = 1
         setSeq(ids.map((id) => ({ key: `${id}~0`, id })))
         intersectingRef.current.clear()
         setActiveKey(null)
@@ -176,26 +204,21 @@ export default function Showroom() {
     } else {
       const allowed = new Set(ids)
       const next = prev.filter((it) => allowed.has(it.id))
+      const existing = new Set(next.map((item) => item.id))
+      for (const id of ids) {
+        if (!existing.has(id)) next.push({ key: `${id}~0`, id })
+      }
       if (next.length !== prev.length) setSeq(next)
     }
     lastResetRef.current = resetKey
   }, [loading, resetKey, idsSig])
 
-  // Top the sequence up well before the end: append a freshly shuffled lap
-  // whenever fewer than PRELOAD posts remain beyond the last visible one. It is
-  // pure client-side work on ids, so there is never a loading state. A single
-  // post is never repeated.
+  // Fetch the next real page near the end. Never fake an endless feed by
+  // showing the same dozen posts repeatedly.
   useEffect(() => {
-    if (loading || seq.length === 0 || filteredIds.length < 2) return
-    if (seq.length >= vis.last + 1 + PRELOAD) return
-    const ids = filteredRef.current
-    const lastId = seq[seq.length - 1]?.id
-    const previousLap = seq.slice(-ids.length).map((it) => it.id)
-    const order = nextLap(ids, lastId, previousLap)
-    const n = cycleRef.current++
-    setSeq([...seq, ...order.map((id) => ({ key: `${id}~${n}`, id }))])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seq, vis.last, loading, idsSig])
+    if (loading || loadingMore || !nextCursor || seq.length === 0) return
+    if (vis.last + PRELOAD >= seq.length - 1) loadMore()
+  }, [loading, loadingMore, nextCursor, seq.length, vis.last, loadMore])
 
   // ── windowing maths ───────────────────────────────────────────────────
   const measure = useCallback(() => {
@@ -460,7 +483,7 @@ export default function Showroom() {
 
   // ── render ────────────────────────────────────────────────────────────
   const items = seq.slice(start, end)
-  const singlePost = filteredIds.length === 1
+  const singlePost = filteredIds.length === 1 && !nextCursor
 
   let body
   if (loading) {
@@ -489,7 +512,10 @@ export default function Showroom() {
   } else if (listIds.length === 0) {
     body = (
       <p className="text-black/45 py-16 text-center text-[13px] font-medium">
-        Nothing in the Showroom yet.{canAdd ? ' Tap + to add the first post.' : ''}
+        {view === 'near' && !nearbyAvailable
+          ? 'Add your LGA in Profile to discover talents near you.'
+          : 'No eligible posts in this view yet.'}
+        {canAdd ? ' Add media to an active Talent Hat to appear here.' : ''}
       </p>
     )
   } else if (filteredIds.length === 0) {
@@ -561,7 +587,32 @@ export default function Showroom() {
         </Link>
       </div>
 
+      <div className="flex gap-2 overflow-x-auto py-2" aria-label="Showroom discovery views">
+        {[
+          ['for_you', 'For You'],
+          ['trending', 'Trending'],
+          ['new', 'New & Rising'],
+          ['near', 'Near You'],
+        ].map(([value, label]) => (
+          <button key={value} type="button" onClick={() => setView(value)}
+            aria-pressed={view === value}
+            className={`h-9 shrink-0 rounded-full border px-3 text-[11px] font-bold ${
+              view === value ? 'border-black bg-black text-white' : 'border-black/15 bg-white text-black/65'
+            }`}>
+            {label}
+          </button>
+        ))}
+        <select value={category} onChange={(event) => setCategory(event.target.value)}
+          aria-label="Showroom category"
+          className="h-9 max-w-[160px] shrink-0 rounded-full border border-black/20 bg-white px-3 text-[11px] font-bold">
+          <option value="">All categories</option>
+          {categories.map((option) => <option key={option.id} value={option.name}>{option.name}</option>)}
+        </select>
+      </div>
+
       {body}
+      {loadingMore && <p className="py-4 text-center text-[12px] font-semibold text-black/40">Loading more posts…</p>}
+      {!loading && !nextCursor && listIds.length > 1 && <p className="py-4 text-center text-[12px] font-medium text-black/35">You’re all caught up.</p>}
 
       {/* Showroom-level "+": lives outside every post, sticks to the bottom
           corner of the content area while scrolling (clear of the sidebar and
