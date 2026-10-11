@@ -10,6 +10,7 @@ import {
   notifyWithdrawalStatusByTransaction,
 } from '../_lib/notifications.js'
 import { resolveDispute as resolveLiveDispute } from '../_lib/live.js'
+import { getShowroomReviewQueue, resolveShowroomReport } from '../_lib/showroomReports.js'
 import {
   generateAdminVapidConfig,
   getAdminVapidStatus,
@@ -30,6 +31,7 @@ export default async function handler(req, res) {
     try {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
       if (params.get('action') === 'push_config') return json(res, 200, await getAdminVapidStatus())
+      if (params.get('action') === 'showroom_reports') return json(res, 200, await getShowroomReviewQueue())
       if (params.get('action') === 'disputes') return json(res, 200, await listDisputes(params.get('status') || 'open', params.get('before')))
       if (params.get('action') === 'dispute') return json(res, 200, await getDispute(params.get('escrow_id'), params.get('before'), params.get('events_before')))
       if (params.get('action') === 'live_disputes') {
@@ -275,6 +277,18 @@ async function handleAdminAction(admin, body) {
        VALUES ($1, 'update_vapid_subject', 'push_config', $2::jsonb)`,
       [admin.id, JSON.stringify({ subject: result.subject })],
     )
+    return result
+  }
+
+  if (action === 'resolve_showroom_report') {
+    const result = await resolveShowroomReport(admin.id, body.hatId, body.decision)
+    if (body.decision === 'restrict') {
+      const { rows } = await query('SELECT user_id, hat_title FROM hats WHERE id = $1', [body.hatId])
+      if (rows[0]) await notifyHatModeration({
+        userId: rows[0].user_id, hatId: body.hatId,
+        hatTitle: rows[0].hat_title, active: false,
+      })
+    }
     return result
   }
 
