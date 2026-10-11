@@ -17,6 +17,7 @@
     "db:migrate:push": "node db/migrate.js --push",
     "db:migrate:showroom": "node db/migrate.js --showroom",
     "db:migrate:showroom-media": "node db/migrate.js --showroom-media",
+    "db:migrate:showroom-config": "node db/migrate.js --showroom-config",
     "push:vapid": "node scripts/generate-vapid.mjs",
     "check:api": "node scripts/check-api.mjs",
     "test": "node --test tests/*.test.mjs",
