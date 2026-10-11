@@ -112,6 +112,7 @@ try{
     else await page.getByRole('navigation',{name:'Admin sections'})
       .getByRole('button',{name:'Showroom Reports'}).click()
     await page.getByRole('heading',{name:'Media awaiting review'}).waitFor()
+    await page.locator('audio[controls]').waitFor({state:'visible'})
     assert.equal(await page.locator('audio[controls]').count(),1,
       'audio review must provide a playable recording')
     assert.equal(await page.getByText('All caught up').count(),0,
