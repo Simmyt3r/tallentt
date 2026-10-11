@@ -102,6 +102,19 @@ test('new media must have user-owned unexpired permit and authoritative Cloudina
   }finally{client.release()}
 })
 
+test('an audio upload stays audio in the UI but is verified as a Cloudinary video asset',async()=>{
+  const permit=await upload.issueHatUploadPermit(alice,{mime:'audio/mpeg',bytes:1500})
+  assert.equal(permit.resourceType,'video')
+  const asset=uploadResponse(permit,{secure_url:
+    `https://res.cloudinary.com/${cloud}/video/upload/v1773000000/${permit.params.public_id}.mp3`})
+  const medium={upload_id:permit.permitId,public_id:permit.params.public_id,
+    url:asset.secure_url,type:'audio'}
+  assert.equal((await upload.verifyNewHatMedia(alice,[medium],[],{
+    fetchImpl:view(asset)})).length,1)
+  await assert.rejects(upload.verifyNewHatMedia(alice,[{...medium,type:'video'}],[],{
+    fetchImpl:view(asset)}),/resource type does not match/)
+})
+
 test('expired permits and cross-account media references are rejected',async()=>{
   const permit=await upload.issueHatUploadPermit(alice,{mime:'video/mp4',bytes:1500})
   const asset=uploadResponse(permit,{secure_url:`https://res.cloudinary.com/${cloud}/video/upload/v1773000000/${permit.params.public_id}.mp4`})
