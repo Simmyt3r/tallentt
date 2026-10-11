@@ -48,7 +48,7 @@ try {
     assert.equal(await page.locator('form section').last().getAttribute('id'), 'hat-section-feed')
     // The toggle alone counts as an unsaved change.
     await toggle().click()
-    if (width < 768) await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Home', exact: true }).click()
+    if (width < 768) await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Bento', exact: true }).click()
     else await page.getByRole('link', { name: 'ChombuTar home', exact: true }).click()
     await page.getByRole('alertdialog', { name: 'Discard changes?' }).waitFor()
     await page.getByRole('button', { name: 'Stay', exact: true }).click()
