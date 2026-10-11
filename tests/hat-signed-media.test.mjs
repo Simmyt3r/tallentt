@@ -111,6 +111,33 @@ test('expired permits and cross-account media references are rejected',async()=>
   await assert.rejects(upload.verifyNewHatMedia(bob,[body],[],{fetchImpl:view(asset)}),/expired/)
 })
 
+test('Hat creation rejects forged media and atomically claims a verified upload',async()=>{
+  const permit=await upload.issueHatUploadPermit(alice,{mime:'image/jpeg',bytes:1500})
+  const asset=uploadResponse(permit)
+  const uploaded={upload_id:permit.permitId,public_id:permit.params.public_id,url:asset.secure_url,type:'image'}
+  const body={hat_title:'Professional portrait photographer',hat_name:'Portrait images',
+    category:'Film',role:'talent',rate:5000,rate_unit:'day',media:[uploaded]}
+  const invalid=await request('POST',{...body,media:[{...uploaded,url:'https://malicious.invalid/test.jpg'}]})
+  assert.equal(invalid.statusCode,422,JSON.stringify(invalid.body))
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS count FROM hats WHERE user_id=$1',[alice])).rows[0].count,1,
+    'only previously created test Hat should exist before signed publish')
+  const originalFetch=global.fetch
+  global.fetch=view(asset)
+  try{
+    const published=await request('POST',body)
+    assert.equal(published.statusCode,201,JSON.stringify(published.body))
+    const newHatId=published.body.hat.id
+    const row=(await pool.query('SELECT claimed_hat_id,claimed_at FROM hat_media_upload_permits WHERE id=$1',[permit.permitId])).rows[0]
+    assert.equal(row.claimed_hat_id,newHatId)
+    assert.ok(row.claimed_at)
+    const media=(await pool.query('SELECT public_id,screening_status FROM hat_media WHERE hat_id=$1',[newHatId])).rows
+    assert.equal(media.length,1)
+    assert.equal(media[0].public_id,permit.params.public_id)
+    const duplicate=await request('POST',body)
+    assert.equal(duplicate.statusCode,422)
+  }finally{global.fetch=originalFetch}
+})
+
 test('rollout disabled keeps legacy upload path temporarily, without issuing signed permits',async()=>{
   process.env.HAT_MEDIA_SIGNED_UPLOADS='off'
   try{
