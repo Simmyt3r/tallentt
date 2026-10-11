@@ -3,6 +3,7 @@ import { query } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
+import { showroomTextIssue } from '../_lib/showroomEligibility.js'
 import {
   HAT_TYPES,
   DELIVERY_MODES,
@@ -290,6 +291,10 @@ export default async function handler(req, res) {
       }
       if (role === 'talent' && (!media || media.length === 0)) {
         return json(res, 400, { error: 'Portfolio media is required for Talent hats' })
+      }
+      if (role === 'talent') {
+        const issue = showroomTextIssue({ title: [title, name].join(' '), motto, media })
+        if (issue) return json(res, 422, { error: issue, code: 'SHOWROOM_TEXT_REJECTED' })
       }
 
       const pricing = normalizePricing(body)
