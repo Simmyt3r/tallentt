@@ -3,6 +3,7 @@ import { query } from '../_lib/db.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
+import { getHatPresentationMap } from '../_lib/hatPresentation.js'
 import { showroomTextIssue } from '../_lib/showroomEligibility.js'
 import {
   HAT_TYPES,
@@ -36,9 +37,12 @@ async function attachMedia(hats, viewerId = null) {
     )
     likedSet = new Set(likes.map((row) => row.hat_id))
   }
+  const presentations = await getHatPresentationMap(ids)
   return hats.map((h) => ({
     ...h,
     media: byHat[h.id] || [],
+    bento_accent: presentations[h.id]?.accent || 'electric',
+    showroom_template: presentations[h.id]?.template || 'minimal',
     confidence: h.orbit_score, // alias for UI
     liked_by_me: likedSet.has(h.id),
   }))
