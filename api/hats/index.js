@@ -5,6 +5,7 @@ import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.j
 import { computeOrbitScore } from '../_lib/orbitScore.js'
 import { getHatPresentationMap } from '../_lib/hatPresentation.js'
 import { showroomTextIssue } from '../_lib/showroomEligibility.js'
+import { newMediaScreeningStatus } from '../_lib/showroomMediaScreening.js'
 import {
   HAT_TYPES,
   DELIVERY_MODES,
@@ -21,7 +22,7 @@ async function attachMedia(hats, viewerId = null) {
   if (!hats.length) return hats
   const ids = hats.map((h) => h.id)
   const { rows } = await query(
-    `SELECT id, hat_id, url, public_id, type, caption FROM hat_media WHERE hat_id = ANY($1::uuid[]) ORDER BY created_at, id`,
+    `SELECT id, hat_id, url, public_id, type, caption, screening_status FROM hat_media WHERE hat_id = ANY($1::uuid[]) ORDER BY created_at, id`,
     [ids],
   )
   const byHat = {}
@@ -378,8 +379,8 @@ export default async function handler(req, res) {
       for (const m of media) {
         if (!m.url || !m.public_id) continue
         await query(
-          `INSERT INTO hat_media (hat_id, url, public_id, type, caption) VALUES ($1,$2,$3,$4,$5)`,
-          [hat.id, m.url, m.public_id, m.type || 'image', m.caption || null],
+          `INSERT INTO hat_media (hat_id, url, public_id, type, caption, screening_status) VALUES ($1,$2,$3,$4,$5,$6)`,
+          [hat.id, m.url, m.public_id, m.type || 'image', m.caption || null, newMediaScreeningStatus()],
         )
       }
 
