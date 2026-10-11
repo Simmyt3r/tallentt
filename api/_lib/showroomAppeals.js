@@ -39,7 +39,7 @@ export async function myShowroomModeration(userId) {
        SELECT id, status, created_at, resolution_note FROM showroom_appeals
        WHERE hat_id = h.id ORDER BY created_at DESC, id DESC LIMIT 1
      ) a ON true
-     WHERE h.user_id = $1 AND s.status = 'restricted'
+     WHERE h.user_id = $1 AND s.status IN ('flagged', 'restricted')
      ORDER BY s.updated_at DESC LIMIT 50`, [userId],
   )
   return { items: rows }
