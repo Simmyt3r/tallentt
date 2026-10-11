@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Clock, Eye, Heart, MapPin, Play, Share2, X } from 'lucide-react'
+import { BookOpen, Clock, Eye, Flag, Heart, MapPin, Play, Share2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 import { useBackdropClose, useDialog, useScrollLock } from '../lib/dialog'
@@ -94,6 +94,7 @@ export default function ShowroomDetailModal({
   onSelect,
   onLike,
   onShare,
+  onReport,
   onRetry,
   onNotify,
 }) {
@@ -254,6 +255,13 @@ export default function ShowroomDetailModal({
                     <Share2 size={17} aria-hidden="true" />
                     <span>Share</span>
                   </button>
+                  {!isOwn && onReport && (
+                    <button type="button" onClick={() => onReport(hat)}
+                      aria-label="Report Showroom post" title="Report post"
+                      className="inline-flex h-11 w-10 items-center justify-center rounded-full text-black/45 hover:text-red-700">
+                      <Flag size={17} aria-hidden="true" />
+                    </button>
+                  )}
                   {!isOwn && (
                     <button
                       ref={bookRef}
