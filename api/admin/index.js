@@ -15,6 +15,7 @@ import { showroomAppealsQueue, resolveShowroomAppeal } from '../_lib/showroomApp
 import { mediaScreeningReviewQueue, decideMediaScreening, screenQueuedMedia } from '../_lib/showroomMediaScreening.js'
 import { screeningOperationalStatus, retryHeldScreening } from '../_lib/showroomScreeningOps.js'
 import { testVisionConnection } from '../_lib/showroomVisionHealth.js'
+import { getShowroomDeploymentPreflight, testCloudinaryAdminConnection } from '../_lib/showroomPreflight.js'
 import { adminScreeningStatus, saveAdminScreeningConfig, newGeneratedWorkerSecret } from '../_lib/showroomScreeningConfig.js'
 import {
   generateAdminVapidConfig,
@@ -41,6 +42,7 @@ export default async function handler(req, res) {
       if (params.get('action') === 'showroom_media') return json(res, 200, await mediaScreeningReviewQueue())
       if (params.get('action') === 'showroom_screening_config') return json(res, 200, await adminScreeningStatus())
       if (params.get('action') === 'showroom_screening_ops') return json(res, 200, await screeningOperationalStatus())
+      if (params.get('action') === 'showroom_preflight') return json(res, 200, await getShowroomDeploymentPreflight())
       if (params.get('action') === 'disputes') return json(res, 200, await listDisputes(params.get('status') || 'open', params.get('before')))
       if (params.get('action') === 'dispute') return json(res, 200, await getDispute(params.get('escrow_id'), params.get('before'), params.get('events_before')))
       if (params.get('action') === 'live_disputes') {
@@ -308,6 +310,7 @@ async function handleAdminAction(admin, body) {
     return { ...status, workerSecretOnce: secret }
   }
   if (action === 'test_showroom_vision') return testVisionConnection()
+  if (action === 'test_showroom_cloudinary') return testCloudinaryAdminConnection()
   if (action === 'run_showroom_screening') return screenQueuedMedia({source:'admin', triggeredBy:admin.id, maxItems:4})
   if (action === 'retry_showroom_media') return retryHeldScreening(admin.id, body.mediaId)
   if (action === 'resolve_showroom_media') return decideMediaScreening(admin.id, body.mediaId, body.decision)
