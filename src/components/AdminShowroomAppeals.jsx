@@ -40,7 +40,7 @@ export default function AdminShowroomAppeals() {
         <article key={item.id} className="space-y-3 rounded-2xl border border-black/10 bg-white p-4">
           <p className="text-[13px] font-black">{item.hat_title} · @{item.owner_username}</p>
           <p className="text-[12px] text-black/70 whitespace-pre-wrap">{item.explanation}</p>
-          <a className="text-[12px] font-bold text-blue-700 underline" href={`/showroom/${item.hat_id}`} target="_blank" rel="noreferrer">Inspect Hat</a>
+          <a className="text-[12px] font-bold text-blue-700 underline" href={`/hat/${item.hat_id}`} target="_blank" rel="noreferrer">Inspect Hat</a>
           <textarea aria-label="Appeal resolution note" rows={2} maxLength={1000}
             placeholder="Optional resolution note for the creator"
             value={notes[item.id] || ''} onChange={e => setNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
