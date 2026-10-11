@@ -177,3 +177,50 @@ test('create publishes Fixed Hats without a fee confirmation, for clients and ta
   }
   assert.equal((await create({ feed_visible: true }, null)).statusCode, 401)
 })
+
+test('Showroom pages eligible media-backed Hats without recycling the same posts', async () => {
+  const ids = []
+  for (let i = 0; i < 30; i++) {
+    const id = randomUUID()
+    ids.push(id)
+    await pool.query(
+      `INSERT INTO hats (id, user_id, hat_title, hat_name, username, category, role, active, created_at)
+       VALUES ($1, $2, $3, $3, 'owner', 'Film', 'talent', true, NOW() - $4::int * interval '1 hour')`,
+      [id, owner, `Creative ${i}`, i],
+    )
+    await pool.query(
+      `INSERT INTO hat_media (hat_id, url, public_id, type)
+       VALUES ($1, 'https://example.test/portfolio.jpg', $2, 'image')`,
+      [id, `portfolio-${i}`],
+    )
+  }
+  const first = await request(showroomHandler, '/api/showroom?view=new', { who: owner })
+  assert.equal(first.statusCode, 200, JSON.stringify(first.body))
+  assert.equal(first.body.hats.length, 24)
+  assert.ok(first.body.nextCursor)
+  const second = await request(showroomHandler, `/api/showroom?view=new&cursor=${encodeURIComponent(first.body.nextCursor)}`, { who: owner })
+  assert.equal(second.statusCode, 200, JSON.stringify(second.body))
+  assert.equal(second.body.hats.length, 6)
+  assert.equal(second.body.nextCursor, null)
+  const seen = [...first.body.hats, ...second.body.hats].map((hat) => hat.id)
+  assert.equal(new Set(seen).size, 30)
+  assert.deepEqual(new Set(seen), new Set(ids))
+
+  const invalid = await request(showroomHandler, '/api/showroom?cursor=corrupt', { who: owner })
+  assert.equal(invalid.statusCode, 400)
+
+  // A location request without a profile LGA must not show world-wide posts.
+  const missingLocation = await request(showroomHandler, '/api/showroom?view=near', { who: owner })
+  assert.equal(missingLocation.body.nearbyAvailable, false)
+  assert.equal(missingLocation.body.hats.length, 0)
+  await pool.query(`UPDATE users SET lga = 'Ikeja' WHERE id = $1`, [owner])
+  await pool.query(`UPDATE hats SET lga = 'Ikeja' WHERE id = $1`, [ids[0]])
+  const nearby = await request(showroomHandler, '/api/showroom?view=near', { who: owner })
+  assert.equal(nearby.body.nearbyAvailable, true)
+  assert.deepEqual(nearby.body.hats.map((hat) => hat.id), [ids[0]])
+
+  // The Showroom list filters unsafe legacy captions, not just new submissions.
+  await pool.query(`UPDATE hat_media SET caption = 'WhatsApp me on 08031234567' WHERE hat_id = $1`, [ids[0]])
+  const blocked = await request(showroomHandler, '/api/showroom?view=near', { who: owner })
+  assert.deepEqual(blocked.body.hats, [])
+})
