@@ -6,6 +6,7 @@ import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
 import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
+import { landingPreferenceKey } from '../lib/landing.js'
 import NotificationsMenu from './NotificationsMenu.jsx'
 
 // Header menu button (icon-only, round, no border — the avatar is the bordered one).
@@ -27,6 +28,16 @@ export default function Layout({ children }) {
   useEffect(() => {
     localStorage.setItem('chombutar_sidebar_collapsed', collapsed ? '1' : '0')
   }, [collapsed])
+
+  // Last explicit discovery destination is scoped by account, not by device alone.
+  useEffect(() => {
+    if (!user?.id) return
+    if (location.pathname === '/showroom') {
+      localStorage.setItem(landingPreferenceKey(user.id), 'showroom')
+    } else if (location.pathname === '/bento') {
+      localStorage.setItem(landingPreferenceKey(user.id), 'bento')
+    }
+  }, [location.pathname, user?.id])
 
   // Close the mobile drawer automatically whenever the route changes (e.g.
   // browser back/forward), in addition to the explicit onNavigate close.
