@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 
 export const NAV_PRIMARY = [
-  { to: '/', icon: Home, label: 'Feed', end: true },
+  { to: '/bento', icon: Home, label: 'Bento' },
   { to: '/showroom', icon: Store, label: 'Showroom' },
   { to: '/deals', icon: Handshake, label: 'My Deals' },
   { to: '/live', icon: Radio, label: 'Live' },
@@ -30,7 +30,7 @@ export const NAV_SECONDARY = [
 export const PROFILE_ITEM = { to: '/profile', icon: UserRound, label: 'Profile' }
 
 const TITLES = [
-  { test: (p) => p === '/', title: 'Feed' },
+  { test: (p) => p === '/' || p === '/bento', title: 'Bento Feed' },
   { test: (p) => p.startsWith('/messages'), title: 'Deals Chat' },
   { test: (p) => p.startsWith('/negotiations'), title: 'Negotiation Center' },
   { test: (p) => p.startsWith('/notifications'), title: 'Notifications' },
