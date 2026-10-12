@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Flag, ShieldAlert } from 'lucide-react'
 import { api } from '../lib/api.js'
+import AdminShowroomAppeals from './AdminShowroomAppeals.jsx'
+import AdminShowroomMedia from './AdminShowroomMedia.jsx'
 
 export default function AdminShowroomReports() {
   const [data, setData] = useState({ items: [], flagged: 0 })
@@ -71,15 +73,17 @@ export default function AdminShowroomReports() {
               <a href={`/showroom/${item.hat_id}`} target="_blank" rel="noreferrer"
                 className="inline-block pt-1 text-[11px] font-bold text-[#0A13E6] underline">Inspect listing</a>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
               <button type="button" disabled={Boolean(busy)} onClick={() => resolve(item, 'dismiss')}
-                className="h-10 rounded-full border border-black px-4 text-[11px] font-bold disabled:opacity-40">Dismiss reports</button>
+                className="min-h-11 rounded-xl border border-black px-4 text-[12px] font-bold disabled:opacity-40">Dismiss reports</button>
               <button type="button" disabled={Boolean(busy)} onClick={() => resolve(item, 'restrict')}
-                className="h-10 rounded-full bg-red-700 px-4 text-[11px] font-bold text-white disabled:opacity-40">Restrict listing</button>
+                className="min-h-11 rounded-xl bg-red-700 px-4 text-[12px] font-bold text-white disabled:opacity-40">Restrict listing</button>
             </div>
           </article>
         ))}
       </div>
+      <AdminShowroomAppeals />
+      <AdminShowroomMedia />
     </section>
   )
 }

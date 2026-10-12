@@ -13,7 +13,19 @@ async function main() {
     process.exit(1)
   }
 
-  const files = process.argv.includes('--hat-feed')
+  const files = process.argv.includes('--showroom-production')
+    ? ['patch-showroom-production-2026-10.sql']
+    : process.argv.includes('--signed-hat-media')
+    ? ['hat-media-signed-uploads.sql']
+    : process.argv.includes('--showroom-ops')
+    ? ['showroom-screening-ops.sql']
+    : process.argv.includes('--showroom-config')
+    ? ['showroom-admin-config.sql']
+    : process.argv.includes('--showroom-media')
+    ? ['showroom-media-screening.sql']
+    : process.argv.includes('--showroom')
+    ? ['showroom-appeals.sql']
+    : process.argv.includes('--hat-feed')
     ? ['hat-feed-visibility.sql']
     : process.argv.includes('--qr-settlement')
       ? ['booking-qr-settlement.sql']

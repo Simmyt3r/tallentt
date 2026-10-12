@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { LayoutGrid, List, Paintbrush, Pencil, Trash2 } from 'lucide-react'
 import HatStyleDialog from './HatStyleDialog.jsx'
+import MyShowroomAppeals from './MyShowroomAppeals.jsx'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import BentoCard from './BentoCard'
@@ -95,6 +96,8 @@ export default function MyHats() {
         </div>
       </div>
 
+      <MyShowroomAppeals />
+
       {hats.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-[24px] border-[1.5px] border-dashed border-black/20">
           <p className="text-black/50 mb-4 text-[13px] font-medium">You haven’t created any hats yet.</p>
@@ -132,6 +135,13 @@ export default function MyHats() {
                 <Paintbrush size={14} aria-hidden="true"/> Customize appearance
               </button>
               <HatFeedToggle hat={h} onChange={handleHatChange} />
+                {(h.media || []).some(m => ['pending','processing','held','rejected'].includes(m.screening_status)) && (
+                  <p className="px-2 text-[11px] font-semibold text-amber-700" role="status">
+                    {h.media.some(m => ['held','rejected'].includes(m.screening_status))
+                      ? 'Media requires review. Replace the media or request an appeal.'
+                      : 'Media screening is underway; Showroom discovery is paused.'}
+                  </p>
+                )}
             </div>
           ))}
         </div>
@@ -177,6 +187,13 @@ export default function MyHats() {
               </div>
               <div className="px-4 pb-4">
                 <HatFeedToggle hat={h} onChange={handleHatChange} />
+                {(h.media || []).some(m => ['pending','processing','held','rejected'].includes(m.screening_status)) && (
+                  <p className="px-2 text-[11px] font-semibold text-amber-700" role="status">
+                    {h.media.some(m => ['held','rejected'].includes(m.screening_status))
+                      ? 'Media requires review. Replace the media or request an appeal.'
+                      : 'Media screening is underway; Showroom discovery is paused.'}
+                  </p>
+                )}
               </div>
             </li>
           ))}

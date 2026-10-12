@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Check, Upload, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { api, uploadToCloudinary } from '../lib/api'
+import { api, uploadToCloudinary, validateUploadFile } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { compressImageFile } from '../lib/media'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
+import Dialog from './hatform/Dialog.jsx'
 
 const MAX_CAPTION = 200
 
@@ -23,6 +24,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   const [caption, setCaption] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const uploadControllerRef = useRef(null)
 
   useEffect(() => {
     if (!open || !user?.id) return
@@ -47,6 +49,10 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   if (!open) return null
 
   function reset() {
+    uploadControllerRef.current?.abort()
+    uploadControllerRef.current = null
+    setUploading(false)
+    setSubmitting(false)
     setStep(1)
     setSelectedHat(null)
     setPendingMedia(null)
@@ -55,6 +61,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   }
 
   function handleClose() {
+    if (submitting) return
     reset()
     onClose?.()
   }
@@ -66,19 +73,29 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
 
   async function onFile(e) {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file || uploading) return
+    e.target.value = ''
+    const issue = validateUploadFile(file)
+    if (issue) { setError(issue); return }
+    const controller = new AbortController()
+    uploadControllerRef.current = controller
     setUploading(true)
     setError('')
     try {
       const toUpload = await compressImageFile(file)
-      const uploaded = await uploadToCloudinary(toUpload)
+      if (controller.signal.aborted) return
+      const uploaded = await uploadToCloudinary(toUpload, { signal: controller.signal })
+      if (controller.signal.aborted || uploadControllerRef.current !== controller) return
       setPendingMedia(uploaded)
       setStep(3)
     } catch (err) {
-      setError(err.message)
+      if (err?.name !== 'AbortError' && !controller.signal.aborted &&
+          uploadControllerRef.current === controller) setError(err.message || 'Upload failed. Please try again.')
     } finally {
-      setUploading(false)
-      e.target.value = ''
+      if (uploadControllerRef.current === controller) {
+        uploadControllerRef.current = null
+        setUploading(false)
+      }
     }
   }
 
@@ -93,7 +110,8 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
       ]
       await api.updateHat(selectedHat.id, { media: nextMedia })
       onAdded?.()
-      handleClose()
+      reset()
+      onClose?.()
     } catch (err) {
       setError(err.message)
       setSubmitting(false)
@@ -101,13 +119,13 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   }
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={handleClose}>
-      <div className="modal-panel !max-w-[440px] animate-slide-up" onClick={(e) => e.stopPropagation()}>
+    <Dialog open onClose={handleClose} labelledBy="showroom-add-title" maxWidth={440}>
         <button
           type="button"
-          className="modal-close absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-[#F5F3EF] border-[1.5px] border-black flex items-center justify-center hover:bg-black hover:text-white transition"
           onClick={handleClose}
+          disabled={submitting}
           aria-label="Close"
+          className="modal-close absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-[#F5F3EF] border-[1.5px] border-black flex items-center justify-center hover:bg-black hover:text-white transition disabled:opacity-40"
         >
           <X size={16} />
         </button>
@@ -115,7 +133,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
         <div className="p-5 sm:p-6 space-y-4">
           <div>
             <p className="tw-label">Step {step} of 3</p>
-            <h2 className="text-[18px] font-bold tracking-tight mt-0.5">
+            <h2 id="showroom-add-title" className="text-[18px] font-bold tracking-tight mt-0.5">
               {step === 1 && 'Pick a card'}
               {step === 2 && 'Add media'}
               {step === 3 && 'Add a caption'}
@@ -135,7 +153,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
                 <p className="text-black/40 py-8 text-center text-[13px] font-medium">Loading your hats…</p>
               ) : myHats.length === 0 ? (
                 <div className="text-center py-8 space-y-3">
-                  <p className="text-black/50 text-[13px] font-medium">
+                  <p className="text-black/60 text-[13px] font-medium">
                     You need a Talent hat before you can post to the Showroom.
                   </p>
                   <Link
@@ -194,11 +212,11 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
                   <Upload size={18} />
                 </div>
                 <span className="text-[12px] font-semibold text-black/70">
-                  {uploading ? 'Uploading…' : 'Choose a photo or video'}
+                  {uploading ? 'Uploading…' : 'Choose a photo or video (up to 20 MB)'}
                 </span>
                 <input
                   type="file"
-                  accept="image/*,video/*"
+                  accept="image/jpeg,image/png,image/webp,image/gif,image/avif,video/mp4,video/webm,video/quicktime"
                   className="hidden"
                   onChange={onFile}
                   disabled={uploading}
@@ -236,6 +254,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
                   placeholder="Say something about this…"
                 />
               </label>
+              <p className="text-[12px] text-black/60">Your media may need screening before it appears in the public Showroom.</p>
               <button
                 type="button"
                 disabled={submitting}
@@ -247,7 +266,6 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

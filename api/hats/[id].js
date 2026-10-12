@@ -3,6 +3,8 @@ import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
 import { showroomTextIssue } from '../_lib/showroomEligibility.js'
+import { newMediaScreeningStatus } from '../_lib/showroomMediaScreening.js'
+import { verifyNewHatMedia, claimHatMediaPermits } from '../_lib/hatMediaUpload.js'
 import { getHatPresentationMap, saveHatPresentation } from '../_lib/hatPresentation.js'
 import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing, normalizeAvailableDays, normalizeHiringDuration } from '../_lib/hatFields.js'
 import { createApplicationRequest, notifyApplicationState, respondApplicationDeal } from '../_lib/myDeals.js'
@@ -34,7 +36,7 @@ async function getHat(id, viewerId) {
   )
   if (!rows[0]) return null
   const { rows: media } = await query(
-    `SELECT id, hat_id, url, public_id, type, caption FROM hat_media WHERE hat_id = $1 ORDER BY created_at, id`,
+    `SELECT id, hat_id, url, public_id, type, caption, screening_status FROM hat_media WHERE hat_id = $1 ORDER BY created_at, id`,
     [id],
   )
   let likedByMe = false
@@ -314,6 +316,10 @@ export default async function handler(req, res) {
       // is the display order (index 0 = cover).
       const nextMedia = Array.isArray(body.media) ? body.media.filter((m) => m && m.url && m.public_id) : null
       const mediaCount = nextMedia ? nextMedia.length : existing.media?.length || 0
+      const previousMedia = new Map((existing.media || []).map(m => [m.public_id, m]))
+      // Resolve the policy BEFORE a DB transaction (the production pool has max:1).
+      const newScreeningStatus = nextMedia ? await newMediaScreeningStatus() : null
+      const verifiedPermits = nextMedia ? await verifyNewHatMedia(session.sub, nextMedia, existing.media || []) : []
 
       // Re-check visible Showroom text on new media and text edits.
       // Legacy content that fails is omitted from discovery until corrected.
@@ -350,15 +356,20 @@ export default async function handler(req, res) {
       try {
         await client.query('BEGIN')
         if (nextMedia) {
+          await claimHatMediaPermits(client, session.sub, id, verifiedPermits)
           await client.query(`DELETE FROM hat_media WHERE hat_id = $1`, [id])
           for (let i = 0; i < nextMedia.length; i++) {
             const m = nextMedia[i]
             // created_at is staggered by index: NOW() is constant inside a
             // transaction, and reads order by created_at.
             await client.query(
-              `INSERT INTO hat_media (hat_id, url, public_id, type, caption, created_at)
-               VALUES ($1,$2,$3,$4,$5, NOW() + $6::int * interval '1 millisecond')`,
-              [id, m.url, m.public_id, m.type || 'image', m.caption || null, i],
+              `INSERT INTO hat_media (hat_id, url, public_id, type, caption, created_at, screening_status)
+               VALUES ($1,$2,$3,$4,$5, NOW() + $6::int * interval '1 millisecond', $7)`,
+              [id, m.url, m.public_id, m.type || 'image', m.caption || null, i,
+                previousMedia.get(m.public_id)?.url === m.url
+                  ? (previousMedia.get(m.public_id).screening_status === 'processing'
+                      ? 'pending' : previousMedia.get(m.public_id).screening_status || 'legacy')
+                  : newScreeningStatus],
             )
           }
         }
@@ -390,7 +401,11 @@ export default async function handler(req, res) {
             rate_unit = $20,
             rate_unit_custom = $21,
             availability = COALESCE($22, availability),
-            active = COALESCE($23, active),
+            -- A restricted listing cannot reactivate itself through owner edits.
+            active = CASE WHEN EXISTS (
+              SELECT 1 FROM showroom_review_state sr
+              WHERE sr.hat_id = hats.id AND sr.status = 'restricted'
+            ) THEN false ELSE COALESCE($23, active) END,
             available_days = $24,
             available_from = $25,
             available_to = $26,
@@ -439,7 +454,7 @@ export default async function handler(req, res) {
       return json(res, 200, { hat })
     } catch (err) {
       console.error(err)
-      return json(res, 500, { error: err.message || 'Failed to update hat' })
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to update hat' })
     }
   }
 

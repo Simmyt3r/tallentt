@@ -1,6 +1,7 @@
 // Path: src/components/hatform/useHatMedia.js
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ALLOWED_UPLOAD_PREFIXES, MAX_UPLOAD_BYTES, uploadToCloudinary } from '../../lib/api'
+import { MAX_UPLOAD_BYTES, uploadToCloudinary } from '../../lib/api'
+import { supportedHatMediaMime } from '../../../shared/hatMediaTypes.js'
 import { compressImageFile } from '../../lib/media'
 import { describeUploadError, mediaSignature } from '../../lib/hatForm'
 
@@ -26,6 +27,7 @@ function fromExisting(m, i) {
     origin: 'existing',
     url: m.url,
     public_id: m.public_id,
+    upload_id: m.upload_id || null,
     type: m.type || 'image',
     kind: mediaKind(m.type),
     caption: m.caption || null,
@@ -174,8 +176,8 @@ export function useHatMedia() {
       for (const file of incoming) {
         const sig = fileSignature(file)
         const kind = mediaKind(file.type)
-        if (!ALLOWED_UPLOAD_PREFIXES.some((p) => file.type?.startsWith(p))) {
-          newRejected.push({ id: `${sig}:type`, name: file.name, reason: 'Unsupported format. Use an image, video or audio file.' })
+        if (!supportedHatMediaMime(file.type)) {
+          newRejected.push({ id: `${sig}:type`, name: file.name, reason: 'Unsupported format. Use JPG, PNG, WebP, GIF, AVIF, MP4, WebM, MOV, MP3, WAV, OGG or M4A.' })
           continue
         }
         // Images are shrunk in the browser before upload, so only enforce the
@@ -283,7 +285,7 @@ export function useHatMedia() {
 
   // Ordered list the API should store (index 0 = cover).
   const readyMedia = useMemo(
-    () => items.filter((it) => it.status === 'ready').map((it) => ({ url: it.url, public_id: it.public_id, type: it.type, caption: it.caption || null })),
+    () => items.filter((it) => it.status === 'ready').map((it) => ({ url: it.url, public_id: it.public_id, type: it.type, caption: it.caption || null, ...(it.upload_id ? { upload_id: it.upload_id } : {}) })),
     [items],
   )
 

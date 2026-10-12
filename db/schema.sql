@@ -242,6 +242,25 @@ CREATE TABLE IF NOT EXISTS hat_media (
 ALTER TABLE hat_media ADD COLUMN IF NOT EXISTS caption TEXT;
 CREATE INDEX IF NOT EXISTS idx_hat_media_hat ON hat_media (hat_id);
 
+-- Existing media retain legacy status so activation does not hide old listings.
+-- Newly uploaded media are 'pending' only when screening enforcement is enabled.
+ALTER TABLE hat_media ADD COLUMN IF NOT EXISTS screening_status TEXT NOT NULL DEFAULT 'legacy'
+  CHECK (screening_status IN ('legacy','pending','processing','passed','held','rejected'));
+ALTER TABLE hat_media ADD COLUMN IF NOT EXISTS screening_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE hat_media ADD COLUMN IF NOT EXISTS screening_reason TEXT;
+ALTER TABLE hat_media ADD COLUMN IF NOT EXISTS screening_checked_at TIMESTAMPTZ;
+ALTER TABLE hat_media ADD COLUMN IF NOT EXISTS screening_locked_at TIMESTAMPTZ;
+ALTER TABLE hat_media ADD COLUMN IF NOT EXISTS screening_lock_token UUID;
+ALTER TABLE hat_media ADD COLUMN IF NOT EXISTS screening_retry_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+CREATE INDEX IF NOT EXISTS idx_hat_media_screening_queue
+  ON hat_media (screening_status, screening_retry_at, created_at)
+  WHERE screening_status IN ('pending','processing');
+CREATE INDEX IF NOT EXISTS idx_hat_media_screening_reviews
+  ON hat_media (screening_checked_at, id)
+  WHERE screening_status IN ('held','rejected');
+CREATE INDEX IF NOT EXISTS idx_hat_media_public_id ON hat_media (public_id);
+
+
 -- Approved creator customization. No arbitrary user CSS/HTML or poster overlays.
 CREATE TABLE IF NOT EXISTS hat_presentation (
   hat_id UUID PRIMARY KEY REFERENCES hats(id) ON DELETE CASCADE,
@@ -252,6 +271,52 @@ CREATE TABLE IF NOT EXISTS hat_presentation (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+
+-- Database-backed runtime Showroom screening settings. Secrets are encrypted in the API.
+-- The root encryption key remains server-side (SHOWROOM_CONFIG_ENCRYPTION_KEY or JWT_SECRET).
+-- Screening operational history is server-side and intentionally excludes secrets.
+-- Server-issued upload permits bind Cloudinary public IDs to authenticated users.
+-- Existing published media is not retroactively blocked by this migration.
+CREATE TABLE IF NOT EXISTS hat_media_upload_permits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  public_id TEXT NOT NULL UNIQUE,
+  resource_type TEXT NOT NULL CHECK (resource_type IN ('image','video')),
+  declared_mime TEXT NOT NULL,
+  declared_bytes INTEGER NOT NULL CHECK (declared_bytes > 0 AND declared_bytes <= 20971520),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '1 hour'),
+  claimed_hat_id UUID REFERENCES hats(id) ON DELETE SET NULL,
+  claimed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_hat_media_permits_user ON hat_media_upload_permits (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_hat_media_permits_expiration ON hat_media_upload_permits (expires_at) WHERE claimed_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS showroom_screening_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source TEXT NOT NULL CHECK (source IN ('admin','worker')),
+  triggered_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  finished_at TIMESTAMPTZ,
+  status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','completed','failed')),
+  checked INTEGER NOT NULL DEFAULT 0,
+  passed INTEGER NOT NULL DEFAULT 0,
+  held INTEGER NOT NULL DEFAULT 0,
+  retried INTEGER NOT NULL DEFAULT 0,
+  error_code TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_showroom_screening_runs_recent
+  ON showroom_screening_runs (started_at DESC, id DESC);
+
+CREATE TABLE IF NOT EXISTS showroom_screening_config (
+ singleton BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton = true),
+ cloud_name TEXT,
+ vision_key_encrypted TEXT,
+ worker_secret_encrypted TEXT,
+ enabled BOOLEAN,
+ updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- Showroom users publish automatically. Reports are deduplicated per user and
 -- grouped into an exceptions-only admin queue, not a manual approval pipeline.
@@ -274,6 +339,23 @@ CREATE TABLE IF NOT EXISTS showroom_review_state (
   reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_showroom_review_queue ON showroom_review_state (updated_at DESC) WHERE status = 'flagged';
+
+-- Apply after db/schema.sql on existing installations.
+-- Normal Showroom listings are automatically admitted; this table handles exceptions only.
+CREATE TABLE IF NOT EXISTS showroom_appeals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  hat_id UUID NOT NULL REFERENCES hats(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  explanation TEXT NOT NULL CHECK (char_length(explanation) BETWEEN 15 AND 1000),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','denied')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  resolution_note TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_showroom_appeal_pending ON showroom_appeals (hat_id) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_showroom_appeals_queue ON showroom_appeals (created_at, id) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_showroom_appeals_owner ON showroom_appeals (user_id, created_at DESC);
 
 
 CREATE TABLE IF NOT EXISTS hat_likes (

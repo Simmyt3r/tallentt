@@ -654,7 +654,7 @@ export default function Showroom() {
         className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[70] bottom-[calc(76px+env(safe-area-inset-bottom,0px))] md:bottom-8"
       >
         {toast && (
-          <div className="rounded-full bg-black text-white text-[13px] font-semibold px-4 py-2.5 shadow-lg animate-slide-up whitespace-nowrap">
+          <div className="max-w-[calc(100vw-2rem)] break-words rounded-2xl bg-black text-center text-white text-[13px] font-semibold px-4 py-2.5 shadow-lg animate-slide-up">
             {toast}
           </div>
         )}

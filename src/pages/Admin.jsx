@@ -23,6 +23,7 @@ import {
 import { api } from '../lib/api.js'
 import AdminDisputes from '../components/AdminDisputes.jsx'
 import AdminShowroomReports from '../components/AdminShowroomReports.jsx'
+import AdminShowroomConfig from '../components/AdminShowroomConfig.jsx'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromHat, identityFromRow, resolveIdentity } from '../lib/profile.js'
 
@@ -35,6 +36,7 @@ const SECTIONS = [
   { id: 'hats', label: 'Hats', icon: Briefcase },
   { id: 'applications', label: 'Applications', icon: ClipboardList },
   { id: 'showroom', label: 'Showroom Reports', icon: Flag },
+  { id: 'showroom-config', label: 'Showroom Settings', icon: ShieldCheck },
   { id: 'push', label: 'Push Setup', icon: BellRing },
   { id: 'audit', label: 'Audit Log', icon: FileText },
 ]
@@ -214,7 +216,24 @@ export default function Admin() {
 
       <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-4">
         <aside className="mb-4 lg:mb-0">
-          <nav className="lg:sticky lg:top-4 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
+          {/* Eleven horizontally-scrolling tabs hide destinations on a phone.
+              Use a clear native picker on mobile and keep the desktop rail. */}
+          <div className="lg:hidden space-y-1.5">
+            <label htmlFor="admin-section-picker" className="block text-[12px] font-bold text-black/70">
+              Admin section
+            </label>
+            <select
+              id="admin-section-picker"
+              value={tab}
+              onChange={(event) => setTab(event.target.value)}
+              className="h-12 w-full rounded-xl border-[1.5px] border-black bg-white px-3 text-[14px] font-semibold text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6]"
+            >
+              {SECTIONS.map((item) => <option key={item.id} value={item.id}>
+                {item.label}{item.id === 'disputes' && Number(metrics.open_disputes) > 0 ? ` (${metrics.open_disputes} open)` : ''}
+              </option>)}
+            </select>
+          </div>
+          <nav className="hidden lg:sticky lg:top-4 lg:flex lg:flex-col gap-2" aria-label="Admin sections">
             {SECTIONS.map((item) => {
               const Icon = item.icon
               const active = tab === item.id
@@ -229,6 +248,7 @@ export default function Admin() {
                   key={item.id}
                   type="button"
                   onClick={() => setTab(item.id)}
+                  aria-current={active ? 'page' : undefined}
                   className={`min-w-fit lg:w-full h-11 px-3.5 rounded-[14px] border-[1.5px] text-[12px] font-semibold transition flex items-center gap-2.5 ${
                     active
                       ? 'bg-[#0A13E6] border-black text-white shadow-[2px_2px_0_#000]'
@@ -281,6 +301,7 @@ export default function Admin() {
               {tab === 'hats' && <HatsTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'applications' && <ApplicationsTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'showroom' && <AdminShowroomReports />}
+              {tab === 'showroom-config' && <AdminShowroomConfig />}
               {tab === 'push' && <PushSetupPanel />}
               {tab === 'audit' && <AuditTable rows={filtered} />}
             </section>

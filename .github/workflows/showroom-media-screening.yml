@@ -1,0 +1,31 @@
+name: Showroom media screening
+
+on:
+  schedule:
+    # Small-scale fallback. For high-volume production, use a durable queue worker.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    # Avoid consuming CI minutes until the deployment is explicitly configured.
+    if: ${{ vars.SHOWROOM_SCREENING_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      SHOWROOM_WORKER_URL: ${{ secrets.SHOWROOM_WORKER_URL }}
+      SHOWROOM_WORKER_SECRET: ${{ secrets.SHOWROOM_WORKER_SECRET }}
+    steps:
+      - name: Process next Showroom media batch
+        shell: bash
+        run: |
+          if [[ -z "$SHOWROOM_WORKER_URL" || -z "$SHOWROOM_WORKER_SECRET" ]]; then
+            echo "Worker credentials not configured. Skipping."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 5 \
+            -H "Authorization: Bearer $SHOWROOM_WORKER_SECRET" \
+            "${SHOWROOM_WORKER_URL%/}/api/showroom?worker=1"
