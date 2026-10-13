@@ -49,9 +49,10 @@ function Skeletons() {
 export default function MyDeals() {
   const { user } = useAuth()
   const [params, setParams] = useSearchParams()
+  const savedRole = localStorage.getItem('_role') || localStorage.getItem('chombutar_role')
   const initialRole = ['talent', 'client'].includes(params.get('role'))
     ? params.get('role')
-    : localStorage.getItem('_role') || localStorage.getItem('chombutar_role') || 'talent'
+    : ['talent', 'client'].includes(savedRole) ? savedRole : 'talent'
   const initialTab = ['incoming', 'outgoing', 'active', 'history'].includes(params.get('tab'))
     ? params.get('tab')
     : 'incoming'
@@ -69,6 +70,12 @@ export default function MyDeals() {
   const [busyId, setBusyId] = useState(null)
   const [toast, setToast] = useState(null)
   const undoTimer = useRef(null)
+  // A slow response from a previous role/tab must never replace the current
+  // tab's cards or counts, especially when realtime refreshes overlap.
+  const viewKey = `${user?.id || ''}:${role}:${tab}`
+  const currentViewRef = useRef(viewKey)
+  currentViewRef.current = viewKey
+  const requestSequence = useRef(0)
 
   const setView = useCallback((nextRole, nextTab) => {
     const next = new URLSearchParams(params)
@@ -78,21 +85,28 @@ export default function MyDeals() {
   }, [params, setParams])
 
   const load = useCallback(async ({ quiet = false } = {}) => {
+    const sequence = ++requestSequence.current
+    const requestedView = viewKey
     if (quiet) setQuietLoading(true)
     else setLoading(true)
     try {
       const data = await api.getMyDealsPage(role, tab)
+      if (sequence !== requestSequence.current || currentViewRef.current !== requestedView) return
       setItems(data.items || [])
       setCounts(data.counts || {})
       setNextCursor(data.nextCursor || null)
       setError('')
     } catch (err) {
-      setError(err.message || 'Could not load your deals.')
+      if (sequence === requestSequence.current && currentViewRef.current === requestedView) {
+        setError(err.message || 'Could not load your deals.')
+      }
     } finally {
-      setLoading(false)
-      setQuietLoading(false)
+      if (sequence === requestSequence.current && currentViewRef.current === requestedView) {
+        setLoading(false)
+        setQuietLoading(false)
+      }
     }
-  }, [role, tab])
+  }, [role, tab, viewKey])
 
   useEffect(() => {
     if (params.get('role') !== role || params.get('tab') !== tab) {
@@ -107,7 +121,9 @@ export default function MyDeals() {
   }, [role])
 
   useEffect(() => {
+    setPaging(false)
     load()
+    return () => { requestSequence.current += 1 }
   }, [load])
 
   useEffect(() => () => clearTimeout(undoTimer.current), [])
@@ -120,16 +136,24 @@ export default function MyDeals() {
 
   async function loadOlder() {
     if (!nextCursor || paging) return
+    const requestedView = viewKey
+    const sequence = requestSequence.current
     setPaging(true)
     try {
       const data = await api.getMyDealsPage(role, tab, nextCursor)
-      setItems((current) => [...current, ...(data.items || [])])
+      if (sequence !== requestSequence.current || currentViewRef.current !== requestedView) return
+      setItems((current) => {
+        const seen = new Set(current.map((item) => item.id || item.application_id))
+        return [...current, ...(data.items || []).filter((item) => !seen.has(item.id || item.application_id))]
+      })
       setCounts(data.counts || counts)
       setNextCursor(data.nextCursor || null)
     } catch (err) {
-      setError(err.message || 'Could not load older deals.')
+      if (sequence === requestSequence.current && currentViewRef.current === requestedView) {
+        setError(err.message || 'Could not load older deals.')
+      }
     } finally {
-      setPaging(false)
+      if (currentViewRef.current === requestedView) setPaging(false)
     }
   }
 
