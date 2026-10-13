@@ -64,6 +64,15 @@ export default function Showroom() {
   const [postState, setPostState] = useState({ id: null, state: 'idle' })
   const [retryTick, setRetryTick] = useState(0)
 
+  // Search is a global quick action in the app header. When coming from any
+  // other route, focus the existing Showroom search instead of opening a
+  // second search surface.
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('focus') === 'search') {
+      searchRef.current?.focus()
+    }
+  }, [location.search])
+
   // ── ui ────────────────────────────────────────────────────────────────
   const [muted, setMuted] = useState(false) // shared across posts; sound on by default
   const [showAdd, setShowAdd] = useState(false)
@@ -79,6 +88,7 @@ export default function Showroom() {
 
   const listRef = useRef(null)
   const headerRef = useRef(null)
+  const searchRef = useRef(null)
   const hatMapRef = useRef(hatMap)
   const seqRef = useRef(seq)
   const filteredRef = useRef([])
@@ -578,6 +588,8 @@ export default function Showroom() {
         <div className="relative w-full sm:ml-auto sm:max-w-[420px]">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" />
           <input
+            ref={searchRef}
+            id="showroom-search"
             type="search"
             aria-label="Search posts and creators"
             placeholder="Search posts and creators…"
