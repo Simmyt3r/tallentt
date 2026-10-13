@@ -127,9 +127,8 @@ try{
       await page.setViewportSize({ width, height: 880 })
     }
     await searchAction.click()
-    await page.getByRole('searchbox', { name: 'Search posts and creators' }).focus()
-    assert.equal(await page.getByRole('searchbox', { name: 'Search posts and creators' })
-      .evaluate(el => document.activeElement === el), true)
+    await page.waitForURL('**/showroom?focus=search')
+    await page.waitForFunction(() => document.activeElement?.id === 'showroom-search')
     // Search must also focus the Showroom field from any other page.
     await page.goto('http://127.0.0.1:5185/admin?tab=showroom-config')
     await quickActions.getByRole('link', { name: 'Search' }).click()
