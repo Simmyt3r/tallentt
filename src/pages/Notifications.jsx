@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, WalletCards, XCircle } from 'lucide-react'
 import { api } from '../lib/api.js'
@@ -66,26 +66,42 @@ export default function Notifications() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [nextCursor, setNextCursor] = useState(null)
   const [paging, setPaging] = useState(false)
+  const olderLoadedRef = useRef(false)
+  const refreshSequenceRef = useRef(0)
 
   const load = useCallback(async ({ quiet = false } = {}) => {
+    const sequence = ++refreshSequenceRef.current
     if (!quiet) setLoading(true)
     try {
       const data = await api.getNotifications()
-      setNotifications(data.notifications || [])
+      if (sequence !== refreshSequenceRef.current) return
+      const fresh = data.notifications || []
+      // A background refresh must not erase the older pages someone has
+      // already loaded. Merge fresh status fields by ID without duplicates.
+      setNotifications((current) => {
+        if (!quiet) return fresh
+        const seen = new Set(fresh.map((item) => item.id))
+        return [...fresh, ...current.filter((item) => !seen.has(item.id))]
+      })
       setUnreadCount(Number(data.unreadCount || 0))
-      setNextCursor(data.nextCursor || null)
+      if (!quiet || !olderLoadedRef.current) setNextCursor(data.nextCursor || null)
       setError('')
     } catch (err) {
-      if (!quiet) setError(err.message || 'Could not load notifications.')
+      if (sequence === refreshSequenceRef.current && !quiet) {
+        setError(err.message || 'Could not load notifications.')
+      }
     } finally {
-      if (!quiet) setLoading(false)
+      if (sequence === refreshSequenceRef.current && !quiet) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     load()
     const id = setInterval(() => load({ quiet: true }), 60_000)
-    return () => clearInterval(id)
+    return () => {
+      clearInterval(id)
+      refreshSequenceRef.current += 1
+    }
   }, [load])
 
   useEffect(() => {
@@ -110,6 +126,7 @@ export default function Notifications() {
         return [...current, ...(data.notifications || []).filter((item) => !seen.has(item.id))]
       })
       setUnreadCount(Number(data.unreadCount || 0))
+      olderLoadedRef.current = true
       setNextCursor(data.nextCursor || null)
     } catch (err) {
       setError(err.message || 'Could not load older notifications.')
