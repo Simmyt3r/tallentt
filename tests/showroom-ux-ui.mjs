@@ -39,6 +39,9 @@ try{
         status,contentType:'application/json',body:JSON.stringify(body),
       })
       if(url.pathname==='/api/auth')return send({user})
+      if(url.pathname==='/api/escrows' && url.searchParams.has('conversations')) {
+        return send({conversations:[],nextCursor:null})
+      }
       if(url.pathname==='/api/admin'){
         if(action==='showroom_screening_config')return send({
           cloudName:'demo',cloudConfigured:true,visionConfigured:true,
