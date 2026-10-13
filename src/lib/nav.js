@@ -1,7 +1,7 @@
 // Path: src/lib/nav.js
 import {
   Home,
-  Store,
+  LayoutGrid,
   UserRound,
   PlusCircle,
   Briefcase,
@@ -13,8 +13,8 @@ import {
 } from 'lucide-react'
 
 export const NAV_PRIMARY = [
-  { to: '/bento', icon: Home, label: 'Bento' },
-  { to: '/showroom', icon: Store, label: 'Showroom' },
+  { to: '/showroom', icon: Home, label: 'Home' },
+  { to: '/bento', icon: LayoutGrid, label: 'Bento' },
   { to: '/deals', icon: Handshake, label: 'My Deals' },
   { to: '/live', icon: Radio, label: 'Live' },
   { to: '/my-hats', icon: Briefcase, label: 'My Hats' },
@@ -30,11 +30,12 @@ export const NAV_SECONDARY = [
 export const PROFILE_ITEM = { to: '/profile', icon: UserRound, label: 'Profile' }
 
 const TITLES = [
-  { test: (p) => p === '/' || p === '/bento', title: 'Bento Feed' },
+  { test: (p) => p === '/', title: 'Home' },
+  { test: (p) => p === '/bento', title: 'Bento Feed' },
   { test: (p) => p.startsWith('/messages'), title: 'Deals Chat' },
   { test: (p) => p.startsWith('/negotiations'), title: 'Negotiation Center' },
   { test: (p) => p.startsWith('/notifications'), title: 'Notifications' },
-  { test: (p) => p.startsWith('/showroom'), title: 'Showroom' },
+  { test: (p) => p.startsWith('/showroom'), title: 'Home' },
   { test: (p) => p.startsWith('/deals'), title: 'My Deals' },
   { test: (p) => p.startsWith('/my-hats'), title: 'My Hats' },
   { test: (p) => p.startsWith('/create'), title: 'Create' },

@@ -1,7 +1,7 @@
 // Path: src/components/BottomNav.jsx
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Handshake, Home, Radio, Store } from 'lucide-react'
+import { Handshake, Home, LayoutGrid, Radio } from 'lucide-react'
 import NotificationsMenu from './NotificationsMenu.jsx'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -70,8 +70,8 @@ export default function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       aria-label="Primary"
     >
-      <BottomNavLink to="/bento" icon={Home} label="Bento" />
-      <BottomNavLink to="/showroom" icon={Store} label="Showroom" />
+      <BottomNavLink to="/showroom" icon={Home} label="Home" />
+      <BottomNavLink to="/bento" icon={LayoutGrid} label="Bento" />
       <BottomNavLink to="/deals" icon={Handshake} label="My Deals" badge={pendingDeals} />
       <BottomNavLink to="/live" icon={Radio} label="Live" />
       <div

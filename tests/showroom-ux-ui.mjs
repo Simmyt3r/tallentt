@@ -92,6 +92,20 @@ try{
       }),
     }))
 
+    // Home always opens Showroom, even for a previously saved Bento landing.
+    await page.addInitScript((id) => localStorage.setItem(`chombutar:lastLanding:${id}`, 'bento'), user.id)
+    await page.goto('http://127.0.0.1:5185/')
+    await page.waitForURL('**/showroom')
+    await page.getByRole('link', { name: 'Home', exact: true }).waitFor()
+    assert.equal(await page.getByRole('link', { name: 'Home', exact: true }).getAttribute('aria-current'), 'page')
+    assert.equal(await page.getByRole('heading', { name: 'Showroom', exact: true }).count(), 0)
+    assert.equal(await page.getByText(/Ready to hire\?/).count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Talent', exact: true }).count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Client', exact: true }).count(), 0)
+    await page.getByRole('searchbox', { name: 'Search posts and creators' }).waitFor()
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    await page.screenshot({ path: `test-results/showroom-home-${width}.png`, fullPage: true })
+
     await page.goto('http://127.0.0.1:5185/admin?tab=showroom-config')
     await page.getByRole('heading',{name:'Showroom safety setup'}).waitFor()
     if(width<1024){

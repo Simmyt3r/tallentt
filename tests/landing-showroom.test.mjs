@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { decideLanding, landingPreferenceKey } from '../src/lib/landing.js'
+import { decideLanding, HOME_PATH } from '../src/lib/landing.js'
 import {
   containsContactBypass,
   showroomTextIssue,
@@ -8,14 +8,16 @@ import {
   decodeShowroomCursor,
 } from '../api/_lib/showroomEligibility.js'
 
-test('adaptive landing defaults to Showroom and respects each user’s saved discovery destination', () => {
-  assert.equal(decideLanding({ role: 'talent' }), '/showroom')
-  assert.equal(decideLanding({ role: 'client', hasActiveClientDeals: false }), '/showroom')
-  assert.equal(decideLanding({ role: 'client', hasActiveClientDeals: true }), '/bento')
-  assert.equal(decideLanding({ role: 'dual', hasActiveClientDeals: true }), '/bento')
-  assert.equal(decideLanding({ role: 'client', hasActiveClientDeals: true, remembered: 'showroom' }), '/showroom')
-  assert.equal(decideLanding({ role: 'talent', remembered: 'bento' }), '/bento')
-  assert.notEqual(landingPreferenceKey('a'), landingPreferenceKey('b'))
+test('Home always opens Showroom even with legacy Bento preferences or active client deals', () => {
+  assert.equal(HOME_PATH, '/showroom')
+  for (const options of [
+    { role: 'talent' },
+    { role: 'client', hasActiveClientDeals: false },
+    { role: 'client', hasActiveClientDeals: true },
+    { role: 'dual', hasActiveClientDeals: true },
+    { role: 'client', remembered: 'bento', hasActiveClientDeals: true },
+    { role: 'talent', remembered: 'bento' },
+  ]) assert.equal(decideLanding(options), '/showroom')
 })
 
 test('Showroom text checks catch obvious bypass instructions but permit ordinary project descriptions', () => {
@@ -42,10 +44,11 @@ test('Showroom keyset cursor rejects invalid and round-trips valid values', () =
 test('Showroom discovery is paginated and navigation is separate from deal execution', async () => {
   const { readFile } = await import('node:fs/promises')
   const read = async (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
-  const [api, screen, app, feed, nav, eligibility] = await Promise.all([
+  const [api, screen, app, feed, nav, layout, eligibility] = await Promise.all([
     read('api/showroom/index.js'), read('src/components/Showroom.jsx'),
     read('src/App.jsx'), read('src/pages/Feed.jsx'),
-    read('src/lib/nav.js'), read('api/_lib/showroomEligibility.js'),
+    read('src/lib/nav.js'), read('src/components/Layout.jsx'),
+    read('api/_lib/showroomEligibility.js'),
   ])
   assert.match(api, /PAGE_SIZE = 24/)
   assert.match(api, /nextCursor/)
@@ -57,7 +60,11 @@ test('Showroom discovery is paginated and navigation is separate from deal execu
   assert.match(screen, /Near You/)
   assert.doesNotMatch(screen, /nextLap\(/)
   assert.match(app, /path="\/bento"/)
-  assert.match(feed, /Explore Showroom/)
+  assert.match(feed, /Search talents and clients/)
+  assert.doesNotMatch(feed, /role: hatRole|useBrowseRole/)
+  assert.match(nav, /label: 'Home'/)
   assert.match(nav, /label: 'Bento'/)
+  assert.doesNotMatch(layout, /Talent\/Client toggle|setBrowseRole/)
+  assert.doesNotMatch(screen, /Ready to hire\?|<h1 className="text-\[20px\].*Showroom/)
   assert.match(eligibility, /SHOWROOM_SQL_CONTACT_PATTERN/)
 })

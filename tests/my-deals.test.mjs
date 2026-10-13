@@ -15,12 +15,13 @@ test('My Deals replaces split application/booking navigation', () => {
   assert.match(app, /my-bookings".*deals\?role=client&tab=outgoing/)
 })
 
-test('mobile nav places My Deals between Showroom and Live and shows pending badge', () => {
+test('mobile nav puts Home (Showroom) and Bento before My Deals and Live, with pending badge', () => {
   const source = read('src/components/BottomNav.jsx')
-  const showroom = source.indexOf('label="Showroom"')
+  const home = source.indexOf('to="/showroom" icon={Home} label="Home"')
+  const bento = source.indexOf('to="/bento" icon={LayoutGrid} label="Bento"')
   const deals = source.indexOf('label="My Deals"')
   const live = source.indexOf('label="Live"')
-  assert.ok(showroom > -1 && deals > showroom && live > deals)
+  assert.ok(home > -1 && bento > home && deals > bento && live > deals)
   assert.match(source, /badge=\{pendingDeals\}/)
 })
 
