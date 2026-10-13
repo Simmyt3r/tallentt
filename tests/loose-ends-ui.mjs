@@ -28,6 +28,7 @@ try {
     const talentRequested = new Promise((resolve) => { firstTalent = resolve })
     let notificationRefresh = false
     let liveAttempts = 0
+    let liveAvailable = false
 
     await page.route('**/api/**', async (route) => {
       const url = new URL(route.request().url())
@@ -59,7 +60,7 @@ try {
       }
       if (url.pathname === '/api/live') {
         liveAttempts += 1
-        if (liveAttempts === 1) {
+        if (!liveAvailable) {
           return route.fulfill({ status: 503, contentType: 'application/json',
             body: JSON.stringify({ error: 'Live service temporarily unavailable.' }) })
         }
@@ -119,6 +120,7 @@ try {
     await page.getByRole('button', { name: 'Retry loading Live' }).waitFor()
     assert.equal(await page.getByText('No Talent is live right now.').count(), 0,
       'failed Live API calls must not look like an empty platform')
+    liveAvailable = true
     await page.getByRole('button', { name: 'Retry loading Live' }).click()
     await page.getByText('No Talent is live right now.').waitFor()
     assert.equal(liveAttempts >= 2, true)
