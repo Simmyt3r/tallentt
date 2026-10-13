@@ -137,6 +137,10 @@ try{
 
     await quickActions.getByRole('link', { name: 'Messages' }).click()
     await page.waitForURL('**/messages')
+    // Every route has its own protected Layout. Re-enter a settled Home
+    // before validating the next action, instead of racing a route remount.
+    await page.goto('http://127.0.0.1:5185/showroom')
+    await page.getByRole('searchbox', { name: 'Search posts and creators' }).waitFor()
     await quickActions.getByRole('link', { name: /^Notifications/ }).click()
     await page.waitForURL('**/notifications')
     await page.goto('http://127.0.0.1:5185/showroom')
