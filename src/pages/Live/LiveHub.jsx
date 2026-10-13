@@ -24,6 +24,9 @@ export default function LiveHub() {
   const previewRef = useRef(null)
   const handedOffRef = useRef(false)
   const [rooms, setRooms] = useState([])
+  const [roomsLoading, setRoomsLoading] = useState(true)
+  const [roomsError, setRoomsError] = useState('')
+  const [roomsRetry, setRoomsRetry] = useState(0)
   const [creating, setCreating] = useState(false)
   const [starting, setStarting] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState('idle')
@@ -32,16 +35,25 @@ export default function LiveHub() {
   const [form, setForm] = useState({ title: '', category: CATEGORIES[0], camera: '', microphone: '' })
   const [error, setError] = useState('')
 
-  async function load() {
-    const data = await api.getLiveRooms()
-    setRooms(data.rooms || [])
-  }
-
   useEffect(() => {
-    load().catch(() => {})
-    const timer = setInterval(() => load().catch(() => {}), 12000)
-    return () => clearInterval(timer)
-  }, [])
+    let cancelled = false
+    const load = async () => {
+      try {
+        const data = await api.getLiveRooms()
+        if (!cancelled) {
+          setRooms(data.rooms || [])
+          setRoomsError('')
+        }
+      } catch (err) {
+        if (!cancelled) setRoomsError(err?.message || 'Could not load Live rooms.')
+      } finally {
+        if (!cancelled) setRoomsLoading(false)
+      }
+    }
+    load()
+    const timer = setInterval(load, 12000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [roomsRetry])
 
   useEffect(() => () => {
     if (!handedOffRef.current) media?.getTracks().forEach((track) => track.stop())
@@ -172,7 +184,13 @@ export default function LiveHub() {
 
       <section className="space-y-3">
         <h2 className="text-[14px] font-bold">Live now</h2>
-        {!rooms.length && <div className="rounded-[22px] border border-black/10 bg-white p-8 text-center text-[12px] text-black/45 font-medium">No Talent is live right now.</div>}
+        {roomsError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-700">
+          <span>Live rooms couldn't be refreshed. {roomsError}</span>
+          <button type="button" onClick={() => setRoomsRetry((value) => value + 1)}
+            className="min-h-10 rounded-full border border-red-300 bg-white px-4 font-bold">Retry loading Live</button>
+        </div>}
+        {roomsLoading && !rooms.length && <p role="status" className="rounded-2xl bg-white p-6 text-center text-[12px] text-black/55">Loading Live rooms…</p>}
+        {!roomsLoading && !roomsError && !rooms.length && <div className="rounded-[22px] border border-black/10 bg-white p-8 text-center text-[12px] text-black/45 font-medium">No Talent is live right now.</div>}
         <div className="grid sm:grid-cols-2 gap-3">
           {rooms.map((room) => (
             <Link key={room.id} to={`/live/stage/${room.id}`} className="bg-white rounded-[22px] border-[1.5px] border-black p-4 hover:-translate-y-0.5 transition">
