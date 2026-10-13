@@ -1,8 +1,7 @@
 // Path: src/components/BottomNav.jsx
 import { useCallback, useEffect, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { Handshake, Home, LayoutGrid, Radio } from 'lucide-react'
-import NotificationsMenu from './NotificationsMenu.jsx'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
@@ -32,10 +31,8 @@ function BottomNavLink({ to, end, icon: Icon, label, badge = 0 }) {
 }
 
 export default function BottomNav() {
-  const { pathname } = useLocation()
   const { user } = useAuth()
   const [pendingDeals, setPendingDeals] = useState(0)
-  const alertsActive = pathname.startsWith('/notifications')
 
   const loadCount = useCallback(async () => {
     if (!user?.id) return
@@ -74,18 +71,6 @@ export default function BottomNav() {
       <BottomNavLink to="/bento" icon={LayoutGrid} label="Bento" />
       <BottomNavLink to="/deals" icon={Handshake} label="My Deals" badge={pendingDeals} />
       <BottomNavLink to="/live" icon={Radio} label="Live" />
-      <div
-        className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full text-[10.5px] font-bold ${
-          alertsActive ? 'text-[#0A13E6]' : 'text-black/45'
-        }`}
-      >
-        <NotificationsMenu
-          panelPosition="up"
-          iconSize={20}
-          buttonClassName="relative w-auto h-auto bg-transparent border-0 flex items-center justify-center text-inherit"
-        />
-        <span>Alerts</span>
-      </div>
     </nav>
   )
 }
