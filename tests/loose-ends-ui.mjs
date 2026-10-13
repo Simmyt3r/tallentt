@@ -27,6 +27,7 @@ try {
     let firstTalent
     const talentRequested = new Promise((resolve) => { firstTalent = resolve })
     let notificationRefresh = false
+    let liveAttempts = 0
 
     await page.route('**/api/**', async (route) => {
       const url = new URL(route.request().url())
@@ -55,6 +56,14 @@ try {
         if (url.searchParams.get('action') === 'notification-count')
           return respond({ unreadCount: 0 })
         return respond({ user })
+      }
+      if (url.pathname === '/api/live') {
+        liveAttempts += 1
+        if (liveAttempts === 1) {
+          return route.fulfill({ status: 503, contentType: 'application/json',
+            body: JSON.stringify({ error: 'Live service temporarily unavailable.' }) })
+        }
+        return respond({ rooms: [] })
       }
       if (url.pathname === '/api/escrows') {
         if (url.searchParams.get('deals_count') === '1')
@@ -104,10 +113,19 @@ try {
     await page.getByText('Latest notice').waitFor()
     assert.equal(await page.getByText('Older notice').count(), 1,
       'push updates must not wipe out older loaded notifications')
+
+    // A failed Live API call must show a retryable error, not "Nobody is live".
+    await page.goto('http://127.0.0.1:5186/live')
+    await page.getByRole('button', { name: 'Retry loading Live' }).waitFor()
+    assert.equal(await page.getByText('No Talent is live right now.').count(), 0,
+      'failed Live API calls must not look like an empty platform')
+    await page.getByRole('button', { name: 'Retry loading Live' }).click()
+    await page.getByText('No Talent is live right now.').waitFor()
+    assert.equal(liveAttempts >= 2, true)
     assert.deepEqual(errors, [])
     await context.close()
   }
-  console.log('Loose-end browser checks passed: stale My Deals views, paginated notifications and mobile/desktop overflow.')
+  console.log('Loose-end browser checks passed: stale My Deals views, notification pagination, Live retry and mobile/desktop overflow.')
 } finally {
   await browser?.close()
   await vite.close()
