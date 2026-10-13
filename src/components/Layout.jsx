@@ -1,6 +1,6 @@
 // Path: src/components/Layout.jsx
 import { Link, useLocation } from 'react-router-dom'
-import { Menu } from 'lucide-react'
+import { Menu, Search, Plus, MessageCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
@@ -8,9 +8,11 @@ import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
 import NotificationsMenu from './NotificationsMenu.jsx'
 
-// Header menu button (icon-only, round, no border — the avatar is the bordered one).
+// Facebook-style quick actions without any role-based browsing switch.
 const MENU_BUTTON =
   'h-9 w-9 md:h-10 md:w-10 shrink-0 place-items-center rounded-full text-black transition-colors hover:bg-black/[0.06] active:bg-black/[0.1]'
+const QUICK_ACTION =
+  'relative h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full border border-black/10 bg-white text-black/70 shadow-sm flex items-center justify-center transition-colors hover:bg-[#E7E9FF] hover:text-[#0A13E6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6]'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -59,7 +61,7 @@ export default function Layout({ children }) {
       {/* One responsive header.
           Left  : menu button, then the brand. The menu button opens the drawer
                   on mobile and collapses/expands the sidebar on desktop.
-          Right : the signed-in user's avatar, linking to /profile.
+          Right : search, create, messages, alerts, then profile.
                   The discovery feed shows both Talent and Client Hats.
           Mobile it is sticky and in flow (h-14 + 1.5px border); on desktop it
           is fixed, full width (h-16) and the sidebar sits underneath it. */}
@@ -88,11 +90,11 @@ export default function Layout({ children }) {
               <Menu size={22} />
             </button>
 
-            {/* Mobile brand: logo + name. Below 390px the name is dropped (the
-                logo stays) so the row never has to truncate it. */}
+            {/* On smaller phones, show just the logo so the quick actions
+                remain individually accessible and never squeeze the header. */}
             <div className="flex min-w-0 items-center gap-2 md:hidden">
-              <img src="/logo.png" alt="ChombuTar" className="h-10 w-10 shrink-0 rounded-full object-cover" />
-              <h1 className="min-w-0 truncate text-left text-[17px] font-black tracking-tight min-[390px]:block">
+              <img src="/logo.png" alt="ChombuTar" className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full object-cover" />
+              <h1 className="hidden min-[480px]:block min-w-0 truncate text-left text-[17px] font-black tracking-tight">
                 ChombuTar
               </h1>
             </div>
@@ -103,7 +105,23 @@ export default function Layout({ children }) {
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
+          <div className="flex shrink-0 items-center gap-1 md:gap-2">
+            <nav className="flex shrink-0 items-center gap-1 md:gap-2" aria-label="Quick actions">
+              <Link to="/showroom?focus=search" aria-label="Search" title="Search creators"
+                className={QUICK_ACTION}>
+                <Search size={19} aria-hidden="true" />
+              </Link>
+              <Link to="/create" aria-label="Create Hat" title="Create Hat"
+                className={`${QUICK_ACTION} hidden min-[375px]:flex`}>
+                <Plus size={21} aria-hidden="true" />
+              </Link>
+              <Link to="/messages" aria-label="Messages" title="Messages"
+                className={QUICK_ACTION}>
+                <MessageCircle size={20} aria-hidden="true" />
+              </Link>
+              <NotificationsMenu className="flex"
+                buttonClassName={QUICK_ACTION} iconSize={19} />
+            </nav>
             <Link
               to="/profile"
               aria-label="Profile"
@@ -115,9 +133,6 @@ export default function Layout({ children }) {
                 initial
               )}
             </Link>
-            <div className="hidden md:block">
-              <NotificationsMenu panelAlign="right" />
-            </div>
           </div>
         </div>
       </header>
