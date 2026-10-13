@@ -6,7 +6,6 @@ import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
 import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
-import { landingPreferenceKey } from '../lib/landing.js'
 import NotificationsMenu from './NotificationsMenu.jsx'
 
 // Header menu button (icon-only, round, no border — the avatar is the bordered one).
@@ -16,28 +15,12 @@ const MENU_BUTTON =
 export default function Layout({ children }) {
   const location = useLocation()
   const { user } = useAuth()
-  const [browseRole, setBrowseRole] = useState(() => localStorage.getItem('_role') || localStorage.getItem('chombutar_role') || 'talent')
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
-    localStorage.setItem('_role', browseRole)
-    localStorage.setItem('chombutar_role', browseRole)
-  }, [browseRole])
-
-  useEffect(() => {
     localStorage.setItem('chombutar_sidebar_collapsed', collapsed ? '1' : '0')
   }, [collapsed])
-
-  // Last explicit discovery destination is scoped by account, not by device alone.
-  useEffect(() => {
-    if (!user?.id) return
-    if (location.pathname === '/showroom') {
-      localStorage.setItem(landingPreferenceKey(user.id), 'showroom')
-    } else if (location.pathname === '/bento') {
-      localStorage.setItem(landingPreferenceKey(user.id), 'bento')
-    }
-  }, [location.pathname, user?.id])
 
   // Close the mobile drawer automatically whenever the route changes (e.g.
   // browser back/forward), in addition to the explicit onNavigate close.
@@ -76,8 +59,8 @@ export default function Layout({ children }) {
       {/* One responsive header.
           Left  : menu button, then the brand. The menu button opens the drawer
                   on mobile and collapses/expands the sidebar on desktop.
-          Right : (mobile only) Talent/Client toggle, then the signed-in user's
-                  avatar — always the far-right item, linking to /profile.
+          Right : the signed-in user's avatar, linking to /profile.
+                  The discovery feed shows both Talent and Client Hats.
           Mobile it is sticky and in flow (h-14 + 1.5px border); on desktop it
           is fixed, full width (h-16) and the sidebar sits underneath it. */}
       <header className="sticky top-0 z-20 border-b-[1.5px] border-black bg-[#F7F3EB]/95 backdrop-blur-xl md:fixed md:inset-x-0 md:h-16">
@@ -121,28 +104,6 @@ export default function Layout({ children }) {
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
-            <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5 text-[11px] font-bold md:hidden">
-              <button
-                type="button"
-                aria-pressed={browseRole === 'talent'}
-                onClick={() => setBrowseRole('talent')}
-                className={`px-2.5 py-1 rounded-full transition ${
-                  browseRole === 'talent' ? 'bg-[#0A13E6] text-white' : 'text-black/55'
-                }`}
-              >
-                Talent
-              </button>
-              <button
-                type="button"
-                aria-pressed={browseRole === 'client'}
-                onClick={() => setBrowseRole('client')}
-                className={`px-2.5 py-1 rounded-full transition ${
-                  browseRole === 'client' ? 'bg-black text-white' : 'text-black/55'
-                }`}
-              >
-                Client
-              </button>
-            </div>
             <Link
               to="/profile"
               aria-label="Profile"
@@ -174,16 +135,3 @@ export default function Layout({ children }) {
   )
 }
 
-export function useBrowseRole() {
-  const [role, setRole] = useState(() => localStorage.getItem('_role') || localStorage.getItem('chombutar_role') || 'talent')
-  useEffect(() => {
-    const onStorage = () => setRole(localStorage.getItem('_role') || localStorage.getItem('chombutar_role') || 'talent')
-    window.addEventListener('storage', onStorage)
-    const id = setInterval(onStorage, 400)
-    return () => {
-      window.removeEventListener('storage', onStorage)
-      clearInterval(id)
-    }
-  }, [])
-  return role
-}
