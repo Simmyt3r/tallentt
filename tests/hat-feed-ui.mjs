@@ -32,6 +32,9 @@ try {
       const respond = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
       if (url.pathname === '/api/auth') return respond({ user: { id: 'owner', username: 'studio', full_name: 'Studio', role: 'dual' }, notifications: [] })
       if (url.pathname === '/api/hats') {
+        if (url.searchParams.get('feed') === '1') {
+          assert.equal(url.searchParams.has('role'), false, 'Bento Feed must request both roles')
+        }
         return respond({ hats: url.searchParams.get('feed') === '1' ? hats.filter((h) => h.feed_visible) : hats })
       }
       if (req.method() === 'PATCH') {
@@ -67,10 +70,19 @@ try {
     await page.getByRole('switch', { name: 'Show Range package in feed', checked: true }).waitFor()
     await page.screenshot({ path: `test-results/hat-feed-${mode}-${width}.png`, fullPage: true })
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    // Same account, different Hat roles: both must have their own card.
+    hats.push({ ...base, id: 'talent-preview', role: 'talent', feed_visible: true,
+      hat_name: 'Photography package', hat_title: 'Portrait photographer' })
     await page.goto('http://127.0.0.1:5181/bento')
     await page.getByText('Range package', { exact: true }).waitFor()
+    await page.getByText('Photography package', { exact: true }).waitFor()
     assert.equal(await page.getByText('Fixed package', { exact: true }).count(), 0)
     assert.equal(await page.getByText(/\+1 more/).count(), 0, 'hidden Hats must not contribute to the feed group')
+    assert.equal(await page.getByRole('button', { name: 'View/Apply' }).count(), 1)
+    assert.equal(await page.getByRole('button', { name: 'View/Book' }).count(), 1)
+    assert.equal(await page.locator('article').count(), 2, 'dual-role creator needs both client and talent cards')
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    hats.pop()
     await page.goto('http://127.0.0.1:5181/my-hats')
     await rangeSwitch().click()
     await page.getByRole('switch', { name: 'Show Range package in feed', checked: false }).waitFor()
@@ -94,5 +106,5 @@ try {
     assert.deepEqual(errors, [])
     await context.close()
   }
-  console.log('Hat feed UI passed: grid/desktop, list/mobile, notice/cancel/Escape, persistence, feed filtering, Fixed toggle, failed saves and retry.')
+  console.log('Hat feed UI passed: mixed client/talent cards per dual-role creator, grid/desktop, list/mobile, feed filtering, and Hat visibility controls.')
 } finally { await browser?.close(); await vite.close() }
