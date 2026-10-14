@@ -87,3 +87,48 @@ test('photo upload requires deliberate enablement and verified Cloudinary creden
     media:[{upload_id:signed.body.permitId,public_id:'other/owner',url:'https://evil.invalid/photo'}]})
   assert.equal(invalid.status,422)
 })
+
+
+test('real signed photo receipts can publish after independent Cloudinary and SafeSearch verification',async()=>{
+  process.env.VIBES_MEDIA_UPLOADS='enabled'
+  process.env.GOOGLE_CLOUD_VISION_API_KEY='test-fixture-vision'
+  process.env.CLOUDINARY_CLOUD_NAME='demo'
+  process.env.CLOUDINARY_API_KEY='fixture-key'
+  process.env.CLOUDINARY_API_SECRET='fixture-secret'
+  const signed=await request('POST','/api/vibes',{action:'upload_sign',mime:'image/png',bytes:1024})
+  assert.equal(signed.status,200)
+  const url=`https://res.cloudinary.com/demo/image/upload/v123/${signed.body.params.public_id}.png`
+  const originalFetch=global.fetch
+  let cloudVerified=0,visionChecked=0
+  global.fetch=async(target,options)=>{
+    if(String(target).includes('/resources/image/upload/')){
+      cloudVerified++
+      assert.ok(String(options.headers.Authorization).startsWith('Basic '))
+      return new Response(JSON.stringify({public_id:signed.body.params.public_id,resource_type:'image',
+        type:'upload',bytes:1024,version:123,secure_url:url}),{status:200})
+    }
+    if(String(target).includes('/images:annotate')){
+      visionChecked++
+      assert.equal(options.headers['x-goog-api-key'],'test-fixture-vision')
+      return new Response(JSON.stringify({responses:[{
+        safeSearchAnnotation:{adult:'VERY_UNLIKELY',violence:'VERY_UNLIKELY',racy:'VERY_UNLIKELY'},
+      }]}),{status:200})
+    }
+    throw Error('Unexpected request in Vibes media integration test')
+  }
+  try {
+    const data=await request('POST','/api/vibes',{action:'publish',text:'My event photo',
+      media:[{upload_id:signed.body.permitId,public_id:signed.body.params.public_id,url}]})
+    assert.equal(data.status,201,JSON.stringify(data.body))
+    assert.equal(cloudVerified,1)
+    assert.equal(visionChecked,1)
+    const page=await request('GET','/api/vibes',undefined,friend)
+    const current=page.body.posts.find(p=>p.id===data.body.id)
+    assert.equal(current.media[0].url,url)
+    const reused=await request('POST','/api/vibes',{action:'publish',text:'Duplicate',
+      media:[{upload_id:signed.body.permitId,public_id:signed.body.params.public_id,url}]})
+    assert.equal(reused.status,422,'photos cannot be claimed twice')
+  } finally {
+    global.fetch=originalFetch
+  }
+})
