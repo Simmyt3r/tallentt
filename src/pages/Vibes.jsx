@@ -174,7 +174,7 @@ function VibeCard({post,me,onChange,onDeleted}) {
         className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-[12px] font-semibold hover:bg-[#F7F3EB] ${post.liked_by_me?'text-[#0A13E6]':'text-black/55'}`}>
         <Heart size={17} fill={post.liked_by_me?'currentColor':'none'}/>{post.likes||0}
       </button>
-      <button type="button" aria-expanded={showReplies} onClick={()=>setShowReplies(!showReplies)}
+      <button type="button" aria-label={`Replies (${post.replies||0})`} aria-expanded={showReplies} onClick={()=>setShowReplies(!showReplies)}
         className="flex min-h-11 items-center justify-center gap-2 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB]">
         <MessageCircle size={17}/>{post.replies||0} <span className="hidden sm:inline">Replies</span>
       </button>
