@@ -235,3 +235,21 @@ test('without a username there is no link to click', () => {
     assert.equal(part.onClick, undefined)
   }
 })
+
+
+test('Bento flier uses only eligible Hat media while preserving identity and View/Book controls', () => {
+  const poster = { public_id: 'own-approved-flier', type: 'image',
+    screening_status: 'passed', url: 'https://example.test/own-approved-flier.jpg' }
+  const flyerHat = { ...talentHat, bento_mode: 'flyer',
+    flyer_public_id: poster.public_id, media: [poster] }
+  const html = render(h(BentoCard, { hat: flyerHat, showFeedAction: true }))
+  assert.match(html, /own-approved-flier\.jpg/)
+  assert.match(html, /View\/Book/)
+  assert.deepEqual(identityLinks(html).length, 3)
+  const blocked = render(h(BentoCard, { hat: { ...flyerHat,
+    media: [{ ...poster, screening_status: 'held' }] }, showFeedAction: true }))
+  assert.doesNotMatch(blocked, /own-approved-flier\.jpg/,
+    'held artwork must not render into Bento')
+  assert.match(blocked, /Available:/,
+    'held or missing artwork falls back to the original card')
+})
