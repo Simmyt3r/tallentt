@@ -77,3 +77,31 @@ test('only the owner can save styles, and the saved appearance is returned every
   const showroom = await request(showroomHandler, '/api/showroom')
   assert.equal(showroom.body.hats[0].showroom_template, 'editorial')
 })
+
+
+test('Bento flier can use only approved images from the same Hat', async () => {
+  const endpoint = `/api/hats/${hatId}`
+  const base = { action: 'set_card_style', accent: 'forest', template: 'editorial',
+    bentoMode: 'flyer', flyerPublicId: 'cover' }
+  const refused = await request(hatHandler, endpoint, {
+    method: 'PATCH', who: visitor, body: base,
+  })
+  assert.equal(refused.statusCode, 400, 'non-owners must not select artwork')
+  const fake = await request(hatHandler, endpoint, { method: 'PATCH',
+    body: { ...base, flyerPublicId: 'somebody-elses-image' } })
+  assert.equal(fake.statusCode, 400)
+  const saved = await request(hatHandler, endpoint, { method: 'PATCH', body: base })
+  assert.equal(saved.statusCode, 200, JSON.stringify(saved.body))
+  assert.equal(saved.body.hat.bento_mode, 'flyer')
+  assert.equal(saved.body.hat.flyer_public_id, 'cover')
+  const feed = await request(hatsHandler, '/api/hats?feed=1')
+  assert.equal(feed.body.hats[0].bento_mode, 'flyer')
+  assert.equal(feed.body.hats[0].flyer_public_id, 'cover')
+  await pool.query("UPDATE hat_media SET screening_status = 'held' WHERE hat_id = $1", [hatId])
+  const blocked = await request(hatHandler, endpoint, { method: 'PATCH', body: base })
+  assert.equal(blocked.statusCode, 400, 'held image must not become a flier')
+  const reset = await request(hatHandler, endpoint, { method: 'PATCH',
+    body: { ...base, bentoMode: 'standard', flyerPublicId: null } })
+  assert.equal(reset.statusCode, 200)
+  assert.equal(reset.body.hat.bento_mode, 'standard')
+})
