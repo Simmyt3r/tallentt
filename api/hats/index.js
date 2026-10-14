@@ -45,6 +45,8 @@ async function attachMedia(hats, viewerId = null) {
     media: byHat[h.id] || [],
     bento_accent: presentations[h.id]?.accent || 'electric',
     showroom_template: presentations[h.id]?.template || 'minimal',
+    bento_mode: presentations[h.id]?.bento_mode || 'standard',
+    flyer_public_id: presentations[h.id]?.flyer_public_id || null,
     confidence: h.orbit_score, // alias for UI
     liked_by_me: likedSet.has(h.id),
   }))

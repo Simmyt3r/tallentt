@@ -45,12 +45,33 @@ export async function getConversations(userId, before) {
      FROM escrows e JOIN hats h ON h.id = e.hat_id
      JOIN users u ON u.id = CASE WHEN e.client_id = $1 THEN e.talent_id ELSE e.client_id END
      WHERE (e.client_id = $1 OR e.talent_id = $1)
+       AND NOT EXISTS (
+         SELECT 1 FROM conversation_visibility cv
+         WHERE cv.user_id = $1 AND cv.escrow_id = e.id
+           AND COALESCE(e.messages_updated_at, e.created_at) <= cv.hidden_at
+       )
        AND ($2::uuid IS NULL OR (COALESCE(e.messages_updated_at, e.created_at), e.id) <
          (SELECT COALESCE(messages_updated_at, created_at), id FROM escrows WHERE id = $2 AND (client_id = $1 OR talent_id = $1)))
      ORDER BY COALESCE(e.messages_updated_at, e.created_at) DESC, e.id DESC LIMIT 51`,
     [userId, before || null],
   )
   return { conversations: rows.slice(0, 50), nextCursor: rows.length > 50 ? rows[49].id : null }
+}
+
+// This is private inbox hiding, never destruction of messages or escrow
+// records needed for dispute, refund or payment audit.
+export async function hideConversation(userId, escrowId) {
+  requireBookingId(escrowId)
+  const { rows } = await query(
+    `INSERT INTO conversation_visibility (user_id, escrow_id, hidden_at)
+     SELECT $1, id, NOW() FROM escrows
+     WHERE id = $2 AND (client_id = $1 OR talent_id = $1)
+     ON CONFLICT (user_id, escrow_id) DO UPDATE SET hidden_at = EXCLUDED.hidden_at
+     RETURNING escrow_id`,
+    [userId, escrowId],
+  )
+  if (!rows.length) throw bookingError(404, 'Conversation not found.')
+  return { hidden: true }
 }
 
 export async function getNegotiations(userId, before) {

@@ -12,10 +12,8 @@ import {
   useLikeToggle,
 } from './bentoCardShared'
 
-// Discovery card — matches the owner's TWorld reference mockup: a compact,
-// text-only card (no media; portfolio browsing lives in Showroom instead)
-// that answers "is this hat interesting enough to open?". Only the explicit
-// View/Book or View/Apply button opens details before the final action.
+// Bento offers the original standard card or a verified, owner-selected
+// flier image. Both layouts keep identity, role and booking controls visible.
 export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, fullWidth = false, moreCount = 0, showFeedAction = false }) {
   const [open, setOpen] = useState(false)
 
@@ -31,6 +29,9 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
   const motto = hat.motto || ''
   const availabilityWindow = formatAvailabilityWindow(hat)
   const currency = hat.currency || 'NGN'
+  const flyer = hat.bento_mode === 'flyer' ? (hat.media || []).find((m) =>
+    m.type === 'image' && m.public_id === hat.flyer_public_id &&
+    ['legacy', 'passed'].includes(m.screening_status || 'legacy')) : null
 
   const { liked, count: likeCount, toggle: toggleLike, liking } = useLikeToggle({
     id: hat.id,
@@ -71,6 +72,16 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           </div>
         </UserIdentity>
 
+        {flyer ? (
+          <figure className="mt-3 min-w-0 rounded-[16px] overflow-hidden bg-[#F7F3EB] border border-black/10">
+            <img src={flyer.url} alt={flyer.caption || `${hat.hat_name || hat.hat_title} flier`}
+              loading="lazy" className="w-full h-[228px] object-contain" />
+            <figcaption className="px-3 py-2 text-[11px] font-bold text-black/75 line-clamp-2">
+              {hat.hat_name || hat.hat_title} · {formatPrice(hat, currency)}
+            </figcaption>
+          </figure>
+        ) : (
+          <>
         {motto && (
           <div className="mt-3 border-l-4 pl-3 py-1 bg-[#FFEBE0]/20 rounded-r-xl" style={{ borderLeftColor: getHatAccent(hat.bento_accent) }}>
             <p className="text-[12px] italic text-black/60 leading-snug">&quot;{motto}&quot;</p>
@@ -113,6 +124,9 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
               </span>
             </div>
           )}
+          </>
+        )}
+
           </>
         )}
 

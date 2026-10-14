@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, RefreshCw, Send } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Send, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { workLabels } from '../components/BookingProgress.jsx'
@@ -83,6 +83,17 @@ export default function Messages() {
       clearTimeout(timer)
     }
   }, [retry])
+
+  async function removeChat(item) {
+    if (!window.confirm('Remove this chat from your inbox? The deal and its records remain in My Deals.')) return
+    try {
+      await api.hideConversation(item.id)
+      setItems((previous) => previous.filter((entry) => entry.id !== item.id))
+      if (selected === item.id) setParams({})
+    } catch (err) {
+      setError(err.message || 'Could not remove this chat.')
+    }
+  }
 
   async function moreConversations() {
     setPaging(true)
@@ -172,6 +183,12 @@ export default function Messages() {
                     </span>
                   )}
                 </div>
+                <button type="button" aria-label={`Delete chat about ${item.hat_title}`}
+                  title="Remove chat from inbox"
+                  onClick={() => removeChat(item)}
+                  className="absolute top-2 right-2 z-10 h-9 w-9 grid place-items-center rounded-full bg-white border border-black/10 text-red-600 hover:bg-red-50">
+                  <Trash2 size={16} />
+                </button>
               </li>
             ))}
           </ul>

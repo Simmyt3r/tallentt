@@ -13,7 +13,9 @@ async function main() {
     process.exit(1)
   }
 
-  const files = process.argv.includes('--showroom-production')
+  const files = process.argv.includes('--bento-inbox')
+    ? ['patch-bento-inbox-2026-10.sql']
+    : process.argv.includes('--showroom-production')
     ? ['patch-showroom-production-2026-10.sql']
     : process.argv.includes('--signed-hat-media')
     ? ['hat-media-signed-uploads.sql']

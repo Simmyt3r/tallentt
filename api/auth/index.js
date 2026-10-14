@@ -19,7 +19,7 @@ import {
 } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { listBanks, resolveBankAccount, createTransferRecipient } from '../_lib/paystack.js'
-import { getNotificationCount, getNotificationInbox, markAllNotificationsRead, markNotificationRead } from '../_lib/notifications.js'
+import { getNotificationCount, getNotificationInbox, markAllNotificationsRead, markNotificationRead, deleteNotification, clearNotifications } from '../_lib/notifications.js'
 import {
   getPushPreferences,
   getVapidPublicKey,
@@ -331,6 +331,20 @@ async function handleProfileUpdate(req, res) {
     } catch (err) {
       console.error('notification read update error:', err)
       return json(res, 500, { error: 'Failed to update notification.' })
+    }
+  }
+
+  if (body?.action === 'delete_notification' || body?.action === 'clear_notifications') {
+    try {
+      if (body.action === 'delete_notification') {
+        const deleted = await deleteNotification(session.sub, body.notificationId)
+        return json(res, 200, { deleted, unreadCount: await getNotificationCount(session.sub) })
+      }
+      const deleted = await clearNotifications(session.sub)
+      return json(res, 200, { deleted, unreadCount: 0 })
+    } catch (err) {
+      if (!err.status) console.error('notification deletion error:', err)
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Could not delete notifications.' })
     }
   }
 

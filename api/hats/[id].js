@@ -76,6 +76,8 @@ async function getHat(id, viewerId) {
     media,
     bento_accent: presentations[id]?.accent || 'electric',
     showroom_template: presentations[id]?.template || 'minimal',
+    bento_mode: presentations[id]?.bento_mode || 'standard',
+    flyer_public_id: presentations[id]?.flyer_public_id || null,
     confidence: rows[0].orbit_score,
     liked_by_me: likedByMe,
     my_application: myApplication,
@@ -475,10 +477,12 @@ export default async function handler(req, res) {
       if (body.action === 'set_card_style') {
         const presentation = await saveHatPresentation(session.sub, id, {
           accent: body.accent, template: body.template,
+          bentoMode: body.bentoMode, flyerPublicId: body.flyerPublicId,
         })
         return json(res, 200, { hat: {
           id, bento_accent: presentation.accent,
           showroom_template: presentation.template,
+          bento_mode: presentation.bento_mode, flyer_public_id: presentation.flyer_public_id,
         } })
       }
 

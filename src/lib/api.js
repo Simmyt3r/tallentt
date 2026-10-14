@@ -30,6 +30,8 @@ export const api = {
   usernameCheck: (u) => request(`/api/auth?action=username-check&u=${encodeURIComponent(u)}`),
   updateProfile: (body) => request('/api/auth', { method: 'PUT', body: JSON.stringify(body) }),
   getNotifications: (before) => request(`/api/auth?action=notifications${before ? `&before=${encodeURIComponent(before)}` : ''}`),
+  deleteNotification: (notificationId) => request('/api/auth', { method: 'PUT', body: JSON.stringify({ action: 'delete_notification', notificationId }) }),
+  clearNotifications: () => request('/api/auth', { method: 'PUT', body: JSON.stringify({ action: 'clear_notifications' }) }),
   getNotificationCount: () => request('/api/auth?action=notification-count'),
   getPushConfig: () => request('/api/auth?action=push-config'),
   savePushSubscription: (subscription) =>
@@ -88,10 +90,10 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ action: 'set_feed_visibility', feed_visible: visible, negotiation_fee_confirmed: confirmed }),
     }),
-  updateHatStyle: (id, accent, template) =>
+  updateHatStyle: (id, accent, template, bentoMode = 'standard', flyerPublicId = null) =>
     request(`/api/hats/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ action: 'set_card_style', accent, template }),
+      body: JSON.stringify({ action: 'set_card_style', accent, template, bentoMode, flyerPublicId }),
     }),
   deleteHat: (id) => request(`/api/hats/${id}`, { method: 'DELETE' }),
   recordView: (id) =>
@@ -156,6 +158,7 @@ export const api = {
   bookingAction: (id, action, body) => request(`/api/escrows/${id}/${action}`, { method: 'POST', body: JSON.stringify(body) }),
   generateBookingQr: (id, stage) => request(`/api/escrows/${id}/generate-qr`, { method: 'POST', body: JSON.stringify({ stage }) }),
   redeemBookingQr: (id, token) => request(`/api/escrows/${id}/redeem-qr`, { method: 'POST', body: JSON.stringify({ token }) }),
+  hideConversation: (escrow_id) => request('/api/escrows', { method: 'POST', body: JSON.stringify({ action: 'hide_conversation', escrow_id }) }),
   getConversations: (before) => request(`/api/escrows?conversations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
   getNegotiations: (before) => request(`/api/escrows?negotiations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
   getMessages: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),

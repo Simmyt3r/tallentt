@@ -6,6 +6,11 @@ import { HAT_ACCENTS, SHOWROOM_TEMPLATES } from '../lib/hatPresentation.js'
 export default function HatStyleDialog({ hat, onClose, onSaved }) {
   const [accent, setAccent] = useState(hat?.bento_accent || 'electric')
   const [template, setTemplate] = useState(hat?.showroom_template || 'minimal')
+  const [bentoMode, setBentoMode] = useState(hat?.bento_mode || 'standard')
+  const [flyerId, setFlyerId] = useState(hat?.flyer_public_id || '')
+  const images = (hat?.media || []).filter((item) => item.type === 'image' &&
+    ['legacy', 'passed'].includes(item.screening_status || 'legacy'))
+  const flyer = images.find((item) => item.public_id === flyerId)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -22,7 +27,7 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
     setBusy(true)
     setError('')
     try {
-      const result = await api.updateHatStyle(hat.id, accent, template)
+      const result = await api.updateHatStyle(hat.id, accent, template, bentoMode, bentoMode === 'flyer' ? flyerId : null)
       onSaved(result.hat)
     } catch (err) {
       setError(err.message || 'Could not save this style.')
@@ -57,6 +62,37 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
             </div>
           </fieldset>
           <fieldset>
+            <legend className="mb-2 text-[12px] font-black">Bento card design</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {[['standard', 'Original card'], ['flyer', 'Flier design']].map(([mode, label]) => (
+                <label key={mode} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-[11px] font-bold ${bentoMode === mode ? 'border-[#0A13E6] bg-blue-50' : 'border-black/15'}`}>
+                  <input type="radio" name="bento-mode" value={mode} checked={bentoMode === mode}
+                    onChange={() => setBentoMode(mode)} />{label}
+                </label>
+              ))}
+            </div>
+            {bentoMode === 'flyer' && (
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] text-black/60">Choose an approved image already uploaded to this Hat. To attach a new flier, edit the Hat, upload it under Media, then return here.</p>
+                {images.length === 0 ? (
+                  <p role="status" className="text-[11px] font-bold text-amber-700">No approved Hat images available yet. Upload a flier before saving this mode.</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2" aria-label="Available flier images">
+                    {images.map((item) => (
+                      <label key={item.public_id} className={`relative cursor-pointer overflow-hidden rounded-xl border-2 ${flyerId === item.public_id ? 'border-[#0A13E6]' : 'border-black/10'}`}>
+                        <img src={item.url} alt={item.caption || 'Hat flier option'}
+                          className="aspect-square w-full object-cover" />
+                        <input type="radio" name="flyer-image" value={item.public_id}
+                          checked={flyerId === item.public_id} onChange={() => setFlyerId(item.public_id)}
+                          aria-label={item.caption || 'Select this flier image'} className="absolute top-2 left-2" />
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </fieldset>
+          <fieldset>
             <legend className="mb-2 text-[12px] font-black">Showroom layout</legend>
             <div className="grid grid-cols-2 gap-2">
               {SHOWROOM_TEMPLATES.map(({ id, label }) => (
@@ -69,15 +105,17 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
             </div>
           </fieldset>
           <div className="rounded-[16px] border border-black/10 p-3" style={{ borderTop: `4px solid ${HAT_ACCENTS[accent].color}` }}>
-            <p className="text-[9px] font-black uppercase tracking-wide text-black/35">Preview · {template}</p>
-            <p className="mt-1 text-[15px] font-bold">{hat.hat_name || hat.hat_title}</p>
+            <p className="text-[9px] font-black uppercase tracking-wide text-black/35">Bento preview · {bentoMode}</p>
+            {bentoMode === 'flyer' && flyer ? (
+              <img src={flyer.url} alt="Chosen flier preview" className="mt-2 h-40 w-full rounded-lg object-contain" />
+            ) : <p className="mt-1 text-[15px] font-bold">{hat.hat_name || hat.hat_title}</p>}
             <p className="text-[11px] text-black/55">{hat.hat_title} · {hat.category}</p>
             <p className="mt-2 text-[11px] font-black" style={{ color: HAT_ACCENTS[accent].color }}>Price and booking remain platform-controlled</p>
           </div>
           {error && <p role="alert" className="rounded-[12px] bg-red-50 p-3 text-[12px] font-bold text-red-700">{error}</p>}
           <div className="flex justify-end gap-2">
             <button type="button" disabled={busy} onClick={onClose} className="h-10 rounded-full border border-black px-4 text-[12px] font-bold">Cancel</button>
-            <button type="submit" disabled={busy} className="h-10 rounded-full bg-[#0A13E6] px-5 text-[12px] font-bold text-white disabled:opacity-50">{busy ? 'Saving…' : 'Save appearance'}</button>
+            <button type="submit" disabled={busy || (bentoMode === 'flyer' && !flyer)} className="h-10 rounded-full bg-[#0A13E6] px-5 text-[12px] font-bold text-white disabled:opacity-50">{busy ? 'Saving…' : 'Save appearance'}</button>
           </div>
         </form>
       </section>
