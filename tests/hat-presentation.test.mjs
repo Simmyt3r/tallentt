@@ -86,7 +86,7 @@ test('Bento flier can use only approved images from the same Hat', async () => {
   const refused = await request(hatHandler, endpoint, {
     method: 'PATCH', who: visitor, body: base,
   })
-  assert.equal(refused.statusCode, 400, 'non-owners must not select artwork')
+  assert.equal(refused.statusCode, 403, 'non-owners must not select artwork')
   const fake = await request(hatHandler, endpoint, { method: 'PATCH',
     body: { ...base, flyerPublicId: 'somebody-elses-image' } })
   assert.equal(fake.statusCode, 400)
