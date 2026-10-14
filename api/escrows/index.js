@@ -7,7 +7,7 @@ import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTran
 import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from '../_lib/wallet.js'
 import { applyVerifiedLegacyBookingCharge } from '../_lib/bookingCheckout.js'
 import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notifications.js'
-import { getConversations, getNegotiations, getThread, threadAction } from '../_lib/bookingThreads.js'
+import { getConversations, getNegotiations, getThread, threadAction, hideConversation } from '../_lib/bookingThreads.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from '../_lib/bookingRules.js'
 import { emitMyDealsEvent, getMyDeals, getMyDealsCount, getMyDealsPage, respondBookingRequest, writeBookingCreatedNotifications } from '../_lib/myDeals.js'
 import { dispatchStoredNotifications } from '../_lib/pushNotifications.js'
@@ -127,6 +127,7 @@ export default async function handler(req, res) {
     if (['send_message', 'make_offer', 'respond_offer', 'read_messages', 'read_offers'].includes(body.action)) {
       return json(res, 200, await threadAction(session.sub, body))
     }
+    if (body.action === 'hide_conversation') return json(res, 200, await hideConversation(session.sub, body.escrow_id))
     if (body.action === 'respond_booking') {
       return json(res, 200, await respondBookingRequest(session.sub, body.escrow_id, body.status))
     }
