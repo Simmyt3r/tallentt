@@ -2,6 +2,7 @@
 import {
   House,
   LayoutGrid,
+  MessageSquareHeart,
   UserRound,
   PlusCircle,
   Briefcase,
@@ -15,6 +16,7 @@ import {
 export const NAV_PRIMARY = [
   { to: '/showroom', icon: House, label: 'Showroom' },
   { to: '/bento', icon: LayoutGrid, label: 'Bento' },
+  { to: '/vibes', icon: MessageSquareHeart, label: 'Vibes' },
   { to: '/my-hats', icon: Briefcase, label: 'My Hats' },
   { to: '/deals', icon: Handshake, label: 'My Deals' },
   { to: '/live', icon: Radio, label: 'Live' },
@@ -32,6 +34,7 @@ export const PROFILE_ITEM = { to: '/profile', icon: UserRound, label: 'Profile' 
 const TITLES = [
   { test: (p) => p === '/', title: 'Showroom' },
   { test: (p) => p === '/bento', title: 'Bento Feed' },
+  { test: (p) => p.startsWith('/vibes'), title: 'Hits & Vibes' },
   { test: (p) => p.startsWith('/messages'), title: 'Deals Chat' },
   { test: (p) => p.startsWith('/negotiations'), title: 'Negotiation Center' },
   { test: (p) => p.startsWith('/notifications'), title: 'Notifications' },
