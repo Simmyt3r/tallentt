@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, WalletCards, XCircle } from 'lucide-react'
+import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, WalletCards, XCircle, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
@@ -167,6 +167,31 @@ export default function Notifications() {
     }
   }
 
+  async function removeNotification(notification) {
+    try {
+      await api.deleteNotification(notification.id)
+      setNotifications((list) => list.filter((item) => item.id !== notification.id))
+      if (notification.unread) setUnreadCount((value) => Math.max(0, value - 1))
+      window.dispatchEvent(new Event('push:notification'))
+    } catch (err) {
+      setError(err.message || 'Could not delete this notification.')
+    }
+  }
+
+  async function clearInbox() {
+    if (!notifications.length || !window.confirm('Clear your notification inbox? This cannot be undone.')) return
+    try {
+      await api.clearNotifications()
+      setNotifications([])
+      setUnreadCount(0)
+      setNextCursor(null)
+      olderLoadedRef.current = false
+      window.dispatchEvent(new Event('push:notification'))
+    } catch (err) {
+      setError(err.message || 'Could not clear notifications.')
+    }
+  }
+
   async function openNotification(notification) {
     await markOne(notification)
     if (notification.link_url) navigate(notification.link_url)
@@ -184,6 +209,14 @@ export default function Notifications() {
             Deal, application, payment and platform updates in one place.
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={clearInbox}
+          disabled={!notifications.length}
+          className="inline-flex h-10 items-center gap-2 rounded-full border border-red-200 bg-white px-4 text-[11px] font-black text-red-700 disabled:opacity-35">
+          <Trash2 size={14} /> Clear all
+        </button>
         <button
           type="button"
           onClick={markAll}
@@ -193,6 +226,7 @@ export default function Notifications() {
           <CheckCheck size={15} />
           Mark all read
         </button>
+        </div>
       </header>
 
       <PushNotificationSettings />
@@ -227,11 +261,11 @@ export default function Notifications() {
               {notifications.map((notification) => {
                 const { Icon, className: iconClass } = notificationVisual(notification.type)
                 return (
+                  <div key={notification.id} className="flex min-w-0 items-stretch gap-2">
                   <button
                     type="button"
-                    key={notification.id}
                     onClick={() => openNotification(notification)}
-                    className={`w-full rounded-[18px] border p-4 text-left transition flex gap-3 ${
+                    className={`min-w-0 flex-1 rounded-[18px] border p-4 text-left transition flex gap-3 ${
                       notification.unread
                         ? 'bg-white border-[#0A13E6]/20 shadow-[0_4px_14px_rgba(10,19,230,0.06)]'
                         : 'bg-white/55 border-black/10 hover:bg-white'
@@ -259,6 +293,13 @@ export default function Notifications() {
                       </span>
                     </span>
                   </button>
+                  <button type="button" aria-label={`Delete notification: ${notification.title}`}
+                    onClick={() => removeNotification(notification)}
+                    title="Delete notification"
+                    className="w-10 shrink-0 rounded-2xl border border-black/10 bg-white text-red-600 grid place-items-center hover:bg-red-50">
+                    <Trash2 size={17} />
+                  </button>
+                  </div>
                 )
               })}
               {nextCursor && (
