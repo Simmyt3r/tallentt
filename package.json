@@ -22,10 +22,11 @@
     "db:migrate:signed-hat-media": "node db/migrate.js --signed-hat-media",
     "db:migrate:showroom-production": "node db/migrate.js --showroom-production",
     "db:migrate:bento-inbox": "node db/migrate.js --bento-inbox",
+    "db:migrate:vibes": "node db/migrate.js --vibes",
     "push:vapid": "node scripts/generate-vapid.mjs",
     "check:api": "node scripts/check-api.mjs",
     "test": "node --test tests/*.test.mjs",
-    "test:ui": "node tests/booking-ui.mjs && node tests/hat-feed-ui.mjs && node tests/hat-create-feed-ui.mjs && node tests/showroom-ux-ui.mjs && node tests/loose-ends-ui.mjs",
+    "test:ui": "node tests/booking-ui.mjs && node tests/hat-feed-ui.mjs && node tests/hat-create-feed-ui.mjs && node tests/showroom-ux-ui.mjs && node tests/loose-ends-ui.mjs && node tests/vibes-ui.mjs",
     "test:ui:hat-feed": "node tests/hat-feed-ui.mjs",
     "verify": "npm test && npm run check:api && npm run build"
   },

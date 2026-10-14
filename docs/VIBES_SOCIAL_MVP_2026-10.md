@@ -1,0 +1,54 @@
+# Hits & Vibes: subscriber-community MVP
+
+**Branch:** `feat/vibes-community-feed`. This change is stacked on PR #26 (`feat/showroom-bento-flyers-inbox-management`). Merge PR #26 after its migration, then merge the Vibes PR after the Vibes migration.
+
+## What subscribers can do
+
+- Enter **Vibes** beside Showroom and Bento (desktop sidebar and responsive bottom bar).
+- Publish short posts (0–500 characters) with zero to four photos. A textless photo post is valid.
+- Like/unlike a post, send public replies (1–300 characters), remove their own replies and posts, share the post link and view the author's public profile.
+- Report a post for spam, harassment, unsafe content or another concern. Reports are stored separately for subsequent moderation and investigation.
+- Browse a chronological feed with keyset pagination, and navigate directly to `/vibes?post=<id>` from a shared link or reply notification.
+
+Vibes does **not** implement a second escrow chat, direct message inbox, arbitrary external media URLs, video uploads, followers or algorithmic boosts yet. Subscriber-to-subscriber conversations are public replies; the existing Deals Chat remains tied to bookings.
+
+## Media policy and launch checklist
+
+The community API **always signs image uploads** with a server-held Cloudinary secret. It checks authenticated uploader identity, declared MIME/size, permit expiry, Cloudinary's authoritative resource record and SafeSearch response **before** publication. Allowed: JPEG, PNG, WebP, max 8 MB/image, up to four photos per post.
+
+Media is **disabled by default** until operators supply the existing Vercel secrets and intentionally enable the feature:
+```
+CLOUDINARY_CLOUD_NAME=<your-cloud>
+CLOUDINARY_API_KEY=<your-key>
+CLOUDINARY_API_SECRET=<your-secret>
+GOOGLE_CLOUD_VISION_API_KEY=<your-key>
+VIBES_MEDIA_UPLOADS=enabled
+```
+Never put server Cloudinary secrets in `VITE_*` variables. If Vision is unavailable, photo publication fails closed with a retryable error; text posting continues. Reports have a database queue but the admin-review UI needs its own later QA/release. There is no automatic hard deletion upon reports, avoiding easy coordinated abuse.
+
+## Required SQL migrations
+
+The existing PR #26 migration runs **first**:
+
+```bash
+npm run db:migrate:bento-inbox
+```
+
+Then apply the additive Vibes migration before deploying Vibes code:
+
+```bash
+npm run db:migrate:vibes
+```
+
+SQL: `db/patch-vibes-2026-10.sql`. This creates `vibes_posts`, `vibes_likes`, `vibes_comments`, `vibes_reports`, and `vibes_upload_permits`. No changes to escrows, wallets, Hats, or existing media. Both patches are repeatable and use transactions. Back up production first.
+
+## QA and operational limits
+
+- Server: 10 posts/hour/account; 40 replies/hour/account; 20 photo upload permits/hour/account. Database enforces body and media limits.
+- `npm test` includes `tests/vibes.test.mjs` for auth, likes, post/reply deletion authorization, report dedupe and untrusted upload rejection.
+- Verify mobile 320px and desktop navigation, photo-only/text-only posts, double likes, reply notification, sharing, failed uploads and slow connectivity.
+- For a production launch of public social content, complete a user-report moderation workflow, abuse review procedures, and a published community code of conduct before broader marketing. The API records reports but does not yet expose a complete moderation dashboard.
+
+## Adoption metrics to watch
+
+Activation rate (registered subscribers posting/replying), 7-day returning participants, replies per active poster, image upload error rate and report resolution time. Keep Orbit Score separate from cheap-to-generate Vibes likes; otherwise users can artificially inflate marketplace reputation.

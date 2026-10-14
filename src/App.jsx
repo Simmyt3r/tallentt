@@ -5,6 +5,7 @@ import AuthPage from './pages/AuthPage.jsx'
 import Landing from './pages/Landing.jsx'
 import Layout from './components/Layout.jsx'
 import Feed from './pages/Feed.jsx'
+import Vibes from './pages/Vibes.jsx'
 import HatPage from './pages/HatPage.jsx'
 import PublicProfile from './pages/PublicProfile.jsx'
 import ShowroomPage from './pages/ShowroomPage.jsx'
@@ -40,6 +41,7 @@ export default function App() {
     <Route path="/auth" element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />
     <Route path="/" element={<HomeRoute />} />
     <Route path="/bento" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
+    <Route path="/vibes" element={<ProtectedRoute><Vibes /></ProtectedRoute>} />
     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
     <Route path="/negotiations" element={<ProtectedRoute><Negotiations /></ProtectedRoute>} />
     <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />

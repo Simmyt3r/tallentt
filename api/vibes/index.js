@@ -1,0 +1,272 @@
+// Community posts deliberately do not share escrow messages or Hat media.
+import { randomUUID } from 'node:crypto'
+import { query, getClient } from '../_lib/db.js'
+import { getSessionUser } from '../_lib/auth.js'
+import { json, readBody, methodNotAllowed } from '../_lib/http.js'
+import { uploadCloudCredentials, cloudinaryUploadSignature } from '../_lib/hatMediaUpload.js'
+import { notifyUser } from '../_lib/notifications.js'
+
+const UUID = /^[a-f\d]{8}-[a-f\d]{4}-[1-8][a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i
+const IMAGE_MIMES = new Set(['image/jpeg','image/png','image/webp'])
+const REASONS = new Set(['spam','harassment','unsafe','other'])
+const MAX_IMAGES = 4
+const bad = (status, message) => Object.assign(new Error(message), { status })
+const validId = (value) => UUID.test(String(value || ''))
+const maxBody = (value, max) => typeof value === 'string' ? value.trim().slice(0, max + 1) : ''
+const mediaEnabled = () => process.env.VIBES_MEDIA_UPLOADS === 'enabled'
+
+// Media uploads are only enabled deliberately, with cloud identity and an
+// image safety service configured. Never fall back to unsigned/foreign URLs.
+function mediaConfig() {
+  if (!mediaEnabled()) throw bad(503,'Photo posting is not configured yet. Text posts remain available.')
+  const cloud = uploadCloudCredentials()
+  if (!process.env.GOOGLE_CLOUD_VISION_API_KEY) throw bad(503,'Photo safety screening is not configured.')
+  return cloud
+}
+
+async function signUpload(userId, body) {
+  const mime = String(body.mime || '').toLowerCase()
+  if (!IMAGE_MIMES.has(mime) || !Number.isSafeInteger(body.bytes) || body.bytes < 1 || body.bytes > 8388608)
+    throw bad(400,'Choose a JPG, PNG or WebP image up to 8MB.')
+  const cloud = mediaConfig()
+  const {rows} = await query(
+    "SELECT COUNT(*)::int AS n FROM vibes_upload_permits WHERE user_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",
+    [userId],
+  )
+  if (rows[0].n >= 20) throw bad(429,'Photo upload limit reached. Try again later.')
+  const permitId = randomUUID()
+  const publicId = `chombutar_vibes/${userId}/${permitId}`
+  const params = { public_id: publicId, timestamp: Math.floor(Date.now()/1000), overwrite:'false' }
+  const signature = cloudinaryUploadSignature(params,cloud.apiSecret)
+  await query(`INSERT INTO vibes_upload_permits (id,user_id,public_id,declared_bytes,declared_mime)
+    VALUES ($1,$2,$3,$4,$5)`,[permitId,userId,publicId,body.bytes,mime])
+  return {cloudName:cloud.cloudName, apiKey:cloud.apiKey,permitId,params,signature}
+}
+
+async function verifyUploads(userId, media) {
+  if (!Array.isArray(media) || media.length > MAX_IMAGES) throw bad(400,'Attach up to four photos.')
+  if (!media.length) return []
+  const cloud = mediaConfig()
+  const seen = new Set()
+  return Promise.all(media.map(async (item) => {
+    if (!item || !validId(item.upload_id) || typeof item.public_id !== 'string' ||
+        item.public_id.length > 200 || typeof item.url !== 'string' ||
+        seen.has(item.public_id)) throw bad(422,'Upload each photo through Vibes once.')
+    seen.add(item.public_id)
+    const {rows} = await query(`SELECT id,public_id,declared_bytes,declared_mime FROM vibes_upload_permits
+      WHERE id=$1 AND user_id=$2 AND public_id=$3 AND claimed_at IS NULL AND expires_at>NOW()`,
+    [item.upload_id,userId,item.public_id])
+    const permit=rows[0]
+    if(!permit) throw bad(422,'Photo authorization expired. Reupload this photo.')
+    // Verify actual bytes, resource identity, URL and dimensions from Cloudinary.
+    const resource = `https://api.cloudinary.com/v1_1/${cloud.cloudName}/resources/image/upload/${encodeURIComponent(item.public_id)}`
+    let response
+    try {
+      response=await fetch(resource,{headers:{Authorization:'Basic '+Buffer.from(cloud.apiKey+':'+cloud.apiSecret).toString('base64')},
+        signal:AbortSignal.timeout(9000)})
+    } catch {throw bad(503,'Could not verify the photo with Cloudinary. Retry.') }
+    if(!response.ok) throw bad(422,'Cloudinary has not confirmed this photo.')
+    const asset=await response.json()
+    if(asset.public_id!==permit.public_id || asset.resource_type!=='image' || asset.type!=='upload' ||
+      !Number.isSafeInteger(asset.bytes) || asset.bytes<=0 || asset.bytes>8388608 ||
+      asset.bytes>Math.max(permit.declared_bytes+4096,permit.declared_bytes*1.15) ||
+      asset.secure_url!==item.url || !item.url.startsWith(`https://res.cloudinary.com/${cloud.cloudName}/image/upload/`) ||
+      !Number.isSafeInteger(asset.version) || asset.version<1)
+      throw bad(422,'Photo does not match its upload authorization.')
+    // Fail closed when screening is unreachable. Do not disclose images until a
+    // safety decision has been obtained.
+    let screened
+    try {
+      screened=await fetch('https://vision.googleapis.com/v1/images:annotate',{
+        method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':process.env.GOOGLE_CLOUD_VISION_API_KEY},
+        body:JSON.stringify({requests:[{image:{source:{imageUri:item.url}},features:[{type:'SAFE_SEARCH_DETECTION'}]}]}),
+        signal:AbortSignal.timeout(9000),
+      })
+    } catch {throw bad(503,'Photo safety check is unavailable. Retry shortly.')}
+    if(!screened.ok) throw bad(503,'Photo safety check is unavailable. Retry shortly.')
+    const scan=(await screened.json()).responses?.[0]
+    if(scan?.error || !scan?.safeSearchAnnotation) throw bad(503,'Photo safety check is incomplete.')
+    const safety=scan.safeSearchAnnotation
+    if(['LIKELY','VERY_LIKELY'].includes(safety.adult) ||
+       ['LIKELY','VERY_LIKELY'].includes(safety.violence) ||
+       safety.racy==='VERY_LIKELY')
+      throw bad(422,'This photo requires additional safety review. Choose another photo.')
+    return {upload_id:permit.id,public_id:permit.public_id,url:item.url}
+  }))
+}
+
+async function publish(userId, body) {
+  const text=maxBody(body.text,500)
+  if(text.length>500) throw bad(400,'Posts can contain up to 500 characters.')
+  const verified=await verifyUploads(userId,body.media || [])
+  if(!text && !verified.length) throw bad(400,'Write something or add a photo.')
+  const client=await getClient()
+  try {
+    await client.query('BEGIN')
+    const {rows:recent}=await client.query(
+      "SELECT COUNT(*)::int AS n FROM vibes_posts WHERE author_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",
+      [userId],
+    )
+    if(recent[0].n>=10) throw bad(429,'You have posted frequently. Try again in an hour.')
+    const {rows:[post]}=await client.query(
+      `INSERT INTO vibes_posts (author_id,body,media) VALUES($1,$2,$3::jsonb)
+       RETURNING id`,
+      [userId,text,JSON.stringify(verified.map(({url,public_id})=>({url,public_id,type:'image'})))],
+    )
+    for(const photo of verified) {
+      const {rowCount}=await client.query(`UPDATE vibes_upload_permits SET claimed_at=NOW(),claimed_post_id=$1
+        WHERE id=$2 AND user_id=$3 AND public_id=$4 AND claimed_at IS NULL AND expires_at>NOW()`,
+      [post.id,photo.upload_id,userId,photo.public_id])
+      if(rowCount!==1) throw bad(409,'A photo was already used. Upload it again.')
+    }
+    await client.query('COMMIT')
+    return {id:post.id}
+  } catch(error) {
+    await client.query('ROLLBACK').catch(()=>{})
+    throw error
+  } finally { client.release() }
+}
+
+const PUBLIC_POST = `SELECT p.id,p.body,p.media,p.created_at,p.author_id,
+  u.username,u.full_name,u.avatar_url,u.role,
+  (SELECT COUNT(*)::int FROM vibes_likes l WHERE l.post_id=p.id) AS likes,
+  (SELECT COUNT(*)::int FROM vibes_comments c WHERE c.post_id=p.id AND c.deleted_at IS NULL) AS replies,
+  EXISTS(SELECT 1 FROM vibes_likes l WHERE l.post_id=p.id AND l.user_id=$1) AS liked_by_me
+  FROM vibes_posts p JOIN users u ON u.id=p.author_id
+  WHERE p.deleted_at IS NULL AND p.moderation_status='visible'`
+
+async function feed(userId,url) {
+  const before=url.searchParams.get('before')
+  const specific=url.searchParams.get('post')
+  if((before && !validId(before))||(specific && !validId(specific))) throw bad(400,'Invalid Vibes cursor.')
+  const {rows}=await query(
+    PUBLIC_POST+` AND ($2::uuid IS NULL OR p.id=$2)
+    AND ($3::uuid IS NULL OR (p.created_at,p.id) <
+       (SELECT created_at,id FROM vibes_posts WHERE id=$3))
+    ORDER BY p.created_at DESC,p.id DESC LIMIT 21`,
+    [userId,specific||null,before||null],
+  )
+  return {posts:rows.slice(0,20),nextCursor:rows.length>20?rows[19].id:null}
+}
+
+async function getComments(userId,url) {
+  const post=url.searchParams.get('comments')
+  const before=url.searchParams.get('before')
+  if(!validId(post)||(before&&!validId(before))) throw bad(400,'Invalid comment cursor.')
+  const {rows}=await query(
+    `SELECT c.id,c.post_id,c.author_id,c.body,c.created_at,u.username,u.full_name,u.avatar_url
+     FROM vibes_comments c JOIN users u ON u.id=c.author_id
+     JOIN vibes_posts p ON p.id=c.post_id
+     WHERE c.post_id=$1 AND c.deleted_at IS NULL
+       AND p.deleted_at IS NULL AND p.moderation_status='visible'
+       AND ($2::uuid IS NULL OR (c.created_at,c.id) <
+           (SELECT created_at,id FROM vibes_comments WHERE id=$2 AND post_id=$1))
+     ORDER BY c.created_at DESC,c.id DESC LIMIT 31`,
+    [post,before||null],
+  )
+  return {comments:rows.slice(0,30),nextCursor:rows.length>30?rows[29].id:null}
+}
+
+async function toggleLike(userId,postId) {
+  if(!validId(postId)) throw bad(400,'Invalid post.')
+  const client=await getClient()
+  try {
+    await client.query('BEGIN')
+    const {rows:posts}=await client.query(
+      "SELECT id FROM vibes_posts WHERE id=$1 AND deleted_at IS NULL AND moderation_status='visible' FOR SHARE",[postId])
+    if(!posts.length) throw bad(404,'Post unavailable.')
+    const removed=await client.query('DELETE FROM vibes_likes WHERE post_id=$1 AND user_id=$2 RETURNING user_id',[postId,userId])
+    let liked=false
+    if(!removed.rowCount) {
+      const inserted=await client.query(
+        'INSERT INTO vibes_likes(post_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING user_id',
+        [postId,userId])
+      liked=inserted.rowCount>0
+    }
+    const {rows:[count]}=await client.query('SELECT COUNT(*)::int AS likes FROM vibes_likes WHERE post_id=$1',[postId])
+    await client.query('COMMIT')
+    return {liked,likes:count.likes}
+  } catch(error){await client.query('ROLLBACK').catch(()=>{});throw error}
+  finally{client.release()}
+}
+
+async function comment(userId,postId,body) {
+  if(!validId(postId)) throw bad(400,'Invalid post.')
+  const text=maxBody(body.text,300)
+  if(!text||text.length>300) throw bad(400,'Reply must have 1–300 characters.')
+  const {rows:limit}=await query(
+    "SELECT COUNT(*)::int AS n FROM vibes_comments WHERE author_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",
+    [userId],
+  )
+  if(limit[0].n>=40) throw bad(429,'Reply limit reached. Try again later.')
+  const {rows}=await query(
+    `INSERT INTO vibes_comments(post_id,author_id,body)
+     SELECT p.id,$2,$3 FROM vibes_posts p WHERE p.id=$1 AND p.deleted_at IS NULL
+       AND p.moderation_status='visible'
+     RETURNING id`,[postId,userId,text],
+  )
+  if(!rows.length) throw bad(404,'Post unavailable.')
+  const {rows:owner}=await query('SELECT author_id FROM vibes_posts WHERE id=$1',[postId])
+  if(owner[0]?.author_id!==userId) {
+    await notifyUser({userId:owner[0].author_id,type:'vibes_reply',title:'Someone replied to your Vibe',
+      body:'Open your post to see the new reply.',linkUrl:`/vibes?post=${postId}`,metadata:{post_id:postId}})
+  }
+  return {id:rows[0].id}
+}
+
+async function modify(userId,body) {
+  const postId=body.post_id
+  if(!validId(postId)) throw bad(400,'Invalid post.')
+  if(body.action==='like') return toggleLike(userId,postId)
+  if(body.action==='reply') return comment(userId,postId,body)
+  if(body.action==='delete') {
+    const {rowCount}=await query(
+      'UPDATE vibes_posts SET deleted_at=NOW() WHERE id=$1 AND author_id=$2 AND deleted_at IS NULL',
+      [postId,userId])
+    if(!rowCount) throw bad(404,'Your post was not found.')
+    return {deleted:true}
+  }
+  if(body.action==='delete_reply') {
+    if(!validId(body.comment_id)) throw bad(400,'Invalid reply.')
+    const {rowCount}=await query(
+      'UPDATE vibes_comments SET deleted_at=NOW() WHERE id=$1 AND post_id=$2 AND author_id=$3 AND deleted_at IS NULL',
+      [body.comment_id,postId,userId])
+    if(!rowCount) throw bad(404,'Your reply was not found.')
+    return {deleted:true}
+  }
+  if(body.action==='report') {
+    if(!REASONS.has(body.reason)) throw bad(400,'Select a report reason.')
+    const {rowCount}=await query(
+      `INSERT INTO vibes_reports(post_id,reporter_id,reason)
+       SELECT id,$2,$3 FROM vibes_posts
+       WHERE id=$1 AND deleted_at IS NULL AND moderation_status='visible' AND author_id<>$2
+       ON CONFLICT(post_id,reporter_id) DO NOTHING`,[postId,userId,body.reason])
+    return {reported:rowCount>0}
+  }
+  throw bad(400,'Unknown Vibes action.')
+}
+
+export default async function handler(req,res) {
+  const session=getSessionUser(req)
+  if(!session?.sub) return json(res,401,{error:'Sign in to use Vibes.'})
+  res.setHeader('Cache-Control','private, no-store')
+  try {
+    if(req.method==='GET') {
+      const url=new URL(req.url,`http://${req.headers.host}`)
+      return json(res,200,url.searchParams.has('comments')
+        ? await getComments(session.sub,url)
+        : await feed(session.sub,url))
+    }
+    if(req.method==='POST') {
+      const body=await readBody(req)
+      if(!body || typeof body!=='object' || Array.isArray(body)) throw bad(400,'Invalid Vibe request.')
+      if(body.action==='upload_sign') return json(res,200,await signUpload(session.sub,body))
+      if(body.action==='publish') return json(res,201,await publish(session.sub,body))
+      return json(res,200,await modify(session.sub,body))
+    }
+    return methodNotAllowed(res,['GET','POST'])
+  } catch(error) {
+    if(!error.status) console.error('Vibes request failed:',error)
+    return json(res,error.status||500,{error:error.status?error.message:'Could not complete the Vibes request.'})
+  }
+}

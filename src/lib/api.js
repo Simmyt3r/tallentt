@@ -100,6 +100,16 @@ export const api = {
   request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'view' }) }),
   toggleLike: (id) =>
   request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'like' }) }),
+  getVibes: (before, post) => request(`/api/vibes?${new URLSearchParams({
+    ...(before ? { before } : {}), ...(post ? { post } : {}),
+  })}`),
+  getVibeReplies: (postId, before) => request(`/api/vibes?${new URLSearchParams({
+    comments: postId, ...(before ? { before } : {}),
+  })}`),
+  publishVibe: (text, media = []) => request('/api/vibes', {
+    method: 'POST', body: JSON.stringify({ action: 'publish', text, media }),
+  }),
+  vibeAction: (body) => request('/api/vibes', { method: 'POST', body: JSON.stringify(body) }),
   getShowroom: (options = {}) => {
     const params = new URLSearchParams()
     for (const key of ['view', 'category', 'search', 'cursor']) {
@@ -341,6 +351,28 @@ export async function uploadToCloudinary(file, options = {}) {
     type: file.type?.startsWith('audio/') ? 'audio' : (data.resource_type || 'image'),
     ...(signed ? { upload_id: permit.permitId } : {}),
   }
+}
+
+// Strict Vibes upload path: signed only, and no unsigned Cloudinary fallback.
+export async function uploadVibePhoto(file) {
+  if (!file || !['image/jpeg','image/png','image/webp'].includes(file.type) ||
+      file.size < 1 || file.size > 8 * 1024 * 1024) {
+    throw new Error('Choose a JPG, PNG or WebP image up to 8MB.')
+  }
+  const signed = await api.vibeAction({ action: 'upload_sign', mime: file.type, bytes: file.size })
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('api_key', signed.apiKey)
+  fd.append('signature', signed.signature)
+  for (const [key, value] of Object.entries(signed.params)) fd.append(key, String(value))
+  const result = await fetch(`https://api.cloudinary.com/v1_1/${signed.cloudName}/image/upload`, {
+    method: 'POST', body: fd,
+  })
+  const data = await result.json().catch(() => ({}))
+  if (!result.ok) throw new Error(data.error?.message || 'Photo upload failed.')
+  if (data.public_id !== signed.params.public_id || data.resource_type !== 'image' ||
+      !data.secure_url) throw new Error('Uploaded photo did not match its authorization.')
+  return { upload_id: signed.permitId, public_id: data.public_id, url: data.secure_url }
 }
 
 // Opens the Paystack Inline popup and resolves with the transaction
