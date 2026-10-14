@@ -53,7 +53,7 @@ function mapNotification(row) {
 
 export async function getNotificationCount(userId) {
   const { rows } = await query(
-    `SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL`,
+    `SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL AND deleted_at IS NULL`,
     [userId],
   )
   return Number(rows[0]?.count || 0)
@@ -71,7 +71,7 @@ export async function getNotificationInbox(userId, before = null) {
     query(
       `SELECT id, type, title, body, link_url, metadata, read_at, created_at
        FROM notifications
-       WHERE user_id = $1
+       WHERE user_id = $1 AND deleted_at IS NULL
          AND ($2::uuid IS NULL OR (created_at, id) <
            (SELECT created_at, id FROM notifications WHERE id = $2 AND user_id = $1))
        ORDER BY created_at DESC, id DESC
@@ -94,7 +94,7 @@ export async function markNotificationRead(userId, notificationId) {
   const { rows } = await query(
     `UPDATE notifications
      SET read_at = COALESCE(read_at, NOW())
-     WHERE id = $1 AND user_id = $2
+     WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
      RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
     [notificationId, userId],
   )
@@ -105,7 +105,31 @@ export async function markAllNotificationsRead(userId) {
   const { rowCount } = await query(
     `UPDATE notifications
      SET read_at = NOW()
-     WHERE user_id = $1 AND read_at IS NULL`,
+     WHERE user_id = $1 AND read_at IS NULL AND deleted_at IS NULL`,
+    [userId],
+  )
+  return rowCount || 0
+}
+
+// Recipient-only deletion retains financial/dispute audit records.
+export async function deleteNotification(userId, notificationId) {
+  if (!UUID_RE.test(String(notificationId || '').trim())) {
+    const error = new Error('Invalid notification ID.')
+    error.status = 400
+    throw error
+  }
+  const { rowCount } = await query(
+    `UPDATE notifications SET deleted_at = NOW(), read_at = COALESCE(read_at, NOW())
+     WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+    [notificationId, userId],
+  )
+  return rowCount > 0
+}
+
+export async function clearNotifications(userId) {
+  const { rowCount } = await query(
+    `UPDATE notifications SET deleted_at = NOW(), read_at = COALESCE(read_at, NOW())
+     WHERE user_id = $1 AND deleted_at IS NULL`,
     [userId],
   )
   return rowCount || 0
