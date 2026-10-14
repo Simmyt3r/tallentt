@@ -71,9 +71,13 @@ export default function Showroom() {
   useEffect(() => {
     if (new URLSearchParams(location.search).get('focus') === 'search') {
       setSearchOpen(true)
-      requestAnimationFrame(() => searchRef.current?.focus())
     }
   }, [location.search])
+
+  // Focus after React has actually mounted the conditional search input.
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus()
+  }, [searchOpen])
 
   // ── ui ────────────────────────────────────────────────────────────────
   const [muted, setMuted] = useState(false) // shared across posts; sound on by default
@@ -605,7 +609,7 @@ export default function Showroom() {
             aria-expanded={searchOpen} aria-controls="showroom-search"
             onClick={() => {
               if (searchOpen) { setSearch(''); setSearchOpen(false) }
-              else { setSearchOpen(true); requestAnimationFrame(() => searchRef.current?.focus()) }
+              else setSearchOpen(true)
             }}
             className="h-10 w-10 shrink-0 grid place-items-center rounded-full border border-black/15 bg-white hover:bg-[#E7E9FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6]">
             {searchOpen ? <X size={19} aria-hidden="true" /> : <Search size={19} aria-hidden="true" />}
