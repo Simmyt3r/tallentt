@@ -75,6 +75,10 @@ export async function saveHatPresentation(userId, hatId, data) {
      RETURNING hat_id, accent, template, bento_mode, flyer_public_id`,
     [hatId, userId, data.accent, data.template, data.bentoMode || 'standard', data.flyerPublicId || null],
   )
-  if (!rows.length) throw Object.assign(new Error('Hat not found or flier image is not approved for this Hat.'), { status: 400 })
+  if (!rows.length) {
+    const { rows: owned } = await query('SELECT 1 FROM hats WHERE id = $1 AND user_id = $2', [hatId, userId])
+    if (!owned.length) throw Object.assign(new Error('Only the Hat owner can customize its appearance.'), { status: 403 })
+    throw Object.assign(new Error('Choose an approved image already uploaded to this Hat.'), { status: 400 })
+  }
   return rows[0]
 }
