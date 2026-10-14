@@ -88,10 +88,10 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ action: 'set_feed_visibility', feed_visible: visible, negotiation_fee_confirmed: confirmed }),
     }),
-  updateHatStyle: (id, accent, template) =>
+  updateHatStyle: (id, accent, template, bentoMode = 'standard', flyerPublicId = null) =>
     request(`/api/hats/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ action: 'set_card_style', accent, template }),
+      body: JSON.stringify({ action: 'set_card_style', accent, template, bentoMode, flyerPublicId }),
     }),
   deleteHat: (id) => request(`/api/hats/${id}`, { method: 'DELETE' }),
   recordView: (id) =>
