@@ -107,10 +107,10 @@ export default function Layout({ children }) {
 
           <div className="flex shrink-0 items-center gap-1 md:gap-2">
             <nav className="flex shrink-0 items-center gap-1 md:gap-2" aria-label="Quick actions">
-              <Link to="/showroom?focus=search" aria-label="Search" title="Search creators"
+              {!location.pathname.startsWith('/showroom') && <Link to="/showroom?focus=search" aria-label="Search" title="Search creators"
                 className={QUICK_ACTION}>
                 <Search size={19} aria-hidden="true" />
-              </Link>
+              </Link>}
               <Link to="/create" aria-label="Create Hat" title="Create Hat"
                 className={`${QUICK_ACTION} hidden min-[375px]:flex`}>
                 <Plus size={21} aria-hidden="true" />
