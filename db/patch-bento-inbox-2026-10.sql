@@ -1,6 +1,14 @@
 -- chombuTar: per-Hat Bento flier layout and private inbox cleanup.
 -- Safe for existing data. Apply BEFORE deploying this feature.
 BEGIN;
+CREATE TABLE IF NOT EXISTS hat_presentation (
+  hat_id UUID PRIMARY KEY REFERENCES hats(id) ON DELETE CASCADE,
+  accent TEXT NOT NULL DEFAULT 'electric'
+    CHECK (accent IN ('electric','coral','forest','violet','rose','slate','ocean','amber')),
+  template TEXT NOT NULL DEFAULT 'minimal'
+    CHECK (template IN ('minimal','bold','media-first','editorial','dark')),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 ALTER TABLE hat_presentation
   ADD COLUMN IF NOT EXISTS bento_mode TEXT NOT NULL DEFAULT 'standard';
 ALTER TABLE hat_presentation
