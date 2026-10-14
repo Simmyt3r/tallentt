@@ -1,7 +1,7 @@
 // Path: src/components/BottomNav.jsx
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Handshake, Home, LayoutGrid, Radio } from 'lucide-react'
+import { Handshake, Store, Briefcase, LayoutGrid, Radio } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
@@ -12,7 +12,7 @@ function BottomNavLink({ to, end, icon: Icon, label, badge = 0 }) {
       to={to}
       end={end}
       className={({ isActive }) =>
-        `relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full text-[10.5px] font-bold transition-colors ${
+        `relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full text-[10px] min-w-0 font-bold transition-colors ${
           isActive ? 'text-[#0A13E6]' : 'text-black/45'
         }`
       }
@@ -67,8 +67,9 @@ export default function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       aria-label="Primary"
     >
-      <BottomNavLink to="/showroom" icon={Home} label="Home" />
+      <BottomNavLink to="/showroom" icon={Store} label="Showroom" />
       <BottomNavLink to="/bento" icon={LayoutGrid} label="Bento" />
+      <BottomNavLink to="/my-hats" icon={Briefcase} label="My Hats" />
       <BottomNavLink to="/deals" icon={Handshake} label="My Deals" badge={pendingDeals} />
       <BottomNavLink to="/live" icon={Radio} label="Live" />
     </nav>
