@@ -196,6 +196,12 @@ export const api = {
   generateBookingQr: (id, stage) => request(`/api/escrows/${id}/generate-qr`, { method: 'POST', body: JSON.stringify({ stage }) }),
   redeemBookingQr: (id, token) => request(`/api/escrows/${id}/redeem-qr`, { method: 'POST', body: JSON.stringify({ token }) }),
   hideConversation: (escrow_id) => request('/api/escrows', { method: 'POST', body: JSON.stringify({ action: 'hide_conversation', escrow_id }) }),
+  getDealCall: (escrow_id,after=0) => request(`/api/escrows?${new URLSearchParams({
+    deal_call:'1',escrow_id,after:String(after),
+  })}`),
+  dealCallAction: (body) => request('/api/escrows',{
+    method:'POST',body:JSON.stringify(body),
+  }),
   getConversations: (before) => request(`/api/escrows?conversations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
   getNegotiations: (before) => request(`/api/escrows?negotiations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
   getMessages: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
