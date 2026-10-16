@@ -114,17 +114,17 @@ export default function MyHats() {
             <div key={h.id} className="relative group space-y-2">
               <div className="relative">
                 <BentoCard hat={h} onHatChange={handleHatChange} />
-                <div className="absolute top-14 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition">
+                <div className="absolute top-14 right-3 flex gap-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition">
                   <Link
                     to={`/create?edit=${h.id}`}
-                    className="w-8 h-8 bg-white rounded-full shadow border-[1.5px] border-black flex items-center justify-center hover:bg-black hover:text-white transition"
+                    className="w-10 h-10 bg-white rounded-full shadow border-[1.5px] border-black flex items-center justify-center hover:bg-black hover:text-white transition"
                   >
                     <Pencil size={13} />
                   </Link>
                   <button
                     type="button"
                     onClick={() => handleDelete(h.id)}
-                    className="w-8 h-8 bg-white rounded-full shadow border-[1.5px] border-black flex items-center justify-center text-red-600 hover:bg-red-600 hover:text-white transition"
+                    className="w-10 h-10 bg-white rounded-full shadow border-[1.5px] border-black flex items-center justify-center text-red-600 hover:bg-red-600 hover:text-white transition"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -149,7 +149,7 @@ export default function MyHats() {
         <ul className="bg-white rounded-[20px] border-[1.5px] border-black divide-y divide-black/10 overflow-hidden">
           {hats.map((h) => (
             <li key={h.id} className="hover:bg-[#F5F3EF]/50 transition">
-              <div className="flex items-center gap-4 p-4">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 p-4">
                 <div className="w-12 h-12 rounded-[12px] bg-[#F5F3EF] overflow-hidden shrink-0 border-[1.5px] border-black/10">
                   {h.media?.[0]?.url &&
                     (h.media[0].type === 'video' ? (
@@ -173,13 +173,15 @@ export default function MyHats() {
                 </button>
                 <Link
                   to={`/create?edit=${h.id}`}
-                  className="w-9 h-9 rounded-full border-[1.5px] border-black/10 flex items-center justify-center text-black/50 hover:border-black hover:text-black transition"
+                  aria-label={`Edit ${h.hat_title}`}
+                  className="w-10 h-10 rounded-full border-[1.5px] border-black/10 flex items-center justify-center text-black/50 hover:border-black hover:text-black transition"
                 >
                   <Pencil size={14} />
                 </Link>
                 <button
                   type="button"
                   onClick={() => handleDelete(h.id)}
+                  aria-label={`Delete ${h.hat_title}`}
                   className="w-9 h-9 rounded-full border-[1.5px] border-black/10 flex items-center justify-center text-black/50 hover:border-red-500 hover:text-red-600 transition"
                 >
                   <Trash2 size={14} />
