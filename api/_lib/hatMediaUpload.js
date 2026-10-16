@@ -104,6 +104,16 @@ export async function verifyNewHatMedia(userId, mediaList, previousMedia = [], {
           if (vibes.length) continue
         }
       }
+      // Standalone gallery media becomes marketable only after the owner
+      // explicitly attaches its approved file to a real Hat.
+      const {rows:galleryReady}=await query("SELECT to_regclass('showroom_gallery_posts') AS name")
+      if(galleryReady[0]?.name) {
+        const {rows:gallery}=await query(`SELECT 1 FROM showroom_gallery_posts
+          WHERE author_id=$1 AND public_id=$2 AND media_url=$3
+            AND media_type=$4 AND moderation_status='visible'
+            AND deleted_at IS NULL LIMIT 1`,[userId,m.public_id,m.url,m.type])
+        if(gallery.length) continue
+      }
       throw bad(422,'Archived media is unavailable or does not belong to your account.')
     }
     if (!validUUID(m.upload_id)) throw bad(422,'New media must be uploaded through the secure uploader.')
