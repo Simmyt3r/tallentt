@@ -275,9 +275,9 @@ export default function Vibes() {
       <div className="flex gap-3">
         <Avatar user={user}/>
         <div className="min-w-0 flex-1">
-          <label htmlFor="vibe-text" className="sr-only">What’s on your mind?</label>
+          <label htmlFor="vibe-text" className="sr-only">Say something…</label>
           <textarea id="vibe-text" value={text} onChange={e=>setText(e.target.value)}
-            maxLength={500} rows={3} placeholder="What’s on your mind?"
+            maxLength={500} rows={3} placeholder="Say something…"
             className="w-full resize-y rounded-xl border-0 bg-[#F7F3EB] p-3 text-[13px] outline-none focus:ring-2 focus:ring-[#0A13E6]"/>
           <div className="mt-1 text-right text-[10px] text-black/40">{text.length}/500</div>
         </div>
