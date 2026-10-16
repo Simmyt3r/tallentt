@@ -126,7 +126,17 @@ export default function Showroom() {
   const filtersKeyRef = useRef(filtersKey)
   filtersKeyRef.current = filtersKey
   const applyList = useCallback((data, append = false) => {
-    const hats = [...(data.hats || []), ...(data.galleryPosts || [])]
+    const commercial = data.hats || []
+    const showcases = data.galleryPosts || []
+    // Preserve the curated Hat ranking while ensuring showcase posts are
+    // actually discoverable, not buried below every commercial listing.
+    const hats = []
+    let i=0,j=0
+    while(i<commercial.length || j<showcases.length) {
+      for(let n=0;n<2 && i<commercial.length;n++) hats.push(commercial[i++])
+      if(j<showcases.length) hats.push(showcases[j++])
+      if(i>=commercial.length && j<showcases.length) hats.push(showcases[j++])
+    }
     setHatMap((prev) => {
       const next = { ...prev }
       for (const hat of hats) next[hat.id] = hat
