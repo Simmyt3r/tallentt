@@ -17,6 +17,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   const { user } = useAuth()
   const [step, setStep] = useState(1)
   const [myHats, setMyHats] = useState([])
+  const [mediaLibrary, setMediaLibrary] = useState([])
   const [loadingHats, setLoadingHats] = useState(false)
   const [selectedHat, setSelectedHat] = useState(null)
   const [pendingMedia, setPendingMedia] = useState(null) // { url, public_id, type }
@@ -45,6 +46,18 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
       cancelled = true
     }
   }, [open, user?.id])
+
+  useEffect(() => {
+    if (!open || !user?.id) return undefined
+    let canceled=false
+    api.getMyMedia().then(data => {
+      if(!canceled) setMediaLibrary((data.media || []).filter(item =>
+        ['image','video'].includes(item.type) && ['legacy','passed'].includes(item.screening_status)))
+    }).catch(() => {
+      if(!canceled) setMediaLibrary([])
+    })
+    return () => { canceled=true }
+  }, [open,user?.id])
 
   if (!open) return null
 
@@ -230,6 +243,26 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
                   disabled={uploading}
                 />
               </label>
+              {mediaLibrary.length > 0 && (
+                <section className="space-y-2" aria-label="Choose from your media library">
+                  <p className="text-[12px] font-bold">Or choose from your Media Library</p>
+                  <p className="text-[11px] text-black/55">Approved media from your existing Hats. You do not need to upload it again.</p>
+                  <div className="grid grid-cols-3 gap-2 max-h-[220px] overflow-y-auto">
+                    {mediaLibrary.slice(0,24).map(item => (
+                      <button key={item.public_id} type="button"
+                        disabled={uploading} onClick={() => {setPendingMedia({
+                          url:item.url, public_id:item.public_id, type:item.type,
+                        });setCaption(item.caption || '');setStep(3)}}
+                        aria-label={`Use archived media: ${item.caption || item.source_title || item.type}`}
+                        className="relative aspect-square overflow-hidden rounded-xl border border-black/15 focus-visible:outline-2 focus-visible:outline-[#0A13E6]">
+                        <img src={item.type === 'video' ? cldVideoPoster(item.url,{w:160,h:160}) :
+                          cldImage(item.url,{w:160,h:160})} alt="" className="h-full w-full object-cover" />
+                        {item.type === 'video' && <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-1 text-[9px] font-bold text-white">Video</span>}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
           )}
 
