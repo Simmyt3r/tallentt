@@ -267,7 +267,7 @@ export default function Vibes() {
     <div className="flex items-end justify-between">
       <div>
         <h1 className="text-[23px] font-black tracking-tight">Hits & Vibes</h1>
-        <p className="text-[12px] text-black/50">Share a moment. Meet the community.</p>
+        <p className="text-[12px] text-black/50">Share your thoughts, photos and everyday moments with the community.</p>
       </div>
       <span className="rounded-full border border-black/10 bg-white px-3 py-1.5 text-[11px] font-bold">Vibes</span>
     </div>
