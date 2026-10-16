@@ -83,6 +83,7 @@ function ShowroomPost({
       }`}
     >
       <div className="relative flex-1 min-h-0 bg-[#0b0b0b]">
+        {hat.is_entertainment && <span className="pointer-events-none absolute top-3 left-3 z-10 rounded-full bg-black/75 px-3 py-1.5 text-[10px] font-bold text-white">Showcase · no booking</span>}
         <ShowroomMedia
           media={media}
           alt={caption || `${ownerName}'s Showroom ${isVideo ? 'video' : 'post'}`}
@@ -102,7 +103,6 @@ function ShowroomPost({
         </div>}
       </div>
 
-      {hat.is_entertainment && <span className="absolute top-3 left-3 z-10 rounded-full bg-black/75 px-3 py-1.5 text-[10px] font-bold text-white">Showcase · no booking</span>}
       <div className={`shrink-0 flex items-center gap-0.5 px-2 sm:px-3 pt-1 ${
         surface
       }`}>
