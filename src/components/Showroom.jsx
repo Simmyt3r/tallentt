@@ -148,7 +148,7 @@ export default function Showroom() {
       return [...prev, ...hats.filter((hat) => !seen.has(hat.id)).map((hat) => hat.id)]
     })
     if (!append || data.nextCursor !== undefined) setNextCursor(data.nextCursor || null)
-    if (!append || (data.galleryPosts && data.galleryPosts.length)) setGalleryCursor(data.galleryNextCursor || null)
+    if (!append || data.galleryNextCursor !== undefined) setGalleryCursor(data.galleryNextCursor || null)
     setNearbyAvailable(data.nearbyAvailable !== false)
     if (data.categories) setCategories(data.categories)
   }, [])
