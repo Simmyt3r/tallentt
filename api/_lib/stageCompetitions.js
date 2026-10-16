@@ -100,7 +100,9 @@ export async function stageCompetitionAction(userId,body) {
     if(action==='stage_join') {
       if(comp.status!=='registration')throw bad(409,'Registration has closed.')
       if(comp.host_id===userId)throw bad(403,'The event host cannot enter their own competition.')
-      const {rows:role}=await client.query("SELECT role FROM users WHERE id=$1",[userId])
+      // Lock the subscriber across competitions to prevent simultaneous joins
+      // racing past the cross-competition exclusivity check.
+      const {rows:role}=await client.query("SELECT role FROM users WHERE id=$1 FOR UPDATE",[userId])
       if(!['talent','dual'].includes(role[0]?.role))throw bad(403,'Only Talent accounts may compete.')
       const streamId=requiredId(body.stream_id)
       const {rows:streams}=await client.query(`SELECT id FROM live_streams
