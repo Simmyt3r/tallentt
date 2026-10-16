@@ -59,8 +59,8 @@ export async function requestPasswordReset(req, email) {
       headers: { Authorization: 'Bearer ' + cfg.key, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: cfg.from, to: [normalized], subject: 'Reset your ChombuTar password',
-        text: 'A password reset was requested for your ChombuTar account.\\n\\nUse this single-use link within 30 minutes:\\n' + link +
-          '\\n\\nIf you did not request this, ignore this message. Never share this link.',
+        text: 'A password reset was requested for your ChombuTar account.\n\nUse this single-use link within 30 minutes:\n' + link +
+          '\n\nIf you did not request this, ignore this message. Never share this link.',
       }),
       signal: AbortSignal.timeout(10000),
     })
