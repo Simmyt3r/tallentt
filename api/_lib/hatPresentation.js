@@ -1,6 +1,7 @@
 import { query } from './db.js'
 
 export const HAT_ACCENTS = Object.freeze({
+  none: 'transparent',
   electric: '#0A13E6',
   coral: '#DC4F36',
   forest: '#21764C',
@@ -18,7 +19,7 @@ export async function ensureHatPresentationStorage() {
   ready = query(`CREATE TABLE IF NOT EXISTS hat_presentation (
     hat_id UUID PRIMARY KEY REFERENCES hats(id) ON DELETE CASCADE,
     accent TEXT NOT NULL DEFAULT 'electric'
-      CHECK (accent IN ('electric','coral','forest','violet','rose','slate','ocean','amber')),
+      CHECK (accent IN ('none','electric','coral','forest','violet','rose','slate','ocean','amber')),
     template TEXT NOT NULL DEFAULT 'minimal'
       CHECK (template IN ('minimal','bold','media-first','editorial','dark')),
     bento_mode TEXT NOT NULL DEFAULT 'standard' CHECK (bento_mode IN ('standard', 'flyer')),
