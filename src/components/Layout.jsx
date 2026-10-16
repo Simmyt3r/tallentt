@@ -1,6 +1,6 @@
 // Path: src/components/Layout.jsx
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, Search, Plus, MessageCircle } from 'lucide-react'
+import { Menu, Search, Plus, MessageCircle, Radio } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
@@ -93,8 +93,8 @@ export default function Layout({ children }) {
             {/* On smaller phones, show just the logo so the quick actions
                 remain individually accessible and never squeeze the header. */}
             <div className="flex min-w-0 items-center gap-2 md:hidden">
-              <img src="/logo.png" alt="ChombuTar" className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full object-cover" />
-              <h1 className="hidden min-[480px]:block min-w-0 truncate text-left text-[17px] font-black tracking-tight">
+              <img src="/logo.png" alt="ChombuTar" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+              <h1 className="block min-w-0 truncate text-left text-[13px] min-[375px]:text-[15px] font-black tracking-tight">
                 ChombuTar
               </h1>
             </div>
@@ -111,8 +111,11 @@ export default function Layout({ children }) {
                 className={QUICK_ACTION}>
                 <Search size={19} aria-hidden="true" />
               </Link>}
+              <Link to="/live" aria-label="Live" title="Watch live" className={QUICK_ACTION}>
+                <Radio size={19} aria-hidden="true" />
+              </Link>
               <Link to="/create" aria-label="Create Hat" title="Create Hat"
-                className={`${QUICK_ACTION} hidden min-[375px]:flex`}>
+                className={`${QUICK_ACTION} hidden sm:flex`}>
                 <Plus size={21} aria-hidden="true" />
               </Link>
               <Link to="/messages" aria-label="Messages" title="Messages"
