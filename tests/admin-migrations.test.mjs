@@ -116,12 +116,44 @@ test('failure writing migration history rolls back schema, history and success a
   }
 })
 
+test('concurrent migration requests are serialized and rejected until lock released', {
+  skip: !process.env.TEST_DATABASE_URL && 'Requires independent PostgreSQL connections',
+},async()=>{
+  const item=await statusOf(secondId)
+  const payload={method:'POST',action:'apply_db_migration',
+    migrationId:secondId,checksum:item.checksum,confirm:'APPLY '+secondId}
+  const guard=await pool.connect()
+  try {
+    await guard.query('BEGIN')
+    await guard.query('SELECT pg_advisory_xact_lock(154715,202610)')
+    const attempts=await Promise.all([request(payload),request(payload)])
+    for(const response of attempts) {
+      assert.equal(response.status,409,JSON.stringify(response.body))
+      assert.match(response.body.error,/already running/i)
+    }
+    assert.equal((await pool.query("SELECT to_regclass('vibes_posts') AS name")).rows[0].name,null)
+    assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM chombutar_schema_migrations WHERE migration_id=$1',[secondId])).rows[0].n,0)
+  } finally {
+    await guard.query('ROLLBACK')
+    guard.release()
+  }
+  const recovered=await request(payload)
+  assert.equal(recovered.status,200,JSON.stringify(recovered.body))
+  assert.equal(recovered.body.status,'applied')
+  const replay=await request(payload)
+  assert.equal(replay.status,200)
+  assert.equal(replay.body.status,'already_applied')
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM chombutar_schema_migrations WHERE migration_id=$1',[secondId])).rows[0].n,1)
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM admin_audit_logs WHERE action='apply_db_migration' AND metadata->>'migrationId'=$1",[secondId])).rows[0].n,1)
+})
+
 test('Vibes migration creates its structures and has its own independent history',async()=>{
   const item=await statusOf(secondId)
-  assert.equal(item.status,'pending')
+  assert.ok(['pending','applied'].includes(item.status))
   const applied=await request({method:'POST',action:'apply_db_migration',
     migrationId:secondId,checksum:item.checksum,confirm:'APPLY '+secondId})
   assert.equal(applied.status,200,JSON.stringify(applied.body))
+  assert.ok(['applied','already_applied'].includes(applied.body.status))
   assert.equal((await statusOf(secondId)).status,'applied')
   assert.ok((await pool.query("SELECT to_regclass('vibes_posts') AS table_name")).rows[0].table_name)
   assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM chombutar_schema_migrations')).rows[0].n,2)
