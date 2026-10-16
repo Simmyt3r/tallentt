@@ -1,5 +1,6 @@
 // Path: api/admin/index.js
 import { query, getClient } from '../_lib/db.js'
+import { adminMigrationStatus, applyAdminMigration } from '../_lib/adminMigrations.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { bookingLifecycle, listDisputes, getDispute } from '../_lib/bookingLifecycle.js'
@@ -36,6 +37,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
+      if (params.get('action') === 'db_migrations') return json(res, 200, await adminMigrationStatus())
       if (params.get('action') === 'push_config') return json(res, 200, await getAdminVapidStatus())
       if (params.get('action') === 'showroom_reports') return json(res, 200, await getShowroomReviewQueue())
       if (params.get('action') === 'showroom_appeals') return json(res, 200, await showroomAppealsQueue())
@@ -270,6 +272,8 @@ async function handleAdminAction(admin, body) {
   if (['resolve_release', 'resolve_refund'].includes(action)) {
     return bookingLifecycle(admin.id, body.escrow_id, action, body, true)
   }
+
+  if (action === 'apply_db_migration') return applyAdminMigration(admin.id, body)
 
   if (action === 'generate_vapid') {
     const result = await generateAdminVapidConfig(admin.id, body.subject)
