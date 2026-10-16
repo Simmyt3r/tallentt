@@ -72,6 +72,51 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 
 Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
 
+
+## Admin migration and recovery rollout (October 2026)
+
+The Admin Command Center now provides an allowlisted **Database Migrations** panel at
+`/admin?tab=migrations`. Back up production first and apply pending patches
+in the order shown by that panel:
+
+1. Bento fliers and inbox management (only if not previously installed)
+2. No-accent Bento option (depends on `hat_presentation`)
+3. Hits & Vibes (only if not previously installed)
+4. Showroom owner removal
+5. Password recovery
+
+Applying a patch records its checksum and Admin identity. A changed checksum
+requires a reviewed follow-up migration, not an unsafe forced replay.
+Showroom removal only hides an owner's listing from the discovery feed.
+It does **not** delete the underlying Hat, files, financial records or deals.
+
+Password recovery is delivered by Resend. Before enabling it on a deployment,
+configure the following **server-side** environment variables in Vercel:
+
+```env
+APP_PUBLIC_URL=https://your-chombutar-domain.example
+RESEND_API_KEY=<resend-api-key>
+PASSWORD_RESET_FROM=ChombuTar <security@your-verified-domain.example>
+```
+
+The sender domain must be verified with your email provider, and the app's
+HTTPS public URL must point to the same deployed environment. Never put the
+Resend secret in a `VITE_` variable. Password recovery returns a generic
+response for existing and non-existing addresses. Reset links expire in
+30 minutes, are one-use, and their raw tokens are never stored in PostgreSQL.
+
+**Vibes media:** Text posts work through `/api/vibes`. Photo posts require
+`VIBES_MEDIA_UPLOADS=enabled`, valid signed Cloudinary server credentials
+and `GOOGLE_CLOUD_VISION_API_KEY` for fail-closed media screening.
+Vibes does not currently offer arbitrary audio/video uploads.
+
+**Wallet:** Paystack funding methods are controlled by the provider and
+merchant configuration. Webhook and reference-verification paths exist; an
+actual production top-up, bank transfer, or USSD payment must be separately
+tested against the configured merchant account. Do not claim all methods
+are enabled solely because the Paystack pop-up is integrated.
+
+
 ## 5. Notifications and Web Push
 
 Signed-in users have a full Notifications page plus optional standards-based Web Push. The in-app notification row remains the source of truth; browser push is a best-effort delivery channel and can never roll back or block a booking, wallet, escrow, QR, delivery, or dispute transaction.
