@@ -64,15 +64,37 @@ export default async function handler(req, res) {
       // serverless function cap after adding /api/admin.
       if (url.searchParams.get('my_media') === '1') {
         if (!session?.sub) return json(res,401,{error:'Sign in to view your media library.'})
-        const {rows} = await query(`SELECT DISTINCT ON(m.public_id)
-          m.public_id,m.url,m.type,m.caption,m.screening_status,
-          h.id AS source_hat_id,h.hat_title AS source_title,m.created_at
+        const {rows} = await query(`SELECT * FROM (
+          SELECT DISTINCT ON(m.public_id)
+            m.public_id,m.url,m.type,m.caption,m.screening_status,
+            h.id AS source_hat_id,h.hat_title AS source_title,m.created_at
           FROM hat_media m JOIN hats h ON h.id=m.hat_id
           WHERE h.user_id=$1
             AND m.screening_status IN ('legacy','passed')
             AND m.type IN ('image','video')
-          ORDER BY m.public_id,m.created_at DESC LIMIT 200`,[session.sub])
-        return json(res,200,{media:rows.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))})
+          ORDER BY m.public_id,m.created_at DESC
+        ) archived ORDER BY archived.created_at DESC LIMIT 200`,[session.sub])
+        // Vibes photos have already passed upload ownership verification and
+        // moderation. Include visible posts from the subscriber's own account.
+        const {rows: available} = await query("SELECT to_regclass('vibes_posts') AS name")
+        let vibesMedia=[]
+        if (available[0]?.name) {
+          const {rows: posts} = await query(`SELECT media,created_at FROM vibes_posts
+            WHERE author_id=$1 AND deleted_at IS NULL AND moderation_status='visible'
+            ORDER BY created_at DESC LIMIT 100`,[session.sub])
+          vibesMedia=posts.flatMap(post => (Array.isArray(post.media) ? post.media : [])
+            .filter(asset => asset?.public_id && asset?.url && asset?.type === 'image')
+            .map(asset => ({
+              public_id:asset.public_id,url:asset.url,type:'image',
+              caption:null,screening_status:'passed',
+              source_hat_id:null,source_title:'Vibes',created_at:post.created_at,
+            })))
+        }
+        const seen=new Set()
+        const media=[...rows,...vibesMedia].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))
+          .filter(asset=>{if(seen.has(asset.public_id))return false;seen.add(asset.public_id);return true})
+          .slice(0,200)
+        return json(res,200,{media})
       }
       if (url.searchParams.get('categories') === '1') {
         const { rows } = await query(`SELECT id, name, created_by, created_at FROM categories ORDER BY name`)
