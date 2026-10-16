@@ -50,11 +50,12 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
         <form onSubmit={save} className="mt-4 space-y-4">
           <fieldset>
             <legend className="mb-2 text-[12px] font-black">Bento accent</legend>
-            <div className="grid grid-cols-2 gap-2">
+            <p className="mb-2 text-[11px] text-black/50">Choose a colour from the band, or select No accent.</p>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Choose a colour band">
               {Object.entries(HAT_ACCENTS).map(([key, value]) => (
-                <label key={key} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-[12px] border px-3 py-2 text-[11px] font-semibold ${accent === key ? 'border-black bg-[#F7F3EB]' : 'border-black/15'}`}>
+                <label key={key} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-semibold ${accent === key ? 'border-black bg-[#F7F3EB]' : 'border-black/15'}`}>
                   <input type="radio" name="hat-accent" value={key} checked={accent === key} onChange={() => setAccent(key)} className="sr-only"/>
-                  <span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: value.color }}/>
+                  <span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: value.color === 'transparent' ? '#fff' : value.color }}/>
                   {value.label}
                   {accent === key ? <span className="ml-auto" aria-hidden="true">✓</span> : null}
                 </label>
@@ -104,13 +105,13 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
               ))}
             </div>
           </fieldset>
-          <div className="rounded-[16px] border border-black/10 p-3" style={{ borderTop: `4px solid ${HAT_ACCENTS[accent].color}` }}>
+          <div className="rounded-[16px] border border-black/10 p-3" style={{ borderTop: accent === 'none' ? '0' : `4px solid ${HAT_ACCENTS[accent].color}` }}>
             <p className="text-[9px] font-black uppercase tracking-wide text-black/35">Bento preview · {bentoMode}</p>
             {bentoMode === 'flyer' && flyer ? (
               <img src={flyer.url} alt="Chosen flier preview" className="mt-2 h-40 w-full rounded-lg object-contain" />
             ) : <p className="mt-1 text-[15px] font-bold">{hat.hat_name || hat.hat_title}</p>}
             <p className="text-[11px] text-black/55">{hat.hat_title} · {hat.category}</p>
-            <p className="mt-2 text-[11px] font-black" style={{ color: HAT_ACCENTS[accent].color }}>Price and booking remain platform-controlled</p>
+            <p className="mt-2 text-[11px] font-black" style={{ color: accent === 'none' ? 'inherit' : HAT_ACCENTS[accent].color }}>Price and booking remain platform-controlled</p>
           </div>
           {error && <p role="alert" className="rounded-[12px] bg-red-50 p-3 text-[12px] font-bold text-red-700">{error}</p>}
           <div className="flex justify-end gap-2">
