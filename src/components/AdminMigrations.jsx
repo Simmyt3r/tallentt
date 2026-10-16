@@ -9,6 +9,7 @@ const readableTime = value => {
 
 export default function AdminMigrations() {
   const [catalog, setCatalog] = useState([])
+  const [databaseName, setDatabaseName] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
@@ -22,6 +23,7 @@ export default function AdminMigrations() {
     try {
       const data = await api.getAdminMigrations()
       setCatalog(data.migrations || [])
+      setDatabaseName(data.databaseName || '')
     } catch (err) {
       setError(err.message || 'Could not check the migration status.')
     } finally {
@@ -70,7 +72,7 @@ export default function AdminMigrations() {
     <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
       <div className="flex items-center gap-2 font-black"><AlertTriangle size={17}/> Before applying to production</div>
       <p className="mt-1">
-        Back up your database and confirm you are in the correct environment.
+        Target database: <strong>{databaseName || 'checking…'}</strong>. Back up your database and confirm you are in the correct environment.
         Scripts change the configured PostgreSQL database directly. Migrations are not a replacement for a backup.
       </p>
     </div>
