@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Eye, Flag, Heart, Maximize2, Share2 } from 'lucide-react'
+import { Eye, Flag, Heart, Maximize2, Share2, Trash2 } from 'lucide-react'
 import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import { getHatAccent, getShowroomTemplate } from '../lib/hatPresentation.js'
 import AvailabilityBadge from './AvailabilityBadge'
@@ -43,6 +43,7 @@ function ShowroomPost({
   onLike,
   onShare,
   onReport,
+  onDelete,
   onView,
   observe,
 }) {
@@ -127,6 +128,13 @@ function ShowroomPost({
           <Maximize2 size={15} aria-hidden="true" />
           <span>View</span>
         </button>
+        {onDelete && (
+          <button type="button" onClick={() => onDelete(hat.id)}
+            aria-label="Remove your Showroom post" title="Remove from Showroom"
+            className="inline-flex h-11 w-10 items-center justify-center rounded-full text-red-600 hover:bg-red-50">
+            <Trash2 size={17} aria-hidden="true" />
+          </button>
+        )}
         {onReport && (
           <button type="button" onClick={() => onReport(hat)}
             aria-label="Report Showroom post" title="Report post"
