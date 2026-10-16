@@ -48,6 +48,7 @@ const TITLES = [
   { test: (p) => p.startsWith('/my-bookings'), title: 'My Deals' },
   { test: (p) => p.startsWith('/wallet'), title: 'Wallet' },
   { test: (p) => p.startsWith('/disputes'), title: 'Dispute Center' },
+  { test: (p) => p.startsWith('/live/competitions'), title: 'Stage Competitions' },
   { test: (p) => p.startsWith('/live'), title: 'Go Live' },
   { test: (p) => p.startsWith('/admin'), title: 'Admin' },
   { test: (p) => p.startsWith('/talent/'), title: 'Talent Profile' },
