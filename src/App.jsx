@@ -20,6 +20,7 @@ import Negotiations from './pages/Negotiations.jsx'
 import Notifications from './pages/Notifications.jsx'
 import MyDeals from './pages/MyDeals.jsx'
 import DealDetails from './pages/DealDetails.jsx'
+import DisputeCenter from './pages/DisputeCenter.jsx'
 import LiveHub from './pages/Live/LiveHub.jsx'
 import StageRoom from './pages/Live/StageRoom.jsx'
 import { decideLanding } from './lib/landing.js'
@@ -55,6 +56,7 @@ export default function App() {
     <Route path="/my-applications" element={<Navigate to="/deals?role=talent&tab=outgoing" replace />} />
     <Route path="/my-bookings" element={<Navigate to="/deals?role=client&tab=outgoing" replace />} />
     <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
+    <Route path="/disputes" element={<ProtectedRoute><DisputeCenter /></ProtectedRoute>} />
     <Route path="/live" element={<ProtectedRoute><LiveHub /></ProtectedRoute>} />
     <Route path="/live/stage/:id" element={<ProtectedRoute><StageRoom /></ProtectedRoute>} />
     <Route path="/live/stage" element={<Navigate to="/live" replace />} />
