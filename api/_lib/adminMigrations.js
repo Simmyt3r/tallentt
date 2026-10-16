@@ -9,6 +9,12 @@ const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
   {
+    id: 'showroom-owner-removal-2026-10',
+    title: 'Showroom owner removal',
+    description: 'Let owners remove their Showroom entries without deleting their Hats and escrow deals.',
+    path: new URL('../../db/patch-showroom-owner-removal-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'password-recovery-2026-10',
     title: 'Password recovery',
     description: 'One-use expiring password reset tokens and request throttling.',
