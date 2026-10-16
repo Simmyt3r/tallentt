@@ -14,9 +14,26 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
     : template === 'media-first' ? 'bg-[#F0F9FA] text-black'
     : 'bg-white text-black'
   const [flyerId, setFlyerId] = useState(hat?.flyer_public_id || '')
+  const [library, setLibrary] = useState([])
+  const [libraryLoading, setLibraryLoading] = useState(false)
+  useEffect(() => {
+    if (!hat?.id) return undefined
+    let canceled = false
+    setLibraryLoading(true)
+    api.getMyMedia().then(data => {
+      if (!canceled) setLibrary(data.media || [])
+    }).catch(() => {
+      if (!canceled) setLibrary([])
+    }).finally(() => {
+      if (!canceled) setLibraryLoading(false)
+    })
+    return () => { canceled = true }
+  }, [hat?.id])
   const images = (hat?.media || []).filter((item) => item.type === 'image' &&
     ['legacy', 'passed'].includes(item.screening_status || 'legacy'))
-  const flyer = images.find((item) => item.public_id === flyerId)
+  const libraryImages = [...images, ...library.filter(item =>
+    item.type === 'image' && !images.some(owned => owned.public_id === item.public_id))]
+  const flyer = libraryImages.find((item) => item.public_id === flyerId)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -33,8 +50,21 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
     setBusy(true)
     setError('')
     try {
+      let updatedHat = hat
+      // Attach an approved asset from the central archive to this Hat first,
+      // so the existing presentation ownership check remains authoritative.
+      if (bentoMode === 'flyer' && flyer && !images.some(item => item.public_id === flyerId)) {
+        if ((hat.media || []).length >= 20) throw new Error('This Hat already has 20 media files. Remove one before attaching a gallery flier.')
+        const imported = await api.updateHat(hat.id, {
+          media: [...(hat.media || []), {
+            url: flyer.url, public_id: flyer.public_id, type: flyer.type,
+            caption: flyer.caption || null,
+          }],
+        })
+        updatedHat = imported.hat
+      }
       const result = await api.updateHatStyle(hat.id, accent, template, bentoMode, bentoMode === 'flyer' ? flyerId : null)
-      onSaved(result.hat)
+      onSaved({ ...updatedHat, ...result.hat })
     } catch (err) {
       setError(err.message || 'Could not save this style.')
     } finally { setBusy(false) }
@@ -80,12 +110,13 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
             </div>
             {bentoMode === 'flyer' && (
               <div className="mt-3 space-y-2">
-                <p className="text-[11px] text-black/60">Choose an approved image already uploaded to this Hat. To attach a new flier, edit the Hat, upload it under Media, then return here.</p>
-                {images.length === 0 ? (
-                  <p role="status" className="text-[11px] font-bold text-amber-700">No approved Hat images available yet. Upload a flier before saving this mode.</p>
+                <p className="text-[11px] text-black/60">Choose an approved image from this Hat or your Media Library. Archived media will be attached securely to this Hat when you save.</p>
+                {libraryLoading && <p className="text-[11px] text-black/50">Loading your media library…</p>}
+                {libraryImages.length === 0 ? (
+                  <p role="status" className="text-[11px] font-bold text-amber-700">No approved images yet. Add a photo to a Hat first, then choose it from your library.</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2" aria-label="Available flier images">
-                    {images.map((item) => (
+                    {libraryImages.map((item) => (
                       <label key={item.public_id} className={`relative cursor-pointer overflow-hidden rounded-xl border-2 ${flyerId === item.public_id ? 'border-[#0A13E6]' : 'border-black/10'}`}>
                         <img src={item.url} alt={item.caption || 'Hat flier option'}
                           className="aspect-square w-full object-cover" />
