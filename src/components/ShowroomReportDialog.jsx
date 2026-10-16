@@ -12,7 +12,7 @@ const REASONS = [
 ]
 
 export default function ShowroomReportDialog({ hat, onClose, onReported }) {
-  const [reason, setReason] = useState('contact_bypass')
+  const [reason, setReason] = useState('spam')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const cancelRef = useRef(null)
@@ -34,8 +34,10 @@ export default function ShowroomReportDialog({ hat, onClose, onReported }) {
     setBusy(true)
     setError('')
     try {
-      const result = await api.reportShowroom(hat.id, reason)
-      onReported(result.alreadyReported ? 'You have already reported this listing.' : 'Report received. Thank you for helping keep Showroom safe.')
+      const result = hat.is_entertainment
+        ? await api.galleryAction('report_gallery',hat.id,{reason})
+        : await api.reportShowroom(hat.id, reason)
+      onReported(result.alreadyReported || result.reported === false ? 'You have already reported this post.' : 'Report received. Thank you for keeping Showroom safe.')
     } catch (err) {
       setError(err.message || 'Could not submit report.')
     } finally {
@@ -62,7 +64,13 @@ export default function ShowroomReportDialog({ hat, onClose, onReported }) {
         <form onSubmit={submit} className="mt-4 space-y-4">
           <fieldset className="space-y-2">
             <legend className="mb-2 text-[11px] font-black uppercase tracking-wide text-black/45">Reason</legend>
-            {REASONS.map(([value, label]) => (
+            {(hat.is_entertainment ? [
+              ['spam','Spam or misleading content'],
+              ['unsafe','Unsafe content'],
+              ['harassment','Abuse or harassment'],
+              ['copyright','Copyright concern'],
+              ['other','Something else'],
+            ] : REASONS).map(([value, label]) => (
               <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-[12px] border border-black/10 px-3 py-2 text-[12px] font-semibold">
                 <input type="radio" name="showroom-report-reason" value={value} checked={reason === value}
                   onChange={() => setReason(value)} className="accent-[#0A13E6]" />
