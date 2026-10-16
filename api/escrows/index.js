@@ -25,6 +25,22 @@ export default async function handler(req, res) {
 
       const url = new URL(req.url, `http://${req.headers.host}`)
 
+      if (url.searchParams.get('my_disputes') === '1') {
+        // Only the two parties may see their dispute history, including
+        // reasons, settlement notes and the amount still held.
+        const { rows } = await query(`SELECT d.escrow_id, d.reason, d.status,
+                 d.created_at, d.resolved_at, d.resolution_note,
+                 e.amount, e.start_released_amount, e.work_status,
+                 h.hat_title, c.username AS client_username, t.username AS talent_username
+          FROM booking_disputes d
+          JOIN escrows e ON e.id = d.escrow_id
+          JOIN hats h ON h.id = e.hat_id
+          JOIN users c ON c.id = e.client_id
+          JOIN users t ON t.id = e.talent_id
+          WHERE e.client_id = $1 OR e.talent_id = $1
+          ORDER BY d.created_at DESC, d.escrow_id DESC LIMIT 100`, [session.sub])
+        return json(res, 200, { disputes: rows })
+      }
       if (url.searchParams.get('conversations') === '1') {
         return json(res, 200, await getConversations(session.sub, url.searchParams.get('before')))
       }
