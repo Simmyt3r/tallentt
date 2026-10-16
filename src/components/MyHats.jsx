@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LayoutGrid, List, Paintbrush, Pencil, Trash2 } from 'lucide-react'
+import { LayoutGrid, List, Paintbrush, Pencil, Trash2, Eye } from 'lucide-react'
 import HatStyleDialog from './HatStyleDialog.jsx'
 import MyShowroomAppeals from './MyShowroomAppeals.jsx'
 import { api } from '../lib/api'
@@ -15,6 +15,7 @@ export default function MyHats() {
   const { user } = useAuth()
   const [hats, setHats] = useState([])
   const [stylingHat, setStylingHat] = useState(null)
+  const [hiddenShowroom, setHiddenShowroom] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('chombutar_viewMode') || 'grid')
   useEffect(() => {
@@ -22,8 +23,14 @@ export default function MyHats() {
     let cancelled = false
     ;(async () => {
       try {
-        const data = await api.getHats({ user_id: user.id })
-        if (!cancelled) setHats(data.hats || [])
+        const [data, visibility] = await Promise.all([
+          api.getHats({ user_id: user.id }),
+          api.getMyHiddenShowroomPosts().catch(() => ({hatIds: []})),
+        ])
+        if (!cancelled) {
+          setHats(data.hats || [])
+          setHiddenShowroom(new Set(visibility.hatIds || []))
+        }
       } catch (e) {
         console.error(e)
       } finally {
@@ -42,6 +49,19 @@ export default function MyHats() {
 
   function handleHatChange(patch) {
     setHats((prev) => prev.map((hat) => hat.id === patch.id ? { ...hat, ...patch } : hat))
+  }
+
+  async function restoreToShowroom(id) {
+    try {
+      await api.restoreOwnShowroomPost(id)
+      setHiddenShowroom(previous => {
+        const next = new Set(previous)
+        next.delete(id)
+        return next
+      })
+    } catch (error) {
+      alert(error?.message || 'Could not restore this Showroom post.')
+    }
   }
 
   async function handleDelete(id) {
@@ -130,6 +150,12 @@ export default function MyHats() {
                   </button>
                 </div>
               </div>
+              {hiddenShowroom.has(h.id) && (
+                <button type="button" onClick={() => restoreToShowroom(h.id)}
+                  className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-[#0A13E6]/25 bg-blue-50 px-4 text-[11px] font-bold text-[#0A13E6]">
+                  <Eye size={14} /> Restore to Showroom
+                </button>
+              )}
               <button type="button" onClick={() => setStylingHat(h)}
                 className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-black/20 bg-white px-4 text-[11px] font-bold hover:border-black">
                 <Paintbrush size={14} aria-hidden="true"/> Customize appearance
@@ -188,6 +214,12 @@ export default function MyHats() {
                 </button>
               </div>
               <div className="px-4 pb-4">
+                {hiddenShowroom.has(h.id) && (
+                  <button type="button" onClick={() => restoreToShowroom(h.id)}
+                    className="mb-2 inline-flex min-h-10 items-center gap-2 rounded-full border border-[#0A13E6]/25 bg-blue-50 px-4 text-[11px] font-bold text-[#0A13E6]">
+                    <Eye size={14} /> Restore to Showroom
+                  </button>
+                )}
                 <HatFeedToggle hat={h} onChange={handleHatChange} />
                 {(h.media || []).some(m => ['pending','processing','held','rejected'].includes(m.screening_status)) && (
                   <p className="px-2 text-[11px] font-semibold text-amber-700" role="status">
