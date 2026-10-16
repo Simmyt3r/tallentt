@@ -9,34 +9,34 @@ const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
   {
-    id: 'showroom-owner-removal-2026-10',
-    title: 'Showroom owner removal',
-    description: 'Let owners remove their Showroom entries without deleting their Hats and escrow deals.',
-    path: new URL('../../db/patch-showroom-owner-removal-2026-10.sql', import.meta.url),
-  },
-  {
-    id: 'password-recovery-2026-10',
-    title: 'Password recovery',
-    description: 'One-use expiring password reset tokens and request throttling.',
-    path: new URL('../../db/patch-password-recovery-2026-10.sql', import.meta.url),
-  },
-  {
-    id: 'bento-no-accent-2026-10',
-    title: 'No-accent Bento option',
-    description: 'Support a neutral colour band in card customization.',
-    path: new URL('../../db/patch-bento-no-accent-2026-10.sql', import.meta.url),
-  },
-  {
     id: 'bento-inbox-2026-10',
     title: 'Bento fliers and inbox management',
     description: 'Bento card artwork, private notification deletion and chat visibility.',
     path: new URL('../../db/patch-bento-inbox-2026-10.sql', import.meta.url),
   },
   {
+    id: 'bento-no-accent-2026-10',
+    title: 'No-accent Bento option',
+    description: 'Apply after Bento fliers. Allow neutral colour bands during card customization.',
+    path: new URL('../../db/patch-bento-no-accent-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'vibes-2026-10',
     title: 'Hits & Vibes social feed',
     description: 'Community posts, likes, replies, reports and signed media permits.',
     path: new URL('../../db/patch-vibes-2026-10.sql', import.meta.url),
+  },
+  {
+    id: 'showroom-owner-removal-2026-10',
+    title: 'Showroom owner removal',
+    description: 'Owners may hide or restore Showroom entries without deleting Hats and deals.',
+    path: new URL('../../db/patch-showroom-owner-removal-2026-10.sql', import.meta.url),
+  },
+  {
+    id: 'password-recovery-2026-10',
+    title: 'Password recovery',
+    description: 'One-use expiring reset tokens and request throttling.',
+    path: new URL('../../db/patch-password-recovery-2026-10.sql', import.meta.url),
   },
 ])
 
