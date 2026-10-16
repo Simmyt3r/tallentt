@@ -1,5 +1,6 @@
 // Path: api/admin/index.js
 import { query, getClient } from '../_lib/db.js'
+import { adminGalleryQueue, adminGalleryDecision } from '../_lib/showroomGallery.js'
 import { adminMigrationStatus, applyAdminMigration } from '../_lib/adminMigrations.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
       if (params.get('action') === 'db_migrations') return json(res, 200, await adminMigrationStatus())
       if (params.get('action') === 'push_config') return json(res, 200, await getAdminVapidStatus())
+      if (params.get('action') === 'gallery_review') return json(res,200,await adminGalleryQueue())
       if (params.get('action') === 'showroom_reports') return json(res, 200, await getShowroomReviewQueue())
       if (params.get('action') === 'showroom_appeals') return json(res, 200, await showroomAppealsQueue())
       if (params.get('action') === 'showroom_media') return json(res, 200, await mediaScreeningReviewQueue())
@@ -267,6 +269,8 @@ async function getDashboard() {
 }
 
 async function handleAdminAction(admin, body) {
+  if (body?.action === 'review_gallery') return adminGalleryDecision(admin.id,body)
+
   const action = body?.action
   if (!action) throw httpError(400, 'Action is required.')
   if (['resolve_release', 'resolve_refund'].includes(action)) {
