@@ -1,4 +1,5 @@
 import { query } from '../_lib/db.js'
+import { galleryFeed, galleryPost, galleryMine, signGalleryUpload, publishGallery, galleryAction } from '../_lib/showroomGallery.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { reportShowroomHat } from '../_lib/showroomReports.js'
@@ -22,6 +23,10 @@ export default async function handler(req, res) {
       const session = getSessionUser(req)
       if (!session?.sub) return json(res, 401, { error: 'Sign in to report a listing.' })
       const body = await readBody(req)
+      if (body?.action === 'gallery_sign') return json(res,200,await signGalleryUpload(session.sub,body))
+      if (body?.action === 'gallery_publish') return json(res,201,await publishGallery(session.sub,body))
+      if (['delete_gallery','like_gallery','report_gallery','view_gallery'].includes(body?.action))
+        return json(res,200,await galleryAction(session.sub,body))
       if (body?.action === 'remove_own' || body?.action === 'restore_own') {
         if (!UUID_RE.test(String(body.hat_id || ''))) return json(res, 400, { error: 'Invalid Showroom post.' })
         const {rows: storage} = await query("SELECT to_regclass('showroom_hidden_hats') AS name")
@@ -61,6 +66,14 @@ export default async function handler(req, res) {
     if (url.searchParams.get('action') === 'my_moderation') {
       if (!session?.sub) return json(res, 401, { error: 'Sign in to see your moderation status.' })
       return json(res, 200, await myShowroomModeration(session.sub))
+    }
+    if (url.searchParams.get('action') === 'gallery_post')
+      return json(res,200,await galleryPost(session?.sub,url.searchParams.get('post_id')))
+    if (url.searchParams.get('action') === 'gallery_feed')
+      return json(res,200,await galleryFeed(session?.sub,url))
+    if (url.searchParams.get('action') === 'gallery_mine') {
+      if(!session?.sub) return json(res,401,{error:'Sign in to view your posts.'})
+      return json(res,200,await galleryMine(session.sub))
     }
     const {rows: hiddenStorage} = await query("SELECT to_regclass('showroom_hidden_hats') AS name")
     const hasHiddenStorage = Boolean(hiddenStorage[0]?.name)
@@ -181,6 +194,7 @@ export default async function handler(req, res) {
       }
     }
 
+    const gallery = cursor ? {posts:[],nextCursor:null} : await galleryFeed(session?.sub,url)
     const { rows: categories } = await query('SELECT id, name FROM categories ORDER BY name')
     return json(res, 200, {
       hats: hats.map((h, index) => ({
@@ -192,6 +206,8 @@ export default async function handler(req, res) {
         isHost: !cursor && index === 0 && view === 'for_you',
       })),
       categories,
+      galleryPosts: gallery.posts,
+      galleryNextCursor: gallery.nextCursor,
       view,
       nearbyAvailable: view !== 'near' || Boolean(nearLga),
       nextCursor: candidates.length > PAGE_SIZE
