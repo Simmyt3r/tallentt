@@ -43,7 +43,8 @@ export default function AuthPage() {
   const { login, register } = useAuth()
   const navigate = useNavigate()
 
-  const [mode, setMode] = useState('signin') // signup | login
+  const [recoveryToken, setRecoveryToken] = useState(() => new URLSearchParams(window.location.search).get('reset') || '')
+  const [mode, setMode] = useState(() => new URLSearchParams(window.location.search).has('reset') ? 'reset' : 'login') // signup | login | forgot | reset
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -61,6 +62,17 @@ export default function AuthPage() {
   const [showPass, setShowPass] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [agreed, setAgreed] = useState(false)
+
+  // Account recovery
+  const [recoveryEmail, setRecoveryEmail] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('reset')) {
+      // Do not leave the recovery token in browser history or outgoing links.
+      window.history.replaceState(window.history.state, '', '/auth')
+    }
+  }, [])
 
   // Login
   const [loginId, setLoginId] = useState('')
@@ -89,6 +101,7 @@ export default function AuthPage() {
   }, [username])
 
   function switchMode(next) {
+    setRecoveryToken('')
     setMode(next)
     setError('')
     setSuccess('')
@@ -164,6 +177,36 @@ export default function AuthPage() {
       setTimeout(() => navigate('/', { replace: true }), 700)
     } catch (err) {
       setError(err.message || 'Could not sign in.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+
+  async function handleRecovery(event) {
+    event.preventDefault()
+    if (submitting) return
+    setError('')
+    setSuccess('')
+    if (mode === 'reset' && newPassword !== newPasswordConfirm) {
+      setError('Passwords do not match.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      if (mode === 'forgot') {
+        const result = await api.requestPasswordReset(recoveryEmail.trim())
+        setSuccess(result.message || 'If an account exists, an email will be sent.')
+      } else {
+        const result = await api.completePasswordReset(recoveryToken, newPassword)
+        setRecoveryToken('')
+        setNewPassword('')
+        setNewPasswordConfirm('')
+        setMode('login')
+        setSuccess(result.message || 'Your password was changed. Please sign in.')
+      }
+    } catch (err) {
+      setError(err.message || 'Password recovery could not be completed.')
     } finally {
       setSubmitting(false)
     }
@@ -342,6 +385,43 @@ export default function AuthPage() {
                 </button>
               </p>
             </form>
+          ) : mode === 'forgot' ? (
+            <form onSubmit={handleRecovery}>
+              <h1 className="v9-title">Reset your password</h1>
+              <p className="v9-sub">Enter your registered email. We will send a one-use link valid for 30 minutes.</p>
+              <div className="v9-field">
+                <label htmlFor="recovery-email">Email</label>
+                <input id="recovery-email" type="email" autoComplete="email" required
+                  value={recoveryEmail} onChange={e => setRecoveryEmail(e.target.value)}
+                  placeholder="you@example.com" />
+              </div>
+              <button className="v9-cta" type="submit" disabled={submitting || !recoveryEmail.trim()}>
+                {submitting ? 'Sending…' : 'Send recovery link'}
+              </button>
+              <p className="v9-helper"><button type="button" onClick={() => switchMode('login')}>Back to login</button></p>
+            </form>
+          ) : mode === 'reset' ? (
+            <form onSubmit={handleRecovery}>
+              <h1 className="v9-title">Choose a new password</h1>
+              <p className="v9-sub">Your recovery link is single-use and expires after 30 minutes.</p>
+              <div className="v9-field">
+                <label htmlFor="new-password">New password</label>
+                <input id="new-password" type="password" minLength={8} maxLength={72}
+                  autoComplete="new-password" required value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)} />
+              </div>
+              <div className="v9-field">
+                <label htmlFor="confirm-new-password">Confirm password</label>
+                <input id="confirm-new-password" type="password" minLength={8} maxLength={72}
+                  autoComplete="new-password" required value={newPasswordConfirm}
+                  onChange={e => setNewPasswordConfirm(e.target.value)} />
+              </div>
+              <button className="v9-cta" type="submit"
+                disabled={submitting || newPassword.length < 8 || newPassword !== newPasswordConfirm}>
+                {submitting ? 'Updating…' : 'Update password'}
+              </button>
+              <p className="v9-helper"><button type="button" onClick={() => switchMode('login')}>Back to login</button></p>
+            </form>
           ) : (
             <form onSubmit={handleLogin} noValidate>
               <h1 className="v9-title">Welcome back</h1>
@@ -379,7 +459,7 @@ export default function AuthPage() {
               </div>
 
               <div className="v9-forgot">
-                <button type="button" onClick={() => setSocialNote('Password reset is coming soon. Contact support if locked out.')}>
+                <button type="button" onClick={() => { setRecoveryEmail(loginId); switchMode('forgot') }}>
                   Forgot password?
                 </button>
               </div>
