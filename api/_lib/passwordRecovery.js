@@ -2,7 +2,7 @@ import { randomBytes, createHash } from 'node:crypto'
 import { query, getClient } from './db.js'
 import { hashPassword } from './auth.js'
 
-const emailPattern = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/
+const emailPattern = /^[^ @]+@[^ @]+[.][^ @]+$/
 const digest = text => createHash('sha256').update(text).digest('hex')
 const generic = { message: 'If this address belongs to an account, you will receive a recovery email shortly.' }
 const failure = (status, message) => Object.assign(new Error(message), { status })
@@ -27,7 +27,7 @@ function ipFingerprint(req) {
 export async function requestPasswordReset(req, email) {
   const cfg = configuration()
   const normalized = String(email || '').trim().toLowerCase()
-  if (!emailPattern.test(normalized) || normalized.length > 254)
+  if (!emailPattern.test(normalized) || normalized.length > 254 || [...normalized].some(char => char.charCodeAt(0) <= 32))
     throw failure(400, 'Enter a valid email address.')
   const ipHash = ipFingerprint(req)
   // Query-and-insert in a single statement. Limit email requests even when
