@@ -113,6 +113,21 @@ export const api = {
     method: 'POST', body: JSON.stringify({ action: 'publish', text, media }),
   }),
   vibeAction: (body) => request('/api/vibes', { method: 'POST', body: JSON.stringify(body) }),
+  getGalleryPost: (postId) => request(`/api/showroom?action=gallery_post&post_id=${encodeURIComponent(postId)}`),
+  getGalleryFeed: (options = {}) => request(`/api/showroom?${new URLSearchParams({
+    action:'gallery_feed',...Object.fromEntries(Object.entries(options).filter(([,v])=>v!=null && v!==''))
+  })}`),
+  getMyGalleryPosts: () => request('/api/showroom?action=gallery_mine'),
+  publishGalleryPost: (media, caption) => request('/api/showroom', {
+    method:'POST',body:JSON.stringify({action:'gallery_publish',media,caption}),
+  }),
+  galleryAction: (action, post_id, extra = {}) => request('/api/showroom', {
+    method:'POST',body:JSON.stringify({action,post_id,...extra}),
+  }),
+  getAdminGalleryQueue: () => request('/api/admin?action=gallery_review'),
+  moderateGalleryPost: (post_id, decision) => request('/api/admin', {
+    method:'POST',body:JSON.stringify({action:'review_gallery',post_id,decision}),
+  }),
   getShowroom: (options = {}) => {
     const params = new URLSearchParams()
     for (const key of ['view', 'category', 'search', 'cursor']) {
@@ -369,6 +384,33 @@ export async function uploadToCloudinary(file, options = {}) {
     type: file.type?.startsWith('audio/') ? 'audio' : (data.resource_type || 'image'),
     ...(signed ? { upload_id: permit.permitId } : {}),
   }
+}
+
+// Independent gallery media is always signed; never use the legacy unsigned preset.
+export async function uploadGalleryMedia(file) {
+  const issue=validateUploadFile(file)
+  if(issue) throw new Error(issue)
+  if(!/^image\\/(jpeg|png|webp|gif|avif)$|^video\\/(mp4|webm|quicktime)$/.test(file.type))
+    throw new Error('Choose a supported photo or video (up to 20 MB).')
+  const permit=await request('/api/showroom',{
+    method:'POST',body:JSON.stringify({action:'gallery_sign',mime:file.type,bytes:file.size}),
+  })
+  if (!permit.enabled) throw new Error('Signed gallery uploads are not enabled.')
+  const fd=new FormData()
+  fd.append('file',file)
+  fd.append('api_key',permit.apiKey)
+  fd.append('signature',permit.signature)
+  for(const [key,value] of Object.entries(permit.params)) fd.append(key,String(value))
+  const response=await fetch(`https://api.cloudinary.com/v1_1/${permit.cloudName}/auto/upload`,{
+    method:'POST',body:fd,
+  })
+  const result=await response.json().catch(()=>({}))
+  if(!response.ok) throw new Error(result.error?.message || 'Upload failed.')
+  if(result.public_id!==permit.params.public_id ||
+      result.resource_type!==permit.resourceType || !result.secure_url)
+    throw new Error('Uploaded media did not match the signed authorization.')
+  return {url:result.secure_url,public_id:result.public_id,
+    type:result.resource_type,upload_id:permit.permitId}
 }
 
 // Strict Vibes upload path: signed only, and no unsigned Cloudinary fallback.
