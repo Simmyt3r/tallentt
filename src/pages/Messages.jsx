@@ -5,6 +5,7 @@ import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { workLabels } from '../components/BookingProgress.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
+import DealCallControls from '../components/DealCallControls.jsx'
 import { getPrimaryIdentity, identityFromRow } from '../lib/profile.js'
 
 const money = (amount, currency = 'NGN') =>
@@ -404,9 +405,13 @@ function BookingThread({ id, onBack }) {
           <span aria-hidden="true">•</span>
           <span className="shrink-0 font-black text-black/65">{money(thread.amount, thread.currency)}</span>
           <span aria-hidden="true">•</span>
-          <span className="shrink-0">Messaging only</span>
+          <span className="shrink-0">Private deal conversation</span>
         </div>
       </header>
+
+      <DealCallControls escrowId={id} enabled={thread.status === 'secured'
+        && thread.contacts_unlocked === true
+        && !['disputed','completed'].includes(thread.work_status)} />
 
       <div
         ref={scrollRef}
