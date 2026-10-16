@@ -213,6 +213,7 @@ export const api = {
   getReceivedApplications: () => request('/api/hats?received_applications=1'),
   getMyBookings: () => request('/api/escrows?mine=1'),
   getMyDeals: () => request('/api/escrows?deals=1'),
+  getMyDisputes: () => request('/api/escrows?my_disputes=1'),
   getMyDealsCount: () => request('/api/escrows?deals_count=1'),
   getLandingContext: () => request('/api/escrows?landing_context=1'),
   getMyDealsPage: (role, tab, before) => request(`/api/escrows?deals=1&role=${encodeURIComponent(role)}&tab=${encodeURIComponent(tab)}${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
