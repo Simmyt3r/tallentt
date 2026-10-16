@@ -53,7 +53,15 @@ export default function Wallet() {
   const [busy, setBusy] = useState(false)
   const [topupOpen, setTopupOpen] = useState(initialTopup > 0)
   const [topupInput, setTopupInput] = useState(initialTopup > 0 ? String(initialTopup) : '')
-  const [pendingReference, setPendingReference] = useState('')
+  const [pendingReference, setPendingReference] = useState(
+    () => user?.id ? sessionStorage.getItem(`chombutar_pending_topup:${user.id}`) || '' : '',
+  )
+  useEffect(() => {
+    if (!user?.id) return
+    const key = `chombutar_pending_topup:${user.id}`
+    if (pendingReference) sessionStorage.setItem(key,pendingReference)
+    else sessionStorage.removeItem(key)
+  }, [pendingReference,user?.id])
 
   useEffect(() => {
     let cancelled = false
