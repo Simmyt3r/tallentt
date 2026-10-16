@@ -19,6 +19,7 @@ import {
 } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { listBanks, resolveBankAccount, createTransferRecipient } from '../_lib/paystack.js'
+import { requestPasswordReset, completePasswordReset } from '../_lib/passwordRecovery.js'
 import { getNotificationCount, getNotificationInbox, markAllNotificationsRead, markNotificationRead, deleteNotification, clearNotifications } from '../_lib/notifications.js'
 import {
   getPushPreferences,
@@ -58,6 +59,14 @@ export default async function handler(req, res) {
       body = await readBody(req)
     } catch {
       return json(res, 400, { error: 'Invalid request body' })
+    }
+    if (body?.action === 'password_reset_request') {
+      try { return json(res, 200, await requestPasswordReset(req, body.email)) }
+      catch (err) { if (!err.status) console.error('Password recovery request failed:', err); return json(res, err.status || 500, { error: err.status ? err.message : 'Password recovery is temporarily unavailable.' }) }
+    }
+    if (body?.action === 'password_reset_complete') {
+      try { return json(res, 200, await completePasswordReset(body.token, body.password)) }
+      catch (err) { if (!err.status) console.error('Password recovery completion failed:', err); return json(res, err.status || 500, { error: err.status ? err.message : 'Unable to reset password.' }) }
     }
     if (body?.action === 'login') return handleLogin(body, res)
     if (body?.action === 'register') return handleRegister(body, res)
