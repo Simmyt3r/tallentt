@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 // Path: api/escrows/index.js
 import { query, getClient } from '../_lib/db.js'
+import { getDealCall, dealCallAction } from '../_lib/dealCalls.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
 import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTransfer } from '../_lib/paystack.js'
@@ -41,6 +42,8 @@ export default async function handler(req, res) {
           ORDER BY d.created_at DESC, d.escrow_id DESC LIMIT 100`, [session.sub])
         return json(res, 200, { disputes: rows })
       }
+      if (url.searchParams.get('deal_call') === '1')
+        return json(res,200,await getDealCall(session.sub,url.searchParams.get('escrow_id'),url.searchParams.get('after')))
       if (url.searchParams.get('conversations') === '1') {
         return json(res, 200, await getConversations(session.sub, url.searchParams.get('before')))
       }
@@ -140,6 +143,8 @@ export default async function handler(req, res) {
     const body = await readBody(req)
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'A JSON object is required.' })
 
+    if (['start_call','accept_call','decline_call','end_call','call_signal'].includes(body.action))
+      return json(res,200,await dealCallAction(session.sub,body))
     if (['send_message', 'make_offer', 'respond_offer', 'read_messages', 'read_offers'].includes(body.action)) {
       return json(res, 200, await threadAction(session.sub, body))
     }
