@@ -129,7 +129,8 @@ export default function ShowroomDetailModal({
   const media = hat?.media?.[0]
   const caption = media?.caption || hat?.motto || ''
   const location = hat ? [hat.lga, hat.country].filter(Boolean).join(', ') : ''
-  const availabilityWindow = hat ? formatAvailabilityWindow(hat) : ''
+  const isEntertainment = Boolean(hat?.is_entertainment)
+  const availabilityWindow = hat && !isEntertainment ? formatAvailabilityWindow(hat) : ''
   const isOwn = !!hat && !!user && hat.user_id === user.id
   const owner = identityFromHat(hat)
   const ownerName = getPrimaryIdentity(owner)
@@ -139,7 +140,7 @@ export default function ShowroomDetailModal({
   // pricing opens the first proposal directly; fixed pricing still books
   // without a negotiation step.
   async function handleBook() {
-    if (!hat || checkingRef.current || negotiationStep) return
+    if (isEntertainment || !hat || checkingRef.current || negotiationStep) return
     checkingRef.current = true
     setChecking(true)
     try {
@@ -270,7 +271,7 @@ export default function ShowroomDetailModal({
                       <Flag size={17} aria-hidden="true" />
                     </button>
                   )}
-                  {!isOwn && (
+                  {!isOwn && !isEntertainment && (
                     <button
                       ref={bookRef}
                       type="button"
@@ -287,12 +288,13 @@ export default function ShowroomDetailModal({
                 <div className="p-4 md:p-5 space-y-3">
                   {caption && <p className="text-[14px] leading-relaxed text-black/85 whitespace-pre-line break-words">{caption}</p>}
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[12px] text-black/60">
+                    {isEntertainment && <span className="font-semibold text-black/70">Entertainment showcase · Not a booking or application</span>}
                     {hat.hat_title && <span className="font-semibold text-black/80">{hat.hat_title}</span>}
-                    <span className="font-semibold text-black/80">{formatPrice(hat, hat.currency || 'NGN')}</span>
-                    <AvailabilityBadge
+                    {!isEntertainment && <span className="font-semibold text-black/80">{formatPrice(hat, hat.currency || 'NGN')}</span>}
+                    {!isEntertainment && <AvailabilityBadge
                       available={hat.availability}
                       className={hat.availability ? '' : '!bg-transparent !text-black/55 !border-black/25'}
-                    />
+                    />}
                     {availabilityWindow && (
                       <span className="inline-flex items-center gap-1">
                         <Clock size={12} aria-hidden="true" /> {availabilityWindow}
@@ -362,7 +364,7 @@ export default function ShowroomDetailModal({
       </div>
 
       <NegotiationProposalModal
-        open={negotiationStep === 'proposal'}
+        open={!isEntertainment && negotiationStep === 'proposal'}
         min={(bookCandidate || hat)?.price_min}
         max={(bookCandidate || hat)?.price_max}
         currency={(bookCandidate || hat)?.currency || 'NGN'}
