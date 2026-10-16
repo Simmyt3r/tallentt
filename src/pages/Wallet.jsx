@@ -53,6 +53,7 @@ export default function Wallet() {
   const [busy, setBusy] = useState(false)
   const [topupOpen, setTopupOpen] = useState(initialTopup > 0)
   const [topupInput, setTopupInput] = useState(initialTopup > 0 ? String(initialTopup) : '')
+  const [pendingReference, setPendingReference] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -95,6 +96,7 @@ export default function Wallet() {
     }
     setTopupOpen(false)
     setBusy(true)
+    let paymentReference = ''
     try {
       const reference = await payWithPaystack({
         email: user.email,
@@ -104,7 +106,10 @@ export default function Wallet() {
         // up being after Paystack's own fees (see wallet.js).
         metadata: { wallet_topup: true, user_id: user.id, intended_amount: amount },
       })
+      paymentReference = reference
+      setPendingReference(reference)
       const result = await api.topupWallet(reference)
+      setPendingReference('')
       await reload()
       if (returnTo) {
         navigate(returnTo)
@@ -112,7 +117,24 @@ export default function Wallet() {
       }
       alert(`${fmtMoney(result.amount || amount)} added to your wallet.`)
     } catch (e) {
-      alert(e.message)
+      alert(paymentReference
+        ? `Your payment has reference ${paymentReference}, but confirmation is not complete. Do not pay again yet. Use Check payment status below. Details: ${e.message}`
+        : e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function checkPendingTopup() {
+    if (!pendingReference || busy) return
+    setBusy(true)
+    try {
+      const result = await api.topupWallet(pendingReference)
+      await reload()
+      setPendingReference('')
+      alert(result.alreadyProcessed ? 'Payment was already credited to your wallet.' : 'Payment confirmed and your wallet was credited.')
+    } catch (err) {
+      setError('Payment not yet confirmed. Please check again after Paystack processes it. ' + (err.message || ''))
     } finally {
       setBusy(false)
     }
@@ -161,6 +183,17 @@ export default function Wallet() {
         <p className="text-[12px] text-black/50 font-medium mt-0.5">Top up, get paid, and withdraw</p>
       </div>
 
+      {pendingReference && (
+        <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-2">
+          <p className="text-[12px] font-bold">Payment awaiting confirmation</p>
+          <p className="break-all font-mono text-[11px] text-amber-900">Reference: {pendingReference}</p>
+          <p className="text-[11px]">Do not make a second payment while this one is being verified.</p>
+          <button type="button" disabled={busy} onClick={checkPendingTopup}
+            className="min-h-10 rounded-full border border-amber-600 bg-white px-4 text-[12px] font-bold disabled:opacity-50">
+            Check payment status
+          </button>
+        </div>
+      )}
       {error && (
         <div className="rounded-[12px] border-[1.5px] border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-medium text-red-700">
           {error}
@@ -250,7 +283,7 @@ export default function Wallet() {
           >
             <h2 className="text-[16px] font-bold tracking-tight mb-1">Top up your wallet</h2>
             <p className="text-[12px] text-black/50 font-medium mb-4">
-              Funded via Paystack — card, transfer, or USSD.
+              Pay securely using the payment methods enabled by Paystack (such as card, bank transfer or USSD). Availability depends on your bank and the merchant account.
               {returnTo ? ' After a successful top-up, you’ll return to the deal.' : ''}
             </p>
 
