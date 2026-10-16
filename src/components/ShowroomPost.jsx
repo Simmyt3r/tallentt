@@ -70,7 +70,7 @@ function ShowroomPost({
       ref={rootRef}
       data-post-key={postKey}
       data-template={template}
-      style={{ borderTop: `4px solid ${accent}` }}
+      style={{ borderTop: accent === 'transparent' ? undefined : `4px solid ${accent}` }}
       aria-label={`Showroom post by ${ownerName}`}
       className={`sr-post flex flex-col overflow-hidden border-y md:border border-black/15 md:rounded-[20px] md:shadow-[0_6px_20px_-12px_rgba(0,0,0,0.25)] ${
         template === 'dark' ? 'bg-[#182033]' : 'bg-white'
