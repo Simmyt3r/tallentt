@@ -119,7 +119,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
     try {
       const nextMedia = [
         { ...pendingMedia, caption: caption.trim() || undefined },
-        ...(selectedHat.media || []),
+        ...(selectedHat.media || []).filter(item => item.public_id !== pendingMedia.public_id),
       ]
       await api.updateHat(selectedHat.id, { media: nextMedia })
       // Reposting to a previously hidden Hat restores its Showroom entry.
