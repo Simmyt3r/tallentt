@@ -7,6 +7,12 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
   const [accent, setAccent] = useState(hat?.bento_accent || 'electric')
   const [template, setTemplate] = useState(hat?.showroom_template || 'minimal')
   const [bentoMode, setBentoMode] = useState(hat?.bento_mode || 'standard')
+  const previewSurface = template === 'dark'
+    ? 'bg-[#182033] text-white'
+    : template === 'bold' ? 'bg-[#FFF0DB] text-black'
+    : template === 'editorial' ? 'bg-[#F4F0FF] text-black italic'
+    : template === 'media-first' ? 'bg-[#F0F9FA] text-black'
+    : 'bg-white text-black'
   const [flyerId, setFlyerId] = useState(hat?.flyer_public_id || '')
   const images = (hat?.media || []).filter((item) => item.type === 'image' &&
     ['legacy', 'passed'].includes(item.screening_status || 'legacy'))
@@ -105,13 +111,13 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
               ))}
             </div>
           </fieldset>
-          <div className="rounded-[16px] border border-black/10 p-3" style={{ borderTop: accent === 'none' ? '0' : `4px solid ${HAT_ACCENTS[accent].color}` }}>
+          <div className={`rounded-[16px] border border-black/10 p-3 ${previewSurface}`} style={{ borderTop: accent === 'none' ? '0' : `4px solid ${HAT_ACCENTS[accent].color}` }}>
             <p className="text-[9px] font-black uppercase tracking-wide text-black/35">Bento preview · {bentoMode}</p>
             {bentoMode === 'flyer' && flyer ? (
               <img src={flyer.url} alt="Chosen flier preview" className="mt-2 h-40 w-full rounded-lg object-contain" />
             ) : <p className="mt-1 text-[15px] font-bold">{hat.hat_name || hat.hat_title}</p>}
             <p className="text-[11px] text-black/55">{hat.hat_title} · {hat.category}</p>
-            <p className="mt-2 text-[11px] font-black" style={{ color: accent === 'none' ? 'inherit' : HAT_ACCENTS[accent].color }}>Price and booking remain platform-controlled</p>
+            <p className="mt-2 text-[11px] font-black" style={{ color: accent === 'none' || template === 'dark' ? 'inherit' : HAT_ACCENTS[accent].color }}>Price and booking remain platform-controlled</p>
           </div>
           {error && <p role="alert" className="rounded-[12px] bg-red-50 p-3 text-[12px] font-bold text-red-700">{error}</p>}
           <div className="flex justify-end gap-2">
