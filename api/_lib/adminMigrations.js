@@ -39,6 +39,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-showroom-gallery-2026-10.sql', import.meta.url),
   },
   {
+    id: 'live-stage-competitions-2026-10',
+    title: 'Live Stage competitions',
+    description: 'Stage competition rooms, video entrants, viewer voting and lifecycle management.',
+    path: new URL('../../db/patch-live-stage-competitions-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'password-recovery-2026-10',
     title: 'Password recovery',
     description: 'One-use expiring reset tokens and request throttling.',
