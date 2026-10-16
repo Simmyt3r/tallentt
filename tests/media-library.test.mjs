@@ -22,6 +22,7 @@ before(async()=>{
   process.env.HAT_MEDIA_SIGNED_UPLOADS='enforce'
   await pool.query(await readFile(new URL('../db/schema.sql',import.meta.url),'utf8'))
   await pool.query(await readFile(new URL('../db/patch-vibes-2026-10.sql',import.meta.url),'utf8'))
+  await pool.query(await readFile(new URL('../db/patch-showroom-gallery-2026-10.sql',import.meta.url),'utf8'))
   for(const [id,username] of [[ownerId,'mediaowner'],[otherId,'mediaother']]) {
     await pool.query("INSERT INTO users(id,username,full_name,email,password_hash) VALUES($1,$2,$2,$3,'x')",
       [id,username,username+'@example.test'])
@@ -66,4 +67,21 @@ test('owned, visible Vibes photos can be reused; held posts cannot',async()=>{
   await assert.rejects(verifyNewHatMedia(otherId,[vibe],[]),{status:422})
   await pool.query("UPDATE vibes_posts SET moderation_status='held' WHERE id=$1",[rows[0].id])
   await assert.rejects(verifyNewHatMedia(ownerId,[vibe],[]),{status:422})
+})
+
+test('approved independent showcase can become a Hat asset without granting third parties reuse',async()=>{
+  const file={
+    public_id:'chombutar_hats/'+ownerId+'/converted',
+    url:'https://res.cloudinary.com/demo/image/upload/v1/converted.jpg',type:'image',
+  }
+  const {rows}=await pool.query(`INSERT INTO showroom_gallery_posts
+    (author_id,public_id,media_url,media_type,caption,moderation_status)
+    VALUES($1,$2,$3,'image','Visible demo','visible') RETURNING id`,
+    [ownerId,file.public_id,file.url])
+  assert.deepEqual(await verifyNewHatMedia(ownerId,[file],[]),[])
+  await assert.rejects(verifyNewHatMedia(otherId,[file],[]),{status:422})
+  await pool.query("UPDATE showroom_gallery_posts SET moderation_status='held' WHERE id=$1",[rows[0].id])
+  await assert.rejects(verifyNewHatMedia(ownerId,[file],[]),{status:422})
+  await pool.query("UPDATE showroom_gallery_posts SET moderation_status='visible',deleted_at=NOW() WHERE id=$1",[rows[0].id])
+  await assert.rejects(verifyNewHatMedia(ownerId,[file],[]),{status:422})
 })
