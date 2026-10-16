@@ -86,6 +86,36 @@ test('catalog detects altered migration records and will not rerun changed SQL',
   await pool.query('UPDATE chombutar_schema_migrations SET checksum=$2 WHERE migration_id=$1',[migrationId,item.checksum])
 })
 
+test('failure writing migration history rolls back schema, history and success audit',async()=>{
+  // A real PostgreSQL trigger simulates the history insert failing AFTER SQL
+  // has already created tables. The whole migration must remain atomic.
+  if (!process.env.TEST_DATABASE_URL) return
+  const name='reject_migration_history_test'
+  await pool.query(`CREATE OR REPLACE FUNCTION ${name}() RETURNS trigger
+    LANGUAGE plpgsql AS $ BEGIN
+      IF NEW.migration_id='vibes-2026-10' THEN
+        RAISE EXCEPTION 'simulated migration history failure';
+      END IF;
+      RETURN NEW;
+    END $`)
+  await pool.query(`CREATE TRIGGER ${name} BEFORE INSERT ON chombutar_schema_migrations
+    FOR EACH ROW EXECUTE FUNCTION ${name}()`)
+  try {
+    const item=await statusOf(secondId)
+    const response=await request({method:'POST',action:'apply_db_migration',
+      migrationId:secondId,checksum:item.checksum,confirm:'APPLY '+secondId})
+    assert.equal(response.status,500,JSON.stringify(response.body))
+    assert.match(response.body.error,/rolled back/i)
+    assert.equal((await pool.query("SELECT to_regclass('vibes_posts') AS name")).rows[0].name,null)
+    assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM chombutar_schema_migrations WHERE migration_id=$1',[secondId])).rows[0].n,0)
+    assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM admin_audit_logs WHERE action='apply_db_migration' AND metadata->>'migrationId'=$1",[secondId])).rows[0].n,0)
+    assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM admin_audit_logs WHERE action='apply_db_migration_failed' AND metadata->>'migrationId'=$1",[secondId])).rows[0].n,1)
+  } finally {
+    await pool.query(`DROP TRIGGER IF EXISTS ${name} ON chombutar_schema_migrations`)
+    await pool.query(`DROP FUNCTION IF EXISTS ${name}()`)
+  }
+})
+
 test('Vibes migration creates its structures and has its own independent history',async()=>{
   const item=await statusOf(secondId)
   assert.equal(item.status,'pending')
