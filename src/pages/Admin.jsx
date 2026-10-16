@@ -12,6 +12,7 @@ import {
   Gavel,
   Handshake,
   KeyRound,
+  Database,
   LayoutDashboard,
   RefreshCw,
   Save,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api.js'
 import AdminDisputes from '../components/AdminDisputes.jsx'
+import AdminMigrations from '../components/AdminMigrations.jsx'
 import AdminShowroomReports from '../components/AdminShowroomReports.jsx'
 import AdminShowroomConfig from '../components/AdminShowroomConfig.jsx'
 import UserIdentity from '../components/UserIdentity'
@@ -38,6 +40,7 @@ const SECTIONS = [
   { id: 'showroom', label: 'Showroom Reports', icon: Flag },
   { id: 'showroom-config', label: 'Showroom Settings', icon: ShieldCheck },
   { id: 'push', label: 'Push Setup', icon: BellRing },
+  { id: 'migrations', label: 'Database Migrations', icon: Database },
   { id: 'audit', label: 'Audit Log', icon: FileText },
 ]
 
@@ -303,6 +306,7 @@ export default function Admin() {
               {tab === 'showroom' && <AdminShowroomReports />}
               {tab === 'showroom-config' && <AdminShowroomConfig />}
               {tab === 'push' && <PushSetupPanel />}
+              {tab === 'migrations' && <AdminMigrations /> }
               {tab === 'audit' && <AuditTable rows={filtered} />}
             </section>
           )}
