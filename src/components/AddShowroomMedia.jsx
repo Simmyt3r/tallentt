@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Check, Upload, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { api, uploadToCloudinary, validateUploadFile } from '../lib/api'
+import { api, uploadToCloudinary, uploadGalleryMedia, validateUploadFile } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { compressImageFile } from '../lib/media'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
@@ -20,6 +20,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   const [mediaLibrary, setMediaLibrary] = useState([])
   const [loadingHats, setLoadingHats] = useState(false)
   const [selectedHat, setSelectedHat] = useState(null)
+  const [standalone, setStandalone] = useState(false)
   const [pendingMedia, setPendingMedia] = useState(null) // { url, public_id, type }
   const [uploading, setUploading] = useState(false)
   const [caption, setCaption] = useState('')
@@ -68,6 +69,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
     setSubmitting(false)
     setStep(1)
     setSelectedHat(null)
+    setStandalone(false)
     setPendingMedia(null)
     setCaption('')
     setError('')
@@ -80,7 +82,14 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   }
 
   function pickHat(hat) {
+    setStandalone(false)
     setSelectedHat(hat)
+    setStep(2)
+  }
+
+  function pickStandalone() {
+    setStandalone(true)
+    setSelectedHat(null)
     setStep(2)
   }
 
@@ -97,7 +106,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
     try {
       const toUpload = await compressImageFile(file)
       if (controller.signal.aborted) return
-      const uploaded = await uploadToCloudinary(toUpload, { signal: controller.signal })
+      const uploaded = standalone ? await uploadGalleryMedia(toUpload) : await uploadToCloudinary(toUpload, { signal: controller.signal })
       if (controller.signal.aborted || uploadControllerRef.current !== controller) return
       setPendingMedia(uploaded)
       setStep(3)
@@ -113,24 +122,29 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   }
 
   async function handleSubmit() {
-    if (!selectedHat || !pendingMedia) return
+    if ((!selectedHat && !standalone) || !pendingMedia) return
     setSubmitting(true)
     setError('')
     try {
-      const nextMedia = [
-        { ...pendingMedia, caption: caption.trim() || undefined },
-        ...(selectedHat.media || []).filter(item => item.public_id !== pendingMedia.public_id),
-      ]
-      await api.updateHat(selectedHat.id, { media: nextMedia })
+      let result
+      if (standalone) {
+        result = await api.publishGalleryPost(pendingMedia,caption.trim())
+      } else {
+        const nextMedia = [
+          { ...pendingMedia, caption: caption.trim() || undefined },
+          ...(selectedHat.media || []).filter(item => item.public_id !== pendingMedia.public_id),
+        ]
+        await api.updateHat(selectedHat.id, { media: nextMedia })
+      }
       // Reposting to a previously hidden Hat restores its Showroom entry.
       try {
-        await api.restoreOwnShowroomPost(selectedHat.id)
+        if (!standalone) await api.restoreOwnShowroomPost(selectedHat.id)
       } catch (err) {
         // Older databases without this optional migration still permit
         // ordinary media updates; the API reports when restoration is absent.
         if (err?.status !== 503) throw err
       }
-      onAdded?.()
+      onAdded?.(result)
       reset()
       onClose?.()
     } catch (err) {
@@ -155,7 +169,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
           <div>
             <p className="tw-label">Step {step} of 3</p>
             <h2 id="showroom-add-title" className="text-[18px] font-bold tracking-tight mt-0.5">
-              {step === 1 && 'Pick a card'}
+              {step === 1 && 'Choose how to post'}
               {step === 2 && 'Add media'}
               {step === 3 && 'Add a caption'}
             </h2>
@@ -167,15 +181,23 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
             </div>
           )}
 
-          {/* Step 1 — choose which Hat/card to post this media to */}
+          {/* Step 1: entertainment posts do not require commercial Hats. */}
           {step === 1 && (
-            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+            <div className="space-y-3 max-h-[55vh] overflow-y-auto">
+              <button type="button" onClick={pickStandalone}
+                className="w-full rounded-[16px] border-[1.5px] border-[#0A13E6]/40 bg-[#EEF0FF] p-4 text-left hover:border-[#0A13E6]">
+                <strong className="block text-[13px]">Show your talent, just for fun</strong>
+                <span className="mt-1 block text-[11px] text-black/60">
+                  Upload a photo or video for entertainment. Your profile and View/Play appear, but there is no booking or application link.
+                </span>
+              </button>
+              <p className="text-[11px] font-black text-black/40 uppercase tracking-wide">Or promote a Talent Hat</p>
               {loadingHats ? (
                 <p className="text-black/40 py-8 text-center text-[13px] font-medium">Loading your hats…</p>
               ) : myHats.length === 0 ? (
                 <div className="text-center py-8 space-y-3">
                   <p className="text-black/60 text-[13px] font-medium">
-                    You need a Talent hat before you can post to the Showroom.
+                    Create a Talent Hat to receive bookings. Entertainment posts above do not need a Hat.
                   </p>
                   <Link
                     to="/create"
@@ -212,17 +234,17 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
           )}
 
           {/* Step 2 — pick + upload the media file */}
-          {step === 2 && selectedHat && (
+          {step === 2 && (selectedHat || standalone) && (
             <div className="space-y-3">
               <button
                 type="button"
                 onClick={() => setStep(1)}
                 className="inline-flex items-center gap-1 text-[12px] font-semibold text-black/50 hover:text-black transition"
               >
-                <ArrowLeft size={13} /> Change card
+                <ArrowLeft size={13} /> Change posting mode
               </button>
               <p className="text-[12px] text-black/50 font-medium">
-                Posting to <span className="font-semibold text-black">{selectedHat.hat_title}</span>
+                {standalone ? 'Entertainment showcase (no booking link)' : <>Posting to <span className="font-semibold text-black">{selectedHat.hat_title}</span></>}
               </p>
               <label
                 className={`flex flex-col items-center gap-2 cursor-pointer py-8 rounded-[16px] border-[1.5px] border-dashed transition ${
@@ -267,7 +289,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
           )}
 
           {/* Step 3 — caption + post */}
-          {step === 3 && selectedHat && pendingMedia && (
+          {step === 3 && (selectedHat || standalone) && pendingMedia && (
             <div className="space-y-3">
               <button
                 type="button"
@@ -285,24 +307,24 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
               </div>
               <label className="block space-y-1.5">
                 <span className="tw-label">
-                  Caption ({caption.length}/{MAX_CAPTION})
+                  Caption ({caption.length}/{standalone ? 500 : MAX_CAPTION})
                 </span>
                 <textarea
                   className="tw-input min-h-[80px] resize-none"
-                  maxLength={MAX_CAPTION}
+                  maxLength={standalone ? 500 : MAX_CAPTION}
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
                   placeholder="Say something about this…"
                 />
               </label>
-              <p className="text-[12px] text-black/60">Your media may need screening before it appears in the public Showroom.</p>
+              <p className="text-[12px] text-black/60">Standalone videos require review before appearing publicly. Photos may be automatically screened. Hat posts use existing media moderation.</p>
               <button
                 type="button"
                 disabled={submitting}
                 onClick={handleSubmit}
                 className="tw-btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                <Check size={16} /> {submitting ? 'Posting…' : 'Post to Showroom'}
+                <Check size={16} /> {submitting ? 'Posting…' : standalone ? 'Publish showcase' : 'Post to Showroom'}
               </button>
             </div>
           )}
