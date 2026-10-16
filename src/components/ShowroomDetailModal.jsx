@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { BookOpen, Clock, Eye, Flag, Heart, MapPin, Play, Share2, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
@@ -270,6 +270,13 @@ export default function ShowroomDetailModal({
                       className="inline-flex h-11 w-10 items-center justify-center rounded-full text-black/45 hover:text-red-700">
                       <Flag size={17} aria-hidden="true" />
                     </button>
+                  )}
+                  {isOwn && isEntertainment && hat?.moderation_status === 'visible' && (
+                    <Link to={`/create?showcase=${encodeURIComponent(hat.id)}`}
+                      onClick={onClose}
+                      className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-black bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
+                      Convert to BentoCard
+                    </Link>
                   )}
                   {!isOwn && !isEntertainment && (
                     <button
