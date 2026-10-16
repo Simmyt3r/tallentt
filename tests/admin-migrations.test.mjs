@@ -92,12 +92,12 @@ test('failure writing migration history rolls back schema, history and success a
   if (!process.env.TEST_DATABASE_URL) return
   const name='reject_migration_history_test'
   await pool.query(`CREATE OR REPLACE FUNCTION ${name}() RETURNS trigger
-    LANGUAGE plpgsql AS $ BEGIN
+    LANGUAGE plpgsql AS $$ BEGIN
       IF NEW.migration_id='vibes-2026-10' THEN
         RAISE EXCEPTION 'simulated migration history failure';
       END IF;
       RETURN NEW;
-    END $`)
+    END $$`)
   await pool.query(`CREATE TRIGGER ${name} BEFORE INSERT ON chombutar_schema_migrations
     FOR EACH ROW EXECUTE FUNCTION ${name}()`)
   try {
