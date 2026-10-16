@@ -73,6 +73,48 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
 
 
+## October 2026 Showroom, Stage and Deals Calling rollout
+
+**Before enabling the new workflows:**
+
+1. Open **Admin → Database Migrations** and apply the Independent Showroom Gallery,
+   Live Stage Competitions and Deals Chat Calls patches (plus earlier pending dependencies).
+   These are additive and retain existing Hats, negotiations and escrow records.
+2. Set `HAT_MEDIA_SIGNED_UPLOADS=enforce` and configure the existing server-side
+   `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`.
+   For automated photo approval, configure `GOOGLE_CLOUD_VISION_API_KEY`.
+   Videos wait for full human review in Admin → Showcase Moderation.
+3. Configure the external **MediaMTX** publishing and HLS playback endpoints for
+   public Live streaming. Private fallback camera previews cannot join Stage
+   competitions. Contestants need an active public Live broadcast.
+4. WebRTC calling works with STUN on permissive networks, but NATs and mobile
+   carriers often need a TURN relay. The backend supports short-lived Coturn
+   REST credentials with the **server-side** environment variables:
+
+   ```env
+   TURN_URLS=turn:your-turn.example:3478,turns:your-turn.example:5349
+   TURN_SHARED_SECRET=<coturn-auth-secret>
+   ```
+
+   Configure Coturn with `use-auth-secret` and the same private static
+   authentication secret. Never put `TURN_SHARED_SECRET` in a `VITE_`
+   variable; the backend derives temporary subscriber-bound credentials.
+   Calls are limited to secured, unlocked and non-disputed deals; they
+   expire after two hours. Signaling is purged when calls end, and call
+   metadata is removed after 30 days.
+
+**Product boundaries:** Independent Showroom posts are entertainment-only;
+they cannot receive applications, bids or bookings until promoted through an
+actual Talent Hat. The gallery holds new video posts for review. Live Stage
+Competitions currently use a no-stake, one-vote leaderboard; no wager, prize
+distribution or wallet settlement is performed. Call audio/video is
+peer-to-peer DTLS-SRTP, not platform-recorded.
+
+**Release gate:** Run `npm run verify`, then test the relevant desktop and
+mobile workflows with two separate accounts, and verify Paystack top-up
+methods in the merchant account. A successful Vercel build alone is **not**
+proof that real streaming, TURN traversal, email or bank payments work.
+
 ## Admin migration and recovery rollout (October 2026)
 
 The Admin Command Center now provides an allowlisted **Database Migrations** panel at
