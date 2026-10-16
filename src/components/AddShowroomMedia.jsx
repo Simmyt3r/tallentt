@@ -109,6 +109,14 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
         ...(selectedHat.media || []),
       ]
       await api.updateHat(selectedHat.id, { media: nextMedia })
+      // Reposting to a previously hidden Hat restores its Showroom entry.
+      try {
+        await api.restoreOwnShowroomPost(selectedHat.id)
+      } catch (err) {
+        // Older databases without this optional migration still permit
+        // ordinary media updates; the API reports when restoration is absent.
+        if (err?.status !== 503) throw err
+      }
       onAdded?.()
       reset()
       onClose?.()
