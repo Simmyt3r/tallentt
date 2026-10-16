@@ -85,11 +85,12 @@ const prefersReducedMotion = () => typeof window !== 'undefined' && window.match
 export default function HatForm() {
   const [params] = useSearchParams()
   const editId = params.get('edit') || ''
-  // Keyed so switching between "new" and a different hat starts from clean state.
-  return <HatFormScreen key={editId || 'new'} editId={editId} />
+  const showcaseId = editId ? '' : (params.get('showcase') || '')
+  // Keyed so switching between "new" and a different Hat or showcase is safe.
+  return <HatFormScreen key={editId || showcaseId || 'new'} editId={editId} showcaseId={showcaseId} />
 }
 
-function HatFormScreen({ editId }) {
+function HatFormScreen({ editId, showcaseId = '' }) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const editing = Boolean(editId)
@@ -109,6 +110,7 @@ function HatFormScreen({ editId }) {
   const [pendingNav, setPendingNav] = useState(null)
   const [leaving, setLeaving] = useState(false)
   const [feedChoice, setFeedChoice] = useState({ visible: false, confirmed: false })
+  const [importStatus, setImportStatus] = useState(showcaseId ? 'loading' : 'none')
 
   const media = useHatMedia()
   const submittingRef = useRef(false)
@@ -165,6 +167,33 @@ function HatFormScreen({ editId }) {
     // media.reset is stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId, editing, user?.id, reloadKey])
+
+  // Conversion is explicit: reuse an approved entertainment asset to seed
+  // a genuine Talent Hat. Nothing becomes bookable until the Hat is saved.
+  useEffect(() => {
+    if (editing || !showcaseId) return undefined
+    let cancelled = false
+    api.getGalleryPost(showcaseId).then(({post}) => {
+      if (cancelled) return
+      if (!post?.is_entertainment || post.user_id !== user?.id ||
+        post.moderation_status !== 'visible' || !post.media?.[0]?.public_id) {
+        setImportStatus('forbidden')
+        return
+      }
+      media.reset(post.media)
+      if (post.media[0]?.caption) {
+        setForm(previous => ({
+          ...previous, description: previous.description || post.media[0].caption,
+        }))
+      }
+      setImportStatus('ready')
+    }).catch(() => {
+      if (!cancelled) setImportStatus('error')
+    })
+    return () => {cancelled = true}
+    // media.reset is stable and this should only run for a new showcase ID.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, showcaseId, user?.id])
 
   // ── Field state ────────────────────────────────────────────────────────
   const setField = useCallback((name, value) => {
@@ -311,6 +340,20 @@ function HatFormScreen({ editId }) {
         </button>
       </header>
 
+      {showcaseId && importStatus === 'loading' && <p role="status"
+        className="mb-3 rounded-xl bg-blue-50 p-3 text-[12px]">
+        Importing the approved showcase media into your new Talent Hat…
+      </p>}
+      {showcaseId && importStatus === 'ready' && <p role="status"
+        className="mb-3 rounded-xl bg-blue-50 p-3 text-[12px]">
+        Showcase media imported. Complete your Hat title, availability and pricing to market it.
+        Your entertainment post remains independent until you publish this Hat.
+      </p>}
+      {showcaseId && ['error','forbidden'].includes(importStatus) && <p role="alert"
+        className="mb-3 rounded-xl bg-red-50 p-3 text-[12px] text-red-700">
+        The showcase could not be imported. Only approved posts belonging to your own account
+        can be converted. You can still upload new Hat media below.
+      </p>}
       <form
         noValidate
         onSubmit={onSubmit}
