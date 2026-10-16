@@ -1,7 +1,7 @@
 // Path: src/pages/Live/LiveHub.jsx
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Camera, Mic, Radio, Users, Wifi, X } from 'lucide-react'
+import { Camera, Mic, Radio, Users, Wifi, X, Trophy } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import UserIdentity from '../../components/UserIdentity'
@@ -162,6 +162,15 @@ export default function LiveHub() {
         </div>
         {canGoLive && !creating && <button onClick={openPreview} className="h-10 px-4 rounded-full bg-[#0A13E6] text-white text-[13px] font-bold">Go Live</button>}
       </header>
+
+      <nav aria-label="Live modes" className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white p-2">
+        <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
+          <Radio size={14}/> Live broadcast
+        </span>
+        <Link to="/live/competitions" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/15 px-4 text-[12px] font-bold hover:bg-blue-50">
+          <Trophy size={14}/> Stage competitions
+        </Link>
+      </nav>
 
       {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700">{error}</div>}
 
