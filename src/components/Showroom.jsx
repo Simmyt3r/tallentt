@@ -402,6 +402,26 @@ export default function Showroom() {
   }, [])
   useEffect(() => () => clearTimeout(toastTimer.current), [])
 
+  const removeOwnPost = useCallback(async (id) => {
+    const post = hatMapRef.current[id]
+    if (!post || post.user_id !== user?.id) return
+    if (!window.confirm('Remove this post from Showroom? Your Hat, portfolio, and existing deals will remain unchanged.')) return
+    try {
+      await api.removeOwnShowroomPost(id)
+      setListIds(previous => previous.filter(item => item !== id))
+      setSeq(previous => previous.filter(item => item.id !== id))
+      setHatMap(previous => {
+        const next = { ...previous }
+        delete next[id]
+        return next
+      })
+      notify('Removed from Showroom. Your Hat is still in My Hats.')
+      if (window.location.pathname === showroomPath(id)) navigate('/showroom', { replace: true })
+    } catch (error) {
+      notify(error?.message || 'Could not remove the Showroom post.')
+    }
+  }, [navigate, notify, user?.id])
+
   // Feed and modal both come through here → the same canonical URL.
   const handleShare = useCallback(
     async (hat) => {
@@ -455,12 +475,11 @@ export default function Showroom() {
     }
     let cancelled = false
     setPostState({ id: postId, state: 'loading' })
-    api
-      .getHat(postId)
-      .then(({ hat }) => {
+    Promise.all([api.getHat(postId), api.getShowroomVisibility(postId)])
+      .then(([{ hat }, visibility]) => {
         if (cancelled) return
         // Only live talent hats belong in the Showroom.
-        if (!hat || hat.active === false || hat.role !== 'talent') {
+        if (!hat || visibility.hidden || hat.active === false || hat.role !== 'talent') {
           setPostState({ id: postId, state: 'unavailable' })
           return
         }
@@ -570,6 +589,7 @@ export default function Showroom() {
                 onLike={toggleLike}
                 onShare={handleShare}
                 onReport={user?.id && hat.user_id !== user.id ? setReportHat : undefined}
+                onDelete={user?.id && hat.user_id === user.id ? removeOwnPost : undefined}
                 onView={openDetail}
                 observe={observePost}
               />
@@ -694,6 +714,7 @@ export default function Showroom() {
           onLike={toggleLike}
           onShare={handleShare}
           onReport={user?.id && activeHat?.user_id !== user.id ? setReportHat : undefined}
+          onDelete={user?.id && activeHat?.user_id === user.id ? removeOwnPost : undefined}
           onRetry={() => setRetryTick((t) => t + 1)}
           onNotify={notify}
         />
