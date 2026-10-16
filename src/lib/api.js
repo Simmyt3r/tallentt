@@ -125,6 +125,7 @@ export const api = {
   restoreOwnShowroomPost: (hat_id) => request('/api/showroom', {
     method: 'POST', body: JSON.stringify({ action: 'restore_own', hat_id }),
   }),
+  getMyHiddenShowroomPosts: () => request('/api/showroom?action=my_hidden'),
   getShowroomVisibility: (hat_id) =>
     request(`/api/showroom?action=visibility&hat_id=${encodeURIComponent(hat_id)}`),
   reportShowroom: (hat_id, reason) => request('/api/showroom', {
