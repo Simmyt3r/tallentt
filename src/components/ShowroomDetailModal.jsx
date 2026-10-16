@@ -273,7 +273,6 @@ export default function ShowroomDetailModal({
                   )}
                   {isOwn && isEntertainment && hat?.moderation_status === 'visible' && (
                     <Link to={`/create?showcase=${encodeURIComponent(hat.id)}`}
-                      onClick={onClose}
                       className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-black bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
                       Convert to BentoCard
                     </Link>
