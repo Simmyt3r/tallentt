@@ -60,6 +60,7 @@ export default function Showroom() {
   const [category, setCategory] = useState('')
   const [categories, setCategories] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
+  const [galleryCursor, setGalleryCursor] = useState(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [nearbyAvailable, setNearbyAvailable] = useState(true)
   const [postState, setPostState] = useState({ id: null, state: 'idle' })
@@ -125,7 +126,7 @@ export default function Showroom() {
   const filtersKeyRef = useRef(filtersKey)
   filtersKeyRef.current = filtersKey
   const applyList = useCallback((data, append = false) => {
-    const hats = data.hats || []
+    const hats = [...(data.hats || []), ...(data.galleryPosts || [])]
     setHatMap((prev) => {
       const next = { ...prev }
       for (const hat of hats) next[hat.id] = hat
@@ -136,7 +137,8 @@ export default function Showroom() {
       const seen = new Set(prev)
       return [...prev, ...hats.filter((hat) => !seen.has(hat.id)).map((hat) => hat.id)]
     })
-    setNextCursor(data.nextCursor || null)
+    if (!append || data.nextCursor !== undefined) setNextCursor(data.nextCursor || null)
+    if (!append || (data.galleryPosts && data.galleryPosts.length)) setGalleryCursor(data.galleryNextCursor || null)
     setNearbyAvailable(data.nearbyAvailable !== false)
     if (data.categories) setCategories(data.categories)
   }, [])
@@ -148,6 +150,7 @@ export default function Showroom() {
     setListIds([])
     setSeq([])
     setNextCursor(null)
+    setGalleryCursor(null)
     ;(async () => {
       try {
         const data = await api.getShowroom(filters)
@@ -171,18 +174,22 @@ export default function Showroom() {
   }, [applyList, filters])
 
   const loadMore = useCallback(async () => {
-    if (!nextCursor || loading || loadingMore) return
+    if ((!nextCursor && !galleryCursor) || loading || loadingMore) return
     setLoadingMore(true)
     const requestedKey = filtersKey
     try {
-      const data = await api.getShowroom({ ...filters, cursor: nextCursor })
+      const data = nextCursor
+        ? await api.getShowroom({ ...filters, cursor: nextCursor })
+        : await api.getGalleryFeed({ ...filters, before: galleryCursor }).then(page => ({
+          galleryPosts:page.posts,galleryNextCursor:page.nextCursor,
+        }))
       if (filtersKeyRef.current === requestedKey) applyList(data, true)
     } catch (error) {
       if (filtersKeyRef.current === requestedKey) setToast(error.message || 'Could not load more posts.')
     } finally {
       setLoadingMore(false)
     }
-  }, [applyList, filters, filtersKey, nextCursor, loading, loadingMore])
+  }, [applyList, filters, filtersKey, nextCursor, galleryCursor, loading, loadingMore])
 
   const patchHat = useCallback((id, patch) => {
     setHatMap((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev))
@@ -197,6 +204,7 @@ export default function Showroom() {
       if (!h) return false
       if (!q) return true
       return (
+        (h.media?.[0]?.caption || '').toLowerCase().includes(q) ||
         (h.username || '').toLowerCase().includes(q) ||
         (h.hat_title || '').toLowerCase().includes(q) ||
         (h.category || '').toLowerCase().includes(q) ||
@@ -239,9 +247,9 @@ export default function Showroom() {
   // Fetch the next real page near the end. Never fake an endless feed by
   // showing the same dozen posts repeatedly.
   useEffect(() => {
-    if (loading || loadingMore || !nextCursor || seq.length === 0) return
+    if (loading || loadingMore || (!nextCursor && !galleryCursor) || seq.length === 0) return
     if (vis.last + PRELOAD >= seq.length - 1) loadMore()
-  }, [loading, loadingMore, nextCursor, seq.length, vis.last, loadMore])
+  }, [loading, loadingMore, nextCursor, galleryCursor, seq.length, vis.last, loadMore])
 
   // ── windowing maths ───────────────────────────────────────────────────
   const measure = useCallback(() => {
@@ -372,7 +380,8 @@ export default function Showroom() {
     if (!hat || hat.media?.[0]?.type !== 'video' || feedViewedRef.current.has(id)) return
     feedViewedRef.current.add(id)
     patchHat(id, { views: (hat.views || 0) + 1 })
-    api.recordView(id).catch(() => {})
+    if (hat.is_entertainment) api.galleryAction('view_gallery',id).catch(() => {})
+    else api.recordView(id).catch(() => {})
   }, [activeKey, modalOpen, patchHat])
 
   // ── engagement ────────────────────────────────────────────────────────
@@ -385,7 +394,8 @@ export default function Showroom() {
       const prevLikes = hat.likes || 0
       patchHat(id, { liked_by_me: next, likes: Math.max(0, prevLikes + (next ? 1 : -1)) })
       try {
-        await api.toggleLike(id)
+        if (hat.is_entertainment) await api.galleryAction('like_gallery',id)
+        else await api.toggleLike(id)
       } catch {
         patchHat(id, { liked_by_me: !next, likes: prevLikes })
       } finally {
@@ -407,7 +417,8 @@ export default function Showroom() {
     if (!post || post.user_id !== user?.id) return
     if (!window.confirm('Remove this post from Showroom? Your Hat, portfolio, and existing deals will remain unchanged.')) return
     try {
-      await api.removeOwnShowroomPost(id)
+      if (post.is_entertainment) await api.galleryAction('delete_gallery',id)
+      else await api.removeOwnShowroomPost(id)
       setListIds(previous => previous.filter(item => item !== id))
       setSeq(previous => previous.filter(item => item.id !== id))
       setHatMap(previous => {
@@ -475,8 +486,15 @@ export default function Showroom() {
     }
     let cancelled = false
     setPostState({ id: postId, state: 'loading' })
-    Promise.all([api.getHat(postId), api.getShowroomVisibility(postId)])
-      .then(([{ hat }, visibility]) => {
+    Promise.all([
+      api.getGalleryPost(postId).then(({post}) => ({hat:post,visibility:{hidden:false}}))
+        .catch(error => {
+          if (error?.status !== 404 && error?.status !== 503) throw error
+          return Promise.all([api.getHat(postId),api.getShowroomVisibility(postId)])
+            .then(([{hat},visibility]) => ({hat,visibility}))
+        }),
+    ])
+      .then(([{hat,visibility}]) => {
         if (cancelled) return
         // Only live talent hats belong in the Showroom.
         if (!hat || visibility.hidden || hat.active === false || hat.role !== 'talent') {
@@ -662,13 +680,13 @@ export default function Showroom() {
 
       {body}
       {loadingMore && <p className="py-4 text-center text-[12px] font-semibold text-black/40">Loading more posts…</p>}
-      {!loading && !nextCursor && listIds.length > 1 && <p className="py-4 text-center text-[12px] font-medium text-black/35">You’re all caught up.</p>}
+      {!loading && !nextCursor && !galleryCursor && listIds.length > 1 && <p className="py-4 text-center text-[12px] font-medium text-black/35">You’re all caught up.</p>}
 
       {/* Showroom-level "+": lives outside every post, sticks to the bottom
           corner of the content area while scrolling (clear of the sidebar and
           of the mobile bottom nav / safe area), and is not rendered at all
           for Client accounts. */}
-      {canAdd && (
+      {user?.id && (
         <div
           className="sticky z-40 h-0 flex justify-end pointer-events-none"
           style={{ bottom: 'var(--sr-fab-bottom)' }}
@@ -688,7 +706,8 @@ export default function Showroom() {
       <ShowroomReportDialog hat={reportHat} onClose={() => setReportHat(null)}
         onReported={(message) => { setReportHat(null); notify(message) }} />
 
-      {canAdd && <AddShowroomMedia open={showAdd} onClose={() => setShowAdd(false)} onAdded={refreshShowroom} />}
+      {user?.id && <AddShowroomMedia open={showAdd} onClose={() => setShowAdd(false)}
+        onAdded={result => {if(result?.message) notify(result.message);refreshShowroom()}} />}
 
       <div
         role="status"
