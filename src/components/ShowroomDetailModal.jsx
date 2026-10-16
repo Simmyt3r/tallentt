@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Clock, Eye, Flag, Heart, MapPin, Play, Share2, X } from 'lucide-react'
+import { BookOpen, Clock, Eye, Flag, Heart, MapPin, Play, Share2, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 import { useBackdropClose, useDialog, useScrollLock } from '../lib/dialog'
@@ -95,6 +95,7 @@ export default function ShowroomDetailModal({
   onLike,
   onShare,
   onReport,
+  onDelete,
   onRetry,
   onNotify,
 }) {
@@ -212,6 +213,13 @@ export default function ShowroomDetailModal({
               <button type="button" onClick={() => onShare(hat)} aria-label={`Share post by ${ownerName}`} className={iconBtn}>
                 <Share2 size={17} aria-hidden="true" />
                 <span className="hidden sm:inline">Share</span>
+              </button>
+            )}
+            {hat && onDelete && (
+              <button type="button" onClick={() => onDelete(hat.id)}
+                aria-label="Remove your Showroom post" title="Remove from Showroom"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-red-600 hover:bg-red-50">
+                <Trash2 size={18} aria-hidden="true" />
               </button>
             )}
             <button
