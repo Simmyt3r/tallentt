@@ -96,12 +96,13 @@ function ShowroomPost({
             Showroom Host
           </span>
         )}
-        <div className="absolute top-3 right-3 z-10 pointer-events-none flex flex-col items-end gap-2">
+        {!hat.is_entertainment && <div className="absolute top-3 right-3 z-10 pointer-events-none flex flex-col items-end gap-2">
           <RoleCardBadge role={hat.role} />
           <AvailabilityBadge available={hat.availability} />
-        </div>
+        </div>}
       </div>
 
+      {hat.is_entertainment && <span className="absolute top-3 left-3 z-10 rounded-full bg-black/75 px-3 py-1.5 text-[10px] font-bold text-white">Showcase · no booking</span>}
       <div className={`shrink-0 flex items-center gap-0.5 px-2 sm:px-3 pt-1 ${
         surface
       }`}>
