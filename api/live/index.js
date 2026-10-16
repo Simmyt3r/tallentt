@@ -1,5 +1,6 @@
 // Path: api/live/index.js
 import { getSessionUser } from '../_lib/auth.js'
+import { listStageCompetitions, ownCompetitionStreams, stageCompetition, createStageCompetition, stageCompetitionAction } from '../_lib/stageCompetitions.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import {
   listStreams,
@@ -42,6 +43,9 @@ export default async function handler(req, res) {
     if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
     if (req.method === 'GET') {
+      if (url.searchParams.get('stage_competitions') === '1') return json(res,200,await listStageCompetitions())
+      if (url.searchParams.get('stage_streams') === '1') return json(res,200,await ownCompetitionStreams(session.sub))
+      if (url.searchParams.get('stage_competition')) return json(res,200,await stageCompetition(session.sub,url.searchParams.get('stage_competition')))
       const streamId = url.searchParams.get('room_id') || url.searchParams.get('stream_id')
       if (streamId) return json(res, 200, await getStream(streamId, session.sub))
       const status = url.searchParams.get('status')
@@ -51,6 +55,9 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') return methodNotAllowed(res, ['GET', 'POST'])
     const body = await readBody(req)
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'A JSON object is required.' })
+    if (body.action === 'stage_create') return json(res,201,await createStageCompetition(session.sub,body))
+    if (['stage_join','stage_vote','stage_start','stage_complete','stage_cancel'].includes(body.action))
+      return json(res,200,await stageCompetitionAction(session.sub,body))
     const run = POST_ACTIONS[body.action]
     if (!run) return json(res, 400, { error: 'Unknown Live action.' })
     return json(res, 200, await run(session.sub, body))
