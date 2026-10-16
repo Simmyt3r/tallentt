@@ -415,7 +415,7 @@ export default function Showroom() {
   const removeOwnPost = useCallback(async (id) => {
     const post = hatMapRef.current[id]
     if (!post || post.user_id !== user?.id) return
-    if (!window.confirm('Remove this post from Showroom? Your Hat, portfolio, and existing deals will remain unchanged.')) return
+    if (!window.confirm(post.is_entertainment ? 'Delete this entertainment post?' : 'Remove from Showroom? Your Hat and existing deals will remain unchanged.')) return
     try {
       if (post.is_entertainment) await api.galleryAction('delete_gallery',id)
       else await api.removeOwnShowroomPost(id)
@@ -426,7 +426,7 @@ export default function Showroom() {
         delete next[id]
         return next
       })
-      notify('Removed from Showroom. Your Hat is still in My Hats.')
+      notify(post.is_entertainment ? 'Showcase post deleted.' : 'Removed from Showroom. Your Hat is still in My Hats.')
       if (window.location.pathname === showroomPath(id)) navigate('/showroom', { replace: true })
     } catch (error) {
       notify(error?.message || 'Could not remove the Showroom post.')
@@ -497,7 +497,7 @@ export default function Showroom() {
       .then(([{hat,visibility}]) => {
         if (cancelled) return
         // Only live talent hats belong in the Showroom.
-        if (!hat || visibility.hidden || hat.active === false || hat.role !== 'talent') {
+        if (!hat || visibility.hidden || hat.active === false || (!hat.is_entertainment && hat.role !== 'talent')) {
           setPostState({ id: postId, state: 'unavailable' })
           return
         }
@@ -528,7 +528,8 @@ export default function Showroom() {
     if (!hat || modalViewedRef.current.has(postId)) return
     modalViewedRef.current.add(postId)
     patchHat(postId, { views: (hat.views || 0) + 1 })
-    api.recordView(postId).catch(() => {})
+    if (hat.is_entertainment) api.galleryAction('view_gallery',postId).catch(() => {})
+    else api.recordView(postId).catch(() => {})
   }, [postId, activeHatId, patchHat])
 
   // "Related": what the feed would show next after this post, minus this post.
@@ -575,7 +576,7 @@ export default function Showroom() {
         {view === 'near' && !nearbyAvailable
           ? 'Add your LGA in Profile to discover talents near you.'
           : 'No eligible posts in this view yet.'}
-        {canAdd ? ' Add media to an active Talent Hat to appear here.' : ''}
+        {user?.id ? ' Share a photo or video, or add media to an active Talent Hat.' : ''}
       </p>
     )
   } else if (filteredIds.length === 0) {
