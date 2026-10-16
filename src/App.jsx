@@ -23,6 +23,8 @@ import DealDetails from './pages/DealDetails.jsx'
 import DisputeCenter from './pages/DisputeCenter.jsx'
 import LiveHub from './pages/Live/LiveHub.jsx'
 import StageRoom from './pages/Live/StageRoom.jsx'
+import StageCompetitions from './pages/Live/StageCompetitions.jsx'
+import StageCompetitionRoom from './pages/Live/StageCompetitionRoom.jsx'
 import { decideLanding } from './lib/landing.js'
 
 function FullPageSpinner() { return <div className="min-h-screen grid place-items-center text-gray-500">Loading…</div> }
@@ -59,6 +61,8 @@ export default function App() {
     <Route path="/disputes" element={<ProtectedRoute><DisputeCenter /></ProtectedRoute>} />
     <Route path="/live" element={<ProtectedRoute><LiveHub /></ProtectedRoute>} />
     <Route path="/live/stage/:id" element={<ProtectedRoute><StageRoom /></ProtectedRoute>} />
+    <Route path="/live/competitions" element={<ProtectedRoute><StageCompetitions /></ProtectedRoute>} />
+    <Route path="/live/competitions/:id" element={<ProtectedRoute><StageCompetitionRoom /></ProtectedRoute>} />
     <Route path="/live/stage" element={<Navigate to="/live" replace />} />
     <Route path="/live/arena/:id?" element={<Navigate to="/live" replace />} />
     <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
