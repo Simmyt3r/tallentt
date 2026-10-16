@@ -390,7 +390,8 @@ export async function uploadToCloudinary(file, options = {}) {
 export async function uploadGalleryMedia(file) {
   const issue=validateUploadFile(file)
   if(issue) throw new Error(issue)
-  if(!/^image\\/(jpeg|png|webp|gif|avif)$|^video\\/(mp4|webm|quicktime)$/.test(file.type))
+  if(!new Set(['image/jpeg','image/png','image/webp','image/gif','image/avif',
+    'video/mp4','video/webm','video/quicktime']).has(file.type))
     throw new Error('Choose a supported photo or video (up to 20 MB).')
   const permit=await request('/api/showroom',{
     method:'POST',body:JSON.stringify({action:'gallery_sign',mime:file.type,bytes:file.size}),
