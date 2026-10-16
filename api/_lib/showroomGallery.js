@@ -108,11 +108,11 @@ async function approveSource(userId, media) {
     if (verified.length!==1) throw err(422,'Upload authorization is missing.')
     return {permit:verified[0],alreadyScreened:false}
   }
-  const {rows:existing}=await query(`SELECT 1 FROM hat_media m
+  const {rows:existing}=await query(`SELECT m.screening_status FROM hat_media m
     JOIN hats h ON h.id=m.hat_id WHERE h.user_id=$1 AND m.public_id=$2
-    AND m.url=$3 AND m.type=$4 AND m.screening_status='passed' LIMIT 1`,
+    AND m.url=$3 AND m.type=$4 AND m.screening_status IN ('legacy','passed') LIMIT 1`,
    [userId,media.public_id,media.url,media.type])
-  if (existing.length) return {permit:null,alreadyScreened:true}
+  if (existing.length) return {permit:null,alreadyScreened:existing[0].screening_status==='passed'}
   if (media.type==='image') {
     const {rows:table}=await query("SELECT to_regclass('vibes_posts') AS name")
     if (table[0]?.name) {
@@ -156,7 +156,6 @@ export async function publishGallery(userId, body) {
   const client=await getClient()
   try {
     await client.query('BEGIN')
-    let claimed = false
     if(source.permit) {
       const {rowCount}=await client.query(`UPDATE hat_media_upload_permits
         SET claimed_at=NOW(),claimed_hat_id=NULL
@@ -164,7 +163,6 @@ export async function publishGallery(userId, body) {
           AND claimed_at IS NULL AND expires_at>NOW()`,
         [source.permit.permitId,userId,media.public_id])
       if(rowCount!==1) throw err(409,'This upload was already used. Upload a new file.')
-      claimed=true
     }
     const {rows}=await client.query(`INSERT INTO showroom_gallery_posts
       (author_id,public_id,media_url,media_type,caption,moderation_status,moderation_reason)
