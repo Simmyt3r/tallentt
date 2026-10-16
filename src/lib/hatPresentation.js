@@ -1,4 +1,5 @@
 export const HAT_ACCENTS = Object.freeze({
+  none: { label: 'No accent', color: 'transparent' },
   electric: { label: 'Electric Blue', color: '#0A13E6' },
   coral: { label: 'Coral', color: '#DC4F36' },
   forest: { label: 'Forest', color: '#21764C' },
@@ -17,6 +18,6 @@ export const SHOWROOM_TEMPLATES = Object.freeze([
   { id: 'dark', label: 'Dark' },
 ])
 
-export const getHatAccent = (value) => HAT_ACCENTS[value]?.color || HAT_ACCENTS.electric.color
+export const getHatAccent = (value) => HAT_ACCENTS[value]?.color ?? HAT_ACCENTS.electric.color
 export const getShowroomTemplate = (value) =>
   SHOWROOM_TEMPLATES.some(item => item.id === value) ? value : 'minimal'
