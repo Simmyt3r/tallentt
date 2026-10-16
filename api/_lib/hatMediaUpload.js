@@ -89,6 +89,21 @@ export async function verifyNewHatMedia(userId, mediaList, previousMedia = [], {
           AND archived.screening_status IN ('legacy','passed')
         LIMIT 1`, [userId,m.public_id,m.url,m.type])
       if (owned.length) continue
+      if (m.type === 'image') {
+        const {rows: available} = await query("SELECT to_regclass('vibes_posts') AS name")
+        if (available[0]?.name) {
+          // Existing Vibes photos were screened and tied to their author
+          // before publication. Removed or held posts cannot be recycled.
+          const {rows: vibes} = await query(`SELECT 1 FROM vibes_posts p
+            CROSS JOIN LATERAL jsonb_array_elements(p.media) asset
+            WHERE p.author_id=$1 AND p.deleted_at IS NULL
+              AND p.moderation_status='visible'
+              AND asset->>'public_id'=$2 AND asset->>'url'=$3
+              AND asset->>'type'='image' LIMIT 1`,
+            [userId,m.public_id,m.url])
+          if (vibes.length) continue
+        }
+      }
       throw bad(422,'Archived media is unavailable or does not belong to your account.')
     }
     if (!validUUID(m.upload_id)) throw bad(422,'New media must be uploaded through the secure uploader.')
