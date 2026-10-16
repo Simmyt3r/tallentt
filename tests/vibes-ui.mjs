@@ -69,7 +69,7 @@ try {
     await page.getByRole('navigation',{name:'Primary'}).getByRole('link',{name:'Vibes'}).waitFor({state:width<768?'visible':'hidden'}).catch(()=>{})
     assert.equal(await page.getByRole('heading',{name:'Hits & Vibes'}).count(),1)
     assert.equal(await page.getByText('Nothing here yet').count(),1)
-    await page.getByRole('textbox',{name:'What’s on your mind?'}).fill('First Vibe!')
+    await page.getByRole('textbox',{name:'Say something…'}).fill('First Vibe!')
     await page.getByRole('button',{name:'Post Vibe'}).click()
     await page.getByText('First Vibe!').waitFor()
     assert.equal(published,true)
