@@ -130,8 +130,9 @@ export async function stageCompetitionAction(userId,body) {
       if(own.length)throw bad(403,'Contestants cannot vote in their own competition.')
       const {rows:entrants}=await client.query(`SELECT 1 FROM stage_competition_entrants e
         JOIN live_streams s ON s.id=e.stream_id
-        WHERE e.competition_id=$1 AND e.talent_id=$2`,[id,talentId])
-      if(!entrants.length)throw bad(404,'Contestant not found.')
+        WHERE e.competition_id=$1 AND e.talent_id=$2
+          AND s.status='live' AND s.media_status='connected'`,[id,talentId])
+      if(!entrants.length)throw bad(409,'This contestant is not streaming right now.')
       const {rowCount}=await client.query(`INSERT INTO stage_competition_votes(competition_id,voter_id,talent_id)
         VALUES($1,$2,$3) ON CONFLICT DO NOTHING`,[id,userId,talentId])
       if(!rowCount)throw bad(409,'You have already voted in this competition.')
