@@ -58,6 +58,11 @@ function ShowroomPost({
   const ownerName = getPrimaryIdentity(owner)
   const template = getShowroomTemplate(hat.showroom_template)
   const accent = getHatAccent(hat.bento_accent)
+  const surface = template === 'dark' ? 'bg-[#182033] text-white'
+    : template === 'bold' ? 'bg-[#FFF0DB]'
+    : template === 'editorial' ? 'bg-[#F4F0FF]'
+    : template === 'media-first' ? 'bg-[#F0F9FA]'
+    : 'bg-white'
 
   // Register with the parent's shared IntersectionObserver so it can tell
   // which single post is in view.
@@ -74,7 +79,7 @@ function ShowroomPost({
       style={{ borderTop: accent === 'transparent' ? undefined : `4px solid ${accent}` }}
       aria-label={`Showroom post by ${ownerName}`}
       className={`sr-post flex flex-col overflow-hidden border-y md:border border-black/15 md:rounded-[20px] md:shadow-[0_6px_20px_-12px_rgba(0,0,0,0.25)] ${
-        template === 'dark' ? 'bg-[#182033]' : 'bg-white'
+        surface
       }`}
     >
       <div className="relative flex-1 min-h-0 bg-[#0b0b0b]">
@@ -98,7 +103,7 @@ function ShowroomPost({
       </div>
 
       <div className={`shrink-0 flex items-center gap-0.5 px-2 sm:px-3 pt-1 ${
-        template === 'dark' ? 'bg-[#182033] text-white' : 'bg-white'
+        surface
       }`}>
         <button
           type="button"
@@ -153,7 +158,7 @@ function ShowroomPost({
 
       <div className={`shrink-0 px-3 sm:px-4 pt-1.5 min-w-0 ${
           template === 'media-first' ? 'pb-2' : 'pb-3'
-        } ${template === 'dark' ? 'bg-[#182033] text-white' : 'bg-white'}`}>
+        } ${surface}`}>
         <UserIdentity
           user={owner}
           nameClassName={template === 'dark' ? 'font-bold text-white' : 'font-bold text-[14px] leading-tight'}
