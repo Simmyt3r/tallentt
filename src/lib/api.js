@@ -119,6 +119,14 @@ export const api = {
     }
     return request(`/api/showroom?${params.toString()}`)
   },
+  removeOwnShowroomPost: (hat_id) => request('/api/showroom', {
+    method: 'POST', body: JSON.stringify({ action: 'remove_own', hat_id }),
+  }),
+  restoreOwnShowroomPost: (hat_id) => request('/api/showroom', {
+    method: 'POST', body: JSON.stringify({ action: 'restore_own', hat_id }),
+  }),
+  getShowroomVisibility: (hat_id) =>
+    request(`/api/showroom?action=visibility&hat_id=${encodeURIComponent(hat_id)}`),
   reportShowroom: (hat_id, reason) => request('/api/showroom', {
     method: 'POST', body: JSON.stringify({ action: 'report', hat_id, reason }),
   }),
