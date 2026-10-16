@@ -10,6 +10,7 @@ import {
   Wallet as WalletIcon,
   MessageCircle,
   ArrowLeftRight,
+  Scale,
   Radio,
 } from 'lucide-react'
 
@@ -27,6 +28,7 @@ export const NAV_SECONDARY = [
   { to: '/negotiations', icon: ArrowLeftRight, label: 'Negotiation Center' },
   { to: '/messages', icon: MessageCircle, label: 'Deals Chat' },
   { to: '/wallet', icon: WalletIcon, label: 'Wallet' },
+  { to: '/disputes', icon: Scale, label: 'Dispute Center' },
 ]
 
 export const PROFILE_ITEM = { to: '/profile', icon: UserRound, label: 'Profile' }
@@ -45,6 +47,7 @@ const TITLES = [
   { test: (p) => p.startsWith('/my-applications'), title: 'My Deals' },
   { test: (p) => p.startsWith('/my-bookings'), title: 'My Deals' },
   { test: (p) => p.startsWith('/wallet'), title: 'Wallet' },
+  { test: (p) => p.startsWith('/disputes'), title: 'Dispute Center' },
   { test: (p) => p.startsWith('/live'), title: 'Go Live' },
   { test: (p) => p.startsWith('/admin'), title: 'Admin' },
   { test: (p) => p.startsWith('/talent/'), title: 'Talent Profile' },
