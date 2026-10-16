@@ -2,6 +2,7 @@
 // scoped to both booking participants and never written into message history.
 import {createHmac} from 'node:crypto'
 import {query,getClient} from './db.js'
+import {notifyUser} from './notifications.js'
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[0-9a-f]{12}$/i
 const bad=(status,message)=>Object.assign(new Error(message),{status})
 const requireUuid=value=>{if(!UUID.test(String(value||'')))throw bad(400,'Invalid call or deal identifier.');return value}
@@ -15,6 +16,8 @@ async function closeExpired(){
     WHERE status IN ('ringing','accepted') AND expires_at<NOW()`)
   await query(`DELETE FROM deal_call_signals WHERE call_id IN (
     SELECT id FROM deal_calls WHERE status='expired')`)
+  await query(`DELETE FROM deal_calls WHERE status IN ('expired','ended','declined')
+    AND ended_at<NOW()-INTERVAL '30 days'`)
 }
 
 function turnServers(userId){
@@ -69,18 +72,26 @@ export async function dealCallAction(userId,body){
     if(!['audio','video'].includes(mode))throw bad(400,'Choose audio or video calling.')
     const escrowId=requireUuid(body.escrow_id)
     const client=await getClient()
+    let newCallId, peerId
     try{
       await client.query('BEGIN')
       const deal=await allowedDeal(client,userId,escrowId)
       const other=deal.client_id===userId?deal.talent_id:deal.client_id
+      peerId=other
       const {rows}=await client.query(`INSERT INTO deal_calls
         (escrow_id,caller_id,callee_id,mode) VALUES($1,$2,$3,$4)
         ON CONFLICT DO NOTHING RETURNING id`,[escrowId,userId,other,mode])
       if(!rows.length)throw bad(409,'A call is already active for this deal.')
+      newCallId=rows[0].id
       await client.query('COMMIT')
-      return {id:rows[0].id}
     }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error}
     finally{client.release()}
+    await notifyUser({
+      userId:peerId,type:'deal_call',title:mode==='video'?'Incoming video call':'Incoming audio call',
+      body:'Open the active Deals Chat conversation to answer. Calls expire if unanswered.',
+      linkUrl:'/messages?escrow='+escrowId,metadata:{escrow_id:escrowId,call_id:newCallId},
+    })
+    return {id:newCallId}
   }
   const callId=requireUuid(body.call_id)
   const client=await getClient()
