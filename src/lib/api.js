@@ -27,6 +27,8 @@ export const api = {
   register: (body) => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'register', ...body }) }),
   login: (body) => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'login', ...body }) }),
   logout: () => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) }),
+  requestPasswordReset: (email) => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'password_reset_request', email }) }),
+  completePasswordReset: (token, password) => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'password_reset_complete', token, password }) }),
   usernameCheck: (u) => request(`/api/auth?action=username-check&u=${encodeURIComponent(u)}`),
   updateProfile: (body) => request('/api/auth', { method: 'PUT', body: JSON.stringify(body) }),
   getNotifications: (before) => request(`/api/auth?action=notifications${before ? `&before=${encodeURIComponent(before)}` : ''}`),
