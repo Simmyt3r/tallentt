@@ -224,6 +224,11 @@ export const api = {
   // Admin — one consolidated endpoint to stay within Vercel Hobby's
   // function cap while still giving operations a real control panel.
   getAdminDashboard: () => request('/api/admin'),
+  getAdminMigrations: () => request('/api/admin?action=db_migrations'),
+  applyAdminMigration: (migrationId, checksum) => request('/api/admin', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'apply_db_migration', migrationId, checksum, confirm: `APPLY ${migrationId}` }),
+  }),
   getAdminPushConfig: () => request('/api/admin?action=push_config'),
   generateAdminVapid: (subject) => request('/api/admin', {
     method: 'POST',
