@@ -62,6 +62,18 @@ export default async function handler(req, res) {
       // GET /api/hats?categories=1 — open category taxonomy. Kept here
       // instead of /api/categories so the app stays under Vercel Hobby's
       // serverless function cap after adding /api/admin.
+      if (url.searchParams.get('my_media') === '1') {
+        if (!session?.sub) return json(res,401,{error:'Sign in to view your media library.'})
+        const {rows} = await query(`SELECT DISTINCT ON(m.public_id)
+          m.public_id,m.url,m.type,m.caption,m.screening_status,
+          h.id AS source_hat_id,h.hat_title AS source_title,m.created_at
+          FROM hat_media m JOIN hats h ON h.id=m.hat_id
+          WHERE h.user_id=$1
+            AND m.screening_status IN ('legacy','passed')
+            AND m.type IN ('image','video')
+          ORDER BY m.public_id,m.created_at DESC LIMIT 200`,[session.sub])
+        return json(res,200,{media:rows.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))})
+      }
       if (url.searchParams.get('categories') === '1') {
         const { rows } = await query(`SELECT id, name, created_by, created_at FROM categories ORDER BY name`)
         return json(res, 200, { categories: rows })
