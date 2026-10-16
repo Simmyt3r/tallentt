@@ -13,6 +13,8 @@ import {
 
 const VIEWS = new Set(['for_you', 'trending', 'new', 'near'])
 const PAGE_SIZE = 24
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const missingMigration = () => Object.assign(new Error('Apply the Showroom owner removal migration in Admin before using this action.'), {status:503})
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
@@ -20,6 +22,23 @@ export default async function handler(req, res) {
       const session = getSessionUser(req)
       if (!session?.sub) return json(res, 401, { error: 'Sign in to report a listing.' })
       const body = await readBody(req)
+      if (body?.action === 'remove_own' || body?.action === 'restore_own') {
+        if (!UUID_RE.test(String(body.hat_id || ''))) return json(res, 400, { error: 'Invalid Showroom post.' })
+        const {rows: storage} = await query("SELECT to_regclass('showroom_hidden_hats') AS name")
+        if (!storage[0]?.name) throw missingMigration()
+        if (body.action === 'remove_own') {
+          const {rows} = await query(`INSERT INTO showroom_hidden_hats(hat_id,hidden_by)
+            SELECT h.id,$2 FROM hats h WHERE h.id=$1 AND h.user_id=$2
+            ON CONFLICT (hat_id) DO UPDATE SET hidden_by=$2, hidden_at=NOW()
+            RETURNING hat_id`, [body.hat_id,session.sub])
+          if (!rows.length) return json(res,403,{error:'Only the owner can remove a Showroom post.'})
+          return json(res,200,{removed:true})
+        }
+        const {rows: owned} = await query('SELECT 1 FROM hats WHERE id=$1 AND user_id=$2', [body.hat_id,session.sub])
+        if (!owned.length) return json(res,403,{error:'Only the owner can restore a Showroom post.'})
+        await query('DELETE FROM showroom_hidden_hats WHERE hat_id=$1',[body.hat_id])
+        return json(res,200,{restored:true})
+      }
       if (body?.action === 'report') return json(res, 200, await reportShowroomHat(session.sub, body.hat_id, body.reason))
       if (body?.action === 'appeal') return json(res, 201, await submitShowroomAppeal(session.sub, body.hat_id, body.explanation))
       return json(res, 400, { error: 'Unknown Showroom action.' })
@@ -42,6 +61,15 @@ export default async function handler(req, res) {
     if (url.searchParams.get('action') === 'my_moderation') {
       if (!session?.sub) return json(res, 401, { error: 'Sign in to see your moderation status.' })
       return json(res, 200, await myShowroomModeration(session.sub))
+    }
+    const {rows: hiddenStorage} = await query("SELECT to_regclass('showroom_hidden_hats') AS name")
+    const hasHiddenStorage = Boolean(hiddenStorage[0]?.name)
+    if (url.searchParams.get('action') === 'visibility') {
+      const id = url.searchParams.get('hat_id')
+      if (!UUID_RE.test(String(id || ''))) return json(res,400,{error:'Invalid Showroom post.'})
+      if (!hasHiddenStorage) return json(res,200,{hidden:false})
+      const {rows} = await query('SELECT 1 FROM showroom_hidden_hats WHERE hat_id=$1',[id])
+      return json(res,200,{hidden:rows.length>0})
     }
     const view = url.searchParams.get('view') || 'for_you'
     if (!VIEWS.has(view)) return json(res, 400, { error: 'Unknown Showroom view.' })
@@ -93,6 +121,7 @@ export default async function handler(req, res) {
          JOIN users u ON u.id = h.user_id
          WHERE h.active = true AND h.role = 'talent'
            AND EXISTS (SELECT 1 FROM hat_media m WHERE m.hat_id = h.id)
+           ${hasHiddenStorage ? 'AND NOT EXISTS (SELECT 1 FROM showroom_hidden_hats hidden WHERE hidden.hat_id=h.id)' : ''}
            AND NOT EXISTS (
              SELECT 1 FROM hat_media scanned WHERE scanned.hat_id = h.id
                AND scanned.screening_status IN ('pending', 'processing', 'held', 'rejected')
