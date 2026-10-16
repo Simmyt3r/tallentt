@@ -9,6 +9,12 @@ const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
   {
+    id: 'password-recovery-2026-10',
+    title: 'Password recovery',
+    description: 'One-use expiring password reset tokens and request throttling.',
+    path: new URL('../../db/patch-password-recovery-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'bento-no-accent-2026-10',
     title: 'No-accent Bento option',
     description: 'Support a neutral colour band in card customization.',
