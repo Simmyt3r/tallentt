@@ -64,6 +64,13 @@ export default async function handler(req, res) {
     }
     const {rows: hiddenStorage} = await query("SELECT to_regclass('showroom_hidden_hats') AS name")
     const hasHiddenStorage = Boolean(hiddenStorage[0]?.name)
+    if (url.searchParams.get('action') === 'my_hidden') {
+      if (!session?.sub) return json(res,401,{error:'Unauthorized'})
+      if (!hasHiddenStorage) return json(res,200,{hatIds:[]})
+      const {rows} = await query(`SELECT sh.hat_id FROM showroom_hidden_hats sh
+        JOIN hats h ON h.id=sh.hat_id WHERE h.user_id=$1 ORDER BY sh.hidden_at DESC`,[session.sub])
+      return json(res,200,{hatIds:rows.map(row=>row.hat_id)})
+    }
     if (url.searchParams.get('action') === 'visibility') {
       const id = url.searchParams.get('hat_id')
       if (!UUID_RE.test(String(id || ''))) return json(res,400,{error:'Invalid Showroom post.'})
