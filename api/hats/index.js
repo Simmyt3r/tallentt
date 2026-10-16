@@ -90,8 +90,21 @@ export default async function handler(req, res) {
               source_hat_id:null,source_title:'Vibes',created_at:post.created_at,
             })))
         }
+        const {rows:galleryExists} = await query("SELECT to_regclass('showroom_gallery_posts') AS name")
+        let galleryMedia=[]
+        if (galleryExists[0]?.name) {
+          const {rows:posts}=await query(`SELECT public_id,media_url,media_type,caption,created_at
+            FROM showroom_gallery_posts WHERE author_id=$1
+              AND moderation_status='visible' AND deleted_at IS NULL
+            ORDER BY created_at DESC LIMIT 100`,[session.sub])
+          galleryMedia=posts.map(post=>({
+            public_id:post.public_id,url:post.media_url,type:post.media_type,
+            caption:post.caption,screening_status:'passed',
+            source_hat_id:null,source_title:'Showroom gallery',created_at:post.created_at,
+          }))
+        }
         const seen=new Set()
-        const media=[...rows,...vibesMedia].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))
+        const media=[...rows,...vibesMedia,...galleryMedia].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))
           .filter(asset=>{if(seen.has(asset.public_id))return false;seen.add(asset.public_id);return true})
           .slice(0,200)
         return json(res,200,{media})
