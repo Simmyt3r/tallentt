@@ -95,11 +95,11 @@ export async function verifyNewHatMedia(userId, mediaList, previousMedia = [], {
           // Existing Vibes photos were screened and tied to their author
           // before publication. Removed or held posts cannot be recycled.
           const {rows: vibes} = await query(`SELECT 1 FROM vibes_posts p
-            CROSS JOIN LATERAL jsonb_array_elements(p.media) asset
+            CROSS JOIN LATERAL jsonb_array_elements(p.media) AS asset(value)
             WHERE p.author_id=$1 AND p.deleted_at IS NULL
               AND p.moderation_status='visible'
-              AND asset->>'public_id'=$2 AND asset->>'url'=$3
-              AND asset->>'type'='image' LIMIT 1`,
+              AND asset.value->>'public_id'=$2 AND asset.value->>'url'=$3
+              AND asset.value->>'type'='image' LIMIT 1`,
             [userId,m.public_id,m.url])
           if (vibes.length) continue
         }
