@@ -33,6 +33,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-showroom-owner-removal-2026-10.sql', import.meta.url),
   },
   {
+    id: 'showroom-gallery-2026-10',
+    title: 'Independent Showroom gallery',
+    description: 'Non-commercial photo and video posts, moderation, owner deletion and engagement.',
+    path: new URL('../../db/patch-showroom-gallery-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'password-recovery-2026-10',
     title: 'Password recovery',
     description: 'One-use expiring reset tokens and request throttling.',
