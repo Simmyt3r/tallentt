@@ -78,6 +78,19 @@ export async function verifyNewHatMedia(userId, mediaList, previousMedia = [], {
     distinct.add(m.public_id)
     const prev = existing.get(m.public_id)
     if (prev && prev.url === m.url && prev.type === m.type) continue
+    if (!m.upload_id) {
+      // Reusing an existing, approved asset from the same subscriber's
+      // library is permitted without issuing another Cloudinary upload.
+      // Every media field is matched to the authoritative owner record.
+      const {rows:owned} = await query(`SELECT 1 FROM hat_media archived
+        JOIN hats owner_hat ON owner_hat.id=archived.hat_id
+        WHERE owner_hat.user_id=$1 AND archived.public_id=$2
+          AND archived.url=$3 AND archived.type=$4
+          AND archived.screening_status IN ('legacy','passed')
+        LIMIT 1`, [userId,m.public_id,m.url,m.type])
+      if (owned.length) continue
+      throw bad(422,'Archived media is unavailable or does not belong to your account.')
+    }
     if (!validUUID(m.upload_id)) throw bad(422,'New media must be uploaded through the secure uploader.')
     const {rows} = await query(
       `SELECT id,user_id,public_id,resource_type,declared_mime,declared_bytes,claimed_hat_id,
