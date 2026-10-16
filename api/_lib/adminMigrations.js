@@ -54,8 +54,9 @@ async function storedMigrations() {
 }
 
 export async function adminMigrationStatus() {
-  const [stored, files] = await Promise.all([
+  const [stored, files, database] = await Promise.all([
     storedMigrations(), Promise.all(MIGRATION_CATALOG.map(bundledSql)),
+    query('SELECT current_database() AS name'),
   ])
   const migrations = MIGRATION_CATALOG.map((item, index) => {
     const previous = stored.get(item.id)
@@ -67,7 +68,8 @@ export async function adminMigrationStatus() {
       appliedBy: previous?.applied_by || null,
     }
   })
-  return { migrations, pendingCount: migrations.filter(x => x.status === 'pending').length }
+  return { databaseName: database.rows[0]?.name || '', migrations,
+    pendingCount: migrations.filter(x => x.status === 'pending').length }
 }
 
 export async function applyAdminMigration(adminId, { migrationId, confirm, checksum: expectedChecksum } = {}) {
@@ -124,6 +126,12 @@ export async function applyAdminMigration(adminId, { migrationId, confirm, check
     return { status: 'applied', migrationId: migration.id, durationMs: Date.now() - started }
   } catch(error) {
     if (began) await client.query('ROLLBACK').catch(() => {})
+    // Failed attempts are noted separately after rollback; successful
+    // migration-history entries and their audits are always atomic.
+    await query(`INSERT INTO admin_audit_logs (admin_id, action, target_type, metadata)
+      VALUES ($1,'apply_db_migration_failed','db_migration',$2::jsonb)`,
+      [adminId, JSON.stringify({migrationId: migration.id, reason: error.status ? 'rejected' : 'sql_error'})]
+    ).catch(auditError => console.error('Migration failure audit unavailable:', auditError.code || auditError.message))
     // Do not expose raw SQL/database errors to the browser.
     if (!error.status) {
       console.error('Admin migration failed:', migration.id, error.code || error.message)
