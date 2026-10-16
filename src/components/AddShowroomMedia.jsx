@@ -18,6 +18,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   const [step, setStep] = useState(1)
   const [myHats, setMyHats] = useState([])
   const [mediaLibrary, setMediaLibrary] = useState([])
+  const [recentPosts, setRecentPosts] = useState([])
   const [loadingHats, setLoadingHats] = useState(false)
   const [selectedHat, setSelectedHat] = useState(null)
   const [standalone, setStandalone] = useState(false)
@@ -51,6 +52,9 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
   useEffect(() => {
     if (!open || !user?.id) return undefined
     let canceled=false
+    api.getMyGalleryPosts().then(data => {
+      if(!canceled) setRecentPosts(data.posts||[])
+    }).catch(() => { if(!canceled) setRecentPosts([]) })
     api.getMyMedia().then(data => {
       if(!canceled) setMediaLibrary((data.media || []).filter(item =>
         ['image','video'].includes(item.type) && ['legacy','passed'].includes(item.screening_status)))
@@ -191,6 +195,35 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
                   Upload a photo or video for entertainment. Your profile and View/Play appear, but there is no booking or application link.
                 </span>
               </button>
+              {recentPosts.length > 0 && (
+                <section className="space-y-2 rounded-xl border border-black/10 bg-white p-3" aria-label="Your recent showcase posts">
+                  <h3 className="text-[12px] font-bold">Your recent showcase posts</h3>
+                  {recentPosts.slice(0,4).map(item=><div key={item.id} className="flex items-center gap-3 text-[11px]">
+                    <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-black/5">
+                      <img src={item.media_type === 'video'
+                        ? cldVideoPoster(item.media_url,{w:90,h:90})
+                        : cldImage(item.media_url,{w:90,h:90})}
+                        alt="" className="h-full w-full object-cover" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{item.caption||'Untitled showcase'}</span>
+                      <span className="font-semibold text-black/50">{item.moderation_status === 'visible' ? 'Public' :
+                        item.moderation_status === 'pending' ? 'Awaiting review' :
+                        item.moderation_status === 'held' ? 'Needs admin review' : 'Not approved'}</span>
+                    </span>
+                    <button type="button" aria-label="Delete showcase post"
+                      className="min-h-9 shrink-0 rounded-full border border-red-200 px-3 font-semibold text-red-700"
+                      onClick={async()=>{
+                        if(!window.confirm('Delete this showcase post?'))return
+                        try {
+                          await api.galleryAction('delete_gallery',item.id)
+                          setRecentPosts(items=>items.filter(post=>post.id!==item.id))
+                          onAdded?.({})
+                        } catch(err){setError(err.message||'Unable to delete post.')}
+                      }}>Delete</button>
+                  </div>)}
+                </section>
+              )}
               <p className="text-[11px] font-black text-black/40 uppercase tracking-wide">Or promote a Talent Hat</p>
               {loadingHats ? (
                 <p className="text-black/40 py-8 text-center text-[13px] font-medium">Loading your hats…</p>
