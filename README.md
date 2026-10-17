@@ -73,6 +73,63 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
 
 
+## October 17 Vibes, presence, sharing and broadcast corrections
+
+**Migrations:** Run these allowlisted migrations through Admin → Database
+Migrations before enabling the corresponding features, after database backup:
+
+1. **Vibes longer posts and editing** (`db/patch-vibes-editor-2026-10.sql`)
+2. **Vibes reviewed video media** (`db/patch-vibes-video-2026-10.sql`)
+3. **Online presence indicator** (`db/patch-online-presence-2026-10.sql`)
+
+Apply the original `vibes-2026-10` migration first if the tables are not
+present. The new migrations do not change existing post ownership.
+
+- Card details now expose the owner's join date, active Hats, immutable Hat
+  ID/job reference and an **Open / Closed** status based on actual active and
+  availability fields.
+- Vibes usernames appear without a duplicated @ prefix. Replies read oldest
+  to newest with a multiline compose box **below** the conversation.
+- Owners may edit or delete their own posts/replies through a three-dot
+  menu (also touch-hold on the action control). Server authorization
+  checks ownership. Text supports up to 10,000 characters, a deliberate
+  safety/size limit rather than an unbounded database write. Edited records
+  retain their created timestamp.
+- Photos and videos use **signed, owner-bound Cloudinary uploads** (up to
+  8MB/photo, 20MB/video, 4 attachments). Video posts remain
+  `held` for manual approval. Photos run Google Vision screening when
+  configured, otherwise remain `held` for human approval.
+  **No unreviewed image or video is shown publicly.** Admin → **Vibes Video
+  Review** provides the moderation queue. Setting
+  `VIBES_MEDIA_UPLOADS=disabled` explicitly turns off media uploads.
+  Cloudinary server credentials must be present. Images can be reviewed
+  manually when Google Vision is unavailable; Cloudinary is still mandatory.
+- Account online badges rely on foreground heartbeats and a short 90-second
+  expiry rather than a claimed booking availability signal. Subscribers may
+  disable online visibility in Settings. Old builds without the migration
+  gracefully show members as offline.
+- A BentoCard share control opens device sharing or copies a canonical
+  `/hat/<uuid>` link. Vibes retains the post-specific
+  `/vibes?post=<uuid>` share link.
+- Showroom uploads already supported per-media captions. The composer now
+  labels that field explicitly to distinguish it from the Hat tagline.
+  My Hats adds **Show in Showroom / Hide from Showroom**, independent of
+  BentoField visibility, for Talent Hats with media. Normal moderation still
+  applies.
+- **Live is not yet guaranteed operational.** When external MediaMTX/WHIP/HLS
+  is absent or unreachable, the server now **rejects** starting a broadcast
+  instead of making a video-less private preview look public. Older fallback
+  rooms are excluded from public Live discovery. Configure the server-side
+  `LIVE_MEDIA_SERVER_URL`, `LIVE_WHIP_URL`, `LIVE_HLS_BASE_URL`, media
+  authorization integration and browser ICE/TURN as necessary. Test with
+  separate publisher/viewer browsers before enabling Live Broadcast.
+
+**Deployment checks:** Run Vibes media, per-author editing, media approval,
+online expiry/privacy, sharing, mobile replies and Live media connectivity
+regressions. Do not advertise a production release until Vercel build and
+end-to-end checks succeed. Never expose Cloudinary or media-auth secrets in
+frontend bundle or public logs.
+
 ## October 17 Career Passport card details
 
 **New migration**: Apply **Card profile statement and Hat requirements** via
