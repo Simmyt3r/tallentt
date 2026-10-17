@@ -93,3 +93,14 @@ test('hat requirements can be updated without rewriting its tagline',async()=>{
   assert.equal(rows[0].motto,'Short Hat tagline')
   assert.match(rows[0].job_requirements,/steelwork/)
 })
+
+test('pre-migration reads keep login, user profiles and Hat details accessible',async()=>{
+  // The admin must still be able to log in to apply the in-app migration.
+  await pool.query('ALTER TABLE users DROP COLUMN profile_statement')
+  const me=await req(auth,'/api/auth?action=me',{who:owner})
+  assert.equal(me.statusCode,200,JSON.stringify(me.body))
+  assert.equal(me.body.user.profileStatement,null)
+  const card=await req(handler,'/api/hats/'+hatId+'?include=owner',{who:viewer})
+  assert.equal(card.statusCode,200,JSON.stringify(card.body))
+  assert.equal(card.body.owner.statement,null)
+})
