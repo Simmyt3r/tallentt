@@ -134,6 +134,11 @@ async function buildCardDetail(hat, viewerId) {
     applications=Number(rows[0]?.applications||0)
     activeApplications=Number(rows[0]?.active||0)
   }catch(err){console.error('Hat application aggregate unavailable',err)}
+  const {rows:bookingCounts}=await query(`SELECT
+    COUNT(*) FILTER(WHERE status IN ('not_funded','secured','released'))::int AS bookings,
+    COUNT(*) FILTER(WHERE status='secured')::int AS active_bookings
+    FROM escrows WHERE hat_id=$1`,[hat.id])
+  const bookingSummary=bookingCounts[0]||{}
   let phone=null
   if(viewerId){
     if(viewerId===hat.user_id){
@@ -155,16 +160,15 @@ async function buildCardDetail(hat, viewerId) {
   return {
     id: hat.id,
     title: hat.hat_title,
-    // hats has no dedicated long-form description column — motto is the
-    // closest existing free-text field tied to the card, so it's reused
-    // here rather than adding a new one.
+    // Long-form requirements and short tagline remain distinct fields.
     description: hat.job_requirements || null,
     tagline: hat.motto || null,
     job_requirements: hat.job_requirements || null,
     hat_type: hat.hat_type || null,
     delivery_mode: hat.delivery_mode || null,
     job: {type:hat.hat_type||null,duration:hat.hiring_duration||null,
-      location,applicants:applications,active_applicants:activeApplications},
+      location,applicants:applications,active_applicants:activeApplications,
+      bookings:Number(bookingSummary.bookings||0),active_bookings:Number(bookingSummary.active_bookings||0)},
     performance: {orbit,completed_jobs:Number(stats.completed_jobs||0),
       successful_hires:Number(stats.successful_hires||0),open_disputes:Number(stats.open_disputes||0)},
     media: (hat.media || []).map((m) => ({ url: m.url, type: m.type, caption: m.caption || null })),
