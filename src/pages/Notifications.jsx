@@ -4,7 +4,6 @@ import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, Wall
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
-import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
 
 function relativeTime(value) {
   if (!value) return ''
@@ -68,6 +67,11 @@ export default function Notifications() {
   const [paging, setPaging] = useState(false)
   const olderLoadedRef = useRef(false)
   const refreshSequenceRef = useRef(0)
+  const holdTimer = useRef(null)
+  const heldRef = useRef(false)
+  const [selectedForDelete, setSelectedForDelete] = useState(null)
+  const cancelHold = () => { if (holdTimer.current) clearTimeout(holdTimer.current); holdTimer.current = null }
+  const startHold = (notification) => { cancelHold(); heldRef.current = false; holdTimer.current = setTimeout(() => { heldRef.current = true; setSelectedForDelete(notification) }, 550) }
 
   const load = useCallback(async ({ quiet = false } = {}) => {
     const sequence = ++refreshSequenceRef.current
@@ -193,13 +197,14 @@ export default function Notifications() {
   }
 
   async function openNotification(notification) {
+    if (heldRef.current) { heldRef.current = false; return }
     await markOne(notification)
     if (notification.link_url) navigate(notification.link_url)
   }
 
   return (
     <main className="max-w-4xl mx-auto pb-8">
-      <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <header className="sticky top-14 md:top-16 z-10 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 py-3 mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
         <div>
           <div className="flex items-center gap-2">
             <Bell size={22} />
@@ -229,14 +234,12 @@ export default function Notifications() {
         </div>
       </header>
 
-      <PushNotificationSettings />
-
-      <section className="overflow-hidden rounded-[22px] border-[1.5px] border-black bg-[#F7F3EB]" aria-label="Notification list">
+      <section className="overflow-hidden border-y border-black/10 bg-white" aria-label="Notification list">
         <div className="border-b border-black/10 bg-white px-4 py-3">
-          <p className="text-[12px] font-black">{unreadCount ? `${unreadCount} unread` : 'You’re all caught up'}</p>
+          <p className="text-[12px] font-black">{unreadCount ? `${unreadCount} unread` : 'You’re all caught up'} <span className="ml-2 font-normal text-black/45">Press and hold a message to delete, or right-click on desktop.</span></p>
         </div>
 
-        <div className="p-3 sm:p-4">
+        <div className="p-0">
           {loading ? (
             <LoadingRows />
           ) : error ? (
@@ -257,18 +260,23 @@ export default function Notifications() {
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="divide-y divide-black/10">
               {notifications.map((notification) => {
                 const { Icon, className: iconClass } = notificationVisual(notification.type)
                 return (
-                  <div key={notification.id} className="flex min-w-0 items-stretch gap-2">
+                  <div key={notification.id} className="flex min-w-0 items-stretch">
                   <button
                     type="button"
                     onClick={() => openNotification(notification)}
-                    className={`min-w-0 flex-1 rounded-[18px] border p-4 text-left transition flex gap-3 ${
+                    onPointerDown={(event) => { if (event.pointerType !== 'mouse') startHold(notification) }}
+                    onPointerUp={cancelHold}
+                    onPointerCancel={cancelHold}
+                    onPointerLeave={cancelHold}
+                    onContextMenu={(event) => { event.preventDefault(); cancelHold(); heldRef.current = true; setSelectedForDelete(notification) }}
+                    className={`min-w-0 w-full flex-1 p-4 text-left transition flex gap-3 touch-pan-y ${
                       notification.unread
-                        ? 'bg-white border-[#0A13E6]/20 shadow-[0_4px_14px_rgba(10,19,230,0.06)]'
-                        : 'bg-white/55 border-black/10 hover:bg-white'
+                        ? 'bg-[#F0F3FF] hover:bg-[#E7ECFF]'
+                        : 'bg-white hover:bg-[#F7F3EB]'
                     }`}
                   >
                     <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-[13px] border ${iconClass}`}>
@@ -293,12 +301,7 @@ export default function Notifications() {
                       </span>
                     </span>
                   </button>
-                  <button type="button" aria-label={`Delete notification: ${notification.title}`}
-                    onClick={() => removeNotification(notification)}
-                    title="Delete notification"
-                    className="w-10 shrink-0 rounded-2xl border border-black/10 bg-white text-red-600 grid place-items-center hover:bg-red-50">
-                    <Trash2 size={17} />
-                  </button>
+
                   </div>
                 )
               })}
@@ -318,6 +321,23 @@ export default function Notifications() {
           )}
         </div>
       </section>
+      {selectedForDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          role="presentation" onClick={() => { setSelectedForDelete(null); heldRef.current = false }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="notification-actions-title"
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+            onClick={event => event.stopPropagation()}>
+            <h2 id="notification-actions-title" className="text-[16px] font-bold">Notification options</h2>
+            <p className="mt-2 break-words text-[13px] text-black/60">{selectedForDelete.title}</p>
+            <button type="button" className="mt-4 flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[13px] font-semibold text-red-700 hover:bg-red-50"
+              onClick={async () => { const target = selectedForDelete; setSelectedForDelete(null); heldRef.current = false; await removeNotification(target) }}>
+              <Trash2 size={16}/> Delete notification
+            </button>
+            <button type="button" className="min-h-11 w-full rounded-xl border border-black/15 text-[13px] font-semibold"
+              onClick={() => { setSelectedForDelete(null); heldRef.current = false }}>Cancel</button>
+          </section>
+        </div>
+      )}
     </main>
   )
 }
