@@ -72,7 +72,7 @@ export function formatBudget(budget) {
       budget.max != null && budget.max !== budget.min
         ? `${fmtMoney(budget.min, currency)} – ${fmtMoney(budget.max, currency)}`
         : fmtMoney(budget.min, currency)
-    const unitText = budget.unit ? ` /${String(budget.unit).replace(/^\\//, '')}` : ''
+    const unitText = budget.unit ? ` /${String(budget.unit).replace(/^[/]/, '')}` : ''
     return base + unitText
   }
   if (budget.amount != null) {
