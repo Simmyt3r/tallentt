@@ -351,3 +351,19 @@ img, video { max-width: 100%; }
            focus:border-black/20 focus:ring-4 focus:ring-black/[0.04] placeholder:text-black/30;
   }
 }
+
+/* Distinct, persisted Bento layouts, including readable Dark mode. */
+.bento-layout--bold { border-radius: 14px; }
+.bento-layout--bold > div:nth-of-type(2) { font-weight: 800; }
+.bento-layout--editorial { font-family: Georgia, 'Times New Roman', serif; }
+.bento-layout--editorial .text-\[12px\] { letter-spacing: .012em; }
+.bento-layout--media-first { padding-top: 1rem; }
+.bento-layout--dark .text-black,
+.bento-layout--dark .text-black\/80,
+.bento-layout--dark .text-black\/70,
+.bento-layout--dark .text-black\/65,
+.bento-layout--dark .text-black\/60,
+.bento-layout--dark .text-black\/50,
+.bento-layout--dark .text-black\/40 { color: rgba(255,255,255,.84) !important; }
+.bento-layout--dark .bg-\[\#FFEBE0\] { color: #111827; }
+.bento-layout--dark .bg-black.text-white { background: rgba(255,255,255,.18); }
