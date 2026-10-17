@@ -1,5 +1,6 @@
 // Path: api/admin/index.js
 import { query, getClient } from '../_lib/db.js'
+import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
 import { adminGalleryQueue, adminGalleryDecision } from '../_lib/showroomGallery.js'
 import { adminMigrationStatus, applyAdminMigration } from '../_lib/adminMigrations.js'
@@ -39,6 +40,8 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
+      if (params.get('action') === 'user_erasure_preview') return json(res,200,await getUserErasurePreview(admin.id,params.get('user_id')))
+      if (params.get('action') === 'user_erasure_media') return json(res,200,await mediaErasureStatus())
       if (params.get('action') === 'orbit_config') return json(res,200,await orbitAdminStatus())
       if (params.get('action') === 'hat_data_reviews') return json(res,200,await newHatReviewQueue())
       if (params.get('action') === 'db_migrations') return json(res, 200, await adminMigrationStatus())
@@ -272,6 +275,8 @@ async function getDashboard() {
 }
 
 async function handleAdminAction(admin, body) {
+  if (body?.action === 'erase_subscriber') return eraseSubscriber(admin.id,body)
+  if (body?.action === 'retry_user_media_erasure') return processErasureMediaQueue({limit:8})
   if (body?.action === 'configure_orbit') return saveOrbitWeights(admin.id,body.weights)
   if (body?.action === 'review_hat_data') return reviewHatData(admin.id,body)
   if (body?.action === 'review_gallery') return adminGalleryDecision(admin.id,body)
