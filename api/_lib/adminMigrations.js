@@ -63,6 +63,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-admin-user-erasure-2026-10.sql', import.meta.url),
   },
   {
+    id: 'card-detail-2026-10',
+    title: 'Card profile statement and Hat requirements',
+    description: 'Adds long-form professional profile statements and per-Hat requirements without changing tagline data.',
+    path: new URL('../../db/patch-card-detail-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'password-recovery-2026-10',
     title: 'Password recovery',
     description: 'One-use expiring reset tokens and request throttling.',
