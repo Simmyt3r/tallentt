@@ -14,8 +14,9 @@ import {
 
 // Bento offers the original standard card or a verified, owner-selected
 // flier image. Both layouts keep identity, role and booking controls visible.
-export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, fullWidth = false, moreCount = 0, showFeedAction = false }) {
+export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, fullWidth = false, siblingHats = [], showFeedAction = false }) {
   const [open, setOpen] = useState(false)
+  const [showOtherHats, setShowOtherHats] = useState(false)
 
   const isTalent = hat.role === 'talent'
   const layout = getShowroomTemplate(hat.showroom_template)
@@ -52,8 +53,9 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
   return (
     <>
       <article
+        id={`bento-hat-${hat.id}`}
         style={{ borderTopColor: getHatAccent(hat.bento_accent), borderTopWidth: hat.bento_accent === 'none' ? 0 : 4 }}
-        className={`bento-layout bento-layout--${layout} relative rounded-[24px] p-4 border shadow-[0_8px_24px_rgba(0,0,0,0.04)] min-h-[264px] flex flex-col w-full ${theme} ${
+        className={`bento-layout bento-layout--${layout} isolate min-w-0 relative rounded-[24px] p-4 border shadow-[0_8px_24px_rgba(0,0,0,0.04)] min-h-[264px] flex flex-col w-full ${theme} ${
           fullWidth ? '' : 'max-w-[300px]'
         }`}
       >
@@ -105,16 +107,40 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
         )}
 
         <div className="mt-3 text-[12px] leading-snug">
-          <span className="font-bold text-black/70">Hats:</span>{' '}
-          <span className="font-semibold text-black">{hat.hat_name || hat.hat_title}</span>
-          {moreCount > 0 && <span className="font-bold text-black/50"> +{moreCount} more</span>}
+          <span className="font-bold text-black/70">Hat:</span>{' '}
+          <span className="font-semibold text-black break-words">{hat.hat_name || hat.hat_title}</span>
+          {siblingHats.length > 0 && (
+            <button type="button" aria-expanded={showOtherHats}
+              aria-controls={`other-hats-${hat.id}`}
+              onClick={() => setShowOtherHats(value => !value)}
+              className="ml-2 min-h-9 rounded-full px-2 text-[11px] font-bold text-[#0A13E6] underline underline-offset-2">
+              {showOtherHats ? 'Less' : `+${siblingHats.length} More`}
+            </button>
+          )}
         </div>
+        {showOtherHats && siblingHats.length > 0 && (
+          <div id={`other-hats-${hat.id}`}
+            className="mt-2 rounded-xl border border-black/10 bg-white/90 p-2">
+            <p className="px-2 pb-1 text-[10px] font-bold text-black/50">Other independently bookable Hats</p>
+            {siblingHats.map(other => (
+              <button key={other.id} type="button"
+                onClick={() => document.getElementById(`bento-hat-${other.id}`)?.scrollIntoView({
+                  behavior:'smooth',block:'center',
+                })}
+                className="flex min-h-10 w-full items-center justify-between gap-2 rounded-lg px-2 text-left hover:bg-blue-50">
+                <span className="min-w-0 break-words text-[11px] font-semibold text-black">{other.hat_name || other.hat_title}</span>
+                <span className="shrink-0 text-[10px] font-bold text-[#0A13E6]">View card</span>
+              </button>
+            ))}
+          </div>
+        )}
 
-        <div className="mt-1.5 text-[12px] leading-snug flex items-baseline gap-1">
-          <span className="font-bold text-black/70 shrink-0">{isTalent ? 'Available:' : 'Hiring:'}</span>
-          <span className="font-semibold text-black truncate">{hat.hat_title}</span>
-          <span className="text-black/40 font-bold mx-0.5">:</span>
-          <span className="font-bold shrink-0" style={{ color: hat.bento_accent === 'none' ? 'inherit' : getHatAccent(hat.bento_accent) }}>{formatPrice(hat, currency)}</span>
+        <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] leading-snug">
+          <span className="shrink-0 font-bold text-black/70">{isTalent ? 'Rate:' : 'Budget:'}</span>
+          <span className="min-w-0 break-words font-bold"
+            style={{ color: hat.bento_accent === 'none' || layout === 'dark' ? 'inherit' : getHatAccent(hat.bento_accent) }}>
+            {formatPrice(hat, currency)}
+          </span>
         </div>
 
         {isTalent ? (
