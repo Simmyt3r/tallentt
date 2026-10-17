@@ -73,6 +73,45 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
 
 
+## October 17 Career Passport card details
+
+**New migration**: Apply **Card profile statement and Hat requirements** via
+Admin → Database Migrations (`db/patch-card-detail-2026-10.sql`) **before**
+rolling out code that reads the new columns. The main schema file also carries
+these additive columns for new database installs.
+
+- **Create/Edit profile:** A professional statement up to 2,000 characters,
+  distinct from a short bio/headline. Public profiles and opened cards show
+  the statement instead of silently substituting a tagline.
+- **Create/Edit Hat:** A long-form service description / job requirements field
+  up to 3,000 characters, distinct from the original 80-character tagline.
+- **BentoCard:** Replaces Duration with **Job type** and presents type plus
+  hiring duration together; **One-Off** jobs have no second duration. Replaces
+  Event with **Hat Location**. Pay unit is displayed alongside price.
+- **BentoField and Showroom details:** Three reusable sections: Profile
+  information (statement, permitted contact); Performance records (0–100
+  account Orbit score, released jobs/hires, currently disputed deals); and
+  This Hat (type/duration, location, its own requirements and pricing,
+  applicants for Client Hats, bookings for Talent Hats).
+- **Vibes:** Clicking a subscriber identity opens their persistent public
+  profile with the same professional statement and account-level performance,
+  without turning entertainment content into a job application.
+- **Privacy:** Phone numbers are **not public**. The detail API only provides
+  them to the owner or a counterparty on an actual funded escrow with
+  `contacts_unlocked`. NIN, financial details and reference checks are never
+  returned in the public detail payload.
+- **Future verifiable credentials:** See
+  [Career Passport design](docs/CAREER_PASSPORT_DESIGN.md). ITF, COREN,
+  Red Seal, specific employers, supervisor attestations, geo attendance,
+  institution-signed badges and QR revocation checks are **future design
+  requirements**, not active integrations or endorsements. The case story's
+  higher Orbit values do not change the current 0–100 scoring system.
+
+**Release validation:** `npm run verify` and `npm run test:ui`. New tests cover
+owner-contact privacy, Hat-specific counts, statement/requirements editing,
+One-Off duration semantics and UI labels. Review release-blocking migration
+state before deploying.
+
 ## Administrator subscriber deletion (October 2026)
 
 ChombuTar Admin → **Users** provides a full-database subscriber search by
