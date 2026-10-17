@@ -129,6 +129,7 @@ async function publish(userId, body) {
 
 const PUBLIC_POST = `SELECT p.id,p.body,p.media,p.created_at,p.edited_at,p.author_id,
   u.username,u.full_name,u.avatar_url,u.role,
+  EXISTS(SELECT 1 FROM user_presence presence WHERE presence.user_id=p.author_id AND presence.is_visible=TRUE AND presence.last_seen>NOW()-INTERVAL '90 seconds') AS is_online,
   (SELECT COUNT(*)::int FROM vibes_likes l WHERE l.post_id=p.id) AS likes,
   (SELECT COUNT(*)::int FROM vibes_comments c WHERE c.post_id=p.id AND c.deleted_at IS NULL) AS replies,
   EXISTS(SELECT 1 FROM vibes_likes l WHERE l.post_id=p.id AND l.user_id=$1) AS liked_by_me
@@ -154,7 +155,8 @@ async function getComments(userId,url) {
   const before=url.searchParams.get('before')
   if(!validId(post)||(before&&!validId(before))) throw bad(400,'Invalid comment cursor.')
   const {rows}=await query(
-    `SELECT c.id,c.post_id,c.author_id,c.body,c.created_at,c.edited_at,u.username,u.full_name,u.avatar_url
+    `SELECT c.id,c.post_id,c.author_id,c.body,c.created_at,c.edited_at,u.username,u.full_name,u.avatar_url,
+      EXISTS(SELECT 1 FROM user_presence presence WHERE presence.user_id=c.author_id AND presence.is_visible=TRUE AND presence.last_seen>NOW()-INTERVAL '90 seconds') AS is_online
      FROM vibes_comments c JOIN users u ON u.id=c.author_id
      JOIN vibes_posts p ON p.id=c.post_id
      WHERE c.post_id=$1 AND c.deleted_at IS NULL
