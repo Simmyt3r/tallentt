@@ -160,13 +160,17 @@ export default function LiveHub() {
           <h1 className="text-[22px] font-bold tracking-tight flex items-center gap-2"><Radio size={20} className="text-[#0A13E6]" /> ChombuTar Live</h1>
           <p className="text-[12px] text-black/50 font-medium mt-1">Watch talent live. Support careers with real value.</p>
         </div>
-        {canGoLive && !creating && <button onClick={openPreview} className="h-10 px-4 rounded-full bg-[#0A13E6] text-white text-[13px] font-bold">Go Live</button>}
+
       </header>
 
       <nav aria-label="Live modes" className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white p-2">
-        <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
-          <Radio size={14}/> Live broadcast
-        </span>
+        <button type="button" onClick={creating ? closePreview : openPreview}
+          disabled={!canGoLive && !creating}
+          aria-pressed={creating}
+          className={`inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-[12px] font-bold ${creating
+            ? 'bg-[#0A13E6] text-white' : 'border border-black/15 bg-white hover:bg-blue-50 disabled:opacity-50'}`}>
+          <Radio size={14}/> {creating ? 'Close broadcast setup' : 'Live broadcast'}
+        </button>
         <Link to="/live/competitions" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/15 px-4 text-[12px] font-bold hover:bg-blue-50">
           <Trophy size={14}/> Stage competitions
         </Link>
