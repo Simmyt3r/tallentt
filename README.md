@@ -73,6 +73,55 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
 
 
+## Administrator subscriber deletion (October 2026)
+
+ChombuTar Admin → **Users** provides a full-database subscriber search by
+username, name or email. Each non-admin result has a **Delete user** action.
+
+1. Open the action and review the live dependency summary (Hats, social posts,
+   notifications, wallet ledger, escrow records and Live financial activity).
+2. For eligible accounts, type exactly `DELETE @username`, preserving the case
+   displayed in the confirmation prompt.
+3. The server verifies administrator status from the database again and deletes
+   account data transactionally. It removes directly referenced relational
+   records, including Hats and their media links, applications, social content,
+   notifications, upload permits, push subscriptions and other linked records.
+   An unexpected foreign-key restriction rolls back the entire deletion.
+4. Cloudinary media owned exclusively by the deleted account is recorded in
+   `admin_user_media_erasure_jobs` in the same transaction. The app attempts
+   up to eight files immediately after commit. The queue persists across
+   failures or deployments. Admin → Users → **Retry media cleanup** runs another
+   batch (with server-side `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`
+   and `CLOUDINARY_API_SECRET`); retry until the queue reaches zero.
+5. A deliberately limited `admin_audit_logs` record retains the deleting
+   administrator ID, erased account UUID and action counts. It does not retain
+   the deleted person's name, email, number or bank details.
+
+**Required migration:** Apply **Admin account deletion & media cleanup**
+(`db/patch-admin-user-erasure-2026-10.sql`) via Admin → Database Migrations
+before using the deletion control.
+
+**Financial and administrative safety:** An account with any wallet
+transaction, nonzero wallet balance, booking/escrow association or Live
+financial activity is **not eligible** for hard deletion. Those records belong
+to financial settlement, disputes and/or other subscribers and must not be
+silently destroyed. The user's own administrator account and other admin
+accounts are protected. Resolve dependencies through the relevant supported
+process first; this feature intentionally does not transfer balances, undo
+payments, delete other parties' contracts or rewrite audits.
+
+**Media limitation:** Only files with Cloudinary public IDs recoverable from
+the user's owned media/upload records can be queued. Old arbitrary uploads
+without recorded ownership may require a separate storage audit. Jobs for
+assets referenced by other users are excluded rather than destroying media
+shared by another person. Database deletion is immediate only after commit;
+external cleanup is separately verified by queue status.
+
+**Validation:** `npm run verify` and `npm run test:ui` plus a deployment smoke
+test with an expendable account. Regression tests exercise authorization,
+typed confirmation, transaction rollback, financial blockers, database
+referential cleanup, durable media queues and audit metadata.
+
 ## October 17 UI / Orbit Score release candidate
 
 - **Live:** A single active Live Broadcast tab is displayed beside Stage Competitions.
