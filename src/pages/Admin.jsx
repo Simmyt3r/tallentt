@@ -718,9 +718,37 @@ function WalletSummary({ rows }) {
 
 function UsersTable({ rows, adminId, onDeleted }) {
   const [selected,setSelected]=useState(null)
+  const [search,setSearch]=useState('')
+  const [results,setResults]=useState([])
+  const [finding,setFinding]=useState(false)
+  const [lookupError,setLookupError]=useState('')
+  useEffect(()=>{
+    if(search.trim().length<2){setResults([]);setLookupError('');setFinding(false);return undefined}
+    let active=true
+    setFinding(true)
+    const timer=setTimeout(()=>{
+      api.searchAdminUsers(search.trim()).then(data=>{
+        if(active){setResults(data.users||[]);setLookupError('')}
+      }).catch(err=>{
+        if(active)setLookupError(err.message||'Could not search subscribers.')
+      }).finally(()=>{if(active)setFinding(false)})
+    },300)
+    return ()=>{active=false;clearTimeout(timer)}
+  },[search])
+  const visible=search.trim().length>=2?results:rows
   return (
     <>
-    <Table empty="No users found." rowCount={rows.length}>
+    <div className="mb-4 rounded-xl border border-black/10 bg-white p-4">
+      <label htmlFor="admin-user-search" className="block text-[12px] font-bold">Find any subscriber</label>
+      <p className="mb-2 text-[11px] text-black/50">Search the full database by username, name or email. The dashboard below otherwise shows recent accounts.</p>
+      <input id="admin-user-search" type="search" value={search}
+        onChange={event=>setSearch(event.target.value)} placeholder="Username, name or email…"
+        className="h-11 w-full rounded-xl border border-black/15 px-3 text-[13px] outline-none focus:ring-2 focus:ring-[#0A13E6]"/>
+      {finding&&<p role="status" className="mt-2 text-[11px] text-black/50">Searching subscriber records…</p>}
+      {lookupError&&<p role="alert" className="mt-2 text-[11px] text-red-700">{lookupError}</p>}
+      {search.trim().length>=2&&!finding&&!lookupError&&<p className="mt-2 text-[11px] text-black/50">{visible.length} matching subscriber(s) displayed</p>}
+    </div>
+    <Table empty="No users found." rowCount={visible.length}>
       <thead>
         <tr>
           <Th>User</Th>
@@ -733,7 +761,7 @@ function UsersTable({ rows, adminId, onDeleted }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((u) => (
+        {visible.map((u) => (
           <tr key={u.id} className="border-t border-black/10">
             <Td>
               <p className="font-bold"><UserIdentity user={u} layout="inline" showAvatar={false} nameClassName="font-bold" usernameClassName="font-semibold text-black/50" /></p>
