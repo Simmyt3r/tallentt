@@ -164,11 +164,13 @@ export default function LiveHub() {
       </header>
 
       <nav aria-label="Live modes" className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white p-2">
-        <button type="button" onClick={creating ? closePreview : openPreview}
-          disabled={!canGoLive && !creating}
-          aria-pressed={creating}
-          className={`inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-[12px] font-bold ${creating
-            ? 'bg-[#0A13E6] text-white' : 'border border-black/15 bg-white hover:bg-blue-50 disabled:opacity-50'}`}>
+        <button type="button" onClick={() => {
+          if (creating) closePreview()
+          else if (canGoLive) openPreview()
+          else document.getElementById('live-now-list')?.scrollIntoView({behavior:'smooth',block:'start'})
+        }}
+          aria-current="page" aria-pressed
+          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
           <Radio size={14}/> {creating ? 'Close broadcast setup' : 'Live broadcast'}
         </button>
         <Link to="/live/competitions" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/15 px-4 text-[12px] font-bold hover:bg-blue-50">
@@ -195,7 +197,7 @@ export default function LiveHub() {
         </form>
       )}
 
-      <section className="space-y-3">
+      <section id="live-now-list" className="scroll-mt-36 space-y-3">
         <h2 className="text-[14px] font-bold">Live now</h2>
         {roomsError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-700">
           <span>Live rooms couldn't be refreshed. {roomsError}</span>
