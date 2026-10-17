@@ -96,7 +96,7 @@ try {
     assert.ok((await fixedCard.innerText()).includes('/day'))
     const rangeCard=page.locator('article').filter({hasText:'Range package'})
     assert.ok((await rangeCard.innerText()).includes('/hour'))
-    await page.getByRole('button',{name:/\\+1 More/}).first().click()
+    await page.getByRole('button',{name:'+1 More',exact:true}).first().click()
     await page.getByText('Other independently bookable Hats').first().waitFor()
     const search=page.getByRole('searchbox',{name:'Search BentoField talents and client Hats'})
     const searchBox=await search.boundingBox()
