@@ -73,7 +73,6 @@ export default function Feed() {
           label="Search BentoField talents and client Hats" placeholder="Search talents and clients…"
           className="w-full sm:w-72"/>
       </div>
-      </div>
 
       {loading ? (
         <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading…</p>
