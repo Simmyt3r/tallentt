@@ -108,8 +108,14 @@ export default async function handler(req, res) {
       portfolio = media
     }
 
+    const {rows:performanceRows}=await query(`SELECT
+      COUNT(*) FILTER (WHERE talent_id=$1 AND status='released')::int AS completed_jobs,
+      COUNT(*) FILTER (WHERE client_id=$1 AND status='released')::int AS successful_hires,
+      COUNT(*) FILTER (WHERE work_status='disputed')::int AS open_disputes
+      FROM escrows WHERE talent_id=$1 OR client_id=$1`,[userRow.id])
     return json(res, 200, {
       user: toPublicProfileUser(userRow),
+      performance: performanceRows[0],
       // Orbit is supplemental: a scoring outage must never hide a public profile.
       orbit: await accountOrbit(userRow.id).catch(() => null),
       isVerified,
