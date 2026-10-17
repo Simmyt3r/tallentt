@@ -24,6 +24,7 @@ async function getHat(id, viewerId) {
             u.location as owner_location,
             u.lga as owner_lga,
             u.country as owner_country,
+            EXISTS(SELECT 1 FROM user_presence presence WHERE presence.user_id=h.user_id AND presence.is_visible=TRUE AND presence.last_seen>NOW()-INTERVAL '90 seconds') AS owner_online,
             -- Same "N jobs"/"N hires" completed-engagement count as the feed
             -- listing (api/hats/index.js) — kept identical so a card looks
             -- the same whether it came from the feed or a direct /hat/:id
@@ -211,6 +212,7 @@ async function buildCardDetail(hat, viewerId) {
       statement: hat.owner_profile_statement || null,
       tagline: hat.owner_bio || null,
       joined_at: hat.owner_joined_at || null,
+      is_online: Boolean(hat.owner_online),
       phone,
       contact_unlocked: Boolean(phone),
     },
