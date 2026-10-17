@@ -99,6 +99,7 @@ export default function ProfileView({
   isVerified = false,
   rating = 0,
   ratedHatsCount = 0,
+  orbit = null,
   onEditClick,
 }) {
   const [activeTab, setActiveTab] = useState('portfolio')
@@ -143,6 +144,28 @@ export default function ProfileView({
         onShowHats={showHats}
       />
 
+      {orbit && <section aria-label="Orbit credibility indicators" className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-black">Orbit Score</h2>
+            <p className="mt-1 text-[11px] text-black/55">Evidence from completed work, successful hires, activity, time and verified profile details.</p>
+          </div>
+          <span className="text-[24px] font-black tabular-nums text-[#0A13E6]">{orbit.score}<span className="text-[12px] text-black/40">/100</span></span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-black/10" role="progressbar"
+          aria-label="Orbit activity score" aria-valuemin={0} aria-valuemax={100} aria-valuenow={orbit.score}>
+          <div className="h-full rounded-full bg-[#0A13E6]" style={{width:`${orbit.score}%`}}/>
+        </div>
+        <details className="rounded-xl border border-black/10 px-3 py-2">
+          <summary className="cursor-pointer text-[12px] font-semibold">How this score is calculated</summary>
+          <dl className="mt-3 space-y-2">
+            {(orbit.factors||[]).map(factor=><div key={factor.key} className="flex justify-between gap-2 text-[11px]">
+              <dt>{factor.label}</dt><dd className="font-bold tabular-nums">{factor.earned}/{factor.possible}</dd>
+            </div>)}
+          </dl>
+          <p className="mt-3 text-[11px] text-black/55">{orbit.disclaimer}</p>
+        </details>
+      </section>}
       {isOwner && (
         <ProfileCompletenessCard
           role={profileUser.role}
