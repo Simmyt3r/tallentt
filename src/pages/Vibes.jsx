@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Heart, ImagePlus, MessageCircle, Send, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
+import EntryActions from '../components/EntryActions.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api, uploadVibePhoto } from '../lib/api.js'
 import { compressImageFile } from '../lib/media.js'
@@ -27,13 +28,15 @@ function Identity({user}) {
     <Avatar user={user} />
     <span className="min-w-0 block">
       <span className="block truncate text-[13px] font-black group-hover:underline">{user.full_name||user.username}</span>
-      <span className="block truncate text-[11px] text-black/50">@{user.username}</span>
+      <span className="block truncate text-[11px] text-black/50">{user.username}</span>
     </span>
   </Link>
 }
 
 function Replies({post,me,onDelta}) {
   const [comments,setComments]=useState([])
+  const [editing,setEditing]=useState(null)
+  const [editText,setEditText]=useState('')
   const [cursor,setCursor]=useState(null)
   const [text,setText]=useState('')
   const [busy,setBusy]=useState(false)
@@ -73,38 +76,49 @@ function Replies({post,me,onDelta}) {
       onDelta(post.id,{replies:Math.max(0,Number(post.replies||0)-1)})
     } catch(err){setError(err.message||'Could not delete this reply.')}
   }
+  async function saveEdit(item){
+    if(!editText.trim()||busy)return
+    setBusy(true);setError('')
+    try{
+      await api.vibeAction({action:'edit_reply',post_id:post.id,comment_id:item.id,text:editText.trim()})
+      setComments(current=>current.map(row=>row.id===item.id?{...row,body:editText.trim(),edited_at:new Date().toISOString()}:row))
+      setEditing(null)
+    }catch(err){setError(err.message||'Could not edit reply.')}
+    finally{setBusy(false)}
+  }
   return <section aria-label="Replies" className="mt-3 border-t border-black/10 pt-3">
-    <form onSubmit={submit} className="flex items-start gap-2">
-      <Avatar user={me} size={32} />
-      <div className="flex-1 min-w-0 flex gap-2">
-        <label className="sr-only" htmlFor={`vibe-reply-${post.id}`}>Write a reply</label>
-        <input id={`vibe-reply-${post.id}`} value={text} maxLength={300}
-          onChange={e=>setText(e.target.value)} placeholder="Write a reply…"
-          className="min-w-0 flex-1 h-10 rounded-full border border-black/15 bg-[#F7F3EB] px-4 text-[12px] outline-none focus:border-[#0A13E6]" />
-        <button type="submit" disabled={!text.trim()||busy} aria-label="Send reply"
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0A13E6] text-white disabled:opacity-40">
-          <Send size={17}/></button>
-      </div>
-    </form>
     {error&&<p role="alert" className="mt-2 text-[12px] text-red-700">{error}</p>}
     {loading&&!comments.length&&<p role="status" className="py-3 text-[12px] text-black/40">Loading replies…</p>}
     {!loading&&!comments.length&&<p className="py-3 text-[12px] text-black/40">Be the first to reply.</p>}
     <div className="mt-3 space-y-3">
-      {comments.map(item=><div key={item.id} className="flex items-start gap-2">
+      {[...comments].reverse().map(item=><div key={item.id} className="flex items-start gap-2">
         <Avatar user={item} size={30}/>
         <div className="flex-1 min-w-0 rounded-2xl bg-[#F7F3EB] px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <Link to={`/profile/${encodeURIComponent(item.username)}`} className="text-[12px] font-black hover:underline">{item.full_name||item.username}</Link>
             <span className="text-[10px] text-black/40">{dateText(item.created_at)}</span>
           </div>
-          <p className="mt-1 whitespace-pre-wrap break-words text-[12px]">{item.body}</p>
+          {editing===item.id ? <div className="mt-2 space-y-2"><textarea autoFocus rows={3} value={editText} onChange={e=>setEditText(e.target.value)} className="w-full resize-y rounded-xl border border-black/15 p-2 text-[12px]"/><div className="flex gap-2"><button type="button" disabled={!editText.trim()||busy} onClick={()=>saveEdit(item)} className="rounded-full bg-[#0A13E6] px-3 py-2 text-[11px] text-white">Save</button><button type="button" onClick={()=>setEditing(null)} className="text-[11px]">Cancel</button></div></div> : <p className="mt-1 whitespace-pre-wrap break-words text-[12px]">{item.body}{item.edited_at&&<span className="ml-1 text-black/40">(edited)</span>}</p>}
         </div>
-        {me.id===item.author_id&&<button type="button" aria-label="Delete reply"
-          onClick={()=>remove(item)} className="h-9 w-9 grid place-items-center text-black/50 hover:text-red-600"><Trash2 size={15}/></button>}
+        {me.id===item.author_id&&<EntryActions label="reply"
+          onEdit={()=>{setEditing(item.id);setEditText(item.body)}}
+          onDelete={()=>remove(item)}/>}
       </div>)}
     </div>
     {cursor&&<button type="button" disabled={loading} onClick={()=>fetchPage(cursor)}
       className="mt-3 w-full h-10 rounded-xl border border-black/15 text-[12px] font-semibold">Load older replies</button>}
+    <form onSubmit={submit} className="flex items-start gap-2">
+      <Avatar user={me} size={32} />
+      <div className="flex-1 min-w-0 flex gap-2">
+        <label className="sr-only" htmlFor={`vibe-reply-${post.id}`}>Write a reply</label>
+        <textarea rows={2} id={`vibe-reply-${post.id}`} value={text} 
+          onChange={e=>setText(e.target.value)} placeholder="Say something…"
+          className="min-w-0 flex-1 min-h-12 resize-y rounded-xl border border-black/15 bg-[#F7F3EB] px-4 text-[12px] outline-none focus:border-[#0A13E6]" />
+        <button type="submit" disabled={!text.trim()||busy} aria-label="Send reply"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0A13E6] text-white disabled:opacity-40">
+          <Send size={17}/></button>
+      </div>
+    </form>
   </section>
 }
 
@@ -113,6 +127,8 @@ function VibeCard({post,me,onChange,onDeleted}) {
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   const [reported,setReported]=useState(false)
+  const [editingPost,setEditingPost]=useState(false)
+  const [editBody,setEditBody]=useState(post.body||'')
   async function like() {
     if(busy)return
     setBusy(true)
@@ -126,6 +142,15 @@ function VibeCard({post,me,onChange,onDeleted}) {
     setBusy(true)
     try{await api.vibeAction({action:'delete',post_id:post.id});onDeleted(post.id)}
     catch(err){setError(err.message||'Could not delete post.');setBusy(false)}
+  }
+  async function savePost(){
+    setBusy(true);setError('')
+    try{
+      await api.vibeAction({action:'edit_post',post_id:post.id,text:editBody})
+      onChange(post.id,{body:editBody.trim(),edited_at:new Date().toISOString()})
+      setEditingPost(false)
+    }catch(err){setError(err.message||'Could not edit post.')}
+    finally{setBusy(false)}
   }
   async function report() {
     const reason=window.prompt('Report this post as: spam, harassment, unsafe or other')
@@ -150,15 +175,13 @@ function VibeCard({post,me,onChange,onDeleted}) {
       <Identity user={post}/>
       <div className="flex items-center gap-1">
         <time className="text-[10px] text-black/40" dateTime={post.created_at}>{dateText(post.created_at)}</time>
-        {post.author_id===me.id?<button type="button" onClick={remove} disabled={busy}
-          title="Delete your Vibe" aria-label="Delete Vibe" className="grid h-9 w-9 place-items-center text-black/40 hover:text-red-600">
-          <Trash2 size={17}/></button>:
+        {post.author_id===me.id?<EntryActions label="Vibe" onEdit={()=>{setEditBody(post.body||'');setEditingPost(true)}} onDelete={remove}/>:
           <button type="button" onClick={report} disabled={reported}
             title="Report Vibe" aria-label="Report Vibe" className="grid h-9 w-9 place-items-center text-black/40 hover:text-red-600 disabled:opacity-30">
             <Flag size={17}/></button>}
       </div>
     </header>
-    {post.body&&<p className="mt-3 whitespace-pre-wrap break-words text-[14px] leading-relaxed">{post.body}</p>}
+    {editingPost?<div className="mt-3 space-y-2"><textarea autoFocus rows={5} value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full resize-y rounded-xl border border-black/15 p-3 text-[13px]"/><div className="flex gap-2"><button type="button" disabled={busy||(!editBody.trim()&&!post.media?.length)} onClick={savePost} className="rounded-full bg-[#0A13E6] px-4 py-2 text-[12px] text-white">Save changes</button><button type="button" onClick={()=>setEditingPost(false)} className="text-[12px]">Cancel</button></div></div> : post.body&&<p className="mt-3 whitespace-pre-wrap break-words text-[14px] leading-relaxed">{post.body}{post.edited_at&&<span className="ml-1 text-[10px] text-black/40">(edited)</span>}</p>}
     {Array.isArray(post.media)&&post.media.length>0&&<div
       className={`mt-3 grid gap-1 overflow-hidden rounded-xl ${post.media.length>1?'grid-cols-2':'grid-cols-1'}`}>
       {post.media.map((photo,i)=><a key={photo.public_id||i} href={photo.url}
@@ -277,9 +300,9 @@ export default function Vibes() {
         <div className="min-w-0 flex-1">
           <label htmlFor="vibe-text" className="sr-only">Say something…</label>
           <textarea id="vibe-text" value={text} onChange={e=>setText(e.target.value)}
-            maxLength={500} rows={3} placeholder="Say something…"
+            rows={3} placeholder="Say something…"
             className="w-full resize-y rounded-xl border-0 bg-[#F7F3EB] p-3 text-[13px] outline-none focus:ring-2 focus:ring-[#0A13E6]"/>
-          <div className="mt-1 text-right text-[10px] text-black/40">{text.length}/500</div>
+          <div className="mt-1 text-right text-[10px] text-black/40">Long posts are supported</div>
         </div>
       </div>
       {photos.length>0&&<div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
