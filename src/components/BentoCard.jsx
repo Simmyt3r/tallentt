@@ -143,30 +143,25 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           </span>
         </div>
 
-        {isTalent ? (
-          availabilityWindow && (
-            <div className="mt-1.5 text-[12px] leading-snug flex items-baseline gap-1">
-              <span className="font-bold text-black/70 shrink-0">Time:</span>
-              <span className="font-medium text-black/80 truncate">{availabilityWindow}</span>
-            </div>
-          )
-        ) : (
-          <>
-            {hat.hiring_duration && (
-              <div className="mt-1.5 text-[12px] leading-snug flex items-baseline gap-1">
-                <span className="font-bold text-black/70 shrink-0">Duration:</span>
-                <span className="font-medium text-black/80 truncate">{hat.hiring_duration}</span>
-              </div>
-            )}
-            {(location || availabilityWindow) && (
-            <div className="mt-1.5 text-[12px] leading-snug flex items-baseline gap-1">
-              <span className="font-bold text-black/70 shrink-0">Event:</span>
-              <span className="font-medium text-black/80 truncate">
-                {[location, availabilityWindow].filter(Boolean).join(' • ')}
-              </span>
-            </div>
-          )}
-          </>
+        {(hat.hat_type || (hat.hiring_duration && hat.hat_type !== 'One-Off')) && (
+          <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] leading-snug">
+            <span className="shrink-0 font-bold text-black/70">Job type:</span>
+            <span className="min-w-0 font-medium text-black/80 break-words">
+              {[hat.hat_type, hat.hat_type === 'One-Off' ? null : hat.hiring_duration].filter(Boolean).join(' · ')}
+            </span>
+          </div>
+        )}
+        {location && (
+          <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-2 text-[12px] leading-snug">
+            <span className="shrink-0 font-bold text-black/70">Hat Location:</span>
+            <span className="min-w-0 break-words font-medium text-black/80">{location}</span>
+          </div>
+        )}
+        {availabilityWindow && (
+          <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-2 text-[12px] leading-snug">
+            <span className="shrink-0 font-bold text-black/70">Time:</span>
+            <span className="min-w-0 break-words font-medium text-black/80">{availabilityWindow}</span>
+          </div>
         )}
 
           </>
