@@ -67,6 +67,28 @@ export default function MyHats() {
     }
   }
 
+  async function setShowroomVisible(id,visible){
+    try{
+      if(visible)await api.restoreOwnShowroomPost(id)
+      else await api.removeOwnShowroomPost(id)
+      setHiddenShowroom(previous=>{
+        const next=new Set(previous)
+        if(visible)next.delete(id)
+        else next.add(id)
+        return next
+      })
+    }catch(error){alert(error?.message || 'Unable to update Showroom visibility.')}
+  }
+  function showroomControl(h){
+    if(h.role!=='talent' || !(h.media||[]).length)return null
+    const hidden=hiddenShowroom.has(h.id)
+    return <button type="button" onClick={()=>setShowroomVisible(h.id,hidden)}
+      aria-label={`${hidden?'Show':'Hide'} ${h.hat_title} ${hidden?'in':'from'} Showroom`}
+      className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-[#0A13E6]/25 bg-white px-4 text-[11px] font-bold text-[#0A13E6]">
+      <Eye size={14}/> {hidden?'Show in Showroom':'Hide from Showroom'}
+    </button>
+  }
+
   async function handleDelete(id) {
     if (!confirm('Delete this hat?')) return
     try {
@@ -155,12 +177,7 @@ export default function MyHats() {
                   <Link to={`/create?edit=${h.id}`} className="mt-2 inline-block font-bold underline">Update Hat information</Link>
                 </div>
               )}
-              {hiddenShowroom.has(h.id) && (
-                <button type="button" onClick={() => restoreToShowroom(h.id)}
-                  className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-[#0A13E6]/25 bg-blue-50 px-4 text-[11px] font-bold text-[#0A13E6]">
-                  <Eye size={14} /> Restore to Showroom
-                </button>
-              )}
+              {showroomControl(h)}
               <button type="button" onClick={() => setStylingHat(h)}
                 className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-black/20 bg-white px-4 text-[11px] font-bold hover:border-black">
                 <Paintbrush size={14} aria-hidden="true"/> Customize appearance
@@ -226,12 +243,7 @@ export default function MyHats() {
                     <Link to={`/create?edit=${h.id}`} className="mt-2 inline-block font-bold underline">Update Hat</Link>
                   </div>
                 )}
-                {hiddenShowroom.has(h.id) && (
-                  <button type="button" onClick={() => restoreToShowroom(h.id)}
-                    className="mb-2 inline-flex min-h-10 items-center gap-2 rounded-full border border-[#0A13E6]/25 bg-blue-50 px-4 text-[11px] font-bold text-[#0A13E6]">
-                    <Eye size={14} /> Restore to Showroom
-                  </button>
-                )}
+                {showroomControl(h)}
                 <HatFeedToggle hat={h} onChange={handleHatChange} />
                 {(h.media || []).some(m => ['pending','processing','held','rejected'].includes(m.screening_status)) && (
                   <p className="px-2 text-[11px] font-semibold text-amber-700" role="status">
