@@ -273,7 +273,7 @@ export default function Vibes() {
         uploads.push(await uploadVibePhoto(file))
       }
       const result=await api.publishVibe(text.trim(),uploads)
-      if(result.pending_review)setPostError('Video submitted for moderation. It will appear in Vibes after approval.')
+      if(result.pending_review)setPostError('Media submitted for moderation. It will appear in Vibes after approval.')
       photos.forEach(item=>URL.revokeObjectURL(item.preview))
       setPhotos([]);setText('')
       setFeedTick(current=>current+1)
