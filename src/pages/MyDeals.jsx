@@ -229,7 +229,7 @@ export default function MyDeals() {
 
   return (
     <div className="mx-auto max-w-6xl pb-8">
-      <header className="mb-5">
+      <header className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 mb-5 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
         <div className="flex flex-wrap items-center gap-2">
           <Handshake size={23} />
           <h1 className="text-[23px] font-black tracking-tight">My Deals</h1>
