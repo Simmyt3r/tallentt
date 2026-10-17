@@ -8,6 +8,7 @@ import { notifyUser } from '../_lib/notifications.js'
 
 const UUID = /^[a-f\d]{8}-[a-f\d]{4}-[1-8][a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i
 const IMAGE_MIMES = new Set(['image/jpeg','image/png','image/webp'])
+const VIDEO_MIMES = new Set(['video/mp4','video/webm','video/quicktime'])
 const REASONS = new Set(['spam','harassment','unsafe','other'])
 const MAX_IMAGES = 4
 const bad = (status, message) => Object.assign(new Error(message), { status })
@@ -20,14 +21,15 @@ const mediaEnabled = () => process.env.VIBES_MEDIA_UPLOADS !== 'disabled'
 function mediaConfig() {
   if (!mediaEnabled()) throw bad(503,'Photo posting is not configured yet. Text posts remain available.')
   const cloud = uploadCloudCredentials()
-  if (!process.env.GOOGLE_CLOUD_VISION_API_KEY) throw bad(503,'Photo safety screening is not configured.')
   return cloud
 }
 
 async function signUpload(userId, body) {
   const mime = String(body.mime || '').toLowerCase()
-  if (!IMAGE_MIMES.has(mime) || !Number.isSafeInteger(body.bytes) || body.bytes < 1 || body.bytes > 8388608)
-    throw bad(400,'Choose a JPG, PNG or WebP image up to 8MB.')
+  const video=VIDEO_MIMES.has(mime)
+  const maxBytes=video?20971520:8388608
+  if(!(video||IMAGE_MIMES.has(mime))||!Number.isSafeInteger(body.bytes)||body.bytes<1||body.bytes>maxBytes)
+    throw bad(400,'Choose an image up to 8MB or MP4, WebM or MOV video up to 20MB.')
   const cloud = mediaConfig()
   const {rows} = await query(
     "SELECT COUNT(*)::int AS n FROM vibes_upload_permits WHERE user_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",
@@ -40,11 +42,11 @@ async function signUpload(userId, body) {
   const signature = cloudinaryUploadSignature(params,cloud.apiSecret)
   await query(`INSERT INTO vibes_upload_permits (id,user_id,public_id,declared_bytes,declared_mime)
     VALUES ($1,$2,$3,$4,$5)`,[permitId,userId,publicId,body.bytes,mime])
-  return {cloudName:cloud.cloudName, apiKey:cloud.apiKey,permitId,params,signature}
+  return {cloudName:cloud.cloudName, apiKey:cloud.apiKey,permitId,params,signature,resourceType:video?'video':'image'}
 }
 
 async function verifyUploads(userId, media) {
-  if (!Array.isArray(media) || media.length > MAX_IMAGES) throw bad(400,'Attach up to four photos.')
+  if (!Array.isArray(media) || media.length > MAX_IMAGES) throw bad(400,'Attach up to four photos or videos.')
   if (!media.length) return []
   const cloud = mediaConfig()
   const seen = new Set()
@@ -58,8 +60,10 @@ async function verifyUploads(userId, media) {
     [item.upload_id,userId,item.public_id])
     const permit=rows[0]
     if(!permit) throw bad(422,'Photo authorization expired. Reupload this photo.')
-    // Verify actual bytes, resource identity, URL and dimensions from Cloudinary.
-    const resource = `https://api.cloudinary.com/v1_1/${cloud.cloudName}/resources/image/upload/${encodeURIComponent(item.public_id)}`
+    // Verify actual bytes, resource identity and signed URL from Cloudinary.
+    const resourceType=VIDEO_MIMES.has(permit.declared_mime)?'video':'image'
+    const maxBytes=resourceType==='video'?20971520:8388608
+    const resource = `https://api.cloudinary.com/v1_1/${cloud.cloudName}/resources/${resourceType}/upload/${encodeURIComponent(item.public_id)}`
     let response
     try {
       response=await fetch(resource,{headers:{Authorization:'Basic '+Buffer.from(cloud.apiKey+':'+cloud.apiSecret).toString('base64')},
@@ -67,12 +71,18 @@ async function verifyUploads(userId, media) {
     } catch {throw bad(503,'Could not verify the photo with Cloudinary. Retry.') }
     if(!response.ok) throw bad(422,'Cloudinary has not confirmed this photo.')
     const asset=await response.json()
-    if(asset.public_id!==permit.public_id || asset.resource_type!=='image' || asset.type!=='upload' ||
-      !Number.isSafeInteger(asset.bytes) || asset.bytes<=0 || asset.bytes>8388608 ||
+    if(asset.public_id!==permit.public_id || asset.resource_type!==resourceType || asset.type!=='upload' ||
+      !Number.isSafeInteger(asset.bytes) || asset.bytes<=0 || asset.bytes>maxBytes ||
       asset.bytes>Math.max(permit.declared_bytes+4096,permit.declared_bytes*1.15) ||
-      asset.secure_url!==item.url || !item.url.startsWith(`https://res.cloudinary.com/${cloud.cloudName}/image/upload/`) ||
+      asset.secure_url!==item.url || !item.url.startsWith(`https://res.cloudinary.com/${cloud.cloudName}/${resourceType}/upload/`) ||
       !Number.isSafeInteger(asset.version) || asset.version<1)
       throw bad(422,'Photo does not match its upload authorization.')
+    if(resourceType==='video'){
+      // All videos are withheld from the public until admin media review.
+      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'video'}
+    }
+    if(!process.env.GOOGLE_CLOUD_VISION_API_KEY)
+      throw bad(503,'Photo safety screening is not configured.')
     // Fail closed when screening is unreachable. Do not disclose images until a
     // safety decision has been obtained.
     let screened
@@ -91,7 +101,7 @@ async function verifyUploads(userId, media) {
        ['LIKELY','VERY_LIKELY'].includes(safety.violence) ||
        safety.racy==='VERY_LIKELY')
       throw bad(422,'This photo requires additional safety review. Choose another photo.')
-    return {upload_id:permit.id,public_id:permit.public_id,url:item.url}
+    return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image'}
   }))
 }
 
@@ -99,7 +109,7 @@ async function publish(userId, body) {
   const text=maxBody(body.text,10000)
   if(text.length>10000) throw bad(400,'Posts can contain up to 10,000 characters.')
   const verified=await verifyUploads(userId,body.media || [])
-  if(!text && !verified.length) throw bad(400,'Write something or add a photo.')
+  if(!text && !verified.length) throw bad(400,'Write something or add media.')
   const client=await getClient()
   try {
     await client.query('BEGIN')
@@ -109,9 +119,10 @@ async function publish(userId, body) {
     )
     if(recent[0].n>=10) throw bad(429,'You have posted frequently. Try again in an hour.')
     const {rows:[post]}=await client.query(
-      `INSERT INTO vibes_posts (author_id,body,media) VALUES($1,$2,$3::jsonb)
-       RETURNING id`,
-      [userId,text,JSON.stringify(verified.map(({url,public_id})=>({url,public_id,type:'image'})))],
+      `INSERT INTO vibes_posts (author_id,body,media,moderation_status)
+       VALUES($1,$2,$3::jsonb,$4) RETURNING id`,
+      [userId,text,JSON.stringify(verified.map(({url,public_id,type})=>({url,public_id,type}))),
+        verified.some(item=>item.type==='video')?'held':'visible'],
     )
     for(const photo of verified) {
       const {rowCount}=await client.query(`UPDATE vibes_upload_permits SET claimed_at=NOW(),claimed_post_id=$1
@@ -120,7 +131,7 @@ async function publish(userId, body) {
       if(rowCount!==1) throw bad(409,'A photo was already used. Upload it again.')
     }
     await client.query('COMMIT')
-    return {id:post.id}
+    return {id:post.id,pending_review:verified.some(item=>item.type==='video')}
   } catch(error) {
     await client.query('ROLLBACK').catch(()=>{})
     throw error
