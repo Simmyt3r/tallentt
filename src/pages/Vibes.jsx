@@ -264,7 +264,7 @@ export default function Vibes() {
   }
   const change=(id,patch)=>setPosts(current=>current.map(p=>p.id===id?{...p,...patch}:p))
   return <main className="mx-auto max-w-[660px] space-y-4 pb-10">
-    <div className="flex items-end justify-between">
+    <div className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 flex items-center justify-between gap-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
       <div>
         <h1 className="text-[23px] font-black tracking-tight">Hits & Vibes</h1>
         <p className="text-[12px] text-black/50">Share your thoughts, photos and everyday moments with the community.</p>
