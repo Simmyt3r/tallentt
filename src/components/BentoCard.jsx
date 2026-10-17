@@ -90,24 +90,8 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
               <img src={featuredMedia.url} alt={featuredMedia.caption || 'Featured Hat media'} loading="lazy" className="aspect-[16/9] w-full object-cover" />}
           </div>
         )}
-        {flyer ? (
-          <figure className="mt-3 min-w-0 rounded-[16px] overflow-hidden bg-[#F7F3EB] border border-black/10">
-            <img src={flyer.url} alt={flyer.caption || `${hat.hat_name || hat.hat_title} flier`}
-              loading="lazy" className="w-full h-[228px] object-contain" />
-            <figcaption className="px-3 py-2 text-[11px] font-bold text-black/75 line-clamp-2">
-              {hat.hat_name || hat.hat_title} · {formatPrice(hat, currency)}
-            </figcaption>
-          </figure>
-        ) : (
-          <>
-        {motto && (
-          <div className="mt-3 border-l-4 pl-3 py-1 bg-[#FFEBE0]/20 rounded-r-xl" style={{ borderLeftColor: getHatAccent(hat.bento_accent), borderLeftWidth: hat.bento_accent === 'none' ? 0 : 4 }}>
-            <p className={`text-[12px] italic leading-snug ${layout === 'dark' ? 'text-white/85' : 'text-black/60'}`}>&quot;{motto}&quot;</p>
-          </div>
-        )}
-
         <div className="mt-3 text-[12px] leading-snug">
-          <span className="font-bold text-black/70">Hat:</span>{' '}
+          <span className="font-bold text-black/70">Hats:</span>{' '}
           <span className="font-semibold text-black break-words">{hat.hat_name || hat.hat_title}</span>
           {siblingHats.length > 0 && (
             <button type="button" aria-expanded={showOtherHats}
@@ -132,6 +116,22 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
                 <span className="shrink-0 text-[10px] font-bold text-[#0A13E6]">View card</span>
               </button>
             ))}
+          </div>
+        )}
+
+        {flyer ? (
+          <figure className="mt-3 min-w-0 rounded-[16px] overflow-hidden bg-[#F7F3EB] border border-black/10">
+            <img src={flyer.url} alt={flyer.caption || `${hat.hat_name || hat.hat_title} flier`}
+              loading="lazy" className="w-full h-[228px] object-contain" />
+            <figcaption className="px-3 py-2 text-[11px] font-bold text-black/75 line-clamp-2">
+              {hat.hat_name || hat.hat_title} · {formatPrice(hat, currency)}
+            </figcaption>
+          </figure>
+        ) : (
+          <>
+        {motto && (
+          <div className="mt-3 border-l-4 pl-3 py-1 bg-[#FFEBE0]/20 rounded-r-xl" style={{ borderLeftColor: getHatAccent(hat.bento_accent), borderLeftWidth: hat.bento_accent === 'none' ? 0 : 4 }}>
+            <p className={`text-[12px] italic leading-snug ${layout === 'dark' ? 'text-white/85' : 'text-black/60'}`}>&quot;{motto}&quot;</p>
           </div>
         )}
 
