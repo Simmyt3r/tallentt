@@ -57,6 +57,7 @@ export default function CardOwnerHatDetails({detail,hat,entertainment=false}){
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Stat label="Orbit activity score" value={orbit ? `${orbit.score}/100` : 'Not available'}/>
+            <Stat label="Active Hats" value={performance.active_hats ?? 'Not available'}/>
             <Stat label="Completed talent jobs" value={performance.completed_jobs ?? 'Not available'}/>
             <Stat label="Successful hires" value={performance.successful_hires ?? 'Not available'}/>
             <Stat label="Currently disputed deals" value={performance.open_disputes ?? 'Not available'}/>
