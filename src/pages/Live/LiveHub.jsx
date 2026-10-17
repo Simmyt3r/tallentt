@@ -26,6 +26,7 @@ export default function LiveHub() {
   const [rooms, setRooms] = useState([])
   const [roomsLoading, setRoomsLoading] = useState(true)
   const [roomsError, setRoomsError] = useState('')
+  const [mediaReadiness,setMediaReadiness]=useState(null)
   const [roomsRetry, setRoomsRetry] = useState(0)
   const [creating, setCreating] = useState(false)
   const [starting, setStarting] = useState(false)
@@ -55,6 +56,14 @@ export default function LiveHub() {
     return () => { cancelled = true; clearInterval(timer) }
   }, [roomsRetry])
 
+  useEffect(()=>{
+    let active=true
+    const check=()=>api.getLiveMediaStatus().then(value=>{if(active)setMediaReadiness(value)})
+      .catch(()=>{if(active)setMediaReadiness({broadcast_ready:false,reason:'preflight_failed'})})
+    check()
+    return()=>{active=false}
+  },[])
+
   useEffect(() => () => {
     if (!handedOffRef.current) media?.getTracks().forEach((track) => track.stop())
   }, [media])
@@ -75,6 +84,10 @@ export default function LiveHub() {
   }
 
   async function openPreview() {
+    if(!mediaReadiness?.broadcast_ready){
+      setError('Live Broadcast cannot start because its video media server is unavailable. A private camera preview is not a public broadcast. Configure and verify WHIP/MediaMTX and HLS first.')
+      return
+    }
     setError('')
     setConnectionStatus('preview')
     handedOffRef.current = false
@@ -163,6 +176,10 @@ export default function LiveHub() {
 
       </header>
 
+      {mediaReadiness?.broadcast_ready===false&&<p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
+        Live Broadcast video is unavailable ({mediaReadiness.reason||'media transport not ready'}).
+        Stage competitions are accessible separately. The platform will not falsely label your private camera preview as live.
+      </p>}
       <nav aria-label="Live modes" className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white p-2">
         <button type="button" onClick={() => {
           if (creating) closePreview()
