@@ -1,6 +1,7 @@
 // Path: api/live/index.js
 import { getSessionUser } from '../_lib/auth.js'
 import { listStageCompetitions, ownCompetitionStreams, stageCompetition, createStageCompetition, stageCompetitionAction } from '../_lib/stageCompetitions.js'
+import {resolveLiveMediaAvailability} from '../_lib/liveMedia.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import {
   listStreams,
@@ -43,6 +44,10 @@ export default async function handler(req, res) {
     if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
     if (req.method === 'GET') {
+      if (url.searchParams.get('media_status') === '1') {
+        const availability=await resolveLiveMediaAvailability()
+        return json(res,200,{broadcast_ready:availability.mode==='mediamtx',reason:availability.reason||null})
+      }
       if (url.searchParams.get('stage_competitions') === '1') return json(res,200,await listStageCompetitions())
       if (url.searchParams.get('stage_streams') === '1') return json(res,200,await ownCompetitionStreams(session.sub))
       if (url.searchParams.get('stage_competition')) return json(res,200,await stageCompetition(session.sub,url.searchParams.get('stage_competition')))
