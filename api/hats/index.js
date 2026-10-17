@@ -326,6 +326,7 @@ export default async function handler(req, res) {
         currency = 'NGN',
         lga,
         motto,
+        job_requirements,
         media = [],
         availability = true,
         available_days,
