@@ -83,7 +83,7 @@ export default function MyHats() {
 
   return (
     <div className="space-y-5">
-      <div className="sticky top-[56px] md:top-16 z-30 isolate -mx-4 px-4 py-3 flex items-center justify-between gap-3 flex-wrap border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
+      <div className="sticky top-[57.5px] md:top-16 z-30 isolate -mx-4 px-4 py-3 flex items-center justify-between gap-3 flex-wrap border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
         <div>
           <h1 className="text-[22px] font-bold tracking-tight">My Hats</h1>
           <p className="text-[12px] text-black/50 font-medium mt-0.5">{hats.length} hat{hats.length !== 1 ? 's' : ''}</p>
