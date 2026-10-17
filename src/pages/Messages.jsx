@@ -114,7 +114,7 @@ export default function Messages() {
 
   return (
     <div className="max-w-6xl mx-auto md:space-y-4">
-      <h1 className={`${selected ? 'hidden md:block' : ''} text-[22px] font-bold mb-4 md:mb-0`}>Deals Chat</h1>
+      <header className={`${selected ? 'hidden md:block' : ''} sticky top-14 md:top-16 z-10 -mx-4 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg`}><h1 className="text-[22px] font-bold">Deals Chat</h1><p className="text-[12px] text-black/55">Your active conversations about booked work.</p></header>
       <div
         className={`grid md:grid-cols-[260px_minmax(0,1fr)] border-[1.5px] border-black rounded-[20px] bg-white overflow-hidden ${
           selected
