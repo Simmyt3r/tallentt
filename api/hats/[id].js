@@ -379,7 +379,7 @@ export default async function handler(req, res) {
           (nextMedia || body.hat_title != null || body.hat_name != null || body.motto != null)) {
         const issue = showroomTextIssue({
           title: [body.hat_title ?? existing.hat_title, body.hat_name ?? existing.hat_name].join(' '),
-          motto: nextMotto,
+          motto: [nextMotto, body.job_requirements ?? existing.job_requirements].filter(Boolean).join('\n'),
           media: nextMedia || existing.media || [],
         })
         if (issue) return json(res, 422, { error: issue, code: 'SHOWROOM_TEXT_REJECTED' })
