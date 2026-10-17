@@ -139,7 +139,7 @@ async function publish(userId, body) {
   } finally { client.release() }
 }
 
-const publicPostSql = async()=>`SELECT p.id,p.body,p.media,p.created_at,p.edited_at,p.author_id,
+const publicPostSql = async()=>`SELECT p.id,p.body,p.media,p.created_at,(to_jsonb(p)->>'edited_at') AS edited_at,p.author_id,
   u.username,u.full_name,u.avatar_url,u.role,
   ${await onlinePresenceExpression('p.author_id')} AS is_online,
   (SELECT COUNT(*)::int FROM vibes_likes l WHERE l.post_id=p.id) AS likes,
@@ -167,7 +167,7 @@ async function getComments(userId,url) {
   const before=url.searchParams.get('before')
   if(!validId(post)||(before&&!validId(before))) throw bad(400,'Invalid comment cursor.')
   const {rows}=await query(
-    `SELECT c.id,c.post_id,c.author_id,c.body,c.created_at,c.edited_at,u.username,u.full_name,u.avatar_url,
+    `SELECT c.id,c.post_id,c.author_id,c.body,c.created_at,(to_jsonb(c)->>'edited_at') AS edited_at,u.username,u.full_name,u.avatar_url,
       ${await onlinePresenceExpression('c.author_id')} AS is_online
      FROM vibes_comments c JOIN users u ON u.id=c.author_id
      JOIN vibes_posts p ON p.id=c.post_id
@@ -236,7 +236,10 @@ async function modify(userId,body) {
   if(body.action==='edit_post'){
     if(typeof body.text!=='string'||body.text.trim().length>10000)
       throw bad(400,'Post text must contain no more than 10,000 characters.')
-    const {rowCount}=await query(`UPDATE vibes_posts SET body=$3,edited_at=NOW()
+    const {rowCount}=await query(`UPDATE vibes_posts SET body=$3,edited_at=NOW(),
+        moderation_status=CASE WHEN EXISTS(
+          SELECT 1 FROM jsonb_array_elements(media) item WHERE item->>'type'='video'
+        ) THEN 'held' ELSE moderation_status END
       WHERE id=$1 AND author_id=$2 AND deleted_at IS NULL
         AND (char_length(btrim($3))>0 OR jsonb_array_length(media)>0)`,
       [postId,userId,body.text.trim()])
