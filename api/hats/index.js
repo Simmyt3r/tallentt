@@ -363,7 +363,7 @@ export default async function handler(req, res) {
         return json(res, 400, { error: 'Portfolio media is required for Talent hats' })
       }
       if (role === 'talent') {
-        const issue = showroomTextIssue({ title: [title, name].join(' '), motto, media })
+        const issue = showroomTextIssue({ title: [title, name].join(' '), motto: [motto,job_requirements].filter(Boolean).join('\n'), media })
         if (issue) return json(res, 422, { error: issue, code: 'SHOWROOM_TEXT_REJECTED' })
       }
 
