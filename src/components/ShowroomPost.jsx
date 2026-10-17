@@ -99,11 +99,6 @@ function ShowroomPost({
             View details
           </span>
         </button>}
-        {hat.isHost && (
-          <span className="absolute top-3 left-3 z-10 bg-[#FFBD2E] text-black text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full border-[1.5px] border-black shadow pointer-events-none">
-            Showroom Host
-          </span>
-        )}
         {!hat.is_entertainment && <div className="absolute top-3 right-3 z-10 pointer-events-none flex flex-col items-end gap-2">
           <RoleCardBadge role={hat.role} />
           <AvailabilityBadge available={hat.availability} />
