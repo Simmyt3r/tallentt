@@ -34,8 +34,8 @@ export function normalizeAvailableDays(value, fallback = AVAILABLE_DAYS) {
   return { ok: true, days }
 }
 
-export function normalizeHiringDuration(value, role, fallback = null) {
-  if (role !== 'client') return { ok: true, value: null }
+export function normalizeHiringDuration(value, role, fallback = null, hatType = null) {
+  if (role !== 'client' || hatType === 'One-Off') return { ok: true, value: null }
   const selected = value == null ? fallback : value
   if (!HIRING_DURATIONS.includes(selected)) {
     return { ok: false, error: 'Choose a valid hiring duration.' }
