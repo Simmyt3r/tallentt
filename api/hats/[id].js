@@ -1,4 +1,5 @@
 import { query, getClient } from '../_lib/db.js'
+import {onlinePresenceExpression} from '../_lib/onlinePresence.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
@@ -24,7 +25,7 @@ async function getHat(id, viewerId) {
             u.location as owner_location,
             u.lga as owner_lga,
             u.country as owner_country,
-            EXISTS(SELECT 1 FROM user_presence presence WHERE presence.user_id=h.user_id AND presence.is_visible=TRUE AND presence.last_seen>NOW()-INTERVAL '90 seconds') AS owner_online,
+            ${await onlinePresenceExpression('h.user_id')} AS owner_online,
             -- Same "N jobs"/"N hires" completed-engagement count as the feed
             -- listing (api/hats/index.js) — kept identical so a card looks
             -- the same whether it came from the feed or a direct /hat/:id
