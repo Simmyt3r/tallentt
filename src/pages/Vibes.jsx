@@ -15,10 +15,11 @@ const dateText = value => {
 
 function Avatar({user,size=40}) {
   const image=user.avatar_url || user.avatarUrl
-  return <span className="grid shrink-0 place-items-center overflow-hidden rounded-full bg-[#0A13E6] text-white font-bold"
+  return <span className="relative grid shrink-0 place-items-center rounded-full bg-[#0A13E6] text-white font-bold"
     style={{width:size,height:size}}>
     {image ? <img src={cldImage(image,{w:size*2,h:size*2})} alt="" className="h-full w-full object-cover" /> :
       String(user.full_name||user.fullName||user.username||'U').slice(0,1).toUpperCase()}
+    {user.is_online&&<span aria-label="Online" title="Online" className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500"/>}
   </span>
 }
 
