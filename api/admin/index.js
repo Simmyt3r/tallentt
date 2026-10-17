@@ -1,5 +1,6 @@
 // Path: api/admin/index.js
 import { query, getClient } from '../_lib/db.js'
+import {pendingVibesVideos,reviewVibesVideo} from '../_lib/vibesReview.js'
 import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
 import { adminGalleryQueue, adminGalleryDecision } from '../_lib/showroomGallery.js'
@@ -40,6 +41,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
+      if (params.get('action') === 'vibes_video_review') return json(res,200,await pendingVibesVideos())
       if (params.get('action') === 'user_search'){
         const search=String(params.get('q')||'').trim()
         if(search.length<2||search.length>80)return json(res,400,{error:'Search must contain 2–80 characters.'})
@@ -287,6 +289,7 @@ async function getDashboard() {
 }
 
 async function handleAdminAction(admin, body) {
+  if (body?.action === 'vibes_video_decision') return reviewVibesVideo(admin.id,body)
   if (body?.action === 'erase_subscriber') return eraseSubscriber(admin.id,body)
   if (body?.action === 'retry_user_media_erasure') return processErasureMediaQueue({limit:8})
   if (body?.action === 'configure_orbit') return saveOrbitWeights(admin.id,body.weights)
