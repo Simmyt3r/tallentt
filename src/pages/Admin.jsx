@@ -28,6 +28,7 @@ import AdminOrbitAndHatReview from '../components/AdminOrbitAndHatReview.jsx'
 import AdminUserErasure, {AdminUserMediaCleanup} from '../components/AdminUserErasure.jsx'
 import AdminShowroomReports from '../components/AdminShowroomReports.jsx'
 import AdminShowroomGallery from '../components/AdminShowroomGallery.jsx'
+import AdminVibesVideoReview from '../components/AdminVibesVideoReview.jsx'
 import AdminShowroomConfig from '../components/AdminShowroomConfig.jsx'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromHat, identityFromRow, resolveIdentity } from '../lib/profile.js'
@@ -43,6 +44,7 @@ const SECTIONS = [
   { id: 'applications', label: 'Applications', icon: ClipboardList },
   { id: 'showroom', label: 'Showroom Reports', icon: Flag },
   { id: 'showroom-gallery', label: 'Showcase Moderation', icon: ShieldCheck },
+  { id: 'vibes-videos', label: 'Vibes Video Review', icon: ShieldCheck },
   { id: 'showroom-config', label: 'Showroom Settings', icon: ShieldCheck },
   { id: 'push', label: 'Push Setup', icon: BellRing },
   { id: 'migrations', label: 'Database Migrations', icon: Database },
@@ -313,6 +315,7 @@ export default function Admin() {
               {tab === 'applications' && <ApplicationsTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'showroom' && <AdminShowroomReports />}
               {tab === 'showroom-gallery' && <AdminShowroomGallery />}
+              {tab === 'vibes-videos' && <AdminVibesVideoReview />}
               {tab === 'orbit' && <AdminOrbitAndHatReview />}
               {tab === 'showroom-config' && <AdminShowroomConfig />}
               {tab === 'push' && <PushSetupPanel />}
