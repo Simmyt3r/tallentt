@@ -12,6 +12,7 @@ import {
   ArrowLeftRight,
   Scale,
   Radio,
+  Settings2,
 } from 'lucide-react'
 
 export const NAV_PRIMARY = [
@@ -29,6 +30,7 @@ export const NAV_SECONDARY = [
   { to: '/messages', icon: MessageCircle, label: 'Deals Chat' },
   { to: '/wallet', icon: WalletIcon, label: 'Wallet' },
   { to: '/disputes', icon: Scale, label: 'Dispute Center' },
+  { to: '/settings', icon: Settings2, label: 'Settings' },
 ]
 
 export const PROFILE_ITEM = { to: '/profile', icon: UserRound, label: 'Profile' }
@@ -47,6 +49,7 @@ const TITLES = [
   { test: (p) => p.startsWith('/my-applications'), title: 'My Deals' },
   { test: (p) => p.startsWith('/my-bookings'), title: 'My Deals' },
   { test: (p) => p.startsWith('/wallet'), title: 'Wallet' },
+  { test: (p) => p.startsWith('/settings'), title: 'Settings' },
   { test: (p) => p.startsWith('/disputes'), title: 'Dispute Center' },
   { test: (p) => p.startsWith('/live/competitions'), title: 'Stage Competitions' },
   { test: (p) => p.startsWith('/live'), title: 'Live Broadcast' },
