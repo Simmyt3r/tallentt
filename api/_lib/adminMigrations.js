@@ -63,6 +63,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-admin-user-erasure-2026-10.sql', import.meta.url),
   },
   {
+    id:'vibes-editor-2026-10',
+    title:'Vibes longer posts and editing',
+    description:'Adds 10,000-character post/reply capacity and edit history timestamps.',
+    path:new URL('../../db/patch-vibes-editor-2026-10.sql',import.meta.url),
+  },
+  {
     id: 'card-detail-2026-10',
     title: 'Card profile statement and Hat requirements',
     description: 'Adds long-form professional profile statements and per-Hat requirements without changing tagline data.',
