@@ -66,6 +66,7 @@ export default function PublicProfile() {
       isVerified={profile?.isVerified}
       rating={profile?.rating}
       ratedHatsCount={profile?.ratedHatsCount}
+      orbit={profile?.orbit}
       onEditClick={() => setEditing(true)}
     />
   )
