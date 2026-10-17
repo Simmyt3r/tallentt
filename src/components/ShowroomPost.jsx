@@ -93,8 +93,12 @@ function ShowroomPost({
           onOpen={() => onView(hat.id)}
         />
         {isVideo && <button type="button" onClick={() => onView(hat.id)}
-          className="absolute top-3 right-3 z-20 inline-flex min-h-10 items-center gap-1 rounded-full border border-white/20 bg-black/70 px-3 text-[11px] font-bold text-white hover:bg-black"
-          aria-label={`View details for ${ownerName}'s video`}>View details</button>}
+          className="absolute inset-x-0 top-0 bottom-14 z-20 flex items-start justify-end p-3 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
+          aria-label={`View details for ${ownerName}'s video`}>
+          <span className="inline-flex min-h-10 items-center rounded-full border border-white/20 bg-black/75 px-3 text-[11px] font-bold text-white">
+            View details
+          </span>
+        </button>}
         {hat.isHost && (
           <span className="absolute top-3 left-3 z-10 bg-[#FFBD2E] text-black text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full border-[1.5px] border-black shadow pointer-events-none">
             Showroom Host
