@@ -15,7 +15,7 @@ const MAX_IMAGES = 4
 const bad = (status, message) => Object.assign(new Error(message), { status })
 const validId = (value) => UUID.test(String(value || ''))
 const maxBody = (value, max) => typeof value === 'string' ? value.trim().slice(0, max + 1) : ''
-const mediaEnabled = () => process.env.VIBES_MEDIA_UPLOADS !== 'disabled'
+const mediaEnabled = () => !['disabled','false','0'].includes(String(process.env.VIBES_MEDIA_UPLOADS||'').toLowerCase())
 
 // Media uploads are only enabled deliberately, with cloud identity and an
 // image safety service configured. Never fall back to unsigned/foreign URLs.
@@ -83,7 +83,7 @@ async function verifyUploads(userId, media) {
       return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'video'}
     }
     if(!process.env.GOOGLE_CLOUD_VISION_API_KEY)
-      throw bad(503,'Photo safety screening is not configured.')
+      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',needs_review:true}
     // Fail closed when screening is unreachable. Do not disclose images until a
     // safety decision has been obtained.
     let screened
@@ -123,7 +123,7 @@ async function publish(userId, body) {
       `INSERT INTO vibes_posts (author_id,body,media,moderation_status)
        VALUES($1,$2,$3::jsonb,$4) RETURNING id`,
       [userId,text,JSON.stringify(verified.map(({url,public_id,type})=>({url,public_id,type}))),
-        verified.some(item=>item.type==='video')?'held':'visible'],
+        verified.some(item=>item.type==='video'||item.needs_review)?'held':'visible'],
     )
     for(const photo of verified) {
       const {rowCount}=await client.query(`UPDATE vibes_upload_permits SET claimed_at=NOW(),claimed_post_id=$1
@@ -132,7 +132,7 @@ async function publish(userId, body) {
       if(rowCount!==1) throw bad(409,'A photo was already used. Upload it again.')
     }
     await client.query('COMMIT')
-    return {id:post.id,pending_review:verified.some(item=>item.type==='video')}
+    return {id:post.id,pending_review:verified.some(item=>item.type==='video'||item.needs_review)}
   } catch(error) {
     await client.query('ROLLBACK').catch(()=>{})
     throw error
