@@ -174,6 +174,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
             <p className="tw-label">Step {step} of 3</p>
             <h2 id="showroom-add-title" className="text-[18px] font-bold tracking-tight mt-0.5">
               {step === 1 && 'Choose how to post'}
+              {step === 4 && 'Select a Hat'}
               {step === 2 && 'Add media'}
               {step === 3 && 'Add a caption'}
             </h2>
@@ -185,84 +186,47 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
             </div>
           )}
 
-          {/* Step 1: entertainment posts do not require commercial Hats. */}
+          {/* Three unmistakable publishing choices. Commercial marketing requires a Hat. */}
           {step === 1 && (
-            <div className="space-y-3 max-h-[55vh] overflow-y-auto">
-              <button type="button" onClick={pickStandalone}
-                className="w-full rounded-[16px] border-[1.5px] border-[#0A13E6]/40 bg-[#EEF0FF] p-4 text-left hover:border-[#0A13E6]">
-                <strong className="block text-[13px]">Show your talent, just for fun</strong>
-                <span className="mt-1 block text-[11px] text-black/60">
-                  Upload a photo or video for entertainment. Your profile and View/Play appear, but there is no booking or application link.
-                </span>
+            <div className="space-y-3">
+              <Link to="/create" onClick={handleClose}
+                className="block rounded-2xl border border-black/15 bg-white p-4 hover:border-[#0A13E6]">
+                <strong className="block text-[14px]">Create Hat</strong>
+                <span className="mt-1 block text-[12px] text-black/60">Create a talent profile card with pricing and availability, then promote it in Showroom.</span>
+              </Link>
+              <button type="button" onClick={() => setStep(4)}
+                className="w-full rounded-2xl border border-black/15 bg-white p-4 text-left hover:border-[#0A13E6]">
+                <strong className="block text-[14px]">Choose an existing Hat</strong>
+                <span className="mt-1 block text-[12px] text-black/60">Select one of your Hats and promote it using approved media.</span>
               </button>
-              {recentPosts.length > 0 && (
-                <section className="space-y-2 rounded-xl border border-black/10 bg-white p-3" aria-label="Your recent showcase posts">
-                  <h3 className="text-[12px] font-bold">Your recent showcase posts</h3>
-                  {recentPosts.slice(0,4).map(item=><div key={item.id} className="flex items-center gap-3 text-[11px]">
-                    <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-black/5">
-                      <img src={item.media_type === 'video'
-                        ? cldVideoPoster(item.media_url,{w:90,h:90})
-                        : cldImage(item.media_url,{w:90,h:90})}
-                        alt="" className="h-full w-full object-cover" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate">{item.caption||'Untitled showcase'}</span>
-                      <span className="font-semibold text-black/50">{item.moderation_status === 'visible' ? 'Public' :
-                        item.moderation_status === 'pending' ? 'Awaiting review' :
-                        item.moderation_status === 'held' ? 'Needs admin review' : 'Not approved'}</span>
-                    </span>
-                    <button type="button" aria-label="Delete showcase post"
-                      className="min-h-9 shrink-0 rounded-full border border-red-200 px-3 font-semibold text-red-700"
-                      onClick={async()=>{
-                        if(!window.confirm('Delete this showcase post?'))return
-                        try {
-                          await api.galleryAction('delete_gallery',item.id)
-                          setRecentPosts(items=>items.filter(post=>post.id!==item.id))
-                          onAdded?.({})
-                        } catch(err){setError(err.message||'Unable to delete post.')}
-                      }}>Delete</button>
-                  </div>)}
-                </section>
-              )}
-              <p className="text-[11px] font-black text-black/40 uppercase tracking-wide">Or promote a Talent Hat</p>
-              {loadingHats ? (
-                <p className="text-black/40 py-8 text-center text-[13px] font-medium">Loading your hats…</p>
-              ) : myHats.length === 0 ? (
-                <div className="text-center py-8 space-y-3">
-                  <p className="text-black/60 text-[13px] font-medium">
-                    Create a Talent Hat to receive bookings. Entertainment posts above do not need a Hat.
-                  </p>
-                  <Link
-                    to="/create"
-                    onClick={handleClose}
-                    className="tw-btn-primary inline-flex h-10 px-5 text-[13px]"
-                  >
-                    Create a Hat
-                  </Link>
-                </div>
-              ) : (
-                myHats.map((h) => (
-                  <button
-                    key={h.id}
-                    type="button"
-                    onClick={() => pickHat(h)}
-                    className="w-full flex items-center gap-3 p-2.5 rounded-[14px] border-[1.5px] border-black/10 hover:border-black transition text-left"
-                  >
-                    <div className="w-12 h-12 rounded-[10px] bg-[#F5F3EF] overflow-hidden shrink-0 border border-black/10">
-                      {h.media?.[0]?.url &&
-                        (h.media[0].type === 'video' ? (
-                          <img src={cldVideoPoster(h.media[0].url, { w: 96, h: 96 })} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <img src={cldImage(h.media[0].url, { w: 96, h: 96 })} alt="" className="w-full h-full object-cover" />
-                        ))}
+              <button type="button" onClick={pickStandalone}
+                className="w-full rounded-2xl border border-[#0A13E6]/30 bg-blue-50 p-4 text-left hover:border-[#0A13E6]">
+                <strong className="block text-[14px]">Upload media from gallery</strong>
+                <span className="mt-1 block text-[12px] text-black/60">Show your talent for fun. Includes your bio and a View/Play option, without booking or applications.</span>
+              </button>
+            </div>
+          )}
+          {step === 4 && (
+            <div className="space-y-3 max-h-[55vh] overflow-y-auto">
+              <button type="button" onClick={() => setStep(1)}
+                className="inline-flex min-h-10 items-center gap-2 text-[12px] font-semibold text-black/60"><ArrowLeft size={15}/> Posting choices</button>
+              <h3 className="text-[14px] font-black">Choose an existing Hat</h3>
+              {loadingHats ? <p className="py-6 text-[12px]">Loading your Hats…</p>
+                : myHats.length === 0 ? <p className="text-[12px] text-black/60">You have no Talent Hats yet. Choose Create Hat instead.</p>
+                : myHats.map(h => (
+                  <button key={h.id} type="button" onClick={() => pickHat(h)}
+                    className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-black/10 bg-white p-3 text-left hover:border-[#0A13E6]">
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-black/5">
+                      {h.media?.[0]?.url && <img src={h.media[0].type === 'video'
+                        ? cldVideoPoster(h.media[0].url,{w:96,h:96}) : cldImage(h.media[0].url,{w:96,h:96})}
+                        alt="" className="h-full w-full object-cover"/>}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-[13px] truncate">{h.hat_title}</p>
-                      <p className="text-[11px] text-black/50 truncate">{h.category}</p>
-                    </div>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] font-bold">{h.hat_title}</span>
+                      <span className="block truncate text-[11px] text-black/55">{h.category} · Talent Hat</span>
+                    </span>
                   </button>
-                ))
-              )}
+                ))}
             </div>
           )}
 
@@ -271,7 +235,7 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => setStep(1)}
+                onClick={() => setStep(standalone ? 1 : 4)}
                 className="inline-flex items-center gap-1 text-[12px] font-semibold text-black/50 hover:text-black transition"
               >
                 <ArrowLeft size={13} /> Change posting mode
