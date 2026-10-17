@@ -46,6 +46,12 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const action = url.searchParams.get('action') || 'me'
     if (action === 'me') return handleMe(req, res)
+    if (action==='presence'){
+      const session=getSessionUser(req)
+      if(!session?.sub)return json(res,401,{error:'Sign in to view presence.'})
+      const {rows}=await query('SELECT is_visible FROM user_presence WHERE user_id=$1',[session.sub])
+      return json(res,200,{visible:rows[0]?.is_visible!==false})
+    }
     if (action === 'orbit') {
       const session=getSessionUser(req)
       if(!session?.sub)return json(res,401,{error:'Sign in to view Orbit Score.'})
