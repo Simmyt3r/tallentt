@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Plus, Search, X } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import DiscoverySearch from './DiscoverySearch.jsx'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { UUID_RE, getScroller, shareShowroomPost, showroomPath } from '../lib/showroom'
@@ -54,7 +55,6 @@ export default function Showroom() {
   const [loadError, setLoadError] = useState('')
   const [reloadTick, setReloadTick] = useState(0)
   const [search, setSearch] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
   const [serverSearch, setServerSearch] = useState('')
   const [view, setView] = useState('for_you')
   const [category, setCategory] = useState('')
@@ -66,19 +66,13 @@ export default function Showroom() {
   const [postState, setPostState] = useState({ id: null, state: 'idle' })
   const [retryTick, setRetryTick] = useState(0)
 
-  // Search is a global quick action in the app header. When coming from any
-  // other route, focus the existing Showroom search instead of opening a
-  // second search surface.
+  // Showroom and BentoField share the same always-visible search control.
+  // Old deep links with focus=search continue to focus the field.
   useEffect(() => {
     if (new URLSearchParams(location.search).get('focus') === 'search') {
-      setSearchOpen(true)
+      searchRef.current?.focus()
     }
   }, [location.search])
-
-  // Focus after React has actually mounted the conditional search input.
-  useEffect(() => {
-    if (searchOpen) searchRef.current?.focus()
-  }, [searchOpen])
 
   // ── ui ────────────────────────────────────────────────────────────────
   const [muted, setMuted] = useState(false) // shared across posts; sound on by default
@@ -638,32 +632,12 @@ export default function Showroom() {
       <div
         ref={headerRef}
         style={{ top: 'var(--sr-app-top)', height: 'var(--sr-header-h)' }}
-        className="sticky z-30 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 bg-[#F7F3EB]/95 backdrop-blur-md border-b border-black/10 flex items-center gap-3"
+        className="sticky z-30 isolate -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 bg-[#F7F3EB]/95 backdrop-blur-md border-b border-black/10 flex items-center gap-3"
       >
         <h2 className="text-[18px] sm:text-[21px] font-black tracking-tight shrink-0">Showroom</h2>
-        <div className="flex items-center gap-2 ml-auto min-w-0">
-          {searchOpen && (
-            <input
-              ref={searchRef}
-              id="showroom-search"
-              type="search"
-              aria-label="Search posts and creators"
-              placeholder="Search posts and creators…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="min-w-0 w-[150px] sm:w-[280px] max-w-[50vw] h-10 px-3 rounded-full border-[1.5px] border-black bg-white text-[12px] font-medium outline-none focus:ring-2 focus:ring-[#0A13E6]"
-            />
-          )}
-          <button type="button" aria-label={searchOpen ? 'Close Showroom search' : 'Search Showroom'}
-            aria-expanded={searchOpen} aria-controls="showroom-search"
-            onClick={() => {
-              if (searchOpen) { setSearch(''); setSearchOpen(false) }
-              else setSearchOpen(true)
-            }}
-            className="h-10 w-10 shrink-0 grid place-items-center rounded-full border border-black/15 bg-white hover:bg-[#E7E9FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6]">
-            {searchOpen ? <X size={19} aria-hidden="true" /> : <Search size={19} aria-hidden="true" />}
-          </button>
-        </div>
+        <DiscoverySearch ref={searchRef} id="showroom-search" value={search}
+          onChange={setSearch} label="Search Showroom posts and creators"
+          placeholder="Search Showroom…" className="ml-auto w-full max-w-[min(52vw,340px)]" />
       </div>
 
       <div className="flex gap-2 overflow-x-auto py-2" aria-label="Showroom discovery views">
