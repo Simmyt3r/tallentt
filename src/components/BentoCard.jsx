@@ -1,6 +1,7 @@
 // Path: src/components/BentoCard.jsx
 import { useState } from 'react'
-import { BookOpen, Send } from 'lucide-react'
+import { BookOpen, Send, Share2 } from 'lucide-react'
+import {shareContent} from '../lib/shareContent.js'
 import BentoCardDetailModal from './BentoCardDetailModal'
 import UserIdentity from './UserIdentity'
 import RoleCardBadge from './RoleCardBadge'
@@ -16,6 +17,7 @@ import {
 // flier image. Both layouts keep identity, role and booking controls visible.
 export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, fullWidth = false, siblingHats = [], showFeedAction = false }) {
   const [open, setOpen] = useState(false)
+  const [shareMessage,setShareMessage]=useState('')
   const [showOtherHats, setShowOtherHats] = useState(false)
 
   const isTalent = hat.role === 'talent'
@@ -183,6 +185,17 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           >
             <span className="text-[13px]">{liked ? '❤' : '♡'}</span> {likeCount || 0}
           </button>
+          <button type="button" aria-label={`Share Hat ${hat.hat_name||hat.hat_title}`}
+            onClick={async event=>{
+              event.stopPropagation()
+              try{
+                const result=await shareContent(`/hat/${encodeURIComponent(hat.id)}`,hat.hat_name||hat.hat_title)
+                if(result==='copied')setShareMessage('Link copied')
+              }catch{setShareMessage('Unable to share this Hat.')}
+            }}
+            className="inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-[11px] font-bold text-[#0A13E6]">
+            <Share2 size={15}/> Share
+          </button>
           {showFeedAction && (
             <button
               type="button"
@@ -198,6 +211,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
             </button>
           )}
         </div>
+        {shareMessage&&<p role="status" className="mt-1 text-[11px] text-[#0A13E6]">{shareMessage}</p>}
       </article>
 
       {open && (
