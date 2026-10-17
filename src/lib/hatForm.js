@@ -418,7 +418,7 @@ export function validateForm(form, ctx) {
     else if (custom.length > CUSTOM_CATEGORY_MAX) errors.categoryCustom = `Keep the category to ${CUSTOM_CATEGORY_MAX} characters or fewer.`
   }
 
-  if (role === 'client' && !HIRING_DURATIONS.includes(form.hiringDuration)) {
+  if (role === 'client' && form.hatType !== 'One-Off' && !HIRING_DURATIONS.includes(form.hiringDuration)) {
     errors.hiringDuration = 'Choose how long this hiring is expected to last.'
   }
 
@@ -552,7 +552,7 @@ export function buildPayload(form, { mode, role, media = null }) {
     category: finalCategory(form),
     skills: parseSkills(form.skills),
     hat_type: form.hatType,
-    hiring_duration: normalizeHatRole(role) === 'client' ? form.hiringDuration : null,
+    hiring_duration: normalizeHatRole(role) === 'client' && form.hatType !== 'One-Off' ? form.hiringDuration : null,
     delivery_mode: form.deliveryMode,
     country: country.name,
     country_flag: country.flag,
