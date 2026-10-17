@@ -63,6 +63,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-admin-user-erasure-2026-10.sql', import.meta.url),
   },
   {
+    id:'online-presence-2026-10',
+    title:'Online presence indicator',
+    description:'Adds recent heartbeat online presence with an optional visibility preference.',
+    path:new URL('../../db/patch-online-presence-2026-10.sql',import.meta.url),
+  },
+  {
     id:'vibes-editor-2026-10',
     title:'Vibes longer posts and editing',
     description:'Adds 10,000-character post/reply capacity and edit history timestamps.',
