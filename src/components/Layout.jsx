@@ -10,9 +10,9 @@ import NotificationsMenu from './NotificationsMenu.jsx'
 
 // Facebook-style quick actions without any role-based browsing switch.
 const MENU_BUTTON =
-  'h-9 w-9 md:h-10 md:w-10 shrink-0 place-items-center rounded-full text-black transition-colors hover:bg-black/[0.06] active:bg-black/[0.1]'
+  'h-8 w-8 md:h-10 md:w-10 shrink-0 place-items-center rounded-full text-black transition-colors hover:bg-black/[0.06] active:bg-black/[0.1]'
 const QUICK_ACTION =
-  'relative h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full border border-black/10 bg-white text-black/70 shadow-sm flex items-center justify-center transition-colors hover:bg-[#E7E9FF] hover:text-[#0A13E6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6]'
+  'relative h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded-full border border-black/10 bg-white text-black/70 shadow-sm flex items-center justify-center transition-colors hover:bg-[#E7E9FF] hover:text-[#0A13E6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6]'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -92,8 +92,8 @@ export default function Layout({ children }) {
 
             {/* Keep the actual name visible on every route. Search belongs to Showroom. */}
             <div className="flex min-w-0 items-center gap-2 md:hidden">
-              <img src="/logo.png" alt="ChombuTar" className="h-7 w-7 shrink-0 rounded-full object-cover" />
-              <h1 className="block whitespace-nowrap text-left text-[14px] min-[375px]:text-[16px] font-black tracking-tight">
+              <img src="/logo.png" alt="ChombuTar" className="h-6 w-6 shrink-0 rounded-full object-cover" />
+              <h1 className="block whitespace-nowrap text-left text-[13px] min-[375px]:text-[16px] font-black tracking-tight">
                 ChombuTar
               </h1>
             </div>
@@ -105,7 +105,7 @@ export default function Layout({ children }) {
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1 md:gap-2">
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1 md:gap-2">
             <nav className="flex shrink-0 items-center gap-1 md:gap-2" aria-label="Quick actions">
 
               <Link to="/live" aria-label="Live" title="Watch live" className={QUICK_ACTION}>
@@ -125,7 +125,7 @@ export default function Layout({ children }) {
             <Link
               to="/profile"
               aria-label="Profile"
-              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-black bg-[#0A13E6] text-[12px] font-black text-white md:h-10 md:w-10 md:text-[13px]"
+              className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-black bg-[#0A13E6] text-[12px] font-black text-white md:h-10 md:w-10 md:text-[13px]"
             >
               {user?.avatarUrl ? (
                 <img src={cldImage(user.avatarUrl, { w: 80, h: 80 })} alt="" className="w-full h-full object-cover" />
