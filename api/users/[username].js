@@ -20,7 +20,7 @@ import { json, methodNotAllowed } from '../_lib/http.js'
 // is_admin, or wallet balance. Those stay exclusive to api/auth's
 // session-gated ?action=me.
 const PUBLIC_USER_COLUMNS = `
-  id, full_name, username, role, avatar_url, bio, location, lga, country,
+  id, full_name, username, role, avatar_url, bio, profile_statement, location, lga, country,
   headline, skills, industry, company_suffix, website
 `
 
@@ -32,6 +32,7 @@ function toPublicProfileUser(row) {
     role: row.role,
     avatarUrl: row.avatar_url ?? null,
     bio: row.bio ?? null,
+    profileStatement: row.profile_statement ?? null,
     location: row.location ?? null,
     lga: row.lga ?? null,
     country: row.country ?? null,
