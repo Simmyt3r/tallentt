@@ -20,7 +20,7 @@ import { json, methodNotAllowed } from '../_lib/http.js'
 // is_admin, or wallet balance. Those stay exclusive to api/auth's
 // session-gated ?action=me.
 const PUBLIC_USER_COLUMNS = `
-  id, full_name, username, role, avatar_url, bio, profile_statement, location, lga, country,
+  id, full_name, username, role, avatar_url, bio, (to_jsonb(users)->>'profile_statement') AS profile_statement, location, lga, country,
   headline, skills, industry, company_suffix, website
 `
 
