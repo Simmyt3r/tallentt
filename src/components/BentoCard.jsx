@@ -71,7 +71,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           nameClassName="font-bold text-[14.5px] leading-tight"
           usernameClassName={layout === 'dark' ? '!text-[#AABFFF] font-extrabold text-[13px] leading-tight' : 'text-[#0A13E6] font-extrabold text-[13px] leading-tight'}
           avatarBadge={
-            hat.availability ? (
+            hat.owner_online ? (
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
             ) : null
           }
