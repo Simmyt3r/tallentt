@@ -134,21 +134,16 @@ export default function MyHats() {
             <div key={h.id} className="relative group space-y-2">
               <div className="relative">
                 <BentoCard hat={h} onHatChange={handleHatChange} />
-                <div className="absolute top-14 right-3 flex gap-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition">
-                  <Link
-                    to={`/create?edit=${h.id}`}
-                    className="w-10 h-10 bg-white rounded-full shadow border-[1.5px] border-black flex items-center justify-center hover:bg-black hover:text-white transition"
-                  >
-                    <Pencil size={13} />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(h.id)}
-                    className="w-10 h-10 bg-white rounded-full shadow border-[1.5px] border-black flex items-center justify-center text-red-600 hover:bg-red-600 hover:text-white transition"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+              </div>
+              <div className="flex items-center justify-between gap-6 px-1" aria-label={`Manage ${h.hat_title}`}>
+                <Link to={`/create?edit=${h.id}`} aria-label={`Edit ${h.hat_title}`}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-[12px] font-bold hover:border-[#0A13E6]">
+                  <Pencil size={15} /> Edit Hat
+                </Link>
+                <button type="button" onClick={() => handleDelete(h.id)} aria-label={`Delete ${h.hat_title}`}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-red-200 bg-white px-4 text-[12px] font-bold text-red-700 hover:bg-red-50">
+                  <Trash2 size={15} /> Delete
+                </button>
               </div>
               {hiddenShowroom.has(h.id) && (
                 <button type="button" onClick={() => restoreToShowroom(h.id)}
