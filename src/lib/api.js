@@ -300,6 +300,7 @@ export const api = {
   getStageCompetition: (id) => request(`/api/live?stage_competition=${encodeURIComponent(id)}`),
   getMyCompetitionStreams: () => request('/api/live?stage_streams=1'),
   stageAction: (body) => request('/api/live', {method:'POST',body:JSON.stringify(body)}),
+  getLiveMediaStatus: () => request('/api/live?media_status=1'),
   getLiveRooms: (status) => request(`/api/live${status ? `?status=${encodeURIComponent(status)}` : ''}`),
   getLiveRoom: (roomId) => request(`/api/live?room_id=${encodeURIComponent(roomId)}`),
   liveAction: (body) => request('/api/live', { method: 'POST', body: JSON.stringify(body) }),
