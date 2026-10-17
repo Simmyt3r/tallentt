@@ -221,8 +221,9 @@ function HatFormScreen({ editId, showcaseId = '' }) {
       category: visible.category,
       categoryCustom: visible.categoryCustom,
       hiringDuration: visible.hiringDuration,
+      requirements: visible.requirements,
     }),
-    [visible.hatName, visible.title, visible.category, visible.categoryCustom, visible.hiringDuration],
+    [visible.hatName, visible.title, visible.category, visible.categoryCustom, visible.hiringDuration, visible.requirements],
   )
   const pricingErrors = useMemo(
     () => ({
@@ -392,6 +393,7 @@ function HatFormScreen({ editId, showcaseId = '' }) {
           category={form.category}
           customCategory={form.customCategory}
           description={form.description}
+          requirements={form.requirements}
           hatType={form.hatType}
           hiringDuration={form.hiringDuration}
           categories={categories}
