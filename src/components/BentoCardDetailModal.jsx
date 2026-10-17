@@ -13,6 +13,7 @@ import {
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import UserIdentity from './UserIdentity'
+import CardOwnerHatDetails from './CardOwnerHatDetails.jsx'
 
 // Publication date, shared by the feed's `created_at` and the detail
 // API's `created_at` — same underlying column either way.
@@ -467,55 +468,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
             </div>
           )}
 
-          <DetailSection label={isTalent ? 'About' : 'Requirements'}>
-            {description && <p className="leading-relaxed break-words whitespace-pre-line">{description}</p>}
-          </DetailSection>
-
-          <DetailSection label={isTalent ? 'Skills' : 'Required skills'}>
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {tags.map((t, i) => (
-                  <span
-                    key={`${t}-${i}`}
-                    className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#F5F3EF] border border-black/10 text-black/60"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            )}
-          </DetailSection>
-
-          <div className="grid grid-cols-2 gap-3">
-            <DetailSection label="Availability">
-              {availabilityWindow && (
-                <span className="flex items-center gap-1">
-                  <Clock size={12} /> {availabilityWindow}
-                </span>
-              )}
-            </DetailSection>
-            <DetailSection label="Delivery">{hat.delivery_mode}</DetailSection>
-          </div>
-
-          {!isTalent && hiringDuration && <DetailSection label="Hiring duration">{hiringDuration}</DetailSection>}
-
-          <DetailSection label="Location">{location}</DetailSection>
-
-          <DetailSection label={isTalent ? 'Price' : 'Budget'}>
-            <span className="text-[16px] font-bold">{priceDisplay}</span>
-          </DetailSection>
-
-          {category && (
-            <span className="inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10">
-              {category}
-            </span>
-          )}
-
-          <div className="flex items-center gap-3 text-[12px] text-black/50 font-medium">
-            <span className="flex items-center gap-1">
-              <Eye size={14} /> {viewCount} view{viewCount === 1 ? '' : 's'}
-            </span>
-          </div>
+          <CardOwnerHatDetails detail={loaded ? detail : null} hat={hat}/>
 
           <EscrowBadge hat={hat} escrow={escrow} />
 
