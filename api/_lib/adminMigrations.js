@@ -51,6 +51,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-deal-calls-2026-10.sql', import.meta.url),
   },
   {
+    id: 'orbit-review-2026-10',
+    title: 'Orbit Score and Hat data review',
+    description: 'Admin-configured activity weights, audit-ready Hat data review and improvement notes.',
+    path: new URL('../../db/patch-orbit-review-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'password-recovery-2026-10',
     title: 'Password recovery',
     description: 'One-use expiring reset tokens and request throttling.',
