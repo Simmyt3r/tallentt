@@ -1,4 +1,5 @@
 import { query, getClient } from '../_lib/db.js'
+import {accountOrbit} from '../_lib/accountOrbit.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
@@ -117,13 +118,55 @@ async function buildCardDetail(hat, viewerId) {
   // means the viewer has an active application on this hat.
   const hasApplied = Boolean(hat.my_application && ['pending', 'accepted'].includes(hat.my_application.status))
 
+  // Only confirmed records are counted. Do not infer badges, misconduct,
+  // verification by government institutions or employment history.
+  const {rows:ownerStats}=await query(`SELECT
+      COUNT(*) FILTER (WHERE status='released' AND talent_id=$1)::int AS completed_jobs,
+      COUNT(*) FILTER (WHERE status='released' AND client_id=$1)::int AS successful_hires,
+      COUNT(*) FILTER (WHERE work_status='disputed')::int AS open_disputes
+    FROM escrows WHERE talent_id=$1 OR client_id=$1`,[hat.user_id])
+  const stats=ownerStats[0] || {}
+  let applications=0,activeApplications=0
+  try {
+    const {rows}=await query(`SELECT COUNT(*)::int AS applications,
+      COUNT(*) FILTER (WHERE status IN ('pending','accepted'))::int AS active
+      FROM applications WHERE hat_id=$1`,[hat.id])
+    applications=Number(rows[0]?.applications||0)
+    activeApplications=Number(rows[0]?.active||0)
+  }catch(err){console.error('Hat application aggregate unavailable',err)}
+  let phone=null
+  if(viewerId){
+    if(viewerId===hat.user_id){
+      const {rows}=await query('SELECT phone FROM users WHERE id=$1',[hat.user_id])
+      phone=rows[0]?.phone||null
+    }else{
+      const {rows}=await query(`SELECT u.phone FROM users u
+        WHERE u.id=$1 AND EXISTS(
+          SELECT 1 FROM escrows e
+          WHERE e.contacts_unlocked=TRUE AND e.status IN ('secured','released')
+            AND ((e.client_id=$2 AND e.talent_id=$1)
+              OR (e.talent_id=$2 AND e.client_id=$1))
+        )`,[hat.user_id,viewerId])
+      phone=rows[0]?.phone||null
+    }
+  }
+  const orbit=await accountOrbit(hat.user_id).catch(()=>null)
+
   return {
     id: hat.id,
     title: hat.hat_title,
     // hats has no dedicated long-form description column — motto is the
     // closest existing free-text field tied to the card, so it's reused
     // here rather than adding a new one.
-    description: hat.motto || null,
+    description: hat.job_requirements || null,
+    tagline: hat.motto || null,
+    job_requirements: hat.job_requirements || null,
+    hat_type: hat.hat_type || null,
+    delivery_mode: hat.delivery_mode || null,
+    job: {type:hat.hat_type||null,duration:hat.hiring_duration||null,
+      location,applicants:applications,active_applicants:activeApplications},
+    performance: {orbit,completed_jobs:Number(stats.completed_jobs||0),
+      successful_hires:Number(stats.successful_hires||0),open_disputes:Number(stats.open_disputes||0)},
     media: (hat.media || []).map((m) => ({ url: m.url, type: m.type, caption: m.caption || null })),
     tags: hat.skills || [],
     category: hat.category || null,
