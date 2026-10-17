@@ -18,6 +18,7 @@ import Admin from './pages/Admin.jsx'
 import Messages from './pages/Messages.jsx'
 import Negotiations from './pages/Negotiations.jsx'
 import Notifications from './pages/Notifications.jsx'
+import Settings from './pages/Settings.jsx'
 import MyDeals from './pages/MyDeals.jsx'
 import DealDetails from './pages/DealDetails.jsx'
 import DisputeCenter from './pages/DisputeCenter.jsx'
@@ -57,6 +58,7 @@ export default function App() {
     <Route path="/deals/:dealId" element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
     <Route path="/my-applications" element={<Navigate to="/deals?role=talent&tab=outgoing" replace />} />
     <Route path="/my-bookings" element={<Navigate to="/deals?role=client&tab=outgoing" replace />} />
+    <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
     <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
     <Route path="/disputes" element={<ProtectedRoute><DisputeCenter /></ProtectedRoute>} />
     <Route path="/live" element={<ProtectedRoute><LiveHub /></ProtectedRoute>} />
