@@ -24,6 +24,7 @@ import {
 import { api } from '../lib/api.js'
 import AdminDisputes from '../components/AdminDisputes.jsx'
 import AdminMigrations from '../components/AdminMigrations.jsx'
+import AdminOrbitAndHatReview from '../components/AdminOrbitAndHatReview.jsx'
 import AdminShowroomReports from '../components/AdminShowroomReports.jsx'
 import AdminShowroomGallery from '../components/AdminShowroomGallery.jsx'
 import AdminShowroomConfig from '../components/AdminShowroomConfig.jsx'
@@ -37,6 +38,7 @@ const SECTIONS = [
   { id: 'finance', label: 'Finance', icon: Wallet },
   { id: 'disputes', label: 'Disputes', icon: Gavel },
   { id: 'hats', label: 'Hats', icon: Briefcase },
+  { id: 'orbit', label: 'Orbit & Hat Review', icon: ShieldCheck },
   { id: 'applications', label: 'Applications', icon: ClipboardList },
   { id: 'showroom', label: 'Showroom Reports', icon: Flag },
   { id: 'showroom-gallery', label: 'Showcase Moderation', icon: ShieldCheck },
@@ -307,6 +309,7 @@ export default function Admin() {
               {tab === 'applications' && <ApplicationsTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'showroom' && <AdminShowroomReports />}
               {tab === 'showroom-gallery' && <AdminShowroomGallery />}
+              {tab === 'orbit' && <AdminOrbitAndHatReview />}
               {tab === 'showroom-config' && <AdminShowroomConfig />}
               {tab === 'push' && <PushSetupPanel />}
               {tab === 'migrations' && <AdminMigrations /> }
