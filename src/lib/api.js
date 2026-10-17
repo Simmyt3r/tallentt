@@ -445,24 +445,29 @@ export async function uploadGalleryMedia(file) {
 
 // Strict Vibes upload path: signed only, and no unsigned Cloudinary fallback.
 export async function uploadVibePhoto(file) {
-  if (!file || !['image/jpeg','image/png','image/webp'].includes(file.type) ||
-      file.size < 1 || file.size > 8 * 1024 * 1024) {
-    throw new Error('Choose a JPG, PNG or WebP image up to 8MB.')
-  }
-  const signed = await api.vibeAction({ action: 'upload_sign', mime: file.type, bytes: file.size })
-  const fd = new FormData()
-  fd.append('file', file)
-  fd.append('api_key', signed.apiKey)
-  fd.append('signature', signed.signature)
-  for (const [key, value] of Object.entries(signed.params)) fd.append(key, String(value))
-  const result = await fetch(`https://api.cloudinary.com/v1_1/${signed.cloudName}/image/upload`, {
-    method: 'POST', body: fd,
+  const isVideo=file?.type?.startsWith('video/')
+  const maxBytes=isVideo?20*1024*1024:8*1024*1024
+  if(!file || !(isVideo
+    ? ['video/mp4','video/webm','video/quicktime'].includes(file.type)
+    : ['image/jpeg','image/png','image/webp'].includes(file.type))
+    || file.size<1||file.size>maxBytes)
+    throw new Error('Choose JPG/PNG/WebP up to 8MB or MP4/WebM/MOV video up to 20MB.')
+  const signed=await api.vibeAction({action:'upload_sign',mime:file.type,bytes:file.size})
+  const resourceType=isVideo?'video':'image'
+  if(signed.resourceType!==resourceType)throw new Error('Unexpected media authorization.')
+  const fd=new FormData()
+  fd.append('file',file)
+  fd.append('api_key',signed.apiKey)
+  fd.append('signature',signed.signature)
+  for(const [key,value] of Object.entries(signed.params))fd.append(key,String(value))
+  const result=await fetch(`https://api.cloudinary.com/v1_1/${signed.cloudName}/${resourceType}/upload`,{
+    method:'POST',body:fd,
   })
-  const data = await result.json().catch(() => ({}))
-  if (!result.ok) throw new Error(data.error?.message || 'Photo upload failed.')
-  if (data.public_id !== signed.params.public_id || data.resource_type !== 'image' ||
-      !data.secure_url) throw new Error('Uploaded photo did not match its authorization.')
-  return { upload_id: signed.permitId, public_id: data.public_id, url: data.secure_url }
+  const data=await result.json().catch(()=>({}))
+  if(!result.ok)throw new Error(data.error?.message||'Vibes media upload failed.')
+  if(data.public_id!==signed.params.public_id||data.resource_type!==resourceType||!data.secure_url)
+    throw new Error('Uploaded media does not match the signed authorization.')
+  return {upload_id:signed.permitId,public_id:data.public_id,url:data.secure_url,type:resourceType}
 }
 
 // Opens the Paystack Inline popup and resolves with the transaction
