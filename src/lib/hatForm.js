@@ -404,6 +404,8 @@ export function validateForm(form, ctx) {
   if (!hatName) errors.hatName = 'Give this listing a name.'
   else if (hatName.length > HAT_NAME_MAX) errors.hatName = `Keep the name to ${HAT_NAME_MAX} characters or fewer.`
 
+  if ((form.requirements || '').length > 3000) errors.requirements='Full Hat details must be 3,000 characters or fewer.'
+
   const title = form.title.trim()
   if (!title) errors.title = 'Title is required.'
   else if (title.length > HAT_TITLE_MAX) errors.title = `Keep the title to ${HAT_TITLE_MAX} characters or fewer.`
@@ -557,6 +559,7 @@ export function buildPayload(form, { mode, role, media = null }) {
     currency: country.currency,
     lga: form.city.trim(),
     motto: form.description.trim().slice(0, HAT_DESCRIPTION_MAX),
+    job_requirements: form.requirements.trim(),
     availability: Boolean(form.available),
     available_days: normalizeAvailableDays(form.availableDays),
     // null clears the daily window on edit; the server keeps "absent" as "unchanged".
