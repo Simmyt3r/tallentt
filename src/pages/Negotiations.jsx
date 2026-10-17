@@ -67,7 +67,7 @@ export default function Negotiations() {
   const visible = items.filter((item) => category(item, user.id) === activeTab)
   return (
     <main className="max-w-5xl mx-auto space-y-4 pb-8">
-      <div className={selected ? 'hidden md:block' : ''}>
+      <div className={`${selected ? 'hidden md:block' : ''} sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg`}>
         <h1 className="text-[23px] font-black">Negotiation Center</h1>
         <p className="text-[12px] text-black/55">Only deals that enter price negotiation appear here. Completed is negotiation history only.</p>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[#0A13E6]/15 bg-[#0A13E6]/[0.04] px-4 py-3">
