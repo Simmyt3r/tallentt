@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Eye, Flag, Heart, Maximize2, Share2, Trash2 } from 'lucide-react'
+import { Eye, Flag, Heart, Maximize2, Share2 } from 'lucide-react'
 import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import { getHatAccent, getShowroomTemplate } from '../lib/hatPresentation.js'
 import AvailabilityBadge from './AvailabilityBadge'
@@ -92,6 +92,9 @@ function ShowroomPost({
           onMutedChange={onMutedChange}
           onOpen={() => onView(hat.id)}
         />
+        {isVideo && <button type="button" onClick={() => onView(hat.id)}
+          className="absolute top-3 right-3 z-20 inline-flex min-h-10 items-center gap-1 rounded-full border border-white/20 bg-black/70 px-3 text-[11px] font-bold text-white hover:bg-black"
+          aria-label={`View details for ${ownerName}'s video`}>View details</button>}
         {hat.isHost && (
           <span className="absolute top-3 left-3 z-10 bg-[#FFBD2E] text-black text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full border-[1.5px] border-black shadow pointer-events-none">
             Showroom Host
@@ -134,13 +137,7 @@ function ShowroomPost({
           <Maximize2 size={15} aria-hidden="true" />
           <span>View</span>
         </button>
-        {onDelete && (
-          <button type="button" onClick={() => onDelete(hat.id)}
-            aria-label="Remove your Showroom post" title="Remove from Showroom"
-            className="inline-flex h-11 w-10 items-center justify-center rounded-full text-red-600 hover:bg-red-50">
-            <Trash2 size={17} aria-hidden="true" />
-          </button>
-        )}
+
         {onReport && (
           <button type="button" onClick={() => onReport(hat)}
             aria-label="Report Showroom post" title="Report post"
