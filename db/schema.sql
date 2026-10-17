@@ -82,6 +82,12 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS skills TEXT[] NOT NULL DEFAULT '{}';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS industry TEXT[] NOT NULL DEFAULT '{}';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS company_suffix TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS website TEXT;
+-- Rich professional introduction distinct from the original short bio.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_statement TEXT;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_profile_statement_length_check;
+ALTER TABLE users ADD CONSTRAINT users_profile_statement_length_check CHECK (
+  profile_statement IS NULL OR char_length(profile_statement) <= 2000);
+
 UPDATE users SET skills = '{}' WHERE skills IS NULL;
 UPDATE users SET industry = '{}' WHERE industry IS NULL;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_headline_length_check;
@@ -168,6 +174,12 @@ ALTER TABLE hats ADD COLUMN IF NOT EXISTS category TEXT;
 UPDATE hats SET category = 'Tech & Digital Services' WHERE category IS NULL;
 ALTER TABLE hats ALTER COLUMN category SET NOT NULL;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS hiring_duration TEXT;
+-- Rich per-Hat job requirements or service scope, distinct from the tagline.
+ALTER TABLE hats ADD COLUMN IF NOT EXISTS job_requirements TEXT;
+ALTER TABLE hats DROP CONSTRAINT IF EXISTS hats_job_requirements_length_check;
+ALTER TABLE hats ADD CONSTRAINT hats_job_requirements_length_check CHECK (
+  job_requirements IS NULL OR char_length(job_requirements) <= 3000);
+
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS delivery_mode TEXT;
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS price_type TEXT DEFAULT 'fixed';
 ALTER TABLE hats ADD COLUMN IF NOT EXISTS price_negotiable BOOLEAN DEFAULT false;
