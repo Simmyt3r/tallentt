@@ -112,6 +112,10 @@ export const api = {
   request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'view' }) }),
   toggleLike: (id) =>
   request(`/api/hats/${id}`, { method: 'PATCH', body: JSON.stringify({ action: 'like' }) }),
+  getAdminVibesVideos: () => request('/api/admin?action=vibes_video_review'),
+  moderateVibesVideo: (post_id,decision) => request('/api/admin',{
+    method:'POST',body:JSON.stringify({action:'vibes_video_decision',post_id,decision}),
+  }),
   getVibes: (before, post) => request(`/api/vibes?${new URLSearchParams({
     ...(before ? { before } : {}), ...(post ? { post } : {}),
   })}`),
