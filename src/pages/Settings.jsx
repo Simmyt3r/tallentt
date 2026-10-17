@@ -1,4 +1,4 @@
-import {useState} from 'react'
+import {useEffect,useState} from 'react'
 import {Link,useNavigate} from 'react-router-dom'
 import {Bell,LockKeyhole,LogOut,Settings2,UserRound,Wallet} from 'lucide-react'
 import {useAuth} from '../context/AuthContext.jsx'
@@ -13,6 +13,20 @@ export default function Settings(){
   const [notice,setNotice]=useState('')
   const [error,setError]=useState('')
   const [signingOut,setSigningOut]=useState(false)
+  const [presenceVisible,setPresenceVisible]=useState(true)
+  const [presenceBusy,setPresenceBusy]=useState(false)
+  useEffect(()=>{
+    let active=true
+    api.getPresenceVisibility().then(value=>{if(active)setPresenceVisible(value.visible!==false)})
+      .catch(()=>{})
+    return()=>{active=false}
+  },[])
+  async function changePresence(visible){
+    setPresenceBusy(true);setError('')
+    try{await api.setPresenceVisibility(visible);setPresenceVisible(visible)}
+    catch(e){setError(e.message||'Unable to save presence setting.')}
+    finally{setPresenceBusy(false)}
+  }
   async function requestReset(){
     if(resetBusy || !user?.email)return
     setResetBusy(true);setError('');setNotice('')
@@ -59,6 +73,15 @@ export default function Settings(){
           <dd className="capitalize text-[12px] font-semibold">{user?.role||'Subscriber'}</dd>
         </div>
       </dl>
+      <label className="flex items-center justify-between gap-4 rounded-xl border border-black/10 bg-[#F7F3EB] p-3">
+        <span>
+          <span className="block text-[12px] font-bold">Show when I am online</span>
+          <span className="mt-1 block text-[11px] text-black/55">A green indicator appears only while you are active in ChombuTar. Turn this off to stay private.</span>
+        </span>
+        <input type="checkbox" checked={presenceVisible} disabled={presenceBusy}
+          onChange={e=>changePresence(e.target.checked)}
+          aria-label="Show my online status" className="h-5 w-5 shrink-0 accent-[#0A13E6]"/>
+      </label>
       <div className="flex flex-wrap gap-3">
         <Link to="/profile" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
           <UserRound size={16}/> Edit profile
