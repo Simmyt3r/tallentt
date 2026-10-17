@@ -79,6 +79,22 @@ export default async function handler(req, res) {
     if (body?.action === 'login') return handleLogin(body, res)
     if (body?.action === 'register') return handleRegister(body, res)
     if (body?.action === 'logout') return handleLogout(res)
+    if (body?.action==='presence_heartbeat'||body?.action==='presence_visibility'){
+      const session=getSessionUser(req)
+      if(!session?.sub)return json(res,401,{error:'Sign in to update presence.'})
+      const exists=await query("SELECT to_regclass('user_presence') AS present")
+      if(!exists.rows[0]?.present)return json(res,503,{error:'Apply the online presence migration first.'})
+      if(body.action==='presence_visibility'){
+        if(typeof body.visible!=='boolean')return json(res,400,{error:'Visibility must be true or false.'})
+        await query(`INSERT INTO user_presence(user_id,is_visible,last_seen)
+          VALUES($1,$2,NOW()) ON CONFLICT(user_id) DO UPDATE
+          SET is_visible=EXCLUDED.is_visible,last_seen=NOW()`,[session.sub,body.visible])
+        return json(res,200,{visible:body.visible})
+      }
+      await query(`INSERT INTO user_presence(user_id,last_seen)
+        VALUES($1,NOW()) ON CONFLICT(user_id) DO UPDATE SET last_seen=NOW()`,[session.sub])
+      return json(res,200,{ok:true})
+    }
     if (body?.action === 'push_subscribe') return handlePushSubscribe(req, res, body)
     if (body?.action === 'push_unsubscribe') return handlePushUnsubscribe(req, res, body)
     return json(res, 400, { error: 'Unknown action.' })
