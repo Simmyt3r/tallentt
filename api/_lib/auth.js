@@ -112,6 +112,7 @@ export function toPublicUser(row) {
     lga: row.lga,
     avatarUrl: row.avatar_url ?? null,
     bio: row.bio ?? null,
+    profileStatement: row.profile_statement ?? null,
     location: row.location ?? null,
     phone: row.phone ?? null,
     // Profile UX fields (db/patch-profile-ux.sql). headline/website are
