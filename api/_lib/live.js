@@ -103,6 +103,8 @@ export async function listStreams({ viewerId, status }) {
   } else {
     where.push(`ls.status IN ('scheduled','starting','live','reconnecting')`)
   }
+  // Historical fallback rooms do not deliver video to viewers.
+  where.push("ls.media_status IS DISTINCT FROM 'fallback'")
   const { rows } = await query(
     `SELECT ls.*, u.username, u.full_name, u.avatar_url, u.role, u.company_suffix
      FROM live_streams ls JOIN users u ON u.id = ls.talent_id
