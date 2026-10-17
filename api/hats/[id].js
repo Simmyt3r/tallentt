@@ -159,6 +159,9 @@ async function buildCardDetail(hat, viewerId) {
       phone=rows[0]?.phone||null
     }
   }
+  const {rows:accountHats}=await query(`SELECT COUNT(*)::int AS total,
+    COUNT(*) FILTER (WHERE active=TRUE)::int AS active
+    FROM hats WHERE user_id=$1`,[hat.user_id])
   const orbit=await accountOrbit(hat.user_id).catch(()=>null)
 
   return {
@@ -177,7 +180,7 @@ async function buildCardDetail(hat, viewerId) {
       location,applicants:applications,active_applicants:activeApplications,
       bookings:Number(bookingSummary.bookings||0),active_bookings:Number(bookingSummary.active_bookings||0),
       reference:hat.id,is_open:hat.active===true&&hat.availability===true},
-    performance: {orbit,completed_jobs:Number(stats.completed_jobs||0),
+    performance: {orbit,active_hats: Number(accountHats[0]?.active||0),total_hats:Number(accountHats[0]?.total||0),completed_jobs:Number(stats.completed_jobs||0),
       successful_hires:Number(stats.successful_hires||0),open_disputes:Number(stats.open_disputes||0)},
     media: (hat.media || []).map((m) => ({ url: m.url, type: m.type, caption: m.caption || null })),
     tags: hat.skills || [],
