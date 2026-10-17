@@ -100,7 +100,11 @@ async function ownedAssets(client,id){
   // Defensive check: do not remove an asset attached to somebody else's Hat
   // or standalone Showcase even if the target copied its public ID.
   const exclusive=[]
+  let unverified=0
   for(const asset of assets.values()){
+    const ownerScoped=['chombutar_hats/','chombutar_vibes/']
+      .some(prefix=>asset.publicId.startsWith(prefix+id+'/'))
+    if(!ownerScoped){unverified++;continue}
     const {rows:otherHats}=await client.query(`SELECT 1 FROM hat_media m JOIN hats h ON h.id=m.hat_id
       WHERE m.public_id=$1 AND h.user_id<>$2 LIMIT 1`,[asset.publicId,id])
     if(otherHats.length)continue
@@ -118,7 +122,7 @@ async function ownedAssets(client,id){
     }
     exclusive.push(asset)
   }
-  return exclusive
+  return {exclusive,unverified}
 }
 
 // Public catalog introspection means future user-owned tables with a direct FK
@@ -192,7 +196,7 @@ export async function eraseSubscriber(adminId,{user_id,confirmation}={}){
     if(!preview.eligible)throw bad(409,preview.reasons.join(' '))
     if(confirmation!==`DELETE @${preview.user.username}`)
       throw bad(400,'Type the exact confirmation shown: DELETE @'+preview.user.username)
-    const assets=await ownedAssets(client,user_id)
+    const {exclusive:assets,unverified}=await ownedAssets(client,user_id)
     for(const asset of assets){
       await client.query(`INSERT INTO admin_user_media_erasure_jobs(deleted_user_id,public_id,resource_type)
         VALUES($1,$2,$3) ON CONFLICT DO NOTHING`,
@@ -204,10 +208,10 @@ export async function eraseSubscriber(adminId,{user_id,confirmation}={}){
     await client.query(`INSERT INTO admin_audit_logs
       (admin_id,action,target_type,target_id,metadata) VALUES
       ($1,'erase_subscriber','user',$2,$3::jsonb)`,
-      [adminId,user_id,JSON.stringify({related_counts:preview.related,media_jobs:assets.length})])
+      [adminId,user_id,JSON.stringify({related_counts:preview.related,media_jobs:assets.length,legacy_media_needing_review:unverified})])
     await client.query('COMMIT')
     result={deleted:true,username:preview.user.username,
-      media_jobs_created:assets.length,financial_records_deleted:0}
+      media_jobs_created:assets.length,legacy_media_needing_review:unverified,financial_records_deleted:0}
   }catch(error){
     await client.query('ROLLBACK').catch(()=>{})
     if(error.code==='23503')throw bad(409,'Related records prevent deletion. Resolve linked platform activity before retrying.')
