@@ -13,7 +13,7 @@ const MAX_IMAGES = 4
 const bad = (status, message) => Object.assign(new Error(message), { status })
 const validId = (value) => UUID.test(String(value || ''))
 const maxBody = (value, max) => typeof value === 'string' ? value.trim().slice(0, max + 1) : ''
-const mediaEnabled = () => process.env.VIBES_MEDIA_UPLOADS === 'enabled'
+const mediaEnabled = () => process.env.VIBES_MEDIA_UPLOADS !== 'disabled'
 
 // Media uploads are only enabled deliberately, with cloud identity and an
 // image safety service configured. Never fall back to unsigned/foreign URLs.
@@ -96,8 +96,8 @@ async function verifyUploads(userId, media) {
 }
 
 async function publish(userId, body) {
-  const text=maxBody(body.text,500)
-  if(text.length>500) throw bad(400,'Posts can contain up to 500 characters.')
+  const text=maxBody(body.text,10000)
+  if(text.length>10000) throw bad(400,'Posts can contain up to 10,000 characters.')
   const verified=await verifyUploads(userId,body.media || [])
   if(!text && !verified.length) throw bad(400,'Write something or add a photo.')
   const client=await getClient()
@@ -127,7 +127,7 @@ async function publish(userId, body) {
   } finally { client.release() }
 }
 
-const PUBLIC_POST = `SELECT p.id,p.body,p.media,p.created_at,p.author_id,
+const PUBLIC_POST = `SELECT p.id,p.body,p.media,p.created_at,p.edited_at,p.author_id,
   u.username,u.full_name,u.avatar_url,u.role,
   (SELECT COUNT(*)::int FROM vibes_likes l WHERE l.post_id=p.id) AS likes,
   (SELECT COUNT(*)::int FROM vibes_comments c WHERE c.post_id=p.id AND c.deleted_at IS NULL) AS replies,
@@ -154,7 +154,7 @@ async function getComments(userId,url) {
   const before=url.searchParams.get('before')
   if(!validId(post)||(before&&!validId(before))) throw bad(400,'Invalid comment cursor.')
   const {rows}=await query(
-    `SELECT c.id,c.post_id,c.author_id,c.body,c.created_at,u.username,u.full_name,u.avatar_url
+    `SELECT c.id,c.post_id,c.author_id,c.body,c.created_at,c.edited_at,u.username,u.full_name,u.avatar_url
      FROM vibes_comments c JOIN users u ON u.id=c.author_id
      JOIN vibes_posts p ON p.id=c.post_id
      WHERE c.post_id=$1 AND c.deleted_at IS NULL
@@ -192,8 +192,8 @@ async function toggleLike(userId,postId) {
 
 async function comment(userId,postId,body) {
   if(!validId(postId)) throw bad(400,'Invalid post.')
-  const text=maxBody(body.text,300)
-  if(!text||text.length>300) throw bad(400,'Reply must have 1–300 characters.')
+  const text=maxBody(body.text,10000)
+  if(!text||text.length>10000) throw bad(400,'Reply must contain 1–10,000 characters.')
   const {rows:limit}=await query(
     "SELECT COUNT(*)::int AS n FROM vibes_comments WHERE author_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",
     [userId],
@@ -219,6 +219,26 @@ async function modify(userId,body) {
   if(!validId(postId)) throw bad(400,'Invalid post.')
   if(body.action==='like') return toggleLike(userId,postId)
   if(body.action==='reply') return comment(userId,postId,body)
+  if(body.action==='edit_post'){
+    if(typeof body.text!=='string'||body.text.trim().length>10000)
+      throw bad(400,'Post text must contain no more than 10,000 characters.')
+    const {rowCount}=await query(`UPDATE vibes_posts SET body=$3,edited_at=NOW()
+      WHERE id=$1 AND author_id=$2 AND deleted_at IS NULL
+        AND (char_length(btrim($3))>0 OR jsonb_array_length(media)>0)`,
+      [postId,userId,body.text.trim()])
+    if(!rowCount)throw bad(404,'Post is missing or empty.')
+    return {edited:true}
+  }
+  if(body.action==='edit_reply'){
+    if(!validId(body.comment_id)||typeof body.text!=='string'||
+      !body.text.trim()||body.text.trim().length>10000)
+      throw bad(400,'Reply must contain 1–10,000 characters.')
+    const {rowCount}=await query(`UPDATE vibes_comments SET body=$4,edited_at=NOW()
+      WHERE id=$1 AND post_id=$2 AND author_id=$3 AND deleted_at IS NULL`,
+      [body.comment_id,postId,userId,body.text.trim()])
+    if(!rowCount)throw bad(404,'Your reply was not found.')
+    return {edited:true}
+  }
   if(body.action==='delete') {
     const {rowCount}=await query(
       'UPDATE vibes_posts SET deleted_at=NOW() WHERE id=$1 AND author_id=$2 AND deleted_at IS NULL',
