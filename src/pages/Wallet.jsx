@@ -186,7 +186,7 @@ export default function Wallet() {
 
   return (
     <div className="space-y-5 max-w-[560px] mx-auto">
-      <div>
+      <div className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
         <h1 className="text-[22px] font-bold tracking-tight">Wallet</h1>
         <p className="text-[12px] text-black/50 font-medium mt-0.5">Top up, get paid, and withdraw</p>
       </div>
