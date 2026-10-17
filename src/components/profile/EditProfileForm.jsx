@@ -324,7 +324,7 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
       </Field>
 
       <Field label={`Profile statement (${profileStatement.length}/2000)`}
-        hint="Introduce your experience, specializations and background. This appears on your card's Profile section.">
+        hint="Introduce your experience, specializations and background. This appears on your card's Profile section. Do not include contact numbers, email or messaging links; contact details unlock through secured deals.">
         <textarea className="tw-input min-h-[160px] resize-y" maxLength={2000}
           value={profileStatement} onChange={event=>setProfileStatement(event.target.value)}
           placeholder="Describe your professional background, experience and expertise…"/>
