@@ -26,16 +26,35 @@ export const fmtMoney = (n, currency = 'NGN') => {
 
 // Hats use Fixed or Range. Range is a real minimum-to-maximum amount and
 // automatically uses the existing offer/negotiation flow.
+// The pay unit belongs to the Hat, not to the client, and must be visible
+// for fixed AND range prices. Avoid ambiguous amounts without /hour or /day.
+export function formatRateUnit(hat) {
+  const raw = hat?.rate_unit === 'custom'
+    ? String(hat?.rate_unit_custom || '').trim()
+    : String(hat?.rate_unit || hat?.pay_unit || '').trim()
+  if (!raw) return ''
+  const known = {
+    hr:'hour',hour:'hour',hourly:'hour',per_hour:'hour',
+    day:'day',daily:'day',per_day:'day',
+    week:'week',weekly:'week',per_week:'week',
+    month:'month',monthly:'month',per_month:'month',
+    year:'year',yearly:'year',per_year:'year',
+    job:'job',project:'project',event:'event',session:'session',
+  }
+  const unit = known[raw.toLowerCase()] || raw.replace(/^per[ _/-]*/i,'').replace(/^\/+/, '')
+  return unit ? `/${unit}` : ''
+}
+
 export function formatPrice(hat, currency) {
   if (hat.price_type === 'range' && hat.price_min != null) {
     const base =
       hat.price_max != null && hat.price_max !== hat.price_min
         ? `${fmtMoney(hat.price_min, currency)} – ${fmtMoney(hat.price_max, currency)}`
         : fmtMoney(hat.price_min, currency)
-    return base
+    return [base, formatRateUnit(hat)].filter(Boolean).join(' ')
   }
   if (hat.rate != null) {
-    const unit = hat.rate_unit === 'custom' ? hat.rate_unit_custom : hat.rate_unit ? `/${hat.rate_unit}` : ''
+    const unit = formatRateUnit(hat)
     const base = `${fmtMoney(hat.rate, currency)}${unit ? ` ${unit}` : ''}`
     return hat.price_negotiable ? `${base} • Range` : base
   }
@@ -53,7 +72,8 @@ export function formatBudget(budget) {
       budget.max != null && budget.max !== budget.min
         ? `${fmtMoney(budget.min, currency)} – ${fmtMoney(budget.max, currency)}`
         : fmtMoney(budget.min, currency)
-    return base
+    const unitText = budget.unit ? ` /${String(budget.unit).replace(/^\\//, '')}` : ''
+    return base + unitText
   }
   if (budget.amount != null) {
     const unitText = budget.unit ? (budget.unit.includes(' ') ? ` ${budget.unit}` : ` /${budget.unit}`) : ''
