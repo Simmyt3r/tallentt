@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import ProfileView from '../components/profile/ProfileView.jsx'
 import EditProfileForm from '../components/profile/EditProfileForm.jsx'
 
-const EMPTY_DATA = { portfolio: [], hats: { talent: [], client: [] }, isVerified: false, rating: 0, ratedHatsCount: 0 }
+const EMPTY_DATA = { portfolio: [], hats: { talent: [], client: [] }, isVerified: false, rating: 0, ratedHatsCount: 0, orbit: null }
 
 export default function Profile() {
   const { user } = useAuth()
@@ -23,6 +23,7 @@ export default function Profile() {
         isVerified: !!res.isVerified,
         rating: res.rating || 0,
         ratedHatsCount: res.ratedHatsCount || 0,
+        orbit: res.orbit || null,
       })
     } catch (err) {
       // Own profile should never genuinely 404 — degrade to an empty
@@ -62,6 +63,7 @@ export default function Profile() {
       isVerified={data.isVerified}
       rating={data.rating}
       ratedHatsCount={data.ratedHatsCount}
+      orbit={data.orbit}
       onEditClick={() => setEditing(true)}
     />
   )
