@@ -83,7 +83,7 @@ export default function MyHats() {
 
   return (
     <div className="space-y-5">
-      <div className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 flex items-center justify-between gap-3 flex-wrap border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
+      <div className="sticky top-[56px] md:top-16 z-30 isolate -mx-4 px-4 py-3 flex items-center justify-between gap-3 flex-wrap border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
         <div>
           <h1 className="text-[22px] font-bold tracking-tight">My Hats</h1>
           <p className="text-[12px] text-black/50 font-medium mt-0.5">{hats.length} hat{hats.length !== 1 ? 's' : ''}</p>
@@ -132,11 +132,11 @@ export default function MyHats() {
           </Link>
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="hats-grid">
+        <div className="hats-grid items-start">
           {hats.map((h) => (
-            <div key={h.id} className="relative group space-y-2">
+            <div key={h.id} className="relative group min-w-0 space-y-2">
               <div className="relative">
-                <BentoCard hat={h} onHatChange={handleHatChange} />
+                <BentoCard hat={h} fullWidth onHatChange={handleHatChange} />
               </div>
               <div className="flex items-center justify-between gap-6 px-1" aria-label={`Manage ${h.hat_title}`}>
                 <Link to={`/create?edit=${h.id}`} aria-label={`Edit ${h.hat_title}`}
