@@ -68,8 +68,10 @@ img, video { max-width: 100%; }
    cards" and "space below the page header" read as the same unit. */
 .hats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
 }
 
 /* ── Showroom ────────────────────────────────────────────────────────────
@@ -367,3 +369,10 @@ img, video { max-width: 100%; }
 .bento-layout--dark .text-black\/40 { color: rgba(255,255,255,.84) !important; }
 .bento-layout--dark .bg-\[\#FFEBE0\] { color: #111827; }
 .bento-layout--dark .bg-black.text-white { background: rgba(255,255,255,.18); }
+
+/* Separate sticky page titles/search bars from decorative card overlays.
+   The card article isolates its own high-z internal badges but leaves detail
+   modals outside that stacking context, so dialogs still cover the page. */
+.bento-layout { isolation: isolate; min-width: 0; }
+.bento-layout :is(img,video) { max-width: 100%; }
+.hats-grid > * { min-width: 0; }
