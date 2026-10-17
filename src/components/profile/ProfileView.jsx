@@ -100,6 +100,7 @@ export default function ProfileView({
   rating = 0,
   ratedHatsCount = 0,
   orbit = null,
+  performance = null,
   onEditClick,
 }) {
   const [activeTab, setActiveTab] = useState('portfolio')
@@ -166,6 +167,21 @@ export default function ProfileView({
           <p className="mt-3 text-[11px] text-black/55">{orbit.disclaimer}</p>
         </details>
       </section>}
+      {performance&&<section aria-label="Platform performance" className="space-y-2 rounded-2xl border border-black/10 bg-white p-4">
+        <h2 className="text-[15px] font-black">Performance records</h2>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            ['Completed jobs',performance.completed_jobs],
+            ['Successful hires',performance.successful_hires],
+            ['Open disputes',performance.open_disputes],
+          ].map(([label,value])=><div key={label} className="rounded-xl bg-[#F7F3EB] p-3">
+            <p className="text-[19px] font-black text-[#0A13E6]">{value ?? 0}</p>
+            <p className="text-[10px] font-semibold text-black/55">{label}</p>
+          </div>)}
+        </div>
+        <p className="text-[11px] text-black/50">Figures cover this account's Hats and deals. Open disputes do not imply wrongdoing.</p>
+      </section>}
+
       {isOwner && (
         <ProfileCompletenessCard
           role={profileUser.role}
@@ -176,7 +192,11 @@ export default function ProfileView({
         />
       )}
 
-      <AboutSection bio={profileUser.profileStatement || profileUser.bio} />
+      {profileUser.profileStatement
+        ? <AboutSection bio={profileUser.profileStatement} />
+        : <p className="rounded-xl bg-white p-4 text-[12px] text-black/55">
+            {isOwner ? 'Add a professional profile statement in Edit profile.' : 'No professional statement published yet.'}
+          </p>}
 
       {isBusiness ? (
         <ChipListSection id="industry-heading" title="Industry" items={profileUser.industry} />
