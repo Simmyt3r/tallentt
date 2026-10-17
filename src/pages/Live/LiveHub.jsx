@@ -155,7 +155,7 @@ export default function LiveHub() {
 
   return (
     <div className="max-w-[860px] mx-auto space-y-5 pb-8">
-      <header className="flex items-start justify-between gap-3">
+      <header className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 flex items-center justify-between gap-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
         <div>
           <h1 className="text-[22px] font-bold tracking-tight flex items-center gap-2"><Radio size={20} className="text-[#0A13E6]" /> ChombuTar Live</h1>
           <p className="text-[12px] text-black/50 font-medium mt-1">Watch talent live. Support careers with real value.</p>
