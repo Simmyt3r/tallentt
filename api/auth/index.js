@@ -98,7 +98,7 @@ async function handleMe(req, res) {
   try {
     const result = await query(
       `SELECT id, full_name, username, email, role, is_admin, country, lga,
-              avatar_url, bio, location, phone, nin_hash, nin_last4,
+              avatar_url, bio, profile_statement, location, phone, nin_hash, nin_last4,
               headline, skills, industry, company_suffix, website,
               bank_name, account_number, account_name, paystack_recipient_code,
               (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance
@@ -155,7 +155,7 @@ async function handleLogin(body, res) {
   try {
     const result = await query(
       `SELECT id, full_name, username, email, password_hash, role, is_admin, country, lga,
-              avatar_url, bio, location, phone, nin_hash, nin_last4,
+              avatar_url, bio, profile_statement, location, phone, nin_hash, nin_last4,
               headline, skills, industry, company_suffix, website,
               bank_name, account_number, account_name, paystack_recipient_code,
               (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance
@@ -389,6 +389,7 @@ async function handleProfileUpdate(req, res) {
     fullName,
     username,
     bio,
+    profileStatement,
     location,
     phone,
     country,
@@ -451,6 +452,9 @@ async function handleProfileUpdate(req, res) {
     }
   }
 
+  if (profileStatement != null && (typeof profileStatement !== 'string' || profileStatement.length > 2000)) {
+    return json(res,400,{error:'Profile statement must be 2,000 characters or fewer.'})
+  }
   if (bio != null && String(bio).length > MAX_BIO) {
     return json(res, 400, { error: `Bio must be ${MAX_BIO} characters or fewer.` })
   }
@@ -563,10 +567,11 @@ async function handleProfileUpdate(req, res) {
          company_suffix = CASE WHEN $19::text IS NULL THEN company_suffix
                                 WHEN $19 = '' THEN NULL
                                 ELSE $19 END,
-         website        = COALESCE($20, website)
+         website        = COALESCE($20, website),
+         profile_statement = COALESCE($22, profile_statement)
        WHERE id = $21
        RETURNING id, full_name, username, email, role, is_admin, country, lga,
-                 avatar_url, bio, location, phone, nin_hash, nin_last4,
+                 avatar_url, bio, profile_statement, location, phone, nin_hash, nin_last4,
                  headline, skills, industry, company_suffix, website,
                  bank_name, account_number, account_name, paystack_recipient_code,
                  (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance`,
@@ -594,6 +599,7 @@ async function handleProfileUpdate(req, res) {
         companySuffix != null ? cleanCompanySuffix : null,
         cleanWebsite,
         session.sub,
+        profileStatement != null ? profileStatement.trim() : null,
       ],
     )
     const row = result.rows[0]
