@@ -264,6 +264,14 @@ export const api = {
   // Admin — one consolidated endpoint to stay within Vercel Hobby's
   // function cap while still giving operations a real control panel.
   getAdminDashboard: () => request('/api/admin'),
+  getUserErasurePreview: (user_id) => request(`/api/admin?action=user_erasure_preview&user_id=${encodeURIComponent(user_id)}`),
+  eraseSubscriber: (user_id,confirmation) => request('/api/admin',{
+    method:'POST',body:JSON.stringify({action:'erase_subscriber',user_id,confirmation}),
+  }),
+  getUserMediaErasureStatus: () => request('/api/admin?action=user_erasure_media'),
+  retryUserMediaErasure: () => request('/api/admin',{
+    method:'POST',body:JSON.stringify({action:'retry_user_media_erasure'}),
+  }),
   getAdminMigrations: () => request('/api/admin?action=db_migrations'),
   applyAdminMigration: (migrationId, checksum) => request('/api/admin', {
     method: 'POST',
