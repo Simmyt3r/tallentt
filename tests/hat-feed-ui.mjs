@@ -23,7 +23,7 @@ try {
       hiring_duration: '6 months', availability: true, feed_visible: false, currency: 'NGN', media: [] }
     const hats = [
       { ...base, id: 'fixed', hat_name: 'Fixed package', hat_title: 'Fixed editor', price_type: 'fixed', rate: 10000, rate_unit: 'day' },
-      { ...base, id: 'range', hat_name: 'Range package', hat_title: 'Range editor', price_type: 'range', price_min: 10000, price_max: 20000 },
+      { ...base, id: 'range', hat_name: 'Range package', hat_title: 'Range editor', price_type: 'range', price_min: 10000, price_max: 20000, rate_unit: 'hour' },
     ]
     let writes = 0
     let failSave = false
@@ -81,7 +81,34 @@ try {
     assert.equal(await page.getByRole('button', { name: 'View/Apply' }).count(), 1)
     assert.equal(await page.getByRole('button', { name: 'View/Book' }).count(), 1)
     assert.equal(await page.locator('article').count(), 2, 'dual-role creator needs both client and talent cards')
+    assert.equal(await page.getByText(/\\/hour/).count() > 0,true,'range price must display pay unit')
+    assert.equal(await page.getByRole('searchbox',{name:'Search BentoField talents and client Hats'}).count(),1)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+
+    // One subscriber with simultaneous services needs two distinct decisions,
+    // never shuffling Hat price or availability inside a single card.
+    hats[0].feed_visible=true
+    await page.reload()
+    await page.getByText('Fixed package',{exact:true}).waitFor()
+    assert.equal(await page.locator('article').count(),3,'independent cards for each visible Hat')
+    assert.equal(await page.getByRole('button',{name:'View/Apply'}).count(),2)
+    const fixedCard=page.locator('article').filter({hasText:'Fixed package'})
+    assert.match(await fixedCard.innerText(),/\\/day/)
+    const rangeCard=page.locator('article').filter({hasText:'Range package'})
+    assert.match(await rangeCard.innerText(),/\\/hour/)
+    await page.getByRole('button',{name:/\\+1 More/}).first().click()
+    await page.getByText('Other independently bookable Hats').first().waitFor()
+    const search=page.getByRole('searchbox',{name:'Search BentoField talents and client Hats'})
+    const searchBox=await search.boundingBox()
+    await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight))
+    const scrollBox=await search.boundingBox()
+    assert.equal(Math.round(scrollBox.y),Math.round(searchBox.y),
+      'BentoField search should remain sticky during card scrolling')
+    await page.goto('http://127.0.0.1:5181/my-hats')
+    await page.getByText('Fixed package',{exact:true}).waitFor()
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
+      'My Hats Bento cards must fit mobile screens')
+    hats[0].feed_visible=false
     hats.pop()
     await page.goto('http://127.0.0.1:5181/my-hats')
     await rangeSwitch().click()
