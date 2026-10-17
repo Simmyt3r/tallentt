@@ -1,0 +1,94 @@
+import {useState} from 'react'
+import {Link,useNavigate} from 'react-router-dom'
+import {Bell,LockKeyhole,LogOut,Settings2,UserRound,Wallet} from 'lucide-react'
+import {useAuth} from '../context/AuthContext.jsx'
+import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
+import {api} from '../lib/api.js'
+
+export default function Settings(){
+  const {user,logout}=useAuth()
+  const navigate=useNavigate()
+  const [section,setSection]=useState('account')
+  const [resetBusy,setResetBusy]=useState(false)
+  const [notice,setNotice]=useState('')
+  const [error,setError]=useState('')
+  const [signingOut,setSigningOut]=useState(false)
+  async function requestReset(){
+    if(resetBusy || !user?.email)return
+    setResetBusy(true);setError('');setNotice('')
+    try {
+      await api.requestPasswordReset(user.email)
+      setNotice('If a recovery email can be delivered, it will be sent to your registered address. Check your inbox or spam folder.')
+    }catch(err){setError(err.message||'Could not request a password reset.')}
+    finally{setResetBusy(false)}
+  }
+  async function signOut(){
+    if(signingOut)return
+    setSigningOut(true);setError('')
+    try {await logout();navigate('/auth',{replace:true})}
+    catch(err){setError(err.message||'Could not sign out.')}
+    finally{setSigningOut(false)}
+  }
+  return <main className="mx-auto max-w-[820px] space-y-5 pb-10">
+    <header className="sticky top-14 md:top-16 z-10 -mx-4 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg md:-mx-6 md:px-6">
+      <h1 className="flex items-center gap-2 text-[22px] font-black"><Settings2 size={21}/> Settings</h1>
+      <p className="mt-1 text-[12px] text-black/55">Manage your account, device notifications and security.</p>
+    </header>
+    <nav aria-label="Settings sections" className="flex gap-2">
+      {[['account','Account',UserRound],['notifications','Notifications',Bell],['security','Security',LockKeyhole]].map(([id,label,Icon])=>
+        <button key={id} type="button" onClick={()=>setSection(id)} aria-pressed={section===id}
+          className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-[12px] font-bold ${section===id?'bg-[#0A13E6] text-white':'border border-black/10 bg-white text-black/70'}`}>
+          <Icon size={15}/>{label}
+        </button>)}
+    </nav>
+    {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-[12px] text-red-700">{error}</p>}
+    {notice&&<p role="status" className="rounded-xl bg-blue-50 p-4 text-[12px] text-blue-900">{notice}</p>}
+    {section==='account'&&<section className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
+      <h2 className="text-[15px] font-black">Account information</h2>
+      <dl className="divide-y divide-black/10">
+        <div className="flex items-center justify-between gap-3 py-3">
+          <dt className="text-[12px] text-black/50">Username</dt>
+          <dd className="truncate text-[12px] font-semibold">{user?.username||'Not set'}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-3 py-3">
+          <dt className="text-[12px] text-black/50">Email</dt>
+          <dd className="truncate text-[12px] font-semibold">{user?.email||'Not set'}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-3 py-3">
+          <dt className="text-[12px] text-black/50">Account type</dt>
+          <dd className="capitalize text-[12px] font-semibold">{user?.role||'Subscriber'}</dd>
+        </div>
+      </dl>
+      <div className="flex flex-wrap gap-3">
+        <Link to="/profile" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
+          <UserRound size={16}/> Edit profile
+        </Link>
+        <Link to="/wallet" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
+          <Wallet size={16}/> Wallet
+        </Link>
+      </div>
+    </section>}
+    {section==='notifications'&&<div>
+      <p className="mb-3 text-[12px] text-black/60">Your notification inbox remains simple. Configure alerts here, including updates shown when your browser is closed.</p>
+      <PushNotificationSettings/>
+      <Link to="/notifications" className="text-[12px] font-bold text-[#0A13E6] underline">Open notifications inbox</Link>
+    </div>}
+    {section==='security'&&<section className="space-y-4 rounded-2xl border border-black/10 bg-white p-5">
+      <div>
+        <h2 className="text-[15px] font-black">Password and access</h2>
+        <p className="mt-1 text-[12px] text-black/60">Request a secure, one-time password reset link sent to the email on your account.</p>
+        <button type="button" onClick={requestReset} disabled={resetBusy||!user?.email}
+          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-5 text-[12px] font-bold text-white disabled:opacity-40">
+          <LockKeyhole size={16}/> {resetBusy?'Sending…':'Email password reset link'}
+        </button>
+      </div>
+      <div className="border-t border-black/10 pt-4">
+        <p className="text-[12px] text-black/55">Sign out of this device. Your Hats and completed deals remain on the platform.</p>
+        <button type="button" onClick={signOut} disabled={signingOut}
+          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-red-200 px-5 text-[12px] font-bold text-red-700">
+          <LogOut size={16}/> {signingOut?'Signing out…':'Sign out'}
+        </button>
+      </div>
+    </section>}
+  </main>
+}
