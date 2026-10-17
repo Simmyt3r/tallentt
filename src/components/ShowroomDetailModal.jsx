@@ -216,13 +216,7 @@ export default function ShowroomDetailModal({
                 <span className="hidden sm:inline">Share</span>
               </button>
             )}
-            {hat && onDelete && (
-              <button type="button" onClick={() => onDelete(hat.id)}
-                aria-label="Remove your Showroom post" title="Remove from Showroom"
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-red-600 hover:bg-red-50">
-                <Trash2 size={18} aria-hidden="true" />
-              </button>
-            )}
+
             <button
               ref={closeRef}
               type="button"
@@ -264,6 +258,13 @@ export default function ShowroomDetailModal({
                     <Share2 size={17} aria-hidden="true" />
                     <span>Share</span>
                   </button>
+                  {isOwn && onDelete && (
+                    <button type="button" onClick={() => onDelete(hat.id)}
+                      className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 text-[12px] font-bold text-red-700"
+                      aria-label={isEntertainment ? 'Delete my showcase post' : 'Remove my Hat from Showroom'}>
+                      <Trash2 size={16}/> {isEntertainment ? 'Delete post' : 'Remove from Showroom'}
+                    </button>
+                  )}
                   {!isOwn && onReport && (
                     <button type="button" onClick={() => onReport(hat)}
                       aria-label="Report Showroom post" title="Report post"
