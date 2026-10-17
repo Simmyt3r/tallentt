@@ -40,6 +40,18 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
+      if (params.get('action') === 'user_search'){
+        const search=String(params.get('q')||'').trim()
+        if(search.length<2||search.length>80)return json(res,400,{error:'Search must contain 2–80 characters.'})
+        const {rows}=await query(`SELECT u.id,u.full_name,u.username,u.email,u.role,u.is_admin,
+          u.country,u.lga,u.created_at,
+          (SELECT COUNT(*)::int FROM hats h WHERE h.user_id=u.id) AS hats_count,
+          COALESCE((SELECT w.balance FROM wallets w WHERE w.user_id=u.id),0) AS wallet_balance
+          FROM users u
+          WHERE u.username ILIKE $1 OR u.full_name ILIKE $1 OR u.email ILIKE $1
+          ORDER BY u.created_at DESC LIMIT 30`,['%'+search+'%'])
+        return json(res,200,{users:rows})
+      }
       if (params.get('action') === 'user_erasure_preview') return json(res,200,await getUserErasurePreview(admin.id,params.get('user_id')))
       if (params.get('action') === 'user_erasure_media') return json(res,200,await mediaErasureStatus())
       if (params.get('action') === 'orbit_config') return json(res,200,await orbitAdminStatus())
