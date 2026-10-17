@@ -379,7 +379,7 @@ export default async function handler(req, res) {
           code: 'NEGOTIATION_FEE_CONFIRMATION_REQUIRED',
         })
       }
-      const duration = normalizeHiringDuration(hiring_duration, role)
+      const duration = normalizeHiringDuration(hiring_duration, role, null, hat_type)
       if (!duration.ok) return json(res, 400, { error: duration.error })
       const days = normalizeAvailableDays(available_days)
       if (!days.ok) return json(res, 400, { error: days.error })
