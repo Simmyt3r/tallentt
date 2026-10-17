@@ -1,6 +1,6 @@
 // Path: src/components/Layout.jsx
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, Search, Plus, MessageCircle, Radio } from 'lucide-react'
+import { Menu, Plus, MessageCircle, Radio } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
@@ -90,27 +90,24 @@ export default function Layout({ children }) {
               <Menu size={22} />
             </button>
 
-            {/* On smaller phones, show just the logo so the quick actions
-                remain individually accessible and never squeeze the header. */}
+            {/* Keep the actual name visible on every route. Search belongs to Showroom. */}
             <div className="flex min-w-0 items-center gap-2 md:hidden">
-              <img src="/logo.png" alt="ChombuTar" className="h-8 w-8 shrink-0 rounded-full object-cover" />
-              <h1 className="block min-w-0 truncate text-left text-[13px] min-[375px]:text-[15px] font-black tracking-tight">
+              <img src="/logo.png" alt="ChombuTar" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+              <h1 className="block whitespace-nowrap text-left text-[14px] min-[375px]:text-[16px] font-black tracking-tight">
                 ChombuTar
               </h1>
             </div>
 
-            {/* Desktop brand */}
-            <div className="hidden min-w-0 md:flex">
+            {/* Desktop brand and full wordmark */}
+            <div className="hidden min-w-0 md:flex items-center gap-2">
               <BrandMark />
+              <Link to="/showroom" className="whitespace-nowrap text-[17px] font-black tracking-tight" aria-label="ChombuTar home">ChombuTar</Link>
             </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-1 md:gap-2">
             <nav className="flex shrink-0 items-center gap-1 md:gap-2" aria-label="Quick actions">
-              {!location.pathname.startsWith('/showroom') && <Link to="/showroom?focus=search" aria-label="Search" title="Search creators"
-                className={QUICK_ACTION}>
-                <Search size={19} aria-hidden="true" />
-              </Link>}
+
               <Link to="/live" aria-label="Live" title="Watch live" className={QUICK_ACTION}>
                 <Radio size={19} aria-hidden="true" />
               </Link>
