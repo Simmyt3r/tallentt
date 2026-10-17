@@ -16,6 +16,7 @@ export default function MyHats() {
   const [hats, setHats] = useState([])
   const [stylingHat, setStylingHat] = useState(null)
   const [hiddenShowroom, setHiddenShowroom] = useState(new Set())
+  const [reviewNotes, setReviewNotes] = useState({})
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('chombutar_viewMode') || 'grid')
   useEffect(() => {
@@ -23,13 +24,15 @@ export default function MyHats() {
     let cancelled = false
     ;(async () => {
       try {
-        const [data, visibility] = await Promise.all([
+        const [data, visibility, reviews] = await Promise.all([
           api.getHats({ user_id: user.id }),
           api.getMyHiddenShowroomPosts().catch(() => ({hatIds: []})),
+          api.getMyHatReviews().catch(() => ({reviews: []})),
         ])
         if (!cancelled) {
           setHats(data.hats || [])
           setHiddenShowroom(new Set(visibility.hatIds || []))
+          setReviewNotes(Object.fromEntries((reviews.reviews || []).map(item => [item.hat_id,item])))
         }
       } catch (e) {
         console.error(e)
@@ -145,6 +148,13 @@ export default function MyHats() {
                   <Trash2 size={15} /> Delete
                 </button>
               </div>
+              {reviewNotes[h.id]?.decision === 'needs_changes' && (
+                <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900">
+                  <strong className="block">Hat data review: changes requested</strong>
+                  <p className="mt-1 break-words">{reviewNotes[h.id].note}</p>
+                  <Link to={`/create?edit=${h.id}`} className="mt-2 inline-block font-bold underline">Update Hat information</Link>
+                </div>
+              )}
               {hiddenShowroom.has(h.id) && (
                 <button type="button" onClick={() => restoreToShowroom(h.id)}
                   className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-[#0A13E6]/25 bg-blue-50 px-4 text-[11px] font-bold text-[#0A13E6]">
@@ -209,6 +219,13 @@ export default function MyHats() {
                 </button>
               </div>
               <div className="px-4 pb-4">
+                {reviewNotes[h.id]?.decision === 'needs_changes' && (
+                  <div role="status" className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900">
+                    <strong className="block">Changes requested for this Hat</strong>
+                    <p className="mt-1 break-words">{reviewNotes[h.id].note}</p>
+                    <Link to={`/create?edit=${h.id}`} className="mt-2 inline-block font-bold underline">Update Hat</Link>
+                  </div>
+                )}
                 {hiddenShowroom.has(h.id) && (
                   <button type="button" onClick={() => restoreToShowroom(h.id)}
                     className="mb-2 inline-flex min-h-10 items-center gap-2 rounded-full border border-[#0A13E6]/25 bg-blue-50 px-4 text-[11px] font-bold text-[#0A13E6]">
