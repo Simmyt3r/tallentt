@@ -17,7 +17,7 @@ function Avatar({user,size=40}) {
   const image=user.avatar_url || user.avatarUrl
   return <span className="relative grid shrink-0 place-items-center rounded-full bg-[#0A13E6] text-white font-bold"
     style={{width:size,height:size}}>
-    {image ? <img src={cldImage(image,{w:size*2,h:size*2})} alt="" className="h-full w-full object-cover" /> :
+    {image ? <img src={cldImage(image,{w:size*2,h:size*2})} alt="" className="h-full w-full rounded-full object-cover" /> :
       String(user.full_name||user.fullName||user.username||'U').slice(0,1).toUpperCase()}
     {user.is_online&&<span aria-label="Online" title="Online" className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500"/>}
   </span>
@@ -295,7 +295,7 @@ export default function Vibes() {
     <div className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 flex items-center justify-between gap-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
       <div>
         <h1 className="text-[23px] font-black tracking-tight">Hits & Vibes</h1>
-        <p className="text-[12px] text-black/50">Share your thoughts, photos and everyday moments with the community.</p>
+        <p className="text-[12px] text-black/50">Share your thoughts, photos or videos. Videos appear after review.</p>
       </div>
       <span className="rounded-full border border-black/10 bg-white px-3 py-1.5 text-[11px] font-bold">Vibes</span>
     </div>
@@ -307,7 +307,7 @@ export default function Vibes() {
           <textarea id="vibe-text" value={text} onChange={e=>setText(e.target.value)}
             rows={3} placeholder="Say something…"
             className="w-full resize-y rounded-xl border-0 bg-[#F7F3EB] p-3 text-[13px] outline-none focus:ring-2 focus:ring-[#0A13E6]"/>
-          <div className="mt-1 text-right text-[10px] text-black/40">Long posts are supported</div>
+          <div className="mt-1 text-right text-[10px] text-black/40">Up to 10,000 characters</div>
         </div>
       </div>
       {photos.length>0&&<div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
