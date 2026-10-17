@@ -10,6 +10,7 @@ import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import AvailabilityBadge from './AvailabilityBadge'
 import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
+import CardOwnerHatDetails from './CardOwnerHatDetails.jsx'
 import { NegotiationProposalModal, formatAvailabilityWindow, formatPrice, relativeTime } from './bentoCardShared'
 import { bookHat } from '../lib/hatActions'
 
@@ -110,6 +111,7 @@ export default function ShowroomDetailModal({
   const [negotiationStep, setNegotiationStep] = useState(null)
   const [checking, setChecking] = useState(false)
   const [bookCandidate, setBookCandidate] = useState(null)
+  const [detailData,setDetailData]=useState(null)
   const checkingRef = useRef(false) // synchronous guard: state alone can't stop clicks in the same tick
 
   useScrollLock()
@@ -135,6 +137,32 @@ export default function ShowroomDetailModal({
   const owner = identityFromHat(hat)
   const ownerName = getPrimaryIdentity(owner)
   const hasRelated = related.length > 0
+  // The same source of truth drives the public Showroom and Bento detail
+  // panels. Entertainment posts have no job application surface.
+  useEffect(()=>{
+    if(!hatId){setDetailData(null);return undefined}
+    let active=true
+    setDetailData(null)
+    const request=isEntertainment
+      ? api.getUserProfile(hat?.username).then(info=>({
+          owner:{
+            handle:info.user?.username,location:info.user?.location,
+            statement:info.user?.profileStatement||null,
+            phone:null,contact_unlocked:false,
+          },
+          performance:{
+            orbit:info.orbit,
+            completed_jobs:info.orbit?.metrics?.completedWork??0,
+            successful_hires:info.orbit?.metrics?.successfulHires??0,
+            open_disputes:null,
+          },
+        }))
+      : api.getHatDetail(hatId)
+    request.then(data=>{if(active)setDetailData(data)})
+      .catch(()=>{if(active)setDetailData(null)})
+    return ()=>{active=false}
+  },[hatId,isEntertainment,hat?.username])
+
 
   // Re-read the Hat before acting so Range/fixed pricing is current. Range
   // pricing opens the first proposal directly; fixed pricing still books
@@ -316,6 +344,8 @@ export default function ShowroomDetailModal({
                       </span>
                     )}
                   </div>
+                  <CardOwnerHatDetails detail={detailData} hat={hat}
+                    entertainment={isEntertainment}/>
                   {(hat.category || hat.skills?.length > 0) && (
                     <div className="flex flex-wrap gap-1.5">
                       {[hat.category, ...(hat.skills || [])].filter(Boolean).slice(0, 8).map((t) => (
