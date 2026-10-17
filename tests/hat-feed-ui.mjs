@@ -20,7 +20,7 @@ try {
     const errors = []
     page.on('pageerror', (e) => errors.push(e.message))
     const base = { user_id: 'owner', username: 'studio', owner_full_name: 'Studio', role: 'client', category: 'Film',
-      hiring_duration: '6 months', availability: true, feed_visible: false, currency: 'NGN', media: [] }
+      hiring_duration: '6 months', hat_type:'Contract', lga:'Kubwa', country:'Nigeria', availability: true, feed_visible: false, currency: 'NGN', media: [] }
     const hats = [
       { ...base, id: 'fixed', hat_name: 'Fixed package', hat_title: 'Fixed editor', price_type: 'fixed', rate: 10000, rate_unit: 'day' },
       { ...base, id: 'range', hat_name: 'Range package', hat_title: 'Range editor', price_type: 'range', price_min: 10000, price_max: 20000, rate_unit: 'hour' },
@@ -81,6 +81,12 @@ try {
     assert.equal(await page.getByRole('button', { name: 'View/Apply' }).count(), 1)
     assert.equal(await page.getByRole('button', { name: 'View/Book' }).count(), 1)
     assert.equal(await page.locator('article').count(), 2, 'dual-role creator needs both client and talent cards')
+    assert.ok((await page.locator('article').first().innerText()).includes('Job type:'))
+    assert.ok((await page.locator('article').first().innerText()).includes('Contract'))
+    assert.ok((await page.locator('article').first().innerText()).includes('6 months'))
+    assert.ok((await page.locator('article').first().innerText()).includes('Hat Location:'))
+    assert.equal(await page.getByText('Duration:',{exact:true}).count(),0)
+    assert.equal(await page.getByText('Event:',{exact:true}).count(),0)
     assert.equal(await page.getByText('/hour',{exact:false}).count() > 0,true,'range price must display pay unit')
     assert.equal(await page.getByRole('searchbox',{name:'Search BentoField talents and client Hats'}).count(),1)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
