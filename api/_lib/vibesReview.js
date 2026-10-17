@@ -5,7 +5,7 @@ export async function pendingVibesVideos(){
   const {rows}=await query(`SELECT p.id,p.body,p.media,p.created_at,u.username,u.full_name
     FROM vibes_posts p JOIN users u ON u.id=p.author_id
     WHERE p.deleted_at IS NULL AND p.moderation_status='held'
-      AND EXISTS(SELECT 1 FROM jsonb_array_elements(p.media) asset WHERE asset->>'type'='video')
+      AND jsonb_array_length(p.media)>0
     ORDER BY p.created_at ASC LIMIT 60`)
   return {posts:rows}
 }
