@@ -251,7 +251,7 @@ function BasicInfoSection({
         </Field>
       </div>
 
-      {hatRole === 'client' && (
+      {hatRole === 'client' && hatType !== 'One-Off' && (
         <Field id="hat-hiring-duration" label="Hiring duration" error={errors.hiringDuration}>
           {(a11y) => (
             <SelectBox
