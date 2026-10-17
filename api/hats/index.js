@@ -59,6 +59,15 @@ export default async function handler(req, res) {
       const session = getSessionUser(req)
       const role = url.searchParams.get('role')
 
+      if (url.searchParams.get('my_reviews') === '1') {
+        if(!session?.sub)return json(res,401,{error:'Sign in to view Hat review updates.'})
+        const {rows:table}=await query("SELECT to_regclass('hat_data_reviews') AS name")
+        if(!table[0]?.name)return json(res,200,{reviews:[]})
+        const {rows}=await query(`SELECT r.hat_id,r.decision,r.note,r.reviewed_at
+          FROM hat_data_reviews r JOIN hats h ON h.id=r.hat_id
+          WHERE h.user_id=$1 ORDER BY r.reviewed_at DESC`,[session.sub])
+        return json(res,200,{reviews:rows})
+      }
       // GET /api/hats?categories=1 — open category taxonomy. Kept here
       // instead of /api/categories so the app stays under Vercel Hobby's
       // serverless function cap after adding /api/admin.
