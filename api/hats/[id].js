@@ -274,6 +274,9 @@ export default async function handler(req, res) {
       if (body.motto != null && String(body.motto).length > HAT_DESCRIPTION_MAX) {
         return json(res, 400, { error: `Description must be ${HAT_DESCRIPTION_MAX} characters or fewer.` })
       }
+      if (body.job_requirements != null && (typeof body.job_requirements !== 'string' || body.job_requirements.length > 3000)) {
+        return json(res,400,{error:'Hat details must be 3,000 characters or fewer.'})
+      }
       if (body.hat_type != null && !HAT_TYPES.includes(body.hat_type)) {
         return json(res, 400, { error: 'Invalid hat type.' })
       }
@@ -411,7 +414,8 @@ export default async function handler(req, res) {
             available_days = $24,
             available_from = $25,
             available_to = $26,
-            orbit_score = $27
+            orbit_score = $27,
+            job_requirements = COALESCE($29, job_requirements)
           WHERE id = $28`,
           [
             body.hat_title ?? null,
@@ -442,6 +446,7 @@ export default async function handler(req, res) {
             windowValue(body.available_to, existing.available_to),
             orbitScore,
             id,
+            body.job_requirements != null ? body.job_requirements.trim() : null,
           ],
         )
         await client.query('COMMIT')
