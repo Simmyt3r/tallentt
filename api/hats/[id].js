@@ -19,6 +19,7 @@ async function getHat(id, viewerId) {
             u.role as owner_role,
             u.company_suffix as owner_company_suffix,
             u.bio as owner_bio,
+            (to_jsonb(u)->>'profile_statement') AS owner_profile_statement,
             u.location as owner_location,
             u.lga as owner_lga,
             u.country as owner_country,
