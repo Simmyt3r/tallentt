@@ -185,7 +185,10 @@ function VibeCard({post,me,onChange,onDeleted}) {
     {editingPost?<div className="mt-3 space-y-2"><textarea autoFocus rows={5} value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full resize-y rounded-xl border border-black/15 p-3 text-[13px]"/><div className="flex gap-2"><button type="button" disabled={busy||(!editBody.trim()&&!post.media?.length)} onClick={savePost} className="rounded-full bg-[#0A13E6] px-4 py-2 text-[12px] text-white">Save changes</button><button type="button" onClick={()=>setEditingPost(false)} className="text-[12px]">Cancel</button></div></div> : post.body&&<p className="mt-3 whitespace-pre-wrap break-words text-[14px] leading-relaxed">{post.body}{post.edited_at&&<span className="ml-1 text-[10px] text-black/40">(edited)</span>}</p>}
     {Array.isArray(post.media)&&post.media.length>0&&<div
       className={`mt-3 grid gap-1 overflow-hidden rounded-xl ${post.media.length>1?'grid-cols-2':'grid-cols-1'}`}>
-      {post.media.map((photo,i)=><a key={photo.public_id||i} href={photo.url}
+      {post.media.map((photo,i)=>photo.type==='video'?<video key={photo.public_id||i}
+        src={photo.url} controls playsInline preload="metadata"
+        aria-label={`Video ${i+1} from ${post.username}`}
+        className="w-full max-h-[440px] bg-black object-contain" />:<a key={photo.public_id||i} href={photo.url}
         target="_blank" rel="noopener noreferrer" aria-label={`Open photo ${i+1}`}>
         <img src={cldImage(photo.url,{w:780,h:780})} loading="lazy"
           alt={`Photo ${i+1} attached to a Vibe by ${post.username}`}
@@ -246,11 +249,11 @@ export default function Vibes() {
     e.target.value=''
     if(!files.length)return
     if(photos.length+files.length>MAX_PHOTOS) {
-      setPostError('You can attach at most four photos.');return
+      setPostError('You can attach at most four photos or videos.');return
     }
     for(const file of files) {
-      if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>8*1024*1024||!file.size){
-        setPostError('Use JPG, PNG or WebP photos, 8MB maximum each.');return
+      if(!( ['image/jpeg','image/png','image/webp'].includes(file.type)&&file.size<=8*1024*1024 || ['video/mp4','video/webm','video/quicktime'].includes(file.type)&&file.size<=20*1024*1024 )||!file.size){
+        setPostError('Choose a photo up to 8MB or a video up to 20MB.');return
       }
     }
     setPostError('')
@@ -266,10 +269,11 @@ export default function Vibes() {
     try {
       const uploads=[]
       for(const item of photos){
-        const file=await compressImageFile(item.file)
+        const file=item.file.type.startsWith('image/')?await compressImageFile(item.file):item.file
         uploads.push(await uploadVibePhoto(file))
       }
-      await api.publishVibe(text.trim(),uploads)
+      const result=await api.publishVibe(text.trim(),uploads)
+      if(result.pending_review)setPostError('Video submitted for moderation. It will appear in Vibes after approval.')
       photos.forEach(item=>URL.revokeObjectURL(item.preview))
       setPhotos([]);setText('')
       setFeedTick(current=>current+1)
@@ -308,7 +312,7 @@ export default function Vibes() {
       </div>
       {photos.length>0&&<div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {photos.map(item=><div key={item.id} className="relative">
-          <img src={item.preview} alt="Photo ready to post" className="aspect-square w-full rounded-xl object-cover" />
+          {item.file.type.startsWith('video/')?<video src={item.preview} muted playsInline controls preload="metadata" className="aspect-square w-full rounded-xl bg-black object-contain"/>:<img src={item.preview} alt="Photo ready to post" className="aspect-square w-full rounded-xl object-cover" />}
           <button type="button" title="Remove photo" aria-label="Remove photo"
             disabled={publishing} onClick={()=>{
               URL.revokeObjectURL(item.preview)
@@ -320,12 +324,12 @@ export default function Vibes() {
       {postError&&<p role="alert" className="mt-2 text-[12px] text-red-700">{postError}</p>}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-black/10 pt-3">
         <div>
-          <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp"
+          <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
             aria-label="Choose Vibes photos" className="hidden" onChange={choosePhotos}/>
           <button type="button" disabled={publishing||photos.length>=MAX_PHOTOS}
             onClick={()=>fileRef.current?.click()}
             className="inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[12px] font-bold text-[#0A13E6] hover:bg-blue-50 disabled:opacity-40">
-            <ImagePlus size={19}/> Photo <span className="text-black/40">({photos.length}/4)</span>
+            <ImagePlus size={19}/> Photo / video <span className="text-black/40">({photos.length}/4)</span>
           </button>
         </div>
         <button type="submit" disabled={publishing||(!text.trim()&&!photos.length)}
