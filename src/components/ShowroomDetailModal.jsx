@@ -148,13 +148,14 @@ export default function ShowroomDetailModal({
           owner:{
             handle:info.user?.username,location:info.user?.location,
             statement:info.user?.profileStatement||null,
+            joined_at:info.user?.joinedAt||null,
             phone:null,contact_unlocked:false,
           },
           performance:{
             orbit:info.orbit,
-            completed_jobs:info.orbit?.metrics?.completedWork??0,
-            successful_hires:info.orbit?.metrics?.successfulHires??0,
-            open_disputes:null,
+            completed_jobs:info.performance?.completed_jobs??null,
+            successful_hires:info.performance?.successful_hires??null,
+            open_disputes:info.performance?.open_disputes??null,
           },
         }))
       : api.getHatDetail(hatId)
