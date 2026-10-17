@@ -104,6 +104,13 @@ async function ownedAssets(client,id){
     const {rows:otherHats}=await client.query(`SELECT 1 FROM hat_media m JOIN hats h ON h.id=m.hat_id
       WHERE m.public_id=$1 AND h.user_id<>$2 LIMIT 1`,[asset.publicId,id])
     if(otherHats.length)continue
+    if(await exists(client,'vibes_posts')){
+      const {rows:otherVibes}=await client.query(`SELECT 1 FROM vibes_posts post,
+        LATERAL jsonb_array_elements(post.media) asset
+        WHERE post.author_id<>$2 AND asset->>'public_id'=$1 LIMIT 1`,
+        [asset.publicId,id])
+      if(otherVibes.length)continue
+    }
     if(await exists(client,'showroom_gallery_posts')){
       const {rows:other}=await client.query(`SELECT 1 FROM showroom_gallery_posts
         WHERE public_id=$1 AND author_id<>$2 LIMIT 1`,[asset.publicId,id])
@@ -130,10 +137,12 @@ async function eraseUserReferences(client,id){
   const deletions=new Map()
   for(const fk of rows){
     if(fk.table_name==='users')continue
-    if(fk.confdeltype==='n' || fk.confdeltype==='c')continue // SET NULL / CASCADE
+    if(fk.confdeltype==='n')continue // SET NULL: retains shared admin history
     // Shared lookup data survives; only its nullable creator pointer is cleared.
-    if(fk.table_name==='categories'&&fk.column_name==='created_by'){
-      await client.query('UPDATE categories SET created_by=NULL WHERE created_by=$1',[id])
+    if((fk.table_name==='categories'&&fk.column_name==='created_by') ||
+       (fk.table_name==='live_games'&&fk.column_name==='owner_id')){
+      await client.query(`UPDATE ${safeTable(fk.schema_name+'.'+fk.table_name)}
+        SET ${ident(fk.column_name)}=NULL WHERE ${ident(fk.column_name)}=$1`,[id])
       continue
     }
     const table=fk.schema_name+'.'+fk.table_name
@@ -226,7 +235,7 @@ export async function processErasureMediaQueue({limit=MAX_CLEANUP}={}){
       warning:'Cloudinary credentials are missing; external erasure jobs remain pending.'}
   cloudinary.config({cloud_name:cloudName,api_key:apiKey,api_secret:apiSecret,secure:true})
   const {rows}=await query(`SELECT id,public_id,resource_type FROM admin_user_media_erasure_jobs
-    WHERE attempts<8 ORDER BY created_at,id LIMIT $1`,[Math.min(MAX_CLEANUP,Math.max(1,Number(limit)||1))])
+    ORDER BY created_at,id LIMIT $1`,[Math.min(MAX_CLEANUP,Math.max(1,Number(limit)||1))])
   let removed=0
   for(const item of rows){
     try{
