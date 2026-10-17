@@ -7,6 +7,7 @@
 // pattern as api/escrows/index.js and api/admin/index.js, drops the total
 // back down with real headroom instead of just barely re-fitting.
 import { query, getClient } from '../_lib/db.js'
+import {accountOrbit} from '../_lib/accountOrbit.js'
 import {
   verifyPassword,
   hashPassword,
@@ -44,6 +45,12 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const action = url.searchParams.get('action') || 'me'
     if (action === 'me') return handleMe(req, res)
+    if (action === 'orbit') {
+      const session=getSessionUser(req)
+      if(!session?.sub)return json(res,401,{error:'Sign in to view Orbit Score.'})
+      try{return json(res,200,await accountOrbit(session.sub))}
+      catch(err){return json(res,err.status||500,{error:err.status?err.message:'Orbit is unavailable.'})}
+    }
     if (action === 'username-check') return handleUsernameCheck(url, res)
     if (action === 'banks') return handleBanks(res)
     if (action === 'resolve-account') return handleResolveAccount(url, res)
