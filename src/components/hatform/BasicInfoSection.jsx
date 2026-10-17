@@ -271,22 +271,6 @@ function BasicInfoSection({
         </Field>
       )}
 
-      <Field id="hat-requirements"
-        label={hatRole === 'client' ? 'Job requirements' : 'About this service'}
-        hint={hatRole === 'client'
-          ? 'Describe the work, qualifications, safety requirements and expected deliverables. Not your tagline.'
-          : 'Describe your experience, what you provide and the deliverables of this particular service.'}
-        error={errors.requirements}
-        right={<CharCount value={requirements||''} max={3000} alwaysShow />}>
-        {a11y => <textarea {...a11y} rows={5} maxLength={3000}
-          className={`${inputClass(errors.requirements)} min-h-[125px] resize-y`}
-          value={requirements||''}
-          placeholder={hatRole==='client'
-            ? 'Describe the job, the skills required and what successful delivery means…'
-            : 'Describe exactly what you offer under this Hat and your relevant experience…'}
-          onChange={event=>onChange('requirements',event.target.value)} />}
-      </Field>
-
       <Field
         id="hat-description"
         label="Tagline"
@@ -305,6 +289,23 @@ function BasicInfoSection({
           />
         )}
       </Field>
+
+      <Field id="hat-requirements"
+        label={hatRole === 'client' ? 'Job requirements' : 'About this service'}
+        hint={hatRole === 'client'
+          ? 'Describe the work, qualifications, safety requirements and expected deliverables. Not your tagline.'
+          : 'Describe your experience, what you provide and the deliverables of this particular service.'}
+        error={errors.requirements}
+        right={<CharCount value={requirements||''} max={3000} alwaysShow />}>
+        {a11y => <textarea {...a11y} rows={5} maxLength={3000}
+          className={`${inputClass(errors.requirements)} min-h-[125px] resize-y`}
+          value={requirements||''}
+          placeholder={hatRole==='client'
+            ? 'Describe the job, the skills required and what successful delivery means…'
+            : 'Describe exactly what you offer under this Hat and your relevant experience…'}
+          onChange={event=>onChange('requirements',event.target.value)} />}
+      </Field>
+
     </Section>
   )
 }
