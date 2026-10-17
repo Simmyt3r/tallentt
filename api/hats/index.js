@@ -350,6 +350,9 @@ export default async function handler(req, res) {
       if (motto && String(motto).length > HAT_DESCRIPTION_MAX) {
         return json(res, 400, { error: `Description must be ${HAT_DESCRIPTION_MAX} characters or fewer.` })
       }
+      if (job_requirements != null && (typeof job_requirements !== 'string' || job_requirements.length > 3000)) {
+        return json(res,400,{error:'Hat details must be 3,000 characters or fewer.'})
+      }
       if (!HAT_TYPES.includes(hat_type)) {
         return json(res, 400, { error: 'Invalid hat type.' })
       }
@@ -408,8 +411,8 @@ export default async function handler(req, res) {
           user_id, hat_title, hat_name, username, verified_name, is_verified, category, skills,
           hat_type, hiring_duration, delivery_mode, country, country_flag, currency, lga, motto,
           price_type, price_min, price_max, price_negotiable, rate, rate_unit, rate_unit_custom,
-          role, availability, available_days, available_from, available_to, orbit_score, feed_visible
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
+          role, availability, available_days, available_from, available_to, orbit_score, feed_visible, job_requirements
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
         RETURNING *`,
         [
           session.sub,
@@ -442,6 +445,7 @@ export default async function handler(req, res) {
           available_to || null,
           orbitScore,
           feedVisible,
+          job_requirements?.trim() || null,
         ],
       )
       hat = rows[0]
