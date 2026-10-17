@@ -196,21 +196,12 @@ export async function createStream(userId, body) {
   const streamPath = streamPathForId(streamId)
 
   if (availability.mode === 'fallback') {
-    const { rows } = await query(
-      `INSERT INTO live_streams
-         (id,talent_id,title,category,status,stream_path,publish_token_hash,media_status,last_media_event_at,started_at)
-       VALUES ($1,$2,$3,$4,'live',$5,NULL,'fallback',NOW(),NOW())
-       RETURNING *`,
-      [streamId, userId, title, category, streamPath],
-    )
-    emitLiveEvent(streamId, 'stream_status', { status: 'live', media_status: 'fallback' })
-    return {
-      stream: publicStream(rows[0]),
-      media_mode: 'fallback',
-      fallback_reason: availability.reason,
-      ingest_url: null,
-      publish_token: null,
-    }
+    // A private camera preview is not a broadcast. Do not create a room
+    // labelled LIVE when no viewer can receive its video.
+    const reason = availability.reason === 'unreachable'
+      ? 'The Live media server is unreachable.'
+      : 'The Live media server is not fully configured.'
+    throw liveError(503,`${reason} Broadcasting requires a reachable WHIP/MediaMTX and HLS endpoint. Ask an administrator to check Live media configuration.`)
   }
 
   const publishToken = crypto.randomBytes(32).toString('base64url')
