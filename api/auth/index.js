@@ -99,7 +99,7 @@ async function handleMe(req, res) {
   try {
     const result = await query(
       `SELECT id, full_name, username, email, role, is_admin, country, lga,
-              avatar_url, bio, profile_statement, location, phone, nin_hash, nin_last4,
+              avatar_url, bio, (to_jsonb(users)->>'profile_statement') AS profile_statement, location, phone, nin_hash, nin_last4,
               headline, skills, industry, company_suffix, website,
               bank_name, account_number, account_name, paystack_recipient_code,
               (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance
@@ -156,7 +156,7 @@ async function handleLogin(body, res) {
   try {
     const result = await query(
       `SELECT id, full_name, username, email, password_hash, role, is_admin, country, lga,
-              avatar_url, bio, profile_statement, location, phone, nin_hash, nin_last4,
+              avatar_url, bio, (to_jsonb(users)->>'profile_statement') AS profile_statement, location, phone, nin_hash, nin_last4,
               headline, skills, industry, company_suffix, website,
               bank_name, account_number, account_name, paystack_recipient_code,
               (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance
@@ -575,7 +575,7 @@ async function handleProfileUpdate(req, res) {
          profile_statement = COALESCE($22, profile_statement)
        WHERE id = $21
        RETURNING id, full_name, username, email, role, is_admin, country, lga,
-                 avatar_url, bio, profile_statement, location, phone, nin_hash, nin_last4,
+                 avatar_url, bio, (to_jsonb(users)->>'profile_statement') AS profile_statement, location, phone, nin_hash, nin_last4,
                  headline, skills, industry, company_suffix, website,
                  bank_name, account_number, account_name, paystack_recipient_code,
                  (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance`,
