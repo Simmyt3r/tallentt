@@ -122,6 +122,32 @@ test with an expendable account. Regression tests exercise authorization,
 typed confirmation, transaction rollback, financial blockers, database
 referential cleanup, durable media queues and audit metadata.
 
+
+## October 17 BentoField navigation and multi-Hat design
+
+- **Search:** BentoField and Showroom reuse `DiscoverySearch`, an accessible
+  pill-shaped field with its icon inside the input. Search is not duplicated on
+  My Hats, My Deals, or Hits & Vibes. The global search quick action remains
+  removed.
+- **Showroom:** The decorative `Showroom Host` badge is removed, without
+  changing eligibility, moderation, or publishing.
+- **Independent Hats:** Each feed-visible Hat appears as its own booking or
+  application card. Hats owned by one account are kept adjacent by role and
+  cross-referenced with a `+N More` chooser. This deliberately avoids
+  cycling through different prices, available dates or pay units on one card;
+  each service must remain a distinct transaction target.
+- **Pricing:** Fixed and range prices both show the configured unit where
+  present (for example `/hour` or `/day`), with fee labels wrapping
+  rather than overflowing a narrow screen.
+- **Scrolling and sizing:** Sticky BentoField and My Hats headers sit beneath
+  the global top bar. The BentoCard article isolates its badges underneath
+  those headers without trapping the decision modal; My Hats cards use the
+  same responsive width/grid strategy as the BentoField.
+- **Regression coverage:** `tests/hat-feed-ui.mjs` now includes multiple
+  independently actionable Hats for one account, fixed/range pay units,
+  mobile horizontal overflow and sticky BentoField search. The Showroom UI
+  test targets the current three-option publishing composer and shared search.
+
 ## October 17 UI / Orbit Score release candidate
 
 - **Live:** A single active Live Broadcast tab is displayed beside Stage Competitions.
