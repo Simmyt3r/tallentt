@@ -35,7 +35,7 @@ export default function AdminUserErasure({user,onClose,onDeleted}){
     try{
       const result=await api.eraseSubscriber(user.id,confirmation)
       setComplete(result)
-      await onDeleted?.()
+      try { await onDeleted?.() } catch { /* Deletion is committed; a list refresh failure cannot reverse it. */ }
     }catch(err){
       setError(err.message||'Deletion could not be completed. Nothing was changed.')
     }finally{setBusy(false)}
