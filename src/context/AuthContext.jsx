@@ -20,6 +20,15 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(()=>{
+    if(!user?.id)return undefined
+    const beat=()=>{if(document.visibilityState==='visible')api.heartbeatPresence().catch(()=>{})}
+    beat()
+    const interval=setInterval(beat,45000)
+    document.addEventListener('visibilitychange',beat)
+    return()=>{clearInterval(interval);document.removeEventListener('visibilitychange',beat)}
+  },[user?.id])
+
   const register = useCallback(async (payload) => {
     const data = await api.register(payload)
     setUser(data.user)
