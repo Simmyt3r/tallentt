@@ -12,6 +12,7 @@
 // growing another unrelated branch. Still well under Vercel Hobby's
 // 12-function cap (9 functions total after this one).
 import { query } from '../_lib/db.js'
+import {accountOrbit} from '../_lib/accountOrbit.js'
 import { json, methodNotAllowed } from '../_lib/http.js'
 
 // Only ever select/return public-safe columns here — never email, phone,
@@ -108,6 +109,7 @@ export default async function handler(req, res) {
 
     return json(res, 200, {
       user: toPublicProfileUser(userRow),
+      orbit: await accountOrbit(userRow.id),
       isVerified,
       rating,
       ratedHatsCount: ratedHats.length,
