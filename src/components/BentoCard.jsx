@@ -5,7 +5,7 @@ import BentoCardDetailModal from './BentoCardDetailModal'
 import UserIdentity from './UserIdentity'
 import RoleCardBadge from './RoleCardBadge'
 import { identityFromHat } from '../lib/profile.js'
-import { getHatAccent } from '../lib/hatPresentation.js'
+import { getHatAccent, getShowroomTemplate } from '../lib/hatPresentation.js'
 import {
   formatAvailabilityWindow,
   formatPrice,
@@ -18,6 +18,14 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
   const [open, setOpen] = useState(false)
 
   const isTalent = hat.role === 'talent'
+  const layout = getShowroomTemplate(hat.showroom_template)
+  const theme = {
+    minimal: 'bg-white',
+    bold: 'bg-[#FFF0DB] ring-2 ring-[#DC4F36]/20',
+    'media-first': 'bg-[#EAF8F8] border-[#007F95]/20',
+    editorial: 'bg-[#F5F0FF] border-[#744AC9]/20',
+    dark: 'bg-[#182033] text-white border-[#283A51]',
+  }[layout]
   const owner = identityFromHat(hat)
   // "N jobs" on a talent hat (completed gigs), "N hires" on a client hat
   // (people they've successfully hired) — same underlying released-escrow
@@ -29,6 +37,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
   const motto = hat.motto || ''
   const availabilityWindow = formatAvailabilityWindow(hat)
   const currency = hat.currency || 'NGN'
+  const featuredMedia = (hat.media || []).find(m => m.url && ['legacy','passed'].includes(m.screening_status || 'legacy') && ['image','video'].includes(m.type))
   const flyer = hat.bento_mode === 'flyer' ? (hat.media || []).find((m) =>
     m.type === 'image' && m.public_id === hat.flyer_public_id &&
     ['legacy', 'passed'].includes(m.screening_status || 'legacy')) : null
@@ -44,18 +53,19 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
     <>
       <article
         style={{ borderTopColor: getHatAccent(hat.bento_accent), borderTopWidth: hat.bento_accent === 'none' ? 0 : 4 }}
-        className={`relative bg-white rounded-[24px] p-4 border border-black/5 shadow-[0_8px_24px_rgba(0,0,0,0.04)] min-h-[264px] flex flex-col w-full ${
+        className={`bento-layout bento-layout--${layout} relative rounded-[24px] p-4 border shadow-[0_8px_24px_rgba(0,0,0,0.04)] min-h-[264px] flex flex-col w-full ${theme} ${
           fullWidth ? '' : 'max-w-[300px]'
         }`}
       >
         <RoleCardBadge role={hat.role} className="absolute top-3 right-3 z-10" />
+        {layout !== 'minimal' && <span className={`mb-2 w-fit rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${layout === 'dark' ? 'bg-white/15 text-white' : 'bg-black/5 text-black/60'}`}>{layout.replace('-', ' ')}</span>}
         <UserIdentity
           user={owner}
           className="pr-11"
           align="start"
           gap="gap-3"
           nameClassName="font-bold text-[14.5px] leading-tight"
-          usernameClassName="text-[#0A13E6] font-extrabold text-[13px] leading-tight"
+          usernameClassName={layout === 'dark' ? '!text-[#AABFFF] font-extrabold text-[13px] leading-tight' : 'text-[#0A13E6] font-extrabold text-[13px] leading-tight'}
           avatarBadge={
             hat.availability ? (
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
@@ -72,6 +82,12 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           </div>
         </UserIdentity>
 
+        {!flyer && layout === 'media-first' && featuredMedia && (
+          <div className="order-first mb-3 overflow-hidden rounded-xl border border-black/10 bg-black/5">
+            {featuredMedia.type === 'video' ? <video src={featuredMedia.url} controls preload="metadata" className="aspect-[16/9] w-full object-cover" /> :
+              <img src={featuredMedia.url} alt={featuredMedia.caption || 'Featured Hat media'} loading="lazy" className="aspect-[16/9] w-full object-cover" />}
+          </div>
+        )}
         {flyer ? (
           <figure className="mt-3 min-w-0 rounded-[16px] overflow-hidden bg-[#F7F3EB] border border-black/10">
             <img src={flyer.url} alt={flyer.caption || `${hat.hat_name || hat.hat_title} flier`}
@@ -84,7 +100,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           <>
         {motto && (
           <div className="mt-3 border-l-4 pl-3 py-1 bg-[#FFEBE0]/20 rounded-r-xl" style={{ borderLeftColor: getHatAccent(hat.bento_accent), borderLeftWidth: hat.bento_accent === 'none' ? 0 : 4 }}>
-            <p className="text-[12px] italic text-black/60 leading-snug">&quot;{motto}&quot;</p>
+            <p className={`text-[12px] italic leading-snug ${layout === 'dark' ? 'text-white/85' : 'text-black/60'}`}>&quot;{motto}&quot;</p>
           </div>
         )}
 
