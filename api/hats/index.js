@@ -1,5 +1,6 @@
 // Path: api/hats/index.js
 import { query, getClient } from '../_lib/db.js'
+import {onlinePresenceExpression} from '../_lib/onlinePresence.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
@@ -248,7 +249,7 @@ export default async function handler(req, res) {
       const { rows } = await query(
         `SELECT h.*, u.avatar_url as owner_avatar, u.full_name as owner_full_name, u.role as owner_role,
                 u.company_suffix as owner_company_suffix,
-                EXISTS(SELECT 1 FROM user_presence presence WHERE presence.user_id=h.user_id AND presence.is_visible=TRUE AND presence.last_seen>NOW()-INTERVAL '90 seconds') AS owner_online,
+                ${await onlinePresenceExpression('h.user_id')} AS owner_online,
                 -- "N jobs" (talent hats) / "N hires" (client hats) badge — reuses
                 -- the existing escrows system exactly like getHat()'s has_booked
                 -- check does (see api/hats/[id].js): a released escrow is a
