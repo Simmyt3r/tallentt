@@ -80,6 +80,10 @@ test('professional statement updates are validated and stored independently',asy
   assert.equal(row.profile_statement,long)
   const bad=await req(auth,'/api/auth',{who:owner,method:'PUT',body:{profileStatement:'x'.repeat(2001)}})
   assert.equal(bad.statusCode,400)
+  const bypass=await req(auth,'/api/auth',{who:owner,method:'PUT',
+    body:{profileStatement:'Call +2348012345678 for your next job'}})
+  assert.equal(bypass.statusCode,422)
+  assert.equal((await pool.query('SELECT profile_statement FROM users WHERE id=$1',[owner])).rows[0].profile_statement,long)
 })
 test('hat requirements can be updated without rewriting its tagline',async()=>{
   const updated=await req(handler,'/api/hats/'+hatId,{who:owner,method:'PUT',
