@@ -90,6 +90,7 @@ export default function AdminUserErasure({user,onClose,onDeleted}){
         <p className="font-bold">Database account deleted.</p>
         <p>Cloudinary items queued: {complete.media_jobs_created}.</p>
         <p>Items still awaiting cleanup: {complete.media_cleanup?.pending??'Check media queue'}.</p>
+        {complete.legacy_media_needing_review > 0 && <p className="text-amber-900">Legacy media requiring ownership verification: {complete.legacy_media_needing_review}. Review these assets separately before deleting them.</p>}
         <p>The minimal administrator audit record is retained.</p>
       </div>}
       <div className="flex flex-wrap justify-end gap-3 border-t border-black/10 pt-3">
