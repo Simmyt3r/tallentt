@@ -58,7 +58,7 @@ export default function CardOwnerHatDetails({detail,hat,entertainment=false}){
             <Stat label="Orbit activity score" value={orbit ? `${orbit.score}/100` : 'Not available'}/>
             <Stat label="Completed talent jobs" value={performance.completed_jobs ?? 0}/>
             <Stat label="Successful hires" value={performance.successful_hires ?? 0}/>
-            <Stat label="Currently disputed deals" value={performance.open_disputes ?? 0}/>
+            <Stat label="Currently disputed deals" value={performance.open_disputes ?? 'Not available'}/>
           </div>
           {orbit?.factors?.length>0&&<details className="rounded-xl border border-black/10 px-3 py-2 text-[12px]">
             <summary className="cursor-pointer font-semibold">How Orbit is calculated</summary>
@@ -85,8 +85,13 @@ export default function CardOwnerHatDetails({detail,hat,entertainment=false}){
         <Item label="Hat Location">{jobLocation}</Item>
         <Item label="Price / budget">{price}</Item>
         <Item label="Available">{hat?.available_days ? formatAvailabilityWindow(hat) : null}</Item>
-        <Item label="Total applications">{job.applicants ?? 'Not available'}</Item>
-        <Item label="Pending / accepted applications">{job.active_applicants ?? 'Not available'}</Item>
+        {(hat?.role==='talent'||profile.role==='talent') ? <>
+          <Item label="Bookings for this Hat">{job.bookings ?? 'Not available'}</Item>
+          <Item label="Funded active bookings">{job.active_bookings ?? 'Not available'}</Item>
+        </> : <>
+          <Item label="People applied for this Hat">{job.applicants ?? 'Not available'}</Item>
+          <Item label="Pending / accepted applications">{job.active_applicants ?? 'Not available'}</Item>
+        </>}
       </dl>
       <div>
         <h4 className="text-[11px] font-bold uppercase tracking-wide text-black/45">
