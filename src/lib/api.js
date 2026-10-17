@@ -88,6 +88,7 @@ export const api = {
   },
   getHat: (id) => request(`/api/hats/${id}`),
   getMyMedia: () => request('/api/hats?my_media=1'),
+  getMyHatReviews: () => request('/api/hats?my_reviews=1'),
   // Normalized card-detail shape for BentoCardDetailModal — same endpoint,
   // extended with ?include=owner (see api/hats/[id].js buildCardDetail).
   getHatDetail: (id) => request(`/api/hats/${id}?include=owner`),
