@@ -73,6 +73,42 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
 
 
+## October 17 UI / Orbit Score release candidate
+
+- **Live:** A single active Live Broadcast tab is displayed beside Stage Competitions.
+  Talent accounts use that tab to set up broadcasting; other subscribers use it
+  to reach the list of live streams.
+- **Header:** ChombuTar wordmark is visible on each route; discovery search is
+  shown inside Showroom rather than duplicated globally. Page headings and their
+  descriptions stay sticky under the shared application header.
+- **Notifications:** Plain inbox display. Long-press on mobile or right-click a
+  notification to open the delete confirmation; no row-level trash icons.
+  Web Push setup lives under Settings → Notifications.
+- **My Hats:** Edit and Delete controls are separated in both grid and list.
+  Owner-visible data review notes link to the Hat editor.
+- **Showroom:** New composer offers *Create Hat*, *Choose existing Hat*, or
+  *Upload gallery media for entertainment*. Opening a photo or video provides
+  the detail view; only owners see the remove/delete action. Viewers see the
+  appropriate listing details and Book controls when the post is a commercial Hat.
+- **Bento design:** Minimal, Bold, Media First, Editorial and Dark presets now
+  render distinct actual Bento card styles, with flier support and neutral accent.
+- **Settings:** Account, Push notifications and Security/Password recovery live
+  on /settings. No artificial controls that pretend a backend preference exists.
+- **Admin:** The *Orbit & Hat Review* tab lets Admins review newly submitted Hat
+  data and request owner corrections. This review is informational: it does not
+  silently cancel contracts or interfere with escrow. Adjust the six approved
+  Orbit weights there, always totaling 100 points. Changes are audited.
+- **Profiles:** The subscriber's Orbit Score is visible with a breakdown.
+  The score excludes likes/views, uses capped participation on distinct days
+  and completed funded jobs/hires, and **does not certify identity or guarantee
+  trustworthiness**.
+
+Before activating Orbit governance, apply **Orbit Score and Hat data review**
+in Admin → Database Migrations. Validate with
+`npm test && npm run check:api && npm run build`, then run mobile and
+desktop regression tests. Review pending deployments and provider configuration
+before production approval. A commit is not proof of a passed deployment.
+
 ## October 2026 Showroom, Stage and Deals Calling rollout
 
 **Before enabling the new workflows:**
