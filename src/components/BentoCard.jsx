@@ -135,6 +135,10 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           </div>
         )}
 
+
+          </>
+        )}
+
         <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] leading-snug">
           <span className="shrink-0 font-bold text-black/70">{isTalent ? 'Rate:' : 'Budget:'}</span>
           <span className="min-w-0 break-words font-bold"
@@ -164,8 +168,6 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           </div>
         )}
 
-          </>
-        )}
 
         <div className="mt-auto pt-4 flex items-center justify-between gap-3">
           <button
