@@ -41,6 +41,7 @@ export default function CardOwnerHatDetails({detail,hat,entertainment=false}){
         <Item label="Professional statement">
           {profile.statement || 'No professional statement published yet.'}
         </Item>
+        <Item label="Joined ChombuTar">{profile.joined_at ? new Date(profile.joined_at).toLocaleDateString('en-NG',{year:'numeric',month:'long',day:'numeric'}) : 'Not available'}</Item>
         <Item label="Profile location">{profile.location}</Item>
         <Item label="Phone">
           {profile.contact_unlocked&&profile.phone ? profile.phone
@@ -81,6 +82,12 @@ export default function CardOwnerHatDetails({detail,hat,entertainment=false}){
       <h3 id="detail-hat-section" className="text-[15px] font-black">Job information · This Hat</h3>
       <dl className="grid gap-3 sm:grid-cols-2">
         <Item label="Hat name">{hat?.hat_name||detail?.title||hat?.hat_title}</Item>
+        <Item label="Card ID / job reference"><span className="select-all break-all font-mono text-[11px]">{job.reference||detail?.reference||hat?.id}</span></Item>
+        <Item label="Listing status">
+          <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${(job.is_open ?? detail?.is_open ?? (hat?.active && hat?.availability)) ? 'bg-green-100 text-green-800':'bg-slate-100 text-slate-600'}`}>
+            {(job.is_open ?? detail?.is_open ?? (hat?.active && hat?.availability)) ? 'Open for applications / booking':'Closed'}
+          </span>
+        </Item>
         <Item label="Job type">{[type,duration].filter(Boolean).join(' · ')}</Item>
         <Item label="Hat Location">{jobLocation}</Item>
         <Item label="Price / budget">{price}</Item>
