@@ -8,6 +8,7 @@
 // back down with real headroom instead of just barely re-fitting.
 import { query, getClient } from '../_lib/db.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
+import {containsContactBypass} from '../_lib/showroomEligibility.js'
 import {
   verifyPassword,
   hashPassword,
@@ -454,6 +455,9 @@ async function handleProfileUpdate(req, res) {
 
   if (profileStatement != null && (typeof profileStatement !== 'string' || profileStatement.length > 2000)) {
     return json(res,400,{error:'Profile statement must be 2,000 characters or fewer.'})
+  }
+  if (profileStatement && containsContactBypass(profileStatement)) {
+    return json(res,422,{error:'Remove phone numbers, direct messaging handles, email addresses and links from the public statement. Share contact details only through a secured deal.'})
   }
   if (bio != null && String(bio).length > MAX_BIO) {
     return json(res, 400, { error: `Bio must be ${MAX_BIO} characters or fewer.` })
