@@ -1,6 +1,7 @@
 // Community posts deliberately do not share escrow messages or Hat media.
 import { randomUUID } from 'node:crypto'
 import { query, getClient } from '../_lib/db.js'
+import {onlinePresenceExpression} from '../_lib/onlinePresence.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, readBody, methodNotAllowed } from '../_lib/http.js'
 import { uploadCloudCredentials, cloudinaryUploadSignature } from '../_lib/hatMediaUpload.js'
@@ -138,9 +139,9 @@ async function publish(userId, body) {
   } finally { client.release() }
 }
 
-const PUBLIC_POST = `SELECT p.id,p.body,p.media,p.created_at,p.edited_at,p.author_id,
+const publicPostSql = async()=>`SELECT p.id,p.body,p.media,p.created_at,p.edited_at,p.author_id,
   u.username,u.full_name,u.avatar_url,u.role,
-  EXISTS(SELECT 1 FROM user_presence presence WHERE presence.user_id=p.author_id AND presence.is_visible=TRUE AND presence.last_seen>NOW()-INTERVAL '90 seconds') AS is_online,
+  ${await onlinePresenceExpression('p.author_id')} AS is_online,
   (SELECT COUNT(*)::int FROM vibes_likes l WHERE l.post_id=p.id) AS likes,
   (SELECT COUNT(*)::int FROM vibes_comments c WHERE c.post_id=p.id AND c.deleted_at IS NULL) AS replies,
   EXISTS(SELECT 1 FROM vibes_likes l WHERE l.post_id=p.id AND l.user_id=$1) AS liked_by_me
@@ -152,7 +153,7 @@ async function feed(userId,url) {
   const specific=url.searchParams.get('post')
   if((before && !validId(before))||(specific && !validId(specific))) throw bad(400,'Invalid Vibes cursor.')
   const {rows}=await query(
-    PUBLIC_POST+` AND ($2::uuid IS NULL OR p.id=$2)
+    (await publicPostSql())+` AND ($2::uuid IS NULL OR p.id=$2)
     AND ($3::uuid IS NULL OR (p.created_at,p.id) <
        (SELECT created_at,id FROM vibes_posts WHERE id=$3))
     ORDER BY p.created_at DESC,p.id DESC LIMIT 21`,
@@ -167,7 +168,7 @@ async function getComments(userId,url) {
   if(!validId(post)||(before&&!validId(before))) throw bad(400,'Invalid comment cursor.')
   const {rows}=await query(
     `SELECT c.id,c.post_id,c.author_id,c.body,c.created_at,c.edited_at,u.username,u.full_name,u.avatar_url,
-      EXISTS(SELECT 1 FROM user_presence presence WHERE presence.user_id=c.author_id AND presence.is_visible=TRUE AND presence.last_seen>NOW()-INTERVAL '90 seconds') AS is_online
+      ${await onlinePresenceExpression('c.author_id')} AS is_online
      FROM vibes_comments c JOIN users u ON u.id=c.author_id
      JOIN vibes_posts p ON p.id=c.post_id
      WHERE c.post_id=$1 AND c.deleted_at IS NULL
