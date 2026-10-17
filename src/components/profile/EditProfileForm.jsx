@@ -35,6 +35,7 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
   const [usernameStatus, setUsernameStatus] = useState(null) // checking | available | taken | invalid | unchanged
   const [phone, setPhone] = useState(user?.phone || '')
   const [bio, setBio] = useState(user?.bio || '')
+  const [profileStatement,setProfileStatement] = useState(user?.profileStatement || '')
   const [location, setLocation] = useState(user?.location || '')
   const [country, setCountry] = useState(user?.country || '')
   const [lga, setLga] = useState(user?.lga || '')
@@ -186,6 +187,7 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
         username: u,
         phone: phone.trim() || undefined,
         bio: bio.trim(),
+        profileStatement: profileStatement.trim(),
         location: location.trim() || undefined,
         country: country.trim() || undefined,
         lga: lga.trim() || undefined,
@@ -319,6 +321,13 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
           onChange={(e) => setBio(e.target.value)}
           placeholder="A short line about you"
         />
+      </Field>
+
+      <Field label={`Profile statement (${profileStatement.length}/2000)`}
+        hint="Introduce your experience, specializations and background. This appears on your card's Profile section.">
+        <textarea className="tw-input min-h-[160px] resize-y" maxLength={2000}
+          value={profileStatement} onChange={event=>setProfileStatement(event.target.value)}
+          placeholder="Describe your professional background, experience and expertise…"/>
       </Field>
 
       <div className="grid grid-cols-2 gap-3">
