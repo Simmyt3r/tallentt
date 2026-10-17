@@ -943,10 +943,11 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS vibes_posts (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
- body TEXT NOT NULL DEFAULT '' CHECK (char_length(body) <= 500),
+ body TEXT NOT NULL DEFAULT '' CHECK (char_length(body) <= 10000),
  media JSONB NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(media) = 'array' AND jsonb_array_length(media) <= 4),
  moderation_status TEXT NOT NULL DEFAULT 'visible' CHECK (moderation_status IN ('visible','held','removed')),
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ edited_at TIMESTAMPTZ,
  deleted_at TIMESTAMPTZ,
  CHECK (char_length(btrim(body)) > 0 OR jsonb_array_length(media) > 0)
 );
@@ -963,8 +964,9 @@ CREATE TABLE IF NOT EXISTS vibes_comments (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  post_id UUID NOT NULL REFERENCES vibes_posts(id) ON DELETE CASCADE,
  author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
- body TEXT NOT NULL CHECK (char_length(btrim(body)) BETWEEN 1 AND 300),
+ body TEXT NOT NULL CHECK (char_length(btrim(body)) BETWEEN 1 AND 10000),
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ edited_at TIMESTAMPTZ,
  deleted_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_vibes_comments_post ON vibes_comments (post_id,created_at DESC,id DESC) WHERE deleted_at IS NULL;
@@ -981,13 +983,21 @@ CREATE TABLE IF NOT EXISTS vibes_upload_permits (
  id UUID PRIMARY KEY,
  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
  public_id TEXT NOT NULL UNIQUE,
- declared_bytes INTEGER NOT NULL CHECK (declared_bytes BETWEEN 1 AND 8388608),
- declared_mime TEXT NOT NULL CHECK (declared_mime IN ('image/jpeg','image/png','image/webp')),
+ declared_bytes INTEGER NOT NULL CHECK (declared_bytes BETWEEN 1 AND 20971520),
+ declared_mime TEXT NOT NULL CHECK (declared_mime IN ('image/jpeg','image/png','image/webp','video/mp4','video/webm','video/quicktime')),
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '1 hour'),
  claimed_post_id UUID REFERENCES vibes_posts(id) ON DELETE SET NULL,
  claimed_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_vibes_uploads_owner ON vibes_upload_permits (user_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vibes_posts_held_review ON vibes_posts(created_at DESC)
+ WHERE moderation_status='held' AND deleted_at IS NULL;
+CREATE TABLE IF NOT EXISTS user_presence (
+ user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+ last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ is_visible BOOLEAN NOT NULL DEFAULT TRUE
+);
+CREATE INDEX IF NOT EXISTS idx_user_presence_recent ON user_presence(last_seen) WHERE is_visible=TRUE;
 COMMIT;
 
