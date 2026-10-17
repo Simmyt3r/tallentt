@@ -109,7 +109,8 @@ export default async function handler(req, res) {
 
     return json(res, 200, {
       user: toPublicProfileUser(userRow),
-      orbit: await accountOrbit(userRow.id),
+      // Orbit is supplemental: a scoring outage must never hide a public profile.
+      orbit: await accountOrbit(userRow.id).catch(() => null),
       isVerified,
       rating,
       ratedHatsCount: ratedHats.length,
