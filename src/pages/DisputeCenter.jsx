@@ -29,7 +29,7 @@ export default function DisputeCenter() {
 
   const visible = cases.filter(item => filter === 'all' || item.status === filter)
   return <main className="mx-auto max-w-[860px] space-y-5 pb-10">
-    <header className="rounded-2xl border border-black/10 bg-white p-5">
+    <header className="sticky top-14 md:top-16 z-10 -mx-4 rounded-none border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg">
       <h1 className="text-[22px] font-black">Dispute Center</h1>
       <p className="mt-2 text-[12px] text-black/60">
         Track an escrow dispute, read the decision, and return to the deal to review messages and evidence.
