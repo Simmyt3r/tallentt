@@ -57,6 +57,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-orbit-review-2026-10.sql', import.meta.url),
   },
   {
+    id: 'admin-user-erasure-2026-10',
+    title: 'Admin account deletion & media cleanup',
+    description: 'Enable safeguarded subscriber erasure, minimal audit records and retryable Cloudinary cleanup.',
+    path: new URL('../../db/patch-admin-user-erasure-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'password-recovery-2026-10',
     title: 'Password recovery',
     description: 'One-use expiring reset tokens and request throttling.',
