@@ -176,7 +176,7 @@ export default function ProfileView({
         />
       )}
 
-      <AboutSection bio={profileUser.bio} />
+      <AboutSection bio={profileUser.profileStatement || profileUser.bio} />
 
       {isBusiness ? (
         <ChipListSection id="industry-heading" title="Industry" items={profileUser.industry} />
