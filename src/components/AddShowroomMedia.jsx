@@ -304,17 +304,18 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
               </div>
               <label className="block space-y-1.5">
                 <span className="tw-label">
-                  Caption ({caption.length}/{standalone ? 500 : MAX_CAPTION})
+                  Showroom media caption ({caption.length}/{standalone ? 500 : MAX_CAPTION})
                 </span>
                 <textarea
                   className="tw-input min-h-[80px] resize-none"
                   maxLength={standalone ? 500 : MAX_CAPTION}
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
-                  placeholder="Say something about this…"
+                  placeholder="Describe this photo or video for viewers…"
                 />
               </label>
-              <p className="text-[12px] text-black/60">Standalone videos require review before appearing publicly. Photos may be automatically screened. Hat posts use existing media moderation.</p>
+              <p className="text-[11px] text-black/60">This caption appears on the Showroom post with your photo or video. It is separate from your Hat's tagline.</p>
+               <p className="text-[12px] text-black/60">Standalone videos require review before appearing publicly. Photos may be automatically screened. Hat posts use existing media moderation.</p>
               <button
                 type="button"
                 disabled={submitting}
