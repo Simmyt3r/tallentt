@@ -108,11 +108,11 @@ try{
     const createAction = quickActions.getByRole('link', { name: 'Create Hat' })
     const messagesAction = quickActions.getByRole('link', { name: 'Messages' })
     const alertsAction = quickActions.getByRole('link', { name: /^Notifications/ })
-    const showroomSearch = page.getByRole('button', { name: 'Search Showroom' })
+    const showroomSearch = page.getByRole('searchbox', { name: 'Search Showroom posts and creators' })
     await showroomSearch.waitFor()
     assert.equal(await quickActions.getByRole('link', { name: 'Search' }).count(), 0,
       'Showroom must expose exactly one search action')
-    assert.equal(await createAction.isVisible(), true)
+    assert.equal(await createAction.isVisible(), width >= 640)
     assert.equal(await messagesAction.isVisible(), true)
     assert.equal(await alertsAction.isVisible(), true)
     assert.equal(await page.getByRole('link', { name: 'Profile' }).isVisible(), true)
@@ -127,24 +127,29 @@ try{
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
       await page.setViewportSize({ width, height: 880 })
     }
-    await showroomSearch.click()
-    await page.getByRole('searchbox', { name: 'Search posts and creators' }).waitFor()
+    // One always-visible pill search, shared with BentoField.
+    await showroomSearch.focus()
     await page.waitForFunction(() => document.activeElement?.id === 'showroom-search')
-    await page.getByRole('button', { name: 'Close Showroom search' }).click()
-    assert.equal(await page.getByRole('searchbox', { name: 'Search posts and creators' }).count(), 0)
+    await showroomSearch.fill('studio')
+    await showroomSearch.press('Escape')
+    assert.equal(await showroomSearch.inputValue(), '')
+    assert.equal(await page.getByRole('button',{name:'Search Showroom'}).count(),0)
 
-    // Global search from another page opens the single Showroom search field.
-    await page.goto('http://127.0.0.1:5185/admin?tab=showroom-config')
-    await quickActions.getByRole('link', { name: 'Search' }).click()
-    await page.waitForURL('**/showroom?focus=search')
-    await page.waitForFunction(() => document.activeElement?.id === 'showroom-search')
+    // Search is intentionally not duplicated in unrelated tabs.
+    await page.goto('http://127.0.0.1:5185/vibes')
+    assert.equal(await page.getByRole('searchbox').count(),0)
+    await page.goto('http://127.0.0.1:5185/my-hats')
+    assert.equal(await page.getByRole('searchbox').count(),0)
+    await page.goto('http://127.0.0.1:5185/deals')
+    assert.equal(await page.getByRole('searchbox').count(),0)
+    await page.goto('http://127.0.0.1:5185/showroom')
 
     await quickActions.getByRole('link', { name: 'Messages' }).click()
     await page.waitForURL('**/messages')
     // Every route has its own protected Layout. Re-enter a settled Home
     // before validating the next action, instead of racing a route remount.
     await page.goto('http://127.0.0.1:5185/showroom')
-    await page.getByRole('button', { name: 'Search Showroom' }).waitFor()
+    await showroomSearch.waitFor()
     await quickActions.getByRole('link', { name: /^Notifications/ }).click()
     await page.waitForURL('**/notifications')
     await page.goto('http://127.0.0.1:5185/showroom')
@@ -185,7 +190,7 @@ try{
     const open=page.getByRole('button',{name:'Add to Showroom'})
     await open.waitFor()
     await open.click()
-    await page.getByRole('heading',{name:'Pick a card'}).waitFor()
+    await page.getByRole('heading',{name:'Choose how to post'}).waitFor()
     await page.keyboard.press('Escape')
     await page.getByRole('heading',{name:'Pick a card'}).waitFor({state:'detached'})
     assert.equal(await open.evaluate(el=>document.activeElement===el),true,
@@ -193,6 +198,7 @@ try{
     for(let round=1;round<=2;round++){
       await open.click()
       await page.getByRole('heading',{name:'Pick a card'}).waitFor()
+      await page.getByRole('button',{name:/Choose an existing Hat/}).click()
       await page.getByRole('button',{name:/Product photographer/}).click()
       await page.getByRole('heading',{name:'Add media'}).waitFor()
       await page.locator('.modal-panel input[type=file]').setInputFiles({
