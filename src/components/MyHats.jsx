@@ -209,16 +209,16 @@ export default function MyHats() {
                 >
                   <Pencil size={14} />
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(h.id)}
-                  aria-label={`Delete ${h.hat_title}`}
-                  className="w-9 h-9 rounded-full border-[1.5px] border-black/10 flex items-center justify-center text-black/50 hover:border-red-500 hover:text-red-600 transition"
-                >
-                  <Trash2 size={14} />
-                </button>
+
               </div>
               <div className="px-4 pb-4">
+                <div className="mb-3 flex justify-end border-t border-black/10 pt-3">
+                  <button type="button" onClick={() => handleDelete(h.id)}
+                    aria-label={`Delete ${h.hat_title}`}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-red-200 px-4 text-[12px] font-bold text-red-700 hover:bg-red-50">
+                    <Trash2 size={14}/> Delete Hat
+                  </button>
+                </div>
                 {reviewNotes[h.id]?.decision === 'needs_changes' && (
                   <div role="status" className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900">
                     <strong className="block">Changes requested for this Hat</strong>
