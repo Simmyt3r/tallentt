@@ -25,6 +25,7 @@ import { api } from '../lib/api.js'
 import AdminDisputes from '../components/AdminDisputes.jsx'
 import AdminMigrations from '../components/AdminMigrations.jsx'
 import AdminOrbitAndHatReview from '../components/AdminOrbitAndHatReview.jsx'
+import AdminUserErasure, {AdminUserMediaCleanup} from '../components/AdminUserErasure.jsx'
 import AdminShowroomReports from '../components/AdminShowroomReports.jsx'
 import AdminShowroomGallery from '../components/AdminShowroomGallery.jsx'
 import AdminShowroomConfig from '../components/AdminShowroomConfig.jsx'
@@ -301,7 +302,10 @@ export default function Admin() {
                 )}
               </div>
 
-              {tab === 'users' && <UsersTable rows={filtered} />}
+              {tab === 'users' && <>
+                <AdminUserMediaCleanup />
+                <UsersTable rows={filtered} adminId={dashboard?.admin?.id} onDeleted={load} />
+              </>}
               {tab === 'deals' && <EscrowsTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'finance' && <WalletTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'disputes' && <AdminDisputes />}
@@ -712,8 +716,10 @@ function WalletSummary({ rows }) {
   )
 }
 
-function UsersTable({ rows }) {
+function UsersTable({ rows, adminId, onDeleted }) {
+  const [selected,setSelected]=useState(null)
   return (
+    <>
     <Table empty="No users found." rowCount={rows.length}>
       <thead>
         <tr>
@@ -723,6 +729,7 @@ function UsersTable({ rows }) {
           <Th>Wallet</Th>
           <Th>Admin</Th>
           <Th>Joined</Th>
+          <Th>Actions</Th>
         </tr>
       </thead>
       <tbody>
@@ -740,10 +747,21 @@ function UsersTable({ rows }) {
             <Td>{fmtMoney(u.wallet_balance)}</Td>
             <Td>{u.is_admin ? <BadgeCheck size={16} className="text-[#0A13E6]" /> : '—'}</Td>
             <Td>{fmtDate(u.created_at)}</Td>
+            <Td>
+              {u.id === adminId || u.is_admin
+                ? <span className="text-[11px] text-black/35">Protected</span>
+                : <button type="button" onClick={() => setSelected(u)}
+                    aria-label={`Delete subscriber @${u.username} and related data`}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-red-200 px-4 text-[11px] font-bold text-red-700 hover:bg-red-50">
+                    Delete user
+                  </button>}
+            </Td>
           </tr>
         ))}
       </tbody>
     </Table>
+    {selected && <AdminUserErasure user={selected} onClose={()=>setSelected(null)} onDeleted={onDeleted}/>}
+    </>
   )
 }
 
