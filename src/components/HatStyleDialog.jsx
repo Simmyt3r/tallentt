@@ -146,7 +146,19 @@ export default function HatStyleDialog({ hat, onClose, onSaved }) {
             <p className="text-[9px] font-black uppercase tracking-wide text-black/35">Bento preview · {bentoMode}</p>
             {bentoMode === 'flyer' && flyer ? (
               <img src={flyer.url} alt="Chosen flier preview" className="mt-2 h-40 w-full rounded-lg object-contain" />
-            ) : <p className="mt-1 text-[15px] font-bold">{hat.hat_name || hat.hat_title}</p>}
+            ) : (
+              <>
+                {template === 'media-first' && images[0] && (
+                  <img src={images[0].url} alt="Media-first layout preview"
+                    className="mb-2 mt-2 aspect-video w-full rounded-xl object-cover"/>
+                )}
+                <p className={`mt-1 ${template === 'bold' ? 'text-[20px] font-black uppercase' :
+                  template === 'editorial' ? 'font-serif text-[19px] italic' :
+                  template === 'dark' ? 'text-[16px] font-bold text-white' : 'text-[15px] font-bold'}`}>
+                  {hat.hat_name || hat.hat_title}
+                </p>
+              </>
+            )}
             <p className="text-[11px] text-black/55">{hat.hat_title} · {hat.category}</p>
             <p className="mt-2 text-[11px] font-black" style={{ color: accent === 'none' || template === 'dark' ? 'inherit' : HAT_ACCENTS[accent].color }}>Price and booking remain platform-controlled</p>
           </div>
