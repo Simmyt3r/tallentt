@@ -24,6 +24,11 @@ export const api = {
   // put the deployment over Vercel Hobby's 12-function cap; see the
   // comment at the top of api/auth/index.js.
   me: () => request('/api/auth?action=me'),
+  getMyOrbitScore: () => request('/api/auth?action=orbit'),
+  getAdminOrbitConfig: () => request('/api/admin?action=orbit_config'),
+  saveAdminOrbitWeights: (weights) => request('/api/admin',{method:'POST',body:JSON.stringify({action:'configure_orbit',weights})}),
+  getAdminHatReviews: () => request('/api/admin?action=hat_data_reviews'),
+  submitAdminHatReview: (hat_id,decision,note) => request('/api/admin',{method:'POST',body:JSON.stringify({action:'review_hat_data',hat_id,decision,note})}),
   register: (body) => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'register', ...body }) }),
   login: (body) => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'login', ...body }) }),
   logout: () => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) }),
