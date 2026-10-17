@@ -326,7 +326,7 @@ export default async function handler(req, res) {
       if (body.delivery_mode != null && !DELIVERY_MODES.includes(body.delivery_mode)) {
         return json(res, 400, { error: 'Invalid delivery mode.' })
       }
-      const duration = normalizeHiringDuration(body.hiring_duration, existing.role, existing.hiring_duration)
+      const duration = normalizeHiringDuration(body.hiring_duration, existing.role, existing.hiring_duration, body.hat_type || existing.hat_type)
       if (!duration.ok) return json(res, 400, { error: duration.error })
 
       // Pricing is only re-validated/re-normalized when the client actually
