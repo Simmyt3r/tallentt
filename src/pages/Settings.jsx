@@ -5,6 +5,7 @@ import {useAuth} from '../context/AuthContext.jsx'
 import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
 import {api} from '../lib/api.js'
 import {useDataMode,setDataMode} from '../lib/dataMode.js'
+import {clearSavedVideos} from '../lib/offlineVideo.js'
 
 export default function Settings(){
   const {user,logout}=useAuth()
@@ -84,6 +85,10 @@ export default function Settings(){
           onChange={e=>setDataMode(e.target.checked?'text':'normal')}
           aria-label="Browse in text-only data saving mode" className="h-5 w-5 shrink-0 accent-[#0A13E6]"/>
       </label>
+      <button type="button" onClick={()=>clearSavedVideos().then(()=>setNotice('Saved offline videos cleared.')).catch(()=>setError('Unable to clear offline videos.'))}
+        className="min-h-10 rounded-full border border-black/20 px-4 text-[12px] font-bold">
+        Clear saved offline videos
+      </button>
       <label className="flex items-center justify-between gap-4 rounded-xl border border-black/10 bg-[#F7F3EB] p-3">
         <span>
           <span className="block text-[12px] font-bold">Show when I am online</span>
