@@ -41,6 +41,8 @@ async function signUpload(userId, body) {
   const permitId = randomUUID()
   const publicId = `chombutar_vibes/${userId}/${permitId}`
   const params = { public_id: publicId, timestamp: Math.floor(Date.now()/1000), overwrite:'false' }
+  if(video && process.env.VIBES_CLOUDINARY_VIDEO_MODERATION==='google_video_moderation')
+    params.moderation='google_video_moderation'
   const signature = cloudinaryUploadSignature(params,cloud.apiSecret)
   await query(`INSERT INTO vibes_upload_permits (id,user_id,public_id,declared_bytes,declared_mime)
     VALUES ($1,$2,$3,$4,$5)`,[permitId,userId,publicId,body.bytes,mime])
@@ -71,7 +73,7 @@ async function videoModeration(asset,cloud){
       body:JSON.stringify({requests:sampleUrls.map(uri=>({
         image:{source:{imageUri:uri}},features:[{type:'SAFE_SEARCH_DETECTION'}],
       }))}),
-      signal:AbortSignal.timeout(20000),
+      signal:AbortSignal.timeout(8000),
     })
     if(!response.ok)return {needs_review:true,risk:'screening_unavailable'}
     const results=(await response.json()).responses
@@ -144,6 +146,59 @@ async function verifyUploads(userId, media) {
       throw bad(422,'This photo requires additional safety review. Choose another photo.')
     return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',bytes:asset.bytes}
   }))
+}
+
+// Checked on the owner's immediate post-upload status polls. Safe
+// Cloudinary AI decisions can publish without an admin. Failed, unknown or
+// suspicious decisions stay held for review.
+async function refreshHeldPost(userId,postId){
+  if(!validId(postId))throw bad(400,'Invalid Vibe post.')
+  const {rows}=await query(`SELECT id,media,moderation_status FROM vibes_posts
+    WHERE id=$1 AND author_id=$2 AND deleted_at IS NULL`,[postId,userId])
+  const post=rows[0]
+  if(!post)throw bad(404,'Post not found.')
+  if(post.moderation_status!=='held')return {status:post.moderation_status}
+  const cloud=mediaConfig()
+  for(const item of post.media||[]){
+    const type=item.type==='video'?'video':'image'
+    const endpoint=`https://api.cloudinary.com/v1_1/${cloud.cloudName}/resources/${type}/upload/${encodeURIComponent(item.public_id)}`
+    let asset
+    try{
+      const response=await fetch(endpoint,{
+        headers:{Authorization:'Basic '+Buffer.from(cloud.apiKey+':'+cloud.apiSecret).toString('base64')},
+        signal:AbortSignal.timeout(5000),
+      })
+      if(!response.ok)return {status:'held'}
+      asset=await response.json()
+    }catch{return {status:'held'}}
+    if(asset.public_id!==item.public_id||asset.secure_url!==item.url)
+      return {status:'held'}
+    if(type==='video'){
+      const decision=await videoModeration(asset,cloud)
+      if(decision.needs_review)return {status:'held'}
+    }else{
+      const key=process.env.GOOGLE_CLOUD_VISION_API_KEY
+      if(!key)return {status:'held'}
+      try{
+        const checked=await fetch('https://vision.googleapis.com/v1/images:annotate',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-goog-api-key':key},
+          body:JSON.stringify({requests:[{image:{source:{imageUri:item.url}},
+            features:[{type:'SAFE_SEARCH_DETECTION'}]}]}),
+          signal:AbortSignal.timeout(5000),
+        })
+        if(!checked.ok)return {status:'held'}
+        const annotation=(await checked.json()).responses?.[0]?.safeSearchAnnotation
+        if(!annotation||['LIKELY','VERY_LIKELY'].includes(annotation.adult)||
+          ['LIKELY','VERY_LIKELY'].includes(annotation.violence)||
+          annotation.racy==='VERY_LIKELY')return {status:'held'}
+      }catch{return {status:'held'}}
+    }
+  }
+  await query(`UPDATE vibes_posts SET moderation_status='visible'
+    WHERE id=$1 AND author_id=$2 AND moderation_status='held' AND deleted_at IS NULL`,
+    [postId,userId])
+  return {status:'visible'}
 }
 
 async function publish(userId, body) {
@@ -334,6 +389,8 @@ export default async function handler(req,res) {
   try {
     if(req.method==='GET') {
       const url=new URL(req.url,`http://${req.headers.host}`)
+      const statusId=url.searchParams.get('moderation_status')
+      if(statusId)return json(res,200,await refreshHeldPost(session.sub,statusId))
       return json(res,200,url.searchParams.has('comments')
         ? await getComments(session.sub,url)
         : await feed(session.sub,url))
