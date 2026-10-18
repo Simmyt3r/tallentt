@@ -11,7 +11,8 @@ const UUID = /^[a-f\d]{8}-[a-f\d]{4}-[1-8][a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12
 const IMAGE_MIMES = new Set(['image/jpeg','image/png','image/webp'])
 const VIDEO_MIMES = new Set(['video/mp4','video/webm','video/quicktime'])
 const REASONS = new Set(['spam','harassment','unsafe','other'])
-const MAX_IMAGES = 4
+const MAX_MEDIA = 10
+const MAX_POST_BYTES = 80 * 1024 * 1024
 const bad = (status, message) => Object.assign(new Error(message), { status })
 const validId = (value) => UUID.test(String(value || ''))
 const maxBody = (value, max) => typeof value === 'string' ? value.trim().slice(0, max + 1) : ''
@@ -36,7 +37,7 @@ async function signUpload(userId, body) {
     "SELECT COUNT(*)::int AS n FROM vibes_upload_permits WHERE user_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",
     [userId],
   )
-  if (rows[0].n >= 20) throw bad(429,'Photo upload limit reached. Try again later.')
+  if (rows[0].n >= 50) throw bad(429,'Media upload limit reached. Try again later.')
   const permitId = randomUUID()
   const publicId = `chombutar_vibes/${userId}/${permitId}`
   const params = { public_id: publicId, timestamp: Math.floor(Date.now()/1000), overwrite:'false' }
@@ -46,8 +47,46 @@ async function signUpload(userId, body) {
   return {cloudName:cloud.cloudName, apiKey:cloud.apiKey,permitId,params,signature,resourceType:video?'video':'image'}
 }
 
+// Fast automatic video moderation uses approved provider decisions when
+// available, otherwise scans a small spread of video frames with Vision.
+// Unknown, unavailable and flagged results require review; never label
+// an unscanned video as AI-approved.
+async function videoModeration(asset,cloud){
+  const decisions=Array.isArray(asset.moderation)?asset.moderation:[]
+  if(decisions.some(d=>d.status==='rejected'))return {needs_review:true,risk:'provider_rejected'}
+  if(decisions.some(d=>d.status==='approved'))return {needs_review:false,risk:null}
+  if(decisions.some(d=>['pending','queued'].includes(d.status)))return {needs_review:true,risk:'provider_pending'}
+  const key=process.env.GOOGLE_CLOUD_VISION_API_KEY
+  if(!key)return {needs_review:true,risk:'screening_unconfigured'}
+  const duration=Number(asset.duration)
+  if(!Number.isFinite(duration)||duration<=0)return {needs_review:true,risk:'duration_unknown'}
+  const samples=[0.1,0.25,0.5,0.75,0.95]
+    .map(frac=>Math.max(0,Math.min(duration-0.05,frac*duration)))
+  const sampleUrls=[...new Set(samples.map(t=>t.toFixed(2)))].map(time=>
+    `https://res.cloudinary.com/${cloud.cloudName}/video/upload/so_${time},f_jpg/${asset.public_id}.jpg`)
+  try{
+    const response=await fetch('https://vision.googleapis.com/v1/images:annotate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-goog-api-key':key},
+      body:JSON.stringify({requests:sampleUrls.map(uri=>({
+        image:{source:{imageUri:uri}},features:[{type:'SAFE_SEARCH_DETECTION'}],
+      }))}),
+      signal:AbortSignal.timeout(20000),
+    })
+    if(!response.ok)return {needs_review:true,risk:'screening_unavailable'}
+    const results=(await response.json()).responses
+    if(!Array.isArray(results)||results.length!==sampleUrls.length)
+      return {needs_review:true,risk:'screening_incomplete'}
+    const risk=results.some(row=>row.error||!row.safeSearchAnnotation||
+      ['LIKELY','VERY_LIKELY'].includes(row.safeSearchAnnotation.adult)||
+      ['LIKELY','VERY_LIKELY'].includes(row.safeSearchAnnotation.violence)||
+      ['LIKELY','VERY_LIKELY'].includes(row.safeSearchAnnotation.racy))
+    return {needs_review:risk,risk:risk?'unsafe_or_incomplete':null}
+  }catch{return {needs_review:true,risk:'screening_unavailable'}}
+}
+
 async function verifyUploads(userId, media) {
-  if (!Array.isArray(media) || media.length > MAX_IMAGES) throw bad(400,'Attach up to four photos or videos.')
+  if (!Array.isArray(media) || media.length > MAX_MEDIA) throw bad(400,'Attach at most ten photos or videos per post.')
   if (!media.length) return []
   const cloud = mediaConfig()
   const seen = new Set()
@@ -79,11 +118,12 @@ async function verifyUploads(userId, media) {
       !Number.isSafeInteger(asset.version) || asset.version<1)
       throw bad(422,'Photo does not match its upload authorization.')
     if(resourceType==='video'){
-      // All videos are withheld from the public until admin media review.
-      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'video'}
+      const decision=await videoModeration(asset,cloud)
+      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,
+        type:'video',bytes:asset.bytes,needs_review:decision.needs_review}
     }
     if(!process.env.GOOGLE_CLOUD_VISION_API_KEY)
-      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',needs_review:true}
+      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',bytes:asset.bytes,needs_review:true}
     // Fail closed when screening is unreachable. Do not disclose images until a
     // safety decision has been obtained.
     let screened
@@ -102,7 +142,7 @@ async function verifyUploads(userId, media) {
        ['LIKELY','VERY_LIKELY'].includes(safety.violence) ||
        safety.racy==='VERY_LIKELY')
       throw bad(422,'This photo requires additional safety review. Choose another photo.')
-    return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image'}
+    return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',bytes:asset.bytes}
   }))
 }
 
@@ -110,6 +150,8 @@ async function publish(userId, body) {
   const text=maxBody(body.text,10000)
   if(text.length>10000) throw bad(400,'Posts can contain up to 10,000 characters.')
   const verified=await verifyUploads(userId,body.media || [])
+  if(verified.reduce((sum,item)=>sum+item.bytes,0)>MAX_POST_BYTES)
+    throw bad(413,'Attachments exceed 80MB in total. Remove or compress some files.')
   if(!text && !verified.length) throw bad(400,'Write something or add media.')
   const client=await getClient()
   try {
@@ -123,7 +165,7 @@ async function publish(userId, body) {
       `INSERT INTO vibes_posts (author_id,body,media,moderation_status)
        VALUES($1,$2,$3::jsonb,$4) RETURNING id`,
       [userId,text,JSON.stringify(verified.map(({url,public_id,type})=>({url,public_id,type}))),
-        verified.some(item=>item.type==='video'||item.needs_review)?'held':'visible'],
+        verified.some(item=>item.needs_review)?'held':'visible'],
     )
     for(const photo of verified) {
       const {rowCount}=await client.query(`UPDATE vibes_upload_permits SET claimed_at=NOW(),claimed_post_id=$1
