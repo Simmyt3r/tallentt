@@ -1,21 +1,49 @@
 // Path: src/lib/api.js
 import { supportedHatMediaMime, MAX_HAT_MEDIA_BYTES } from '../../shared/hatMediaTypes.js'
 const base = ''
-
-async function request(path, options = {}) {
-  const res = await fetch(`${base}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const err = new Error(data.error || res.statusText || 'Request failed')
-    err.status = res.status
-    err.data = data
+// Private in-memory route cache: survives tab-to-tab SPA navigation, but is
+// neither shared across accounts nor written to the browser's disk. Mutations
+// invalidate it. Finance/admin endpoints deliberately opt out.
+const responseCache=new Map()
+const MAX_CACHE_ITEMS=75
+function cacheTtl(path){
+  if(/^\/api\/vibes(?:\?|$)/.test(path))return 60_000
+  if(/^\/api\/hats(?:\/|\?|$)/.test(path))return 100_000
+  if(/^\/api\/showroom(?:\?|$)/.test(path))return 45_000
+  return 0
+}
+export function clearRouteCache(){responseCache.clear()}
+export async function request(path,options={}){
+  const method=String(options.method||'GET').toUpperCase()
+  const ttl=method==='GET'&&options.cache!=='no-store'?cacheTtl(path):0
+  const cached=ttl?responseCache.get(path):null
+  if(cached && Date.now()-cached.at<ttl)return structuredClone(cached.data)
+  try{
+    const res=await fetch(`${base}${path}`,{
+      credentials:'include',
+      headers:{'Content-Type':'application/json',...(options.headers||{})},
+      ...options,
+    })
+    const data=await res.json().catch(()=>({}))
+    if(!res.ok){
+      const err=new Error(data.error||res.statusText||'Request failed')
+      err.status=res.status;err.data=data
+      throw err
+    }
+    if(method!=='GET' && !['presence_heartbeat'].some(action=>String(options.body||'').includes(action))){
+      clearRouteCache()
+    }
+    if(ttl){
+      responseCache.set(path,{at:Date.now(),data})
+      if(responseCache.size>MAX_CACHE_ITEMS)responseCache.delete(responseCache.keys().next().value)
+    }
+    return data
+  }catch(err){
+    // Only recover from network outages, never from real authorization or
+    // validation errors. Avoid stale financial data and admin state.
+    if(ttl&&cached&&!err.status)return structuredClone(cached.data)
     throw err
   }
-  return data
 }
 
 export const api = {
