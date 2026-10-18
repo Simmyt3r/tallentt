@@ -94,7 +94,7 @@ async function verifyUploads(userId, media) {
   if (!media.length) return []
   const cloud = mediaConfig()
   const seen = new Set()
-  return Promise.all(media.map(async (item) => {
+  const verifyOne=async item=>{
     if (!item || !validId(item.upload_id) || typeof item.public_id !== 'string' ||
         item.public_id.length > 200 || typeof item.url !== 'string' ||
         seen.has(item.public_id)) throw bad(422,'Upload each photo through Vibes once.')
@@ -153,7 +153,16 @@ async function verifyUploads(userId, media) {
        safety.racy==='VERY_LIKELY')
       throw bad(422,'This photo requires additional safety review. Choose another photo.')
     return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',bytes:asset.bytes}
+  }
+  const result=new Array(media.length)
+  let next=0
+  await Promise.all(Array.from({length:Math.min(3,media.length)},async()=>{
+    while(next<media.length){
+      const index=next++
+      result[index]=await verifyOne(media[index])
+    }
   }))
+  return result
 }
 
 // Checked on the owner's immediate post-upload status polls. Safe
