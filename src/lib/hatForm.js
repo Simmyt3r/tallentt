@@ -424,6 +424,11 @@ export function validateForm(form, ctx) {
     errors.hiringDuration = 'Choose how long this hiring is expected to last.'
   }
 
+  if (role==='client' && form.hiringDuration==='Permanent job'
+    && ['Freelance','Contract'].includes(form.hatType)){
+    errors.hiringDuration='Permanent jobs require Full-time or Part-time. Select a limited term instead.'
+  }
+
   if (media.uploading > 0) errors.media = 'Wait for uploads to finish.'
   else if (media.failed > 0) errors.media = 'Retry or remove the files that failed to upload.'
   else if (copy.mediaRequired && media.ready === 0) errors.media = 'Add at least one photo, video or audio file. Talent Hats need media.'
