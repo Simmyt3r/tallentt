@@ -44,7 +44,7 @@ const SECTIONS = [
   { id: 'applications', label: 'Applications', icon: ClipboardList },
   { id: 'showroom', label: 'Showroom Reports', icon: Flag },
   { id: 'showroom-gallery', label: 'Showcase Moderation', icon: ShieldCheck },
-  { id: 'vibes-videos', label: 'Vibes Video Review', icon: ShieldCheck },
+  { id: 'vibes-videos', label: 'Vibes Reports & Media', icon: ShieldCheck },
   { id: 'showroom-config', label: 'Showroom Settings', icon: ShieldCheck },
   { id: 'push', label: 'Push Setup', icon: BellRing },
   { id: 'migrations', label: 'Database Migrations', icon: Database },
