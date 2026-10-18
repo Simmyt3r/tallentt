@@ -89,7 +89,8 @@ export default function CardOwnerHatDetails({detail,hat,entertainment=false}){
             {(job.is_open ?? detail?.is_open ?? (hat?.active && hat?.availability)) ? 'Open for applications / booking':'Closed'}
           </span>
         </Item>
-        <Item label="Job type">{[type,duration].filter(Boolean).join(' · ')}</Item>
+        <Item label="Job type">{type}</Item>
+        {duration && <Item label="Hiring period">{duration}</Item>}
         <Item label="Hat Location">{jobLocation}</Item>
         <Item label="Price / budget">{price}</Item>
         <Item label="Available">{hat?.available_days ? formatAvailabilityWindow(hat) : null}</Item>
