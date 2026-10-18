@@ -1,11 +1,14 @@
 import {useEffect,useRef,useState} from 'react'
 import {ChevronLeft,ChevronRight,X} from 'lucide-react'
 import {cldImage,cldVideoPoster} from '../lib/cloudinary.js'
+import {useDataMode} from '../lib/dataMode.js'
 
 // Opening any attachment gives a single gallery for the entire post. Videos
 // only load their first bytes when opened, preserving mobile data.
 export default function VibesMediaGallery({media=[],owner='subscriber'}){
   const [active,setActive]=useState(null)
+  const [showInSaver,setShowInSaver]=useState(false)
+  const dataMode=useDataMode()
   const closeRef=useRef(null)
   const previousFocus=useRef(null)
   const startTouch=useRef(null)
@@ -24,6 +27,11 @@ export default function VibesMediaGallery({media=[],owner='subscriber'}){
   if(!Array.isArray(media)||!media.length)return null
   const open=i=>{previousFocus.current=document.activeElement;setActive(i)}
   const current=active==null?null:media[active]
+  if(dataMode==='text'&&!showInSaver)return <button type="button"
+    onClick={()=>setShowInSaver(true)}
+    className="mt-3 w-full rounded-xl border border-black/15 bg-[#F7F3EB] px-4 py-5 text-[12px] font-bold text-[#0A13E6]">
+    {media.length} media attachment{media.length===1?'':'s'} hidden to save data · Tap to view
+  </button>
   return <>
     <div className={`mt-3 grid gap-1 overflow-hidden rounded-xl ${media.length>1?'grid-cols-2':'grid-cols-1'}`}>
       {media.slice(0,4).map((item,i)=><button key={item.public_id||i}
