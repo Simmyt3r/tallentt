@@ -26,6 +26,20 @@ export default defineConfig({
       workbox: {
         runtimeCaching: [
           {
+            // Opt-in offline copies only; ordinary video playback does not
+            // populate this potentially expensive cache automatically.
+            urlPattern: ({url})=>url.hostname==='res.cloudinary.com'
+              && url.searchParams.get('offline')==='1'
+              && /\\.(mp4|webm|mov)$/i.test(url.pathname),
+            handler:'CacheFirst',
+            options:{
+              cacheName:'chombutar-offline-videos-v1',
+              rangeRequests:true,
+              cacheableResponse:{statuses:[200]},
+              expiration:{maxEntries:5,maxAgeSeconds:60*60*24*7},
+            },
+          },
+          {
             // Cloudinary images — photos, avatars, and the video "poster"
             // stills requested via cldVideoPoster() in src/lib/cloudinary.js
             // (a /video/upload/ URL that ends in .jpg, not an actual video
