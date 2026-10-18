@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import BentoCard from './BentoCard'
 import HatFeedToggle from './HatFeedToggle'
+import DiscoverySearch from './DiscoverySearch.jsx'
 import { Link } from 'react-router-dom'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 import UserIdentity from './UserIdentity'
@@ -14,6 +15,7 @@ import { identityFromHat } from '../lib/profile.js'
 export default function MyHats() {
   const { user } = useAuth()
   const [hats, setHats] = useState([])
+  const [search,setSearch]=useState('')
   const [stylingHat, setStylingHat] = useState(null)
   const [hiddenShowroom, setHiddenShowroom] = useState(new Set())
   const [reviewNotes, setReviewNotes] = useState({})
@@ -44,6 +46,12 @@ export default function MyHats() {
       cancelled = true
     }
   }, [user?.id])
+
+  const filteredHats=hats.filter(h=>{
+    const needle=search.trim().toLowerCase().replace(/^[@^]+/,'')
+    return !needle || [h.hat_name,h.hat_title,h.category,h.motto,h.job_requirements,h.lga,h.role]
+      .some(value=>String(value||'').toLowerCase().includes(needle))
+  })
 
   function setMode(m) {
     setViewMode(m)
@@ -80,12 +88,13 @@ export default function MyHats() {
     }catch(error){alert(error?.message || 'Unable to update Showroom visibility.')}
   }
   function showroomControl(h){
-    if(h.role!=='talent' || !(h.media||[]).length)return null
+    if(h.role!=='talent')return null
     const hidden=hiddenShowroom.has(h.id)
-    return <button type="button" onClick={()=>setShowroomVisible(h.id,hidden)}
+    const eligible=(h.media||[]).length>0
+    return <button type="button" disabled={!eligible} title={!eligible?'Add approved media to this Hat before sharing it in Showroom':undefined} onClick={()=>setShowroomVisible(h.id,hidden)}
       aria-label={`${hidden?'Show':'Hide'} ${h.hat_title} ${hidden?'in':'from'} Showroom`}
-      className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-[#0A13E6]/25 bg-white px-4 text-[11px] font-bold text-[#0A13E6]">
-      <Eye size={14}/> {hidden?'Show in Showroom':'Hide from Showroom'}
+      className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-[#0A13E6]/25 bg-white px-4 text-[11px] font-bold text-[#0A13E6] disabled:opacity-50">
+      <Eye size={14}/> {!eligible?'Show in Showroom · add media first':hidden?'Show in Showroom':'Hide from Showroom'}
     </button>
   }
 
@@ -111,6 +120,8 @@ export default function MyHats() {
           <p className="text-[12px] text-black/50 font-medium mt-0.5">{hats.length} hat{hats.length !== 1 ? 's' : ''}</p>
           <p className="text-[12px] text-black/50 mt-1">Choose which Hats appear in the Bento feed. Range pricing requires a fee notice confirmation.</p>
         </div>
+        <DiscoverySearch value={search} onChange={setSearch} placeholder="Search My Hats…"
+          label="Search your Hats" className="ml-auto w-full max-w-[min(52vw,340px)]"/>
         <div className="flex items-center gap-2">
           <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5">
             <button
@@ -155,7 +166,7 @@ export default function MyHats() {
         </div>
       ) : viewMode === 'grid' ? (
         <div className="hats-grid items-start">
-          {hats.map((h) => (
+          {filteredHats.map((h) => (
             <div key={h.id} className="relative group min-w-0 space-y-2">
               <div className="relative">
                 <BentoCard hat={h} fullWidth onHatChange={handleHatChange} />
@@ -195,7 +206,7 @@ export default function MyHats() {
         </div>
       ) : (
         <ul className="bg-white rounded-[20px] border-[1.5px] border-black divide-y divide-black/10 overflow-hidden">
-          {hats.map((h) => (
+          {filteredHats.map((h) => (
             <li key={h.id} className="hover:bg-[#F5F3EF]/50 transition">
               <div className="flex flex-wrap items-center gap-3 sm:gap-4 p-4">
                 <div className="w-12 h-12 rounded-[12px] bg-[#F5F3EF] overflow-hidden shrink-0 border-[1.5px] border-black/10">
