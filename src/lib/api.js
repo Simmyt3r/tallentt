@@ -116,8 +116,8 @@ export const api = {
   moderateVibesVideo: (post_id,decision) => request('/api/admin',{
     method:'POST',body:JSON.stringify({action:'vibes_video_decision',post_id,decision}),
   }),
-  getVibes: (before, post) => request(`/api/vibes?${new URLSearchParams({
-    ...(before ? { before } : {}), ...(post ? { post } : {}),
+  getVibes: (before, post, search = '') => request(`/api/vibes?${new URLSearchParams({
+    ...(before ? { before } : {}), ...(post ? { post } : {}),...(search ? {search} : {}),
   })}`),
   getVibeReplies: (postId, before) => request(`/api/vibes?${new URLSearchParams({
     comments: postId, ...(before ? { before } : {}),
