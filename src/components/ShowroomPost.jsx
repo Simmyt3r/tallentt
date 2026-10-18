@@ -6,6 +6,7 @@ import AvailabilityBadge from './AvailabilityBadge'
 import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
 import RoleCardBadge from './RoleCardBadge'
+import {useDataMode} from '../lib/dataMode.js'
 
 // True when a clamped paragraph is actually cut off, so "More" only shows
 // when there is something more to read. Re-measured on resize because the
@@ -47,6 +48,9 @@ function ShowroomPost({
   onView,
   observe,
 }) {
+  const dataMode=useDataMode()
+  const [loadInSaver,setLoadInSaver]=useState(false)
+  const renderMedia=dataMode!=='text'||loadInSaver
   const rootRef = useRef(null)
   const captionRef = useRef(null)
   const media = hat.media?.[0]
@@ -84,14 +88,17 @@ function ShowroomPost({
     >
       <div className="relative flex-1 min-h-0 bg-[#0b0b0b]">
         {hat.is_entertainment && <span className="pointer-events-none absolute top-3 left-3 z-10 rounded-full bg-black/75 px-3 py-1.5 text-[10px] font-bold text-white">Showcase · no booking</span>}
-        <ShowroomMedia
+        {renderMedia ? <ShowroomMedia
           media={media}
           alt={caption || `${ownerName}'s Showroom ${isVideo ? 'video' : 'post'}`}
-          playing={playing}
+          playing={playing && renderMedia}
           muted={muted}
           onMutedChange={onMutedChange}
           onOpen={() => onView(hat.id)}
-        />
+        /> : <button type="button" onClick={()=>setLoadInSaver(true)}
+          className="absolute inset-0 grid place-items-center bg-[#111827] px-6 text-center text-[13px] font-bold text-white">
+          Tap to load {isVideo?'video':'photo'} · Data saver is on
+        </button>}
         {isVideo && <button type="button" onClick={() => onView(hat.id)}
           className="absolute inset-x-0 top-0 bottom-14 z-20 flex items-start justify-end p-3 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
           aria-label={`View details for ${ownerName}'s video`}>
