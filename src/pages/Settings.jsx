@@ -4,9 +4,11 @@ import {Bell,LockKeyhole,LogOut,Settings2,UserRound,Wallet} from 'lucide-react'
 import {useAuth} from '../context/AuthContext.jsx'
 import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
 import {api} from '../lib/api.js'
+import {useDataMode,setDataMode} from '../lib/dataMode.js'
 
 export default function Settings(){
   const {user,logout}=useAuth()
+  const dataMode=useDataMode()
   const navigate=useNavigate()
   const [section,setSection]=useState('account')
   const [resetBusy,setResetBusy]=useState(false)
@@ -73,6 +75,15 @@ export default function Settings(){
           <dd className="capitalize text-[12px] font-semibold">{user?.role||'Subscriber'}</dd>
         </div>
       </dl>
+      <label className="flex items-center justify-between gap-4 rounded-xl border border-black/10 bg-[#F7F3EB] p-3">
+        <span>
+          <span className="block text-[12px] font-bold">Text-only browsing (data saver)</span>
+          <span className="mt-1 block text-[11px] text-black/55">Skip Showroom and Vibes media until you tap to load a post. Your previously cached images remain available offline.</span>
+        </span>
+        <input type="checkbox" checked={dataMode==='text'}
+          onChange={e=>setDataMode(e.target.checked?'text':'normal')}
+          aria-label="Browse in text-only data saving mode" className="h-5 w-5 shrink-0 accent-[#0A13E6]"/>
+      </label>
       <label className="flex items-center justify-between gap-4 rounded-xl border border-black/10 bg-[#F7F3EB] p-3">
         <span>
           <span className="block text-[12px] font-bold">Show when I am online</span>
