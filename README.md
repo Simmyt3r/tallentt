@@ -73,6 +73,72 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
 
 
+## October 18 media, navigation and data efficiency
+
+- **Hits & Vibes** now accepts up to **10** media attachments in a post, with
+  per-file limits (images 8MB, videos 20MB), an **80MB aggregate budget**,
+  and server-side upload-rate limits. The limit is not globally unlimited:
+  large unlimited batches harm mobile users and increase moderation costs.
+  Tap any attachment to open the **whole post's** photo/video lightbox,
+  select from thumbnails, swipe or use arrows, and close without a fresh feed
+  navigation.
+- **Automated content moderation:** Signed Cloudinary assets are verified
+  against the exact upload permit. Cloudinary moderation decisions are honored
+  for photos and videos, when configured. Video uploads may also be sampled
+  across multiple frames by Google Vision. **Only assets with a positive
+  automated clearance publish immediately.** Uncertain/flagged results remain
+  held for administrative review. The uploader can automatically recheck
+  asynchronous decisions after upload. User-submitted reports enter the
+  **Admin → Vibes Reports & Media** queue without blocking unreported posts;
+  moderators can remove content or dismiss unsubstantiated reports.
+  Google Vision frame samples alone do *not* inspect every frame, audio
+  track, or video context. For production-scale video moderation, enable a
+  licensed Cloudinary video moderation provider and test it.
+  Environment options:
+  `VIBES_CLOUDINARY_IMAGE_MODERATION=aws_rek` or `webpurify`
+  (supported add-on required),
+  `VIBES_CLOUDINARY_VIDEO_MODERATION=google_video_moderation`
+  (licensed add-on required), or
+  `GOOGLE_CLOUD_VISION_API_KEY` for image / sampled-frame screening.
+  **Do not** set provider names unless your Cloudinary account supports them.
+  If screening is not configured, uploads fail closed into review; we
+  cannot honestly call those media "automatically approved."
+- **Showroom captions:** Tap **Showroom → + → Create Hat / Existing Hat /
+  Gallery → Choose media → Add a caption**. Captions are separate from
+  the short Hat tagline and shown alongside the Showroom media.
+- **Client BentoCards** show a single **Job type**, never a concatenation
+  such as Freelance · Permanent. The **Hiring period** is a separately
+  labelled field in details. New permanent freelance/contract combinations
+  are rejected by client and server validation.
+- **My Hats**, both grid and list, show explicit
+  **Show/Hide in BentoField** and **Show/Hide in Showroom** controls.
+  Only Talent Hats with media may use the Showroom posting toggle.
+- All requested primary tabs use the **same** lighter/thinner
+  `DiscoverySearch` field. Vibes search covers posts and creators;
+  My Hats and My Deals search locally loaded records.
+- **Navigation:** Close a primary tab directly to Showroom; detail page
+  back controls respect local page history; browser Back crossing distinct
+  primary tab boundaries returns to Showroom.
+- **Data Saver:** Settings → Account → **Text-only browsing** hides Vibes
+  and Showroom media until explicitly opened. Short-lived **memory-only**
+  cache reuses recently fetched Hats/Vibes/Showroom data on back navigation,
+  invalidates on writes, and never persists private finance/deal pages.
+  Cloudinary images remain cached by the PWA. Users can **opt in** to saving
+  up to 5 small videos (up to 24MB each) from a Vibes gallery and clear them
+  in Settings. Video offline seeking requires browser/PWA validation,
+  particularly on iOS; do not imply every stream can be watched offline.
+- **Live Broadcast:** Fixed MediaMTX HLS read/playback authorization:
+  active public viewers may read without stealing the publisher's
+  one-time WHIP token; unauthorized publishing remains denied. Browser-side
+  HTTPS endpoints are required in production. It still needs external
+  persistent MediaMTX/TURN/HLS infrastructure. Setup and two-device
+  acceptance: [Live deployment](docs/LIVE_DEPLOYMENT.md).
+
+**Migration order:** Apply the existing Vibes and media migrations followed
+by `vibes-media-capacity-2026-10` through the allowlisted Admin migrations
+screen. Make a database backup first. Run `npm run verify`, the UI tests,
+and a live broadcaster + independent viewer test before production.
+
 ## October 17 Vibes, presence, sharing and broadcast corrections
 
 **Migrations:** Run these allowlisted migrations through Admin → Database
