@@ -135,13 +135,17 @@ try{
     assert.equal(await showroomSearch.inputValue(), '')
     assert.equal(await page.getByRole('button',{name:'Search Showroom'}).count(),0)
 
-    // Search is intentionally not duplicated in unrelated tabs.
-    await page.goto('http://127.0.0.1:5185/vibes')
-    assert.equal(await page.getByRole('searchbox').count(),0)
-    await page.goto('http://127.0.0.1:5185/my-hats')
-    assert.equal(await page.getByRole('searchbox').count(),0)
-    await page.goto('http://127.0.0.1:5185/deals')
-    assert.equal(await page.getByRole('searchbox').count(),0)
+    // Every major tab exposes the same compact pill search, with one
+    // search box and no duplicate icon/button per tab.
+    for(const [path,label] of [
+      ['/vibes','Search Vibes posts and people'],
+      ['/my-hats','Search your Hats'],
+      ['/deals','Search loaded deal records'],
+    ]){
+      await page.goto('http://127.0.0.1:5185'+path)
+      await page.getByRole('searchbox',{name:label}).waitFor()
+      assert.equal(await page.getByRole('searchbox').count(),1)
+    }
     await page.goto('http://127.0.0.1:5185/showroom')
 
     await quickActions.getByRole('link', { name: 'Messages' }).click()
