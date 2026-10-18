@@ -19,6 +19,14 @@ function requiredHttpBase(name) {
   } catch {
     throw mediaError(`${name} must be a valid HTTP(S) URL.`, 500)
   }
+  // An HTTPS website cannot publish to an HTTP WHIP URL or play an
+  // HTTP HLS playlist. Mixed-content blocking otherwise looks like a
+  // mysterious camera/broadcast failure.
+  if (process.env.NODE_ENV === 'production' &&
+      ['LIVE_WHIP_URL','LIVE_HLS_BASE_URL'].includes(name) &&
+      url.protocol !== 'https:') {
+    throw mediaError(`${name} must be HTTPS for production browsers.`,500)
+  }
   if (!HTTP_PROTOCOLS.has(url.protocol) || url.username || url.password) {
     throw mediaError(`${name} must use HTTP(S) and must not embed credentials.`, 500)
   }
