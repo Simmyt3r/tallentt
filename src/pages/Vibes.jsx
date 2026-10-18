@@ -225,8 +225,28 @@ export default function Vibes() {
   const [publishing,setPublishing]=useState(false)
   const [postError,setPostError]=useState('')
   const [feedTick,setFeedTick]=useState(0)
+  const [reviewingPost,setReviewingPost]=useState(null)
 
   useEffect(()=>{const id=setTimeout(()=>setServerSearch(search.trim()),250);return()=>clearTimeout(id)},[search])
+  useEffect(()=>{
+    if(!reviewingPost)return undefined
+    let cancelled=false
+    let attempts=0
+    const interval=setInterval(async()=>{
+      if(++attempts>7){clearInterval(interval);return}
+      try{
+        const result=await api.getVibeModerationStatus(reviewingPost)
+        if(cancelled)return
+        if(result.status==='visible'){
+          clearInterval(interval)
+          setReviewingPost(null)
+          setPostError('Your media passed automated screening and is now published.')
+          setFeedTick(t=>t+1)
+        }
+      }catch{/* Review queue is still available if screening is temporarily offline. */}
+    },12000)
+    return()=>{cancelled=true;clearInterval(interval)}
+  },[reviewingPost])
   useEffect(()=>{photosRef.current=photos},[photos])
   useEffect(()=>()=>photosRef.current.forEach(item=>URL.revokeObjectURL(item.preview)),[])
   useEffect(()=>{
@@ -272,7 +292,10 @@ export default function Vibes() {
         uploads.push(await uploadVibePhoto(file))
       }
       const result=await api.publishVibe(text.trim(),uploads)
-      if(result.pending_review)setPostError('Media submitted for moderation. It will appear in Vibes after approval.')
+      if(result.pending_review){
+        setReviewingPost(result.id)
+        setPostError('Safety screening is checking this upload. Uncertain content is flagged for review; approved content appears automatically.')
+      }
       photos.forEach(item=>URL.revokeObjectURL(item.preview))
       setPhotos([]);setText('')
       setFeedTick(current=>current+1)
