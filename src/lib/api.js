@@ -144,6 +144,8 @@ export const api = {
   moderateVibesVideo: (post_id,decision) => request('/api/admin',{
     method:'POST',body:JSON.stringify({action:'vibes_video_decision',post_id,decision}),
   }),
+  getVibeModerationStatus: (postId) => request(`/api/vibes?moderation_status=${encodeURIComponent(postId)}`,{cache:'no-store'})
+    .then(result=>{if(result.status==='visible')clearRouteCache();return result}),
   getVibes: (before, post, search = '') => request(`/api/vibes?${new URLSearchParams({
     ...(before ? { before } : {}), ...(post ? { post } : {}),...(search ? {search} : {}),
   })}`),
