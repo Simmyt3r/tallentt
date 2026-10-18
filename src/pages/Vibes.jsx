@@ -314,13 +314,13 @@ export default function Vibes() {
   }
   const change=(id,patch)=>setPosts(current=>current.map(p=>p.id===id?{...p,...patch}:p))
   return <main className="mx-auto max-w-[660px] space-y-4 pb-10">
-    <div className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 flex items-center justify-between gap-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
-      <div>
-        <h1 className="text-[23px] font-black tracking-tight">Hits & Vibes</h1>
+    <div className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 flex items-center justify-between gap-2 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
+      <div className="min-w-0 flex-1">
+        <h1 className="text-[18px] sm:text-[23px] font-black tracking-tight">Hits & Vibes</h1>
         <p className="text-[12px] text-black/50">Share your thoughts, photos or videos. Most uploads publish automatically after safety screening. Flagged media goes to review.</p>
       </div>
       <DiscoverySearch value={search} onChange={setSearch} placeholder="Search Vibes…"
-          label="Search Vibes posts and people" className="w-full max-w-[min(52vw,340px)] shrink-0" />
+          label="Search Vibes posts and people" className="w-full max-w-[min(48vw,340px)] min-w-[115px] shrink-0" />
     </div>
     <form onSubmit={publish} aria-label="Create a Vibe" className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
       <div className="flex gap-3">
