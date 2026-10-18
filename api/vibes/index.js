@@ -56,8 +56,8 @@ async function signUpload(userId, body) {
 async function videoModeration(asset,cloud){
   const decisions=Array.isArray(asset.moderation)?asset.moderation:[]
   if(decisions.some(d=>d.status==='rejected'))return {needs_review:true,risk:'provider_rejected'}
-  if(decisions.some(d=>d.status==='approved'))return {needs_review:false,risk:null}
-  if(decisions.some(d=>['pending','queued'].includes(d.status)))return {needs_review:true,risk:'provider_pending'}
+  if(decisions.some(d=>d.status!=='approved'))return {needs_review:true,risk:'provider_pending'}
+  if(decisions.length>0)return {needs_review:false,risk:null}
   const key=process.env.GOOGLE_CLOUD_VISION_API_KEY
   if(!key)return {needs_review:true,risk:'screening_unconfigured'}
   const duration=Number(asset.duration)
