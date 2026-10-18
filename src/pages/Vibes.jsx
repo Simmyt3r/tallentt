@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Heart, ImagePlus, MessageCircle, Send, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
 import EntryActions from '../components/EntryActions.jsx'
+import VibesMediaGallery from '../components/VibesMediaGallery.jsx'
+import DiscoverySearch from '../components/DiscoverySearch.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api, uploadVibePhoto } from '../lib/api.js'
 import { compressImageFile } from '../lib/media.js'
 import { cldImage } from '../lib/cloudinary.js'
 
-const MAX_PHOTOS = 4
+const MAX_PHOTOS = 10
+const MAX_POST_BYTES = 80 * 1024 * 1024
 const dateText = value => {
   try { return new Date(value).toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) }
   catch { return '' }
@@ -29,7 +32,7 @@ function Identity({user}) {
     <Avatar user={user} />
     <span className="min-w-0 block">
       <span className="block truncate text-[13px] font-black group-hover:underline">{user.full_name||user.username}</span>
-      <span className="block truncate text-[11px] text-black/50">{user.username}</span>
+      <span className="block truncate text-[11px] text-black/50">{String(user.username||'').replace(/^[@^]+/,'')}</span>
     </span>
   </Link>
 }
@@ -183,18 +186,7 @@ function VibeCard({post,me,onChange,onDeleted}) {
       </div>
     </header>
     {editingPost?<div className="mt-3 space-y-2"><textarea autoFocus rows={5} value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full resize-y rounded-xl border border-black/15 p-3 text-[13px]"/><div className="flex gap-2"><button type="button" disabled={busy||(!editBody.trim()&&!post.media?.length)} onClick={savePost} className="rounded-full bg-[#0A13E6] px-4 py-2 text-[12px] text-white">Save changes</button><button type="button" onClick={()=>setEditingPost(false)} className="text-[12px]">Cancel</button></div></div> : post.body&&<p className="mt-3 whitespace-pre-wrap break-words text-[14px] leading-relaxed">{post.body}{post.edited_at&&<span className="ml-1 text-[10px] text-black/40">(edited)</span>}</p>}
-    {Array.isArray(post.media)&&post.media.length>0&&<div
-      className={`mt-3 grid gap-1 overflow-hidden rounded-xl ${post.media.length>1?'grid-cols-2':'grid-cols-1'}`}>
-      {post.media.map((photo,i)=>photo.type==='video'?<video key={photo.public_id||i}
-        src={photo.url} controls playsInline preload="metadata"
-        aria-label={`Video ${i+1} from ${post.username}`}
-        className="w-full max-h-[440px] bg-black object-contain" />:<a key={photo.public_id||i} href={photo.url}
-        target="_blank" rel="noopener noreferrer" aria-label={`Open photo ${i+1}`}>
-        <img src={cldImage(photo.url,{w:780,h:780})} loading="lazy"
-          alt={`Photo ${i+1} attached to a Vibe by ${post.username}`}
-          className={`w-full object-cover bg-[#F7F3EB] ${post.media.length===1?'max-h-[440px]':'h-[174px] sm:h-[220px]'}`} />
-      </a>)}
-    </div>}
+    <VibesMediaGallery media={post.media||[]} owner={post.full_name||post.username}/>
     <div className="mt-3 grid grid-cols-3 gap-1 border-t border-black/10 pt-2">
       <button type="button" onClick={like} disabled={busy} aria-pressed={post.liked_by_me}
         aria-label={post.liked_by_me?'Unlike Vibe':'Like Vibe'}
@@ -226,30 +218,37 @@ export default function Vibes() {
   const [error,setError]=useState('')
   const [text,setText]=useState('')
   const [photos,setPhotos]=useState([])
+  const [search,setSearch]=useState('')
+  const [serverSearch,setServerSearch]=useState('')
   const photosRef=useRef([])
   const fileRef=useRef(null)
   const [publishing,setPublishing]=useState(false)
   const [postError,setPostError]=useState('')
   const [feedTick,setFeedTick]=useState(0)
 
+  useEffect(()=>{const id=setTimeout(()=>setServerSearch(search.trim()),250);return()=>clearTimeout(id)},[search])
   useEffect(()=>{photosRef.current=photos},[photos])
   useEffect(()=>()=>photosRef.current.forEach(item=>URL.revokeObjectURL(item.preview)),[])
   useEffect(()=>{
     let cancelled=false
     setLoading(true);setError('')
-    api.getVibes(null,specific).then(data=>{
+    api.getVibes(null,specific,serverSearch).then(data=>{
       if(!cancelled){setPosts(data.posts||[]);setCursor(data.nextCursor||null)}
     }).catch(err=>{if(!cancelled)setError(err.message||'Could not load Vibes.')})
       .finally(()=>{if(!cancelled)setLoading(false)})
     return()=>{cancelled=true}
-  },[specific,feedTick])
+  },[specific,feedTick,serverSearch])
 
   function choosePhotos(e) {
     const files=[...e.target.files||[]]
     e.target.value=''
     if(!files.length)return
     if(photos.length+files.length>MAX_PHOTOS) {
-      setPostError('You can attach at most four photos or videos.');return
+      setPostError('Choose up to ten files in a post. You can make another post for additional media.');return
+    }
+    const total=[...photos.map(item=>item.file),...files].reduce((sum,file)=>sum+file.size,0)
+    if(total>MAX_POST_BYTES){
+      setPostError('Choose up to 80 MB total media per post. Compress large videos or use another post.');return
     }
     for(const file of files) {
       if(!( ['image/jpeg','image/png','image/webp'].includes(file.type)&&file.size<=8*1024*1024 || ['video/mp4','video/webm','video/quicktime'].includes(file.type)&&file.size<=20*1024*1024 )||!file.size){
@@ -284,7 +283,7 @@ export default function Vibes() {
     if(!cursor||paging)return
     setPaging(true)
     try{
-      const data=await api.getVibes(cursor)
+      const data=await api.getVibes(cursor,null,serverSearch)
       setPosts(current=>[...current,...(data.posts||[]).filter(item=>!current.some(p=>p.id===item.id))])
       setCursor(data.nextCursor||null)
     }catch(err){setError(err.message||'Could not load more Vibes.')}
@@ -295,9 +294,10 @@ export default function Vibes() {
     <div className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 flex items-center justify-between gap-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
       <div>
         <h1 className="text-[23px] font-black tracking-tight">Hits & Vibes</h1>
-        <p className="text-[12px] text-black/50">Share your thoughts, photos or videos. Videos appear after review.</p>
+        <p className="text-[12px] text-black/50">Share your thoughts, photos or videos. Most uploads publish automatically after safety screening. Flagged media goes to review.</p>
       </div>
-      <span className="rounded-full border border-black/10 bg-white px-3 py-1.5 text-[11px] font-bold">Vibes</span>
+      <DiscoverySearch value={search} onChange={setSearch} placeholder="Search Vibes…"
+          label="Search Vibes posts and people" className="w-full max-w-[min(52vw,340px)] shrink-0" />
     </div>
     <form onSubmit={publish} aria-label="Create a Vibe" className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
       <div className="flex gap-3">
@@ -329,7 +329,7 @@ export default function Vibes() {
           <button type="button" disabled={publishing||photos.length>=MAX_PHOTOS}
             onClick={()=>fileRef.current?.click()}
             className="inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[12px] font-bold text-[#0A13E6] hover:bg-blue-50 disabled:opacity-40">
-            <ImagePlus size={19}/> Photo / video <span className="text-black/40">({photos.length}/4)</span>
+            <ImagePlus size={19}/> Photo / video <span className="text-black/40">({photos.length}/{MAX_PHOTOS})</span>
           </button>
         </div>
         <button type="submit" disabled={publishing||(!text.trim()&&!photos.length)}
