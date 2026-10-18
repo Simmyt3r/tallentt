@@ -12,7 +12,7 @@ const DiscoverySearch=forwardRef(function DiscoverySearch({
       className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-black/45"/>
     <input ref={ref} id={id} type="search" aria-label={label} value={value}
       onChange={event=>onChange(event.target.value)} placeholder={placeholder}
-      className="h-10 w-full min-w-0 rounded-full border-[1.5px] border-black bg-white pl-9 pr-3 text-[13px] font-medium outline-none focus:ring-4 focus:ring-black/[0.06]"
+      className="h-9 w-full min-w-0 rounded-full border border-black/20 bg-white pl-9 pr-3 text-[13px] font-medium outline-none focus:border-[#0A13E6]/60 focus:ring-2 focus:ring-[#0A13E6]/10"
       onKeyDown={event=>{if(event.key==='Escape'&&value){onChange('');onClear?.()}}}/>
   </div>
 })
