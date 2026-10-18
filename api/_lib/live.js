@@ -307,22 +307,27 @@ export async function publisherState(userId, body) {
 }
 
 export async function authorizeMediaPublish(body) {
-  const action = String(body?.action || '').trim()
-  const protocol = String(body?.protocol || '').trim().toLowerCase()
-  const path = String(body?.path || '').trim()
-  const token = String(body?.token || '')
-  if (action !== 'publish' || protocol !== 'webrtc' || !path || !token) return false
-
-  const { rows } = await query(
-    `SELECT id, status, publish_token_hash FROM live_streams
-     WHERE stream_path=$1 LIMIT 1`,
+  const action=String(body?.action||'').trim().toLowerCase()
+  const protocol=String(body?.protocol||'').trim().toLowerCase()
+  const path=String(body?.path||'').trim()
+  const token=String(body?.token||'')
+  // MediaMTX invokes this endpoint for both publishing and playback.
+  // Previously only publishing was allowed, so all viewer HLS requests
+  // could fail authorization even when a publisher was connected.
+  if(!/^live-[a-f0-9-]{36}$/.test(path))return false
+  const {rows}=await query(
+    `SELECT id,status,publish_token_hash FROM live_streams WHERE stream_path=$1 LIMIT 1`,
     [path],
   )
-  const stream = rows[0]
-  if (!stream || !PUBLISH_STATES.has(stream.status) || !safeTokenMatch(token, stream.publish_token_hash)) return false
-
+  const stream=rows[0]
+  if(!stream)return false
+  if((action==='read'||action==='playback')&&['hls','webrtc'].includes(protocol))
+    return stream.status==='live'||stream.status==='reconnecting'
+  if(action!=='publish'||protocol!=='webrtc'||!token)return false
+  if(!PUBLISH_STATES.has(stream.status)||!safeTokenMatch(token,stream.publish_token_hash))return false
   await query(
-    `UPDATE live_streams SET media_status='connecting', last_media_event_at=NOW(), updated_at=NOW() WHERE id=$1`,
+    `UPDATE live_streams SET media_status='connecting',last_media_event_at=NOW(),updated_at=NOW()
+      WHERE id=$1`,
     [stream.id],
   )
   return true
