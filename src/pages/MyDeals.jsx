@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronRight, Clock, Handshake, History, MessageCircle, Undo2 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
+import DiscoverySearch from '../components/DiscoverySearch.jsx'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
@@ -61,6 +62,7 @@ export default function MyDeals() {
   const tab = ['incoming', 'outgoing', 'active', 'history'].includes(params.get('tab')) ? params.get('tab') : initialTab
 
   const [items, setItems] = useState([])
+  const [search,setSearch]=useState('')
   const [counts, setCounts] = useState({ incoming: 0, outgoing: 0, active: 0, history: 0 })
   const [nextCursor, setNextCursor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -205,6 +207,14 @@ export default function MyDeals() {
     }
   }
 
+  const visibleItems=useMemo(()=>{
+    const needle=search.trim().toLowerCase().replace(/^[@^]+/,'')
+    return needle?items.filter(item=>
+      [item.hat_title,item.hat_name,item.applicant_username,item.owner_username,
+        item.client_username,item.talent_username,item.status,item.message,item.category,
+        item.agreed_amount,item.amount].some(v=>String(v??'').toLowerCase().includes(needle))):items
+  },[items,search])
+
   const title = tab === 'history'
     ? 'Deal history'
     : role === 'talent' ? 'Applications' : 'Bookings'
@@ -235,7 +245,11 @@ export default function MyDeals() {
           <h1 className="text-[23px] font-black tracking-tight">My Deals</h1>
           {quietLoading && <span className="text-[10px] font-bold text-black/35">Updating…</span>}
         </div>
-        <p className="mt-1 text-[12px] font-medium text-black/50">Manage requests, active work and your complete deal record.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="mt-1 text-[12px] font-medium text-black/50">Manage requests, active work and your complete deal record.</p>
+          <DiscoverySearch value={search} onChange={setSearch} placeholder="Search My Deals…"
+            label="Search loaded deal records" className="ml-auto w-full max-w-[min(52vw,340px)]"/>
+        </div>
 
         <div className="mt-4 inline-flex rounded-full border-[1.5px] border-black bg-white p-1">
           {['talent', 'client'].map((value) => (
@@ -290,7 +304,7 @@ export default function MyDeals() {
         <div className="mt-4">
           {loading ? (
             <Skeletons />
-          ) : items.length === 0 ? (
+          ) : visibleItems.length === 0 ? (
             <div className="grid min-h-[260px] place-items-center rounded-[20px] border border-dashed border-black/20 bg-white px-6 text-center">
               <div>
                 {tab === 'history' ? <History size={30} className="mx-auto mb-3 text-black/25" /> : <Handshake size={30} className="mx-auto mb-3 text-black/25" />}
@@ -299,7 +313,7 @@ export default function MyDeals() {
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              {items.map((item) => {
+              {visibleItems.map((item) => {
                 const isApplication = Boolean(item.application_id) && !item.id
                 const id = isApplication ? item.application_id : item.id
                 const peer = peerFor(item, role, isApplication)
