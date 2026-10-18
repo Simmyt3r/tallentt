@@ -43,6 +43,8 @@ async function signUpload(userId, body) {
   const params = { public_id: publicId, timestamp: Math.floor(Date.now()/1000), overwrite:'false' }
   if(video && process.env.VIBES_CLOUDINARY_VIDEO_MODERATION==='google_video_moderation')
     params.moderation='google_video_moderation'
+  if(!video && ['aws_rek','webpurify'].includes(process.env.VIBES_CLOUDINARY_IMAGE_MODERATION))
+    params.moderation=process.env.VIBES_CLOUDINARY_IMAGE_MODERATION
   const signature = cloudinaryUploadSignature(params,cloud.apiSecret)
   await query(`INSERT INTO vibes_upload_permits (id,user_id,public_id,declared_bytes,declared_mime)
     VALUES ($1,$2,$3,$4,$5)`,[permitId,userId,publicId,body.bytes,mime])
@@ -124,6 +126,12 @@ async function verifyUploads(userId, media) {
       return {upload_id:permit.id,public_id:permit.public_id,url:item.url,
         type:'video',bytes:asset.bytes,needs_review:decision.needs_review}
     }
+    const moderation=Array.isArray(asset.moderation)?asset.moderation:[]
+    if(moderation.length){
+      const cleared=moderation.every(result=>result.status==='approved')
+      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',
+        bytes:asset.bytes,needs_review:!cleared}
+    }
     if(!process.env.GOOGLE_CLOUD_VISION_API_KEY)
       return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',bytes:asset.bytes,needs_review:true}
     // Fail closed when screening is unreachable. Do not disclose images until a
@@ -173,6 +181,11 @@ async function refreshHeldPost(userId,postId){
     }catch{return {status:'held'}}
     if(asset.public_id!==item.public_id||asset.secure_url!==item.url)
       return {status:'held'}
+    if(type==='image' && Array.isArray(asset.moderation) && asset.moderation.length){
+      if(!asset.moderation.every(result=>result.status==='approved'))
+        return {status:'held'}
+      continue
+    }
     if(type==='video'){
       const decision=await videoModeration(asset,cloud)
       if(decision.needs_review)return {status:'held'}
