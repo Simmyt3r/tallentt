@@ -69,6 +69,7 @@ try {
     await page.getByRole('navigation',{name:'Primary'}).getByRole('link',{name:'Vibes'}).waitFor({state:width<768?'visible':'hidden'}).catch(()=>{})
     assert.equal(await page.getByRole('heading',{name:'Hits & Vibes'}).count(),1)
     assert.equal(await page.getByText('Nothing here yet').count(),1)
+    assert.equal(await page.getByRole('searchbox',{name:'Search Vibes posts and people'}).count(),1)
     await page.getByRole('textbox',{name:'Say something…'}).fill('First Vibe!')
     await page.getByRole('button',{name:'Post Vibe'}).click()
     await page.getByText('First Vibe!').waitFor()
@@ -79,6 +80,10 @@ try {
     await page.getByRole('textbox',{name:'Write a reply'}).fill('Hello!')
     await page.getByRole('button',{name:'Send reply'}).click()
     await page.getByText('Hello!').waitFor()
+    const input=page.getByRole('textbox',{name:'Write a reply'})
+    const reply=page.getByText('Hello!')
+    assert.equal(await reply.evaluate(el=>el.getBoundingClientRect().bottom),await reply.evaluate(el=>el.getBoundingClientRect().bottom))
+    assert.ok((await input.boundingBox()).y>(await reply.boundingBox()).y,'Replies should appear above composer')
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'Vibes must not horizontally overflow on '+width+'px')
     assert.deepEqual(errors,[])
