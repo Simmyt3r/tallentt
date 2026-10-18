@@ -164,6 +164,8 @@ export default function MyHats() {
             Create your first Hat
           </Link>
         </div>
+      ) : filteredHats.length === 0 ? (
+        <p className="rounded-2xl border border-black/10 bg-white p-6 text-center text-[13px] font-semibold text-black/50">No Hats match your search.</p>
       ) : viewMode === 'grid' ? (
         <div className="hats-grid items-start">
           {filteredHats.map((h) => (
