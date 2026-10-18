@@ -46,27 +46,16 @@ export default function HatFeedToggle({ hat, onChange }) {
 
   return (
     <div className="rounded-[16px] border-[1.5px] border-black/15 bg-white p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold">Show in feed</p>
-          <p id={`feed-status-${hat.id}`} className="text-[11px] text-black/50 mt-0.5" aria-live="polite">
-            {busy ? 'Saving…' : visible ? 'On · Visible in the Bento feed' : 'Off · Hidden from the Bento feed'}
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={visible}
-          aria-label={`Show ${hat.hat_name || hat.hat_title} in feed`}
-          aria-describedby={`feed-status-${hat.id}`}
-          disabled={busy}
-          onClick={toggle}
-          className="shrink-0 min-w-[48px] min-h-[44px] inline-flex items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6] disabled:opacity-50"
-        >
-          <span className={`w-11 h-6 rounded-full p-0.5 transition-colors ${visible ? 'bg-[#0A13E6]' : 'bg-black/20'}`}>
-            <span className={`block w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${visible ? 'translate-x-5' : 'translate-x-0'}`} />
-          </span>
+      <div className="space-y-2">
+        <button type="button" onClick={toggle} disabled={busy}
+          aria-label={`${visible?'Hide':'Show'} ${hat.hat_name||hat.hat_title} ${visible?'from':'in'} BentoField`}
+          aria-pressed={visible}
+          className={`inline-flex w-full min-h-10 items-center justify-center gap-2 rounded-full border px-4 text-[12px] font-bold disabled:opacity-50 ${visible?'border-black/20 text-black/60':'border-[#0A13E6]/30 bg-blue-50 text-[#0A13E6]'}`}>
+          {busy?'Saving…':visible?'Hide from BentoField':'Show in BentoField'}
         </button>
+        <p id={`feed-status-${hat.id}`} className="text-center text-[10px] text-black/50" aria-live="polite">
+          {visible?'Visible to BentoField visitors':'Not listed in BentoField'}
+        </p>
       </div>
       {error && !noticeOpen && <p role="alert" className="text-[12px] text-red-600 mt-2">{error}</p>}
       <Dialog open={noticeOpen} onClose={closeNotice} variant="alert" role="alertdialog" labelledBy={titleId} describedBy={descriptionId}>
