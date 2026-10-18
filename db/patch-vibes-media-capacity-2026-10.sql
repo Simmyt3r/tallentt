@@ -7,4 +7,6 @@ DO $$ DECLARE r record; BEGIN
 END $$;
 ALTER TABLE vibes_posts ADD CONSTRAINT vibes_posts_media_capacity
  CHECK(jsonb_typeof(media)='array' AND jsonb_array_length(media)<=10);
+ALTER TABLE vibes_posts ADD CONSTRAINT vibes_posts_nonempty_content_check
+ CHECK(char_length(btrim(body))>0 OR jsonb_array_length(media)>0);
 COMMIT;
