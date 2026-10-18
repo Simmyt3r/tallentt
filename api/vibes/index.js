@@ -193,13 +193,15 @@ const publicPostSql = async()=>`SELECT p.id,p.body,p.media,p.created_at,(to_json
 async function feed(userId,url) {
   const before=url.searchParams.get('before')
   const specific=url.searchParams.get('post')
+  const search=String(url.searchParams.get('search')||'').trim().slice(0,100)
   if((before && !validId(before))||(specific && !validId(specific))) throw bad(400,'Invalid Vibes cursor.')
   const {rows}=await query(
     (await publicPostSql())+` AND ($2::uuid IS NULL OR p.id=$2)
     AND ($3::uuid IS NULL OR (p.created_at,p.id) <
        (SELECT created_at,id FROM vibes_posts WHERE id=$3))
+    AND ($4::text IS NULL OR p.body ILIKE '%'||$4||'%' OR u.username ILIKE '%'||$4||'%' OR u.full_name ILIKE '%'||$4||'%')
     ORDER BY p.created_at DESC,p.id DESC LIMIT 21`,
-    [userId,specific||null,before||null],
+    [userId,specific||null,before||null,search||null],
   )
   return {posts:rows.slice(0,20),nextCursor:rows.length>20?rows[19].id:null}
 }
