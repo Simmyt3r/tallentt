@@ -2,16 +2,38 @@ import {useEffect,useRef,useState} from 'react'
 import {ChevronLeft,ChevronRight,X} from 'lucide-react'
 import {cldImage,cldVideoPoster} from '../lib/cloudinary.js'
 import {useDataMode} from '../lib/dataMode.js'
+import {isVideoSaved,offlineVideoUrl,saveVideo} from '../lib/offlineVideo.js'
 
 // Opening any attachment gives a single gallery for the entire post. Videos
 // only load their first bytes when opened, preserving mobile data.
 export default function VibesMediaGallery({media=[],owner='subscriber'}){
   const [active,setActive]=useState(null)
+  const [offlineSaved,setOfflineSaved]=useState(false)
+  const [saving,setSaving]=useState(false)
+  const [saveError,setSaveError]=useState('')
   const [showInSaver,setShowInSaver]=useState(false)
   const dataMode=useDataMode()
   const closeRef=useRef(null)
   const previousFocus=useRef(null)
   const startTouch=useRef(null)
+  const current=active==null?null:media[active]
+  useEffect(()=>{
+    let valid=true
+    setOfflineSaved(false)
+    setSaveError('')
+    if(current?.type==='video')isVideoSaved(current.url).then(result=>{
+      if(valid)setOfflineSaved(result)
+    }).catch(()=>{})
+    return()=>{valid=false}
+  },[current?.url])
+  async function downloadOffline(){
+    if(saving||!current)return
+    setSaving(true);setSaveError('')
+    try{await saveVideo(current.url);setOfflineSaved(true)}
+    catch(error){setSaveError(error.message||'Could not save this video.')}
+    finally{setSaving(false)}
+  }
+
   useEffect(()=>{
     if(active===null)return undefined
     const key=e=>{
@@ -26,7 +48,6 @@ export default function VibesMediaGallery({media=[],owner='subscriber'}){
   },[active!==null,media.length])
   if(!Array.isArray(media)||!media.length)return null
   const open=i=>{previousFocus.current=document.activeElement;setActive(i)}
-  const current=active==null?null:media[active]
   if(dataMode==='text'&&!showInSaver)return <button type="button"
     onClick={()=>setShowInSaver(true)}
     className="mt-3 w-full rounded-xl border border-black/15 bg-[#F7F3EB] px-4 py-5 text-[12px] font-bold text-[#0A13E6]">
@@ -60,7 +81,7 @@ export default function VibesMediaGallery({media=[],owner='subscriber'}){
         <div className="relative flex min-h-0 flex-1 items-center justify-center"
           onTouchStart={e=>{startTouch.current=e.touches[0]?.clientX}}
           onTouchEnd={e=>{if(startTouch.current==null)return;const delta=e.changedTouches[0]?.clientX-startTouch.current;startTouch.current=null;if(Math.abs(delta)>60)setActive(i=>(i+(delta<0?1:media.length-1))%media.length)}}>
-          {current.type==='video'?<video key={current.public_id||active} src={current.url}
+          {current.type==='video'?<video key={current.public_id||active} src={offlineSaved?offlineVideoUrl(current.url):current.url}
             controls playsInline preload="metadata" className="max-h-full max-w-full object-contain"/>:
             <img key={current.public_id||active} src={current.url} alt={`Attachment ${active+1}`} className="max-h-full max-w-full object-contain"/>}
           {media.length>1&&<><button type="button" aria-label="Previous media" onClick={()=>setActive(i=>(i+media.length-1)%media.length)}
@@ -68,6 +89,14 @@ export default function VibesMediaGallery({media=[],owner='subscriber'}){
             <button type="button" aria-label="Next media" onClick={()=>setActive(i=>(i+1)%media.length)}
             className="absolute right-0 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-black/70"><ChevronRight/></button></>}
         </div>
+        {current.type==='video'&&<div className="flex shrink-0 flex-wrap items-center justify-center gap-3 text-[12px]">
+          <button type="button" disabled={saving||offlineSaved} onClick={downloadOffline}
+            className="min-h-10 rounded-full border border-white/40 px-4 font-bold disabled:opacity-60">
+            {offlineSaved?'Saved for offline playback':saving?'Saving video…':'Save video offline'}
+          </button>
+          <span className="text-white/60">Up to 5 saved videos · 24MB each</span>
+          {saveError&&<span role="alert" className="text-amber-300">{saveError}</span>}
+        </div>}
         <div className="flex shrink-0 gap-2 overflow-x-auto pb-2" aria-label="All attachments">
           {media.map((item,i)=><button type="button" key={item.public_id||i}
             aria-label={`Open media ${i+1}`} aria-current={active===i}
