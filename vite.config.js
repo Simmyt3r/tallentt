@@ -30,7 +30,7 @@ export default defineConfig({
             // populate this potentially expensive cache automatically.
             urlPattern: ({url})=>url.hostname==='res.cloudinary.com'
               && url.searchParams.get('offline')==='1'
-              && /\\.(mp4|webm|mov)$/i.test(url.pathname),
+              && /\.(mp4|webm|mov)$/i.test(url.pathname),
             handler:'CacheFirst',
             options:{
               cacheName:'chombutar-offline-videos-v1',
