@@ -153,7 +153,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
           <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] leading-snug">
             <span className="shrink-0 font-bold text-black/70">Job type:</span>
             <span className="min-w-0 font-medium text-black/80 break-words">
-              {[hat.hat_type, hat.hat_type === 'One-Off' ? null : hat.hiring_duration].filter(Boolean).join(' · ')}
+              {hat.hat_type}
             </span>
           </div>
         )}
