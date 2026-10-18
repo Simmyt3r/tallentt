@@ -99,7 +99,7 @@ function ShowroomPost({
           className="absolute inset-0 grid place-items-center bg-[#111827] px-6 text-center text-[13px] font-bold text-white">
           Tap to load {isVideo?'video':'photo'} · Data saver is on
         </button>}
-        {isVideo && <button type="button" onClick={() => onView(hat.id)}
+        {isVideo && renderMedia && <button type="button" onClick={() => onView(hat.id)}
           className="absolute inset-x-0 top-0 bottom-14 z-20 flex items-start justify-end p-3 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
           aria-label={`View details for ${ownerName}'s video`}>
           <span className="inline-flex min-h-10 items-center rounded-full border border-white/20 bg-black/75 px-3 text-[11px] font-bold text-white">
