@@ -21,8 +21,8 @@ before(async()=>{
  signSession=(await import('../api/_lib/auth.js')).signSession
 })
 after(async()=>{await db?.close();delete global.__tworldPool})
-async function http({who=alice,action=null,post_id,comment_id,text,method='POST',path}={}){
- const data=action?{action,post_id,comment_id,text}:{}
+async function http({who=alice,action=null,post_id,comment_id,text,media,method='POST',path}={}){
+ const data=action?{action,post_id,comment_id,text, ...(media ? {media} : {})}:{}
  const request=Readable.from(method==='POST'?[Buffer.from(JSON.stringify(data))]:[])
  Object.assign(request,{method,url:path||'/api/vibes',headers:{host:'localhost',
    cookie:who?'cw_session='+signSession({sub:who}):''}})
@@ -60,4 +60,19 @@ test('replies longer than old 300-char limit can be edited by their author',asyn
  assert.equal(comments.body.comments.find(c=>c.id===replyId).body,'Updated reply')
  const removed=await http({who:bob,action:'delete_reply',post_id:id,comment_id:replyId})
  assert.equal(removed.statusCode,200)
+})
+
+test('database supports ten media attachments but not an unlimited oversized post',async()=>{
+ const images=Array.from({length:10},(_,i)=>({
+   type:'image',url:'https://example.test/photo'+i,public_id:'media-'+i,
+ }))
+ const inserted=await pool.query(`INSERT INTO vibes_posts(author_id,body,media)
+   VALUES($1,'', $2::jsonb) RETURNING id`,[alice,JSON.stringify(images)])
+ assert.ok(inserted.rows[0].id)
+ await assert.rejects(()=>pool.query(`INSERT INTO vibes_posts(author_id,body,media)
+   VALUES($1,'', $2::jsonb)`,[alice,JSON.stringify([...images,images[0]])]))
+ await assert.rejects(()=>pool.query(`INSERT INTO vibes_posts(author_id,body,media)
+   VALUES($1,'', '[]'::jsonb)`,[alice]))
+ const tooMany=await http({action:'publish',text:'Oversized upload',media:Array.from({length:11},()=>({}))})
+ assert.equal(tooMany.statusCode,400)
 })
