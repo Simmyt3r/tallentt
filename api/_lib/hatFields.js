@@ -37,6 +37,9 @@ export function normalizeAvailableDays(value, fallback = AVAILABLE_DAYS) {
 export function normalizeHiringDuration(value, role, fallback = null, hatType = null) {
   if (role !== 'client' || hatType === 'One-Off') return { ok: true, value: null }
   const selected = value == null ? fallback : value
+  if (selected === 'Permanent job' && ['Freelance','Contract'].includes(hatType)) {
+    return {ok:false,error:'Permanent jobs require Full-time or Part-time; choose a fixed term for freelance or contract roles.'}
+  }
   if (!HIRING_DURATIONS.includes(selected)) {
     return { ok: false, error: 'Choose a valid hiring duration.' }
   }
