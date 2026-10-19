@@ -32,7 +32,7 @@ function Identity({user}) {
     <Avatar user={user} />
     <span className="min-w-0 block">
       <span className="block truncate text-[13px] font-black group-hover:underline">{user.full_name||user.username}</span>
-      <span className="block truncate text-[11px] text-black/50">{String(user.username||'').replace(/^[@^]+/,'')}</span>
+      <span className="block truncate text-[11px] text-black/50">{'^'+String(user.username||'').replace(/^[@^]+/,'')}</span>
     </span>
   </Link>
 }
@@ -336,7 +336,7 @@ export default function Vibes() {
         <div className="min-w-0 flex-1">
           <label htmlFor="vibe-text" className="sr-only">Say something…</label>
           <textarea id="vibe-text" value={text} onChange={e=>setText(e.target.value)}
-            rows={3} placeholder="Say something…"
+            rows={2} placeholder="Say something…"
             className="w-full resize-y rounded-xl border-0 bg-[#F7F3EB] p-3 text-[13px] outline-none focus:ring-2 focus:ring-[#0A13E6]"/>
           <div className="mt-1 text-right text-[10px] text-black/40">Up to 10,000 characters</div>
         </div>
