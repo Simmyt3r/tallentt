@@ -1,6 +1,6 @@
 // Path: src/components/Layout.jsx
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
-import { Menu, Plus, MessageCircle, Radio, X, ArrowLeft } from 'lucide-react'
+import { Menu, Plus, MessageCircle, Radio } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
@@ -35,12 +35,6 @@ export default function Layout({ children }) {
       navigate('/showroom',{replace:true})
     }
   },[location.pathname,navigationType,navigate])
-  const topTab=['bento','vibes','my-hats','deals','live'].some(root=>location.pathname===`/${root}`)
-  const detailPage=/^\/(?:hat|deals|profile)\/[^/]+/.test(location.pathname)
-  function closeOrBack(){
-    if(detailPage && Number(window.history.state?.idx||0)>0)navigate(-1)
-    else navigate('/showroom',{replace:true})
-  }
 
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -115,12 +109,6 @@ export default function Layout({ children }) {
               <Menu size={22} />
             </button>
 
-            {(topTab||detailPage)&&<button type="button" onClick={closeOrBack}
-              title={detailPage?'Back':'Close tab to Showroom'}
-              aria-label={detailPage?'Back to previous page':'Close tab and return to Showroom'}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-black/65 hover:bg-black/5">
-              {detailPage?<ArrowLeft size={19}/>:<X size={18}/>}
-            </button>}
             {/* Keep the actual name visible on every route. Search belongs to Showroom. */}
             <div className="flex min-w-0 items-center gap-2 md:hidden">
               <img src="/logo.png" alt="ChombuTar" className="h-6 w-6 shrink-0 rounded-full object-cover" />
