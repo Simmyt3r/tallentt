@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, WalletCards, XCircle, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
+import DiscoverySearch from '../components/DiscoverySearch.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 
@@ -62,6 +63,8 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notifications, setNotifications] = useState([])
+  const [search, setSearch] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   const [unreadCount, setUnreadCount] = useState(0)
   const [nextCursor, setNextCursor] = useState(null)
   const [paging, setPaging] = useState(false)
@@ -70,6 +73,10 @@ export default function Notifications() {
   const holdTimer = useRef(null)
   const heldRef = useRef(false)
   const [selectedForDelete, setSelectedForDelete] = useState(null)
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchTerm(search.trim()), 250)
+    return () => clearTimeout(timer)
+  }, [search])
   const cancelHold = () => { if (holdTimer.current) clearTimeout(holdTimer.current); holdTimer.current = null }
   const startHold = (notification) => { cancelHold(); heldRef.current = false; holdTimer.current = setTimeout(() => { heldRef.current = true; setSelectedForDelete(notification) }, 550) }
 
@@ -77,7 +84,7 @@ export default function Notifications() {
     const sequence = ++refreshSequenceRef.current
     if (!quiet) setLoading(true)
     try {
-      const data = await api.getNotifications()
+      const data = await api.getNotifications(null, searchTerm)
       if (sequence !== refreshSequenceRef.current) return
       const fresh = data.notifications || []
       // A background refresh must not erase the older pages someone has
@@ -97,9 +104,11 @@ export default function Notifications() {
     } finally {
       if (sequence === refreshSequenceRef.current && !quiet) setLoading(false)
     }
-  }, [])
+  }, [searchTerm])
 
   useEffect(() => {
+    olderLoadedRef.current = false
+    setNextCursor(null)
     load()
     const id = setInterval(() => load({ quiet: true }), 60_000)
     return () => {
@@ -123,8 +132,10 @@ export default function Notifications() {
   async function loadOlder() {
     if (!nextCursor || paging) return
     setPaging(true)
+    const sequence = refreshSequenceRef.current
     try {
-      const data = await api.getNotifications(nextCursor)
+      const data = await api.getNotifications(nextCursor, searchTerm)
+      if (sequence !== refreshSequenceRef.current) return
       setNotifications((current) => {
         const seen = new Set(current.map((item) => item.id))
         return [...current, ...(data.notifications || []).filter((item) => !seen.has(item.id))]
@@ -183,7 +194,7 @@ export default function Notifications() {
   }
 
   async function clearInbox() {
-    if (!notifications.length || !window.confirm('Clear your notification inbox? This cannot be undone.')) return
+    if (!notifications.length || !window.confirm('Clear your entire notification inbox, including items outside this search? This cannot be undone.')) return
     try {
       await api.clearNotifications()
       setNotifications([])
@@ -214,7 +225,9 @@ export default function Notifications() {
             Deal, application, payment and platform updates in one place.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <DiscoverySearch value={search} onChange={setSearch} placeholder="Search notifications…"
+          label="Search all notifications" className="w-full sm:w-64" />
         <button
           type="button"
           onClick={clearInbox}
@@ -255,8 +268,8 @@ export default function Notifications() {
                 <span className="mx-auto grid h-14 w-14 place-items-center rounded-[18px] border border-black/10 bg-white text-black/30">
                   <Bell size={22} />
                 </span>
-                <p className="mt-3 text-[14px] font-black text-black/65">No notifications yet</p>
-                <p className="mt-1 text-[11.5px] font-medium text-black/40">Updates about deals, applications and activity will appear here.</p>
+                <p className="mt-3 text-[14px] font-black text-black/65">{searchTerm ? 'No matching notifications' : 'No notifications yet'}</p>
+                <p className="mt-1 text-[11.5px] font-medium text-black/40">{searchTerm ? 'Try another name, subject or keyword.' : 'Updates about deals, applications and activity will appear here.'}</p>
               </div>
             </div>
           ) : (
