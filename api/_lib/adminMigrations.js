@@ -63,6 +63,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-admin-user-erasure-2026-10.sql', import.meta.url),
   },
   {
+    id:'vibes-report-resolution-2026-10',
+    title:'Vibes report resolution audit',
+    description:'Keep subscriber reports and administrator case outcomes instead of deleting evidence.',
+    path:new URL('../../db/patch-vibes-report-resolution-2026-10.sql',import.meta.url),
+  },
+  {
     id:'vibes-media-capacity-2026-10',
     title:'Vibes flexible media galleries',
     description:'Up to ten signed media attachments per post, subject to aggregate byte and rate limits.',
