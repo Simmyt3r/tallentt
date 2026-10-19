@@ -73,6 +73,34 @@ UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 Admin users see `/admin` in the app header. The panel covers user review, hat moderation, applications, escrows, wallet transactions, withdrawal status reconciliation, and audit logs.
 
 
+## October 19 release hardening
+
+- **Vercel deployment packaging:** `api/admin/index.js` now explicitly
+  includes all `db/patch-*.sql` migrations in its function bundle. Previously
+  only two older SQL patches were included, breaking in-app migrations.
+  `api/vibes/index.js` has a 60-second processing allowance for bounded,
+  parallel Cloudinary verification. `tests/admin-migration-bundle.test.mjs`
+  checks that every allowlisted patch exists and is packaged.
+- **Moderation:** Photos that are unsafe or cannot be screened are retained in
+  the held review queue instead of being rejected immediately. Safe
+  provider-screened photos/videos publish automatically. Browser uploads
+  use up to three parallel signed transfers, preserving media order.
+  Provider verdicts must all be approved, and uncertain results stay held.
+- **Report evidence:** Apply `vibes-report-resolution-2026-10`. Admin reports
+  are no longer deleted when dismissed or acted upon: the record retains
+  reason, original reporter, resolution, administrator and timestamp.
+  Automated screening and user reports use the same review queue.
+- **Contact privacy:** The short-lived in-memory revisit cache now caches only
+  public discovery feeds, not private Hat details or contact-unlocked
+  profile information.
+- **Offline safety:** Saving a video now verifies that its URL belongs to
+  the configured ChombuTar Cloudinary account and is actually video,
+  rather than caching arbitrary cross-site resources.
+- **Status:** A Vercel deployment check does not prove that migration files
+  were applied, the screening provider is configured, or a second device
+  can receive Live Broadcast. These still require production acceptance
+  testing.
+
 ## October 18 media, navigation and data efficiency
 
 - **Hits & Vibes** now accepts up to **10** media attachments in a post, with
@@ -134,9 +162,9 @@ Admin users see `/admin` in the app header. The panel covers user review, hat mo
   persistent MediaMTX/TURN/HLS infrastructure. Setup and two-device
   acceptance: [Live deployment](docs/LIVE_DEPLOYMENT.md).
 
-**Migration order:** Apply the existing Vibes and media migrations followed
-by `vibes-media-capacity-2026-10` through the allowlisted Admin migrations
-screen. Make a database backup first. Run `npm run verify`, the UI tests,
+**Migration order:** Apply the existing Vibes migration, then the video,
+editor, media-capacity and report-resolution patches through the allowlisted
+Admin migrations screen. Make a database backup first. Run `npm run verify`, the UI tests,
 and a live broadcaster + independent viewer test before production.
 
 ## October 17 Vibes, presence, sharing and broadcast corrections
