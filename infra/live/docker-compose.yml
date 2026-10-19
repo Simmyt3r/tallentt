@@ -22,9 +22,9 @@ services:
       MTX_WEBRTCLOCALUDPADDRESS: ":8189"
       MTX_WEBRTCADDITIONALHOSTS: "${LIVE_WEBRTC_ADDITIONAL_HOSTS:?set LIVE_WEBRTC_ADDITIONAL_HOSTS}"
       MTX_AUTHMETHOD: http
+      # Authorize BOTH publishers and HLS viewers against stream status.
+      # Excluding read/playback here would bypass the room access gate.
       MTX_AUTHHTTPADDRESS: "${LIVE_MEDIA_AUTH_URL:?set LIVE_MEDIA_AUTH_URL}"
-      MTX_AUTHHTTPEXCLUDE_0_ACTION: read
-      MTX_AUTHHTTPEXCLUDE_1_ACTION: playback
 
   realtime:
     build:
