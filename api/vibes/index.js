@@ -2,6 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { query, getClient } from '../_lib/db.js'
 import {onlinePresenceExpression} from '../_lib/onlinePresence.js'
+import {providerVerdict,unsafeVisionResult} from '../_lib/vibesModeration.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, readBody, methodNotAllowed } from '../_lib/http.js'
 import { uploadCloudCredentials, cloudinaryUploadSignature } from '../_lib/hatMediaUpload.js'
@@ -56,10 +57,10 @@ async function signUpload(userId, body) {
 // Unknown, unavailable and flagged results require review; never label
 // an unscanned video as AI-approved.
 async function videoModeration(asset,cloud){
-  const decisions=Array.isArray(asset.moderation)?asset.moderation:[]
-  if(decisions.some(d=>d.status==='rejected'))return {needs_review:true,risk:'provider_rejected'}
-  if(decisions.some(d=>d.status!=='approved'))return {needs_review:true,risk:'provider_pending'}
-  if(decisions.length>0)return {needs_review:false,risk:null}
+  const verdict=providerVerdict(asset.moderation)
+  if(verdict==='review')return {needs_review:true,risk:'provider_rejected'}
+  if(verdict==='pending')return {needs_review:true,risk:'provider_pending'}
+  if(verdict==='approved')return {needs_review:false,risk:null}
   const key=process.env.GOOGLE_CLOUD_VISION_API_KEY
   if(!key)return {needs_review:true,risk:'screening_unconfigured'}
   const duration=Number(asset.duration)
@@ -81,10 +82,7 @@ async function videoModeration(asset,cloud){
     const results=(await response.json()).responses
     if(!Array.isArray(results)||results.length!==sampleUrls.length)
       return {needs_review:true,risk:'screening_incomplete'}
-    const risk=results.some(row=>row.error||!row.safeSearchAnnotation||
-      ['LIKELY','VERY_LIKELY'].includes(row.safeSearchAnnotation.adult)||
-      ['LIKELY','VERY_LIKELY'].includes(row.safeSearchAnnotation.violence)||
-      ['LIKELY','VERY_LIKELY'].includes(row.safeSearchAnnotation.racy))
+    const risk=results.some(row=>row.error||unsafeVisionResult(row.safeSearchAnnotation))
     return {needs_review:risk,risk:risk?'unsafe_or_incomplete':null}
   }catch{return {needs_review:true,risk:'screening_unavailable'}}
 }
@@ -126,11 +124,10 @@ async function verifyUploads(userId, media) {
       return {upload_id:permit.id,public_id:permit.public_id,url:item.url,
         type:'video',bytes:asset.bytes,needs_review:decision.needs_review}
     }
-    const moderation=Array.isArray(asset.moderation)?asset.moderation:[]
-    if(moderation.length){
-      const cleared=moderation.every(result=>result.status==='approved')
+    const photoVerdict=providerVerdict(asset.moderation)
+    if(photoVerdict!=='unconfigured'){
       return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',
-        bytes:asset.bytes,needs_review:!cleared}
+        bytes:asset.bytes,needs_review:photoVerdict!=='approved'}
     }
     if(!process.env.GOOGLE_CLOUD_VISION_API_KEY)
       return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',bytes:asset.bytes,needs_review:true}
@@ -154,9 +151,7 @@ async function verifyUploads(userId, media) {
       return {upload_id:permit.id,public_id:permit.public_id,url:item.url,
         type:'image',bytes:asset.bytes,needs_review:true}
     const safety=scan.safeSearchAnnotation
-    if(['LIKELY','VERY_LIKELY'].includes(safety.adult) ||
-       ['LIKELY','VERY_LIKELY'].includes(safety.violence) ||
-       safety.racy==='VERY_LIKELY')
+    if(unsafeVisionResult(safety))
       return {upload_id:permit.id,public_id:permit.public_id,url:item.url,
         type:'image',bytes:asset.bytes,needs_review:true}
     return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',bytes:asset.bytes}
@@ -197,9 +192,8 @@ async function refreshHeldPost(userId,postId){
     }catch{return {status:'held'}}
     if(asset.public_id!==item.public_id||asset.secure_url!==item.url)
       return {status:'held'}
-    if(type==='image' && Array.isArray(asset.moderation) && asset.moderation.length){
-      if(!asset.moderation.every(result=>result.status==='approved'))
-        return {status:'held'}
+    if(type==='image' && providerVerdict(asset.moderation)!=='unconfigured'){
+      if(providerVerdict(asset.moderation)!=='approved')return {status:'held'}
       continue
     }
     if(type==='video'){
@@ -218,9 +212,7 @@ async function refreshHeldPost(userId,postId){
         })
         if(!checked.ok)return {status:'held'}
         const annotation=(await checked.json()).responses?.[0]?.safeSearchAnnotation
-        if(!annotation||['LIKELY','VERY_LIKELY'].includes(annotation.adult)||
-          ['LIKELY','VERY_LIKELY'].includes(annotation.violence)||
-          annotation.racy==='VERY_LIKELY')return {status:'held'}
+        if(unsafeVisionResult(annotation))return {status:'held'}
       }catch{return {status:'held'}}
     }
   }
