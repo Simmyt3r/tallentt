@@ -4,7 +4,7 @@
   "framework": "vite",
   "functions": {
     "api/admin/index.js": {
-      "includeFiles": "db/patch-{bento-inbox,vibes}-2026-10.sql",
+      "includeFiles": "db/patch-*.sql",
       "maxDuration": 60
     }
   },
