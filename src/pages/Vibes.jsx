@@ -100,6 +100,7 @@ function Replies({post,me,onDelta}) {
         <div className="flex-1 min-w-0 rounded-2xl bg-[#F7F3EB] px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <Link to={`/profile/${encodeURIComponent(item.username)}`} className="text-[12px] font-black hover:underline">{item.full_name||item.username}</Link>
+              <span className="ml-1 text-[10px] font-medium text-black/45">^${String(item.username||'').replace(/^[@^]+/,'')}</span>
             <span className="text-[10px] text-black/40">{dateText(item.created_at)}</span>
           </div>
           {editing===item.id ? <div className="mt-2 space-y-2"><textarea autoFocus rows={3} value={editText} onChange={e=>setEditText(e.target.value)} className="w-full resize-y rounded-xl border border-black/15 p-2 text-[12px]"/><div className="flex gap-2"><button type="button" disabled={!editText.trim()||busy} onClick={()=>saveEdit(item)} className="rounded-full bg-[#0A13E6] px-3 py-2 text-[11px] text-white">Save</button><button type="button" onClick={()=>setEditing(null)} className="text-[11px]">Cancel</button></div></div> : <p className="mt-1 whitespace-pre-wrap break-words text-[12px]">{item.body}{item.edited_at&&<span className="ml-1 text-black/40">(edited)</span>}</p>}
