@@ -976,9 +976,14 @@ CREATE TABLE IF NOT EXISTS vibes_reports (
  reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
  reason TEXT NOT NULL CHECK (reason IN ('spam','harassment','unsafe','other')),
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ resolution TEXT NOT NULL DEFAULT 'open'
+   CHECK (resolution IN ('open','dismissed','actioned')),
+ resolved_at TIMESTAMPTZ,
+ resolved_by UUID REFERENCES users(id) ON DELETE SET NULL,
  UNIQUE(post_id,reporter_id)
 );
 CREATE INDEX IF NOT EXISTS idx_vibes_reports_created ON vibes_reports (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vibes_reports_open ON vibes_reports(post_id,created_at DESC) WHERE resolution='open';
 CREATE TABLE IF NOT EXISTS vibes_upload_permits (
  id UUID PRIMARY KEY,
  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
