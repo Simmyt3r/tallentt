@@ -63,10 +63,10 @@ test('Invalid MediaMTX configuration falls back while strict config access still
   assert.throws(() => getLiveMediaConfig(), /must not embed credentials/)
 })
 
-// WHIP signaling must not wait forever for stalled ICE gathering.
+// Read/playback requests must reach the active-room authorization handler.
 test('MediaMTX compose applies auth to HLS playback, not just publishing', async () => {
   const { readFile } = await import('node:fs/promises')
   const compose = await readFile(new URL('../infra/live/docker-compose.yml', import.meta.url), 'utf8')
-  assert.match(compose, /MTX_AUTHMETHOD:\\s*http/)
-  assert.doesNotMatch(compose, /^\\s*MTX_AUTHHTTPEXCLUDE_\\d+_ACTION:\\s*(read|playback)\\s*$/m)
+  assert.match(compose, /MTX_AUTHMETHOD:\s*http/)
+  assert.doesNotMatch(compose, /^\s*MTX_AUTHHTTPEXCLUDE_\d+_ACTION:\s*(read|playback)\s*$/m)
 })
