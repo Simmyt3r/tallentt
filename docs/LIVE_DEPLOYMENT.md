@@ -20,7 +20,9 @@ a domain and TLS termination. Where UDP is blocked, provide public TURN.
 3. Set MediaMTX external HTTP authorization to ChombuTar's
    `https://<app-origin>/api/live?media_auth=1`. The endpoint verifies
    each one-time WHIP publish token and **also** permits HLS reading for
-   an active room. Publishing with an invalid token is always denied.
+   an active room. Do not configure MediaMTX `authHTTPExclude` for `read`
+   or `playback`, because doing so bypasses the room's active-state gate.
+   Publishing with an invalid token is always denied.
 4. Configure Vercel *production environment variables*, preserving secrets:
    - `LIVE_MEDIA_SERVER_URL=https://<mediamtx-health-origin>`
      (reachable from Vercel for readiness)
