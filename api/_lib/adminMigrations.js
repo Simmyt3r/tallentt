@@ -76,8 +76,8 @@ export const MIGRATION_CATALOG = Object.freeze([
   },
   {
     id:'vibes-video-2026-10',
-    title:'Vibes reviewed video media',
-    description:'Signed video uploads up to 20MB, held until an administrator approves them.',
+    title:'Vibes automatically screened video media',
+    description:'Signed videos up to 20MB; cleared uploads publish automatically and suspicious media enters review.',
     path:new URL('../../db/patch-vibes-video-2026-10.sql',import.meta.url),
   },
   {
