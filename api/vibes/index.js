@@ -143,15 +143,22 @@ async function verifyUploads(userId, media) {
         body:JSON.stringify({requests:[{image:{source:{imageUri:item.url}},features:[{type:'SAFE_SEARCH_DETECTION'}]}]}),
         signal:AbortSignal.timeout(9000),
       })
-    } catch {throw bad(503,'Photo safety check is unavailable. Retry shortly.')}
-    if(!screened.ok) throw bad(503,'Photo safety check is unavailable. Retry shortly.')
+    } catch {
+      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,
+        type:'image',bytes:asset.bytes,needs_review:true}
+    }
+    if(!screened.ok) return {upload_id:permit.id,public_id:permit.public_id,
+      url:item.url,type:'image',bytes:asset.bytes,needs_review:true}
     const scan=(await screened.json()).responses?.[0]
-    if(scan?.error || !scan?.safeSearchAnnotation) throw bad(503,'Photo safety check is incomplete.')
+    if(scan?.error || !scan?.safeSearchAnnotation)
+      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,
+        type:'image',bytes:asset.bytes,needs_review:true}
     const safety=scan.safeSearchAnnotation
     if(['LIKELY','VERY_LIKELY'].includes(safety.adult) ||
        ['LIKELY','VERY_LIKELY'].includes(safety.violence) ||
        safety.racy==='VERY_LIKELY')
-      throw bad(422,'This photo requires additional safety review. Choose another photo.')
+      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,
+        type:'image',bytes:asset.bytes,needs_review:true}
     return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',bytes:asset.bytes}
   }
   const result=new Array(media.length)
@@ -251,7 +258,7 @@ async function publish(userId, body) {
       if(rowCount!==1) throw bad(409,'A photo was already used. Upload it again.')
     }
     await client.query('COMMIT')
-    return {id:post.id,pending_review:verified.some(item=>item.type==='video'||item.needs_review)}
+    return {id:post.id,pending_review:verified.some(item=>item.needs_review)}
   } catch(error) {
     await client.query('ROLLBACK').catch(()=>{})
     throw error
