@@ -29,6 +29,7 @@ import AdminUserErasure, {AdminUserMediaCleanup} from '../components/AdminUserEr
 import AdminShowroomReports from '../components/AdminShowroomReports.jsx'
 import AdminShowroomGallery from '../components/AdminShowroomGallery.jsx'
 import AdminVibesVideoReview from '../components/AdminVibesVideoReview.jsx'
+import AdminFinanceLedger from '../components/AdminFinanceLedger.jsx'
 import AdminShowroomConfig from '../components/AdminShowroomConfig.jsx'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromHat, identityFromRow, resolveIdentity } from '../lib/profile.js'
@@ -309,7 +310,14 @@ export default function Admin() {
                 <UsersTable rows={filtered} adminId={dashboard?.admin?.id} onDeleted={load} />
               </>}
               {tab === 'deals' && <EscrowsTable rows={filtered} busy={busy} runAction={runAction} />}
-              {tab === 'finance' && <WalletTable rows={filtered} busy={busy} runAction={runAction} />}
+              {tab === 'finance' && <>
+                <AdminFinanceLedger/>
+                <div className="border-t border-black/10 p-4">
+                  <h3 className="text-[14px] font-black">Subscriber wallet transaction audit</h3>
+                  <p className="mb-3 text-[11px] text-black/50">Wallet credits and debits are not company profit. This table is for liability reconciliation.</p>
+                </div>
+                <WalletTable rows={filtered} busy={busy} runAction={runAction} />
+              </>}
               {tab === 'disputes' && <AdminDisputes />}
               {tab === 'hats' && <HatsTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'applications' && <ApplicationsTable rows={filtered} busy={busy} runAction={runAction} />}
@@ -538,7 +546,8 @@ function OverviewPanel({ dashboard, setTab }) {
         <Metric icon={Users} label="Users" value={metrics.users} sub={`${metrics.talent_users || 0} talent-capable · ${metrics.client_users || 0} client-capable`} />
         <Metric icon={Handshake} label="Active Deals" value={metrics.active_deals} sub={fmtMoney(metrics.active_deal_value)} />
         <Metric icon={BadgeCheck} label="Completed Deals" value={metrics.completed_deals} sub={`${fmtMoney(metrics.completed_deal_value)} settled`} />
-        <Metric icon={Wallet} label="Wallet Liability" value={fmtMoney(metrics.wallet_liability)} sub="Total user balances" />
+        <Metric icon={Wallet} label="Escrow Liability" value={fmtMoney(metrics.escrow_liability)} sub="Outstanding secured customer funds, not profit" />
+        <Metric icon={Wallet} label="Wallet Liability" value={fmtMoney(metrics.wallet_liability)} sub="Subscriber balances, not company income" />
         <Metric icon={Activity} label="Pending Withdrawals" value={metrics.pending_withdrawals} sub={fmtMoney(metrics.pending_withdrawal_value)} />
         <Metric icon={Gavel} label="Open Disputes" value={metrics.open_disputes} sub={`${metrics.active_hats || 0} active hats`} />
       </section>
