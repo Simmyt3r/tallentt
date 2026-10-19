@@ -45,6 +45,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-live-stage-competitions-2026-10.sql', import.meta.url),
   },
   {
+    id: 'community-chats-2026-10',
+    title: 'General subscriber chats',
+    description: 'Consent-based messaging inbox distinct from deal negotiation and payment conversations.',
+    path: new URL('../../db/patch-community-chats-2026-10.sql',import.meta.url),
+  },
+  {
     id: 'deal-calls-2026-10',
     title: 'Deals Chat audio and video calls',
     description: 'Encrypted peer-to-peer call signaling for funded, active deals.',
