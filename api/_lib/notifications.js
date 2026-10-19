@@ -59,7 +59,7 @@ export async function getNotificationCount(userId) {
   return Number(rows[0]?.count || 0)
 }
 
-export async function getNotificationInbox(userId, before = null) {
+export async function getNotificationInbox(userId, before = null, search = '') {
   if (before && !UUID_RE.test(String(before))) {
     const err = new Error('Invalid notification cursor.')
     err.status = 400
@@ -67,16 +67,19 @@ export async function getNotificationInbox(userId, before = null) {
   }
 
   const pageSize = 30
+  // Search across the entire inbox rather than only the already-loaded page.
+  const term = String(search || '').trim().slice(0, 100)
   const [items, unreadCount] = await Promise.all([
     query(
       `SELECT id, type, title, body, link_url, metadata, read_at, created_at
        FROM notifications
        WHERE user_id = $1 AND deleted_at IS NULL
+         AND ($4::text = '' OR POSITION(LOWER($4::text) IN LOWER(CONCAT_WS(' ', type, title, body))) > 0)
          AND ($2::uuid IS NULL OR (created_at, id) <
            (SELECT created_at, id FROM notifications WHERE id = $2 AND user_id = $1))
        ORDER BY created_at DESC, id DESC
        LIMIT $3`,
-      [userId, before || null, pageSize + 1],
+      [userId, before || null, pageSize + 1, term],
     ),
     getNotificationCount(userId),
   ])
