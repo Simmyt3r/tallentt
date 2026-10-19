@@ -260,6 +260,10 @@ export const api = {
   dealCallAction: (body) => request('/api/escrows',{
     method:'POST',body:JSON.stringify(body),
   }),
+  getCommunityChats: () => request('/api/escrows?community=1',{cache:'no-store'}),
+  searchCommunityUsers: (q) => request('/api/escrows?community_users=1&q='+encodeURIComponent(q),{cache:'no-store'}),
+  getCommunityThread: (id) => request('/api/escrows?community_thread='+encodeURIComponent(id),{cache:'no-store'}),
+  communityChatAction: (body) => request('/api/escrows',{method:'POST',body:JSON.stringify(body)}),
   getConversations: (before) => request(`/api/escrows?conversations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
   getNegotiations: (before) => request(`/api/escrows?negotiations=1${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
   getMessages: (id, before) => request(`/api/escrows?messages=1&escrow_id=${encodeURIComponent(id)}${before ? `&before=${encodeURIComponent(before)}` : ''}`, { cache: 'no-store' }),
