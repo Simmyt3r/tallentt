@@ -16,6 +16,7 @@ import TalentProfile from './pages/TalentProfile.jsx'
 import Wallet from './pages/Wallet.jsx'
 import Admin from './pages/Admin.jsx'
 import Messages from './pages/Messages.jsx'
+import CommunityChats from './pages/CommunityChats.jsx'
 import Negotiations from './pages/Negotiations.jsx'
 import Notifications from './pages/Notifications.jsx'
 import Settings from './pages/Settings.jsx'
@@ -47,6 +48,7 @@ export default function App() {
     <Route path="/bento" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
     <Route path="/vibes" element={<ProtectedRoute><Vibes /></ProtectedRoute>} />
     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+    <Route path="/chats" element={<ProtectedRoute><CommunityChats /></ProtectedRoute>} />
     <Route path="/negotiations" element={<ProtectedRoute><Negotiations /></ProtectedRoute>} />
     <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
     <Route path="/showroom/:postId?" element={<ProtectedRoute><ShowroomPage /></ProtectedRoute>} />
