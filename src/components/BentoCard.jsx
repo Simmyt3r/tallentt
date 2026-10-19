@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { BookOpen, Send, Share2 } from 'lucide-react'
 import {shareContent} from '../lib/shareContent.js'
+import {useAccountOrbit} from '../lib/useAccountOrbit.js'
 import BentoCardDetailModal from './BentoCardDetailModal'
 import UserIdentity from './UserIdentity'
 import RoleCardBadge from './RoleCardBadge'
@@ -30,6 +31,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
     dark: 'bg-[#182033] text-white border-[#283A51]',
   }[layout]
   const owner = identityFromHat(hat)
+  const {node:orbitNode,score:accountOrbitScore}=useAccountOrbit(hat.username)
   // "N jobs" on a talent hat (completed gigs), "N hires" on a client hat
   // (people they've successfully hired) — same underlying released-escrow
   // count from the API, the label is the only thing that differs by role.
@@ -54,7 +56,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
 
   return (
     <>
-      <article
+      <article ref={orbitNode}
         id={`bento-hat-${hat.id}`}
         style={{ borderTopColor: getHatAccent(hat.bento_accent), borderTopWidth: hat.bento_accent === 'none' ? 0 : 4 }}
         className={`bento-layout bento-layout--${layout} isolate min-w-0 relative rounded-[24px] p-4 border shadow-[0_8px_24px_rgba(0,0,0,0.04)] min-h-[264px] flex flex-col w-full ${theme} ${
@@ -84,8 +86,8 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
               {hat.hires || 0} {engagementLabel}
             </span>
             <span className="rounded-full border border-[#0A13E6]/20 bg-[#E9EAFF] px-2 py-1 text-[10px] font-bold text-[#0A13E6]"
-              title="Orbit activity score shown for this Hat. Performance and verification details appear when the card is opened.">
-              Orbit {Number.isFinite(Number(hat.orbit_score)) ? Math.max(0,Math.min(100,Math.round(Number(hat.orbit_score)))) : '—'}/100
+              title="Account-level activity Orbit score. Open the card for its underlying performance evidence.">
+              Orbit {accountOrbitScore===null?'…':Math.max(0,Math.min(100,Math.round(accountOrbitScore)))}/100
             </span>
           </div>
         </UserIdentity>
