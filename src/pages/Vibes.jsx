@@ -286,11 +286,19 @@ export default function Vibes() {
     if(publishing||(!text.trim()&&!photos.length))return
     setPublishing(true);setPostError('')
     try {
-      const uploads=[]
-      for(const item of photos){
-        const file=item.file.type.startsWith('image/')?await compressImageFile(item.file):item.file
-        uploads.push(await uploadVibePhoto(file))
-      }
+      // Signed media uploads may run concurrently, but with a low ceiling to
+      // avoid saturating subscribers' connections on mobile data.
+      const uploads=new Array(photos.length)
+      let next=0
+      await Promise.all(Array.from({length:Math.min(3,photos.length)},async()=>{
+        while(next<photos.length){
+          const index=next++
+          const item=photos[index]
+          const file=item.file.type.startsWith('image/')
+            ? await compressImageFile(item.file) : item.file
+          uploads[index]=await uploadVibePhoto(file)
+        }
+      }))
       const result=await api.publishVibe(text.trim(),uploads)
       if(result.pending_review){
         setReviewingPost(result.id)
