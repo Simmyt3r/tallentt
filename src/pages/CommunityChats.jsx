@@ -152,6 +152,13 @@ export default function CommunityChats(){
          <button type="button" disabled={sending} onClick={()=>respond('blocked')}
            className="min-h-11 rounded-full border border-red-200 px-4 text-[12px] font-bold text-red-700">Block</button>
        </div>}
+       {accepted&&!newUser&&<div className="border-t border-black/10 px-3 pt-2 text-right">
+         <button type="button" disabled={sending}
+           onClick={()=>{if(window.confirm('Block this subscriber and stop messaging?'))respond('blocked')}}
+           className="rounded-full border border-red-200 px-3 py-2 text-[11px] font-bold text-red-700">
+           Block subscriber
+         </button>
+       </div>}
        {composeReady?<form onSubmit={e=>{e.preventDefault();newUser?start():send()}}
          className="flex items-end gap-2 border-t border-black/10 p-3">
          <label htmlFor="community-compose" className="sr-only">Write a community message</label>
