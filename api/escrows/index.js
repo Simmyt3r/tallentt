@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 // Path: api/escrows/index.js
 import { query, getClient } from '../_lib/db.js'
 import { getDealCall, dealCallAction } from '../_lib/dealCalls.js'
+import {communityChatsGet,communityChatsAction} from '../_lib/communityChats.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
 import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTransfer } from '../_lib/paystack.js'
@@ -26,6 +27,9 @@ export default async function handler(req, res) {
 
       const url = new URL(req.url, `http://${req.headers.host}`)
 
+      if(url.searchParams.has('community')||url.searchParams.has('community_thread')||
+        url.searchParams.has('community_users'))
+        return json(res,200,await communityChatsGet(session.sub,url.searchParams))
       if (url.searchParams.get('my_disputes') === '1') {
         // Only the two parties may see their dispute history, including
         // reasons, settlement notes and the amount still held.
@@ -143,6 +147,8 @@ export default async function handler(req, res) {
     const body = await readBody(req)
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'A JSON object is required.' })
 
+    if(['community_start','community_send','community_respond'].includes(body.action))
+      return json(res,200,await communityChatsAction(session.sub,body))
     if (['start_call','accept_call','decline_call','end_call','call_signal'].includes(body.action))
       return json(res,200,await dealCallAction(session.sub,body))
     if (['send_message', 'make_offer', 'respond_offer', 'read_messages', 'read_offers'].includes(body.action)) {
