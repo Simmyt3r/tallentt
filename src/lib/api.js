@@ -7,9 +7,20 @@ const base = ''
 const responseCache=new Map()
 const MAX_CACHE_ITEMS=75
 function cacheTtl(path){
-  if(/^\/api\/vibes(?:\?|$)/.test(path))return 60_000
-  if(/^\/api\/hats(?:\/|\?|$)/.test(path))return 100_000
-  if(/^\/api\/showroom(?:\?|$)/.test(path))return 45_000
+  // Only discovery endpoints containing public metadata belong in the
+  // in-memory revisit cache. Hat detail responses may expose contact
+  // details after escrow unlock; never cache them for offline fallback.
+  const target=new URL(path,'https://chombutar.invalid')
+  if(target.pathname==='/api/vibes'
+     && !target.searchParams.has('moderation_status'))return 30_000
+  if(target.pathname==='/api/hats'
+     && target.searchParams.get('feed')==='1'
+     && !target.searchParams.has('user_id')
+     && !target.searchParams.has('my_media'))return 45_000
+  if(target.pathname==='/api/showroom'
+     && !target.searchParams.has('action')
+     && !target.searchParams.has('my_hidden')
+     && !target.searchParams.has('visibility'))return 30_000
   return 0
 }
 export function clearRouteCache(){responseCache.clear()}
