@@ -84,8 +84,18 @@ export default function LiveHub() {
   }
 
   async function openPreview() {
-    if(!mediaReadiness?.broadcast_ready){
-      setError('Live Broadcast cannot start because its video media server is unavailable. A private camera preview is not a public broadcast. Configure and verify WHIP/MediaMTX and HLS first.')
+    // Verify at the moment the user starts. A cached false result from page
+    // load must not lock out a server that was brought online afterward.
+    let readiness
+    try{
+      readiness=await api.getLiveMediaStatus()
+      setMediaReadiness(readiness)
+    }catch{
+      readiness={broadcast_ready:false,reason:'preflight_failed'}
+      setMediaReadiness(readiness)
+    }
+    if(!readiness.broadcast_ready){
+      setError('Live Broadcast is unavailable ('+(readiness.reason||'media transport not ready')+'). The streaming server must be configured and reachable before cameras can broadcast to viewers.')
       return
     }
     setError('')
@@ -176,10 +186,16 @@ export default function LiveHub() {
 
       </header>
 
-      {mediaReadiness?.broadcast_ready===false&&<p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
-        Live Broadcast video is unavailable ({mediaReadiness.reason||'media transport not ready'}).
-        Stage competitions are accessible separately. The platform will not falsely label your private camera preview as live.
-      </p>}
+      {mediaReadiness?.broadcast_ready===false&&<div role="alert" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
+        <p className="font-bold">Live Broadcast connection unavailable ({mediaReadiness.reason||'transport not ready'}).</p>
+        <p>Video publishing requires a running, secure WHIP/MediaMTX relay and HLS playback endpoint. Stage competitions remain separate.</p>
+        <button type="button" onClick={async()=>{
+          try{setMediaReadiness(await api.getLiveMediaStatus())}
+          catch{setMediaReadiness({broadcast_ready:false,reason:'preflight_failed'})}
+        }} className="min-h-10 rounded-full border border-amber-400 px-4 font-bold">
+          Recheck streaming server
+        </button>
+      </div>}
       <nav aria-label="Live modes" className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white p-2">
         <button type="button" onClick={() => {
           if (creating) closePreview()
