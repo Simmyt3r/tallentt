@@ -134,7 +134,7 @@ export default function Layout({ children }) {
                 className={`${QUICK_ACTION} hidden sm:flex`}>
                 <Plus size={21} aria-hidden="true" />
               </Link>
-              <Link to="/messages" aria-label="Messages" title="Messages"
+              <Link to="/chats" aria-label="General Chat" title="Community and subscriber messages"
                 className={QUICK_ACTION}>
                 <MessageCircle size={20} aria-hidden="true" />
               </Link>
