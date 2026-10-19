@@ -83,6 +83,10 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
             <span className="bg-black text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
               {hat.hires || 0} {engagementLabel}
             </span>
+            <span className="rounded-full border border-[#0A13E6]/20 bg-[#E9EAFF] px-2 py-1 text-[10px] font-bold text-[#0A13E6]"
+              title="Orbit activity score shown for this Hat. Performance and verification details appear when the card is opened.">
+              Orbit {Number.isFinite(Number(hat.orbit_score)) ? Math.max(0,Math.min(100,Math.round(Number(hat.orbit_score)))) : '—'}/100
+            </span>
           </div>
         </UserIdentity>
 
