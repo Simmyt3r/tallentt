@@ -109,6 +109,8 @@ try {
     await page.getByText('Recent notice').waitFor()
     await page.getByRole('button', { name: /Load older/ }).click()
     await page.getByText('Older notice').waitFor()
+    await page.getByRole('searchbox', { name: 'Search all notifications' }).fill('Recent')
+    await page.getByText('Recent notice').waitFor()
     notificationRefresh = true
     await page.evaluate(() => window.dispatchEvent(new Event('push:notification')))
     await page.getByText('Latest notice').waitFor()
