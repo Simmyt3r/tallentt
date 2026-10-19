@@ -3,9 +3,9 @@
 // the PWA service worker on browsers with working RangeRequests support.
 const CACHE='chombutar-offline-videos-v1'
 const MAX_BYTES=24*1024*1024
-export function offlineVideoUrl(url){
+export function offlineVideoUrl(url,cloudName=import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME){
   const target=new URL(url)
-  const expectedCloud=String(import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME||'').trim()
+  const expectedCloud=String(cloudName||'').trim()
   const validPath=expectedCloud && target.pathname.startsWith('/'+expectedCloud+'/video/upload/')
   if(target.protocol!=='https:'||target.hostname!=='res.cloudinary.com'
      || !validPath || !/\\.(mp4|webm|mov)$/i.test(target.pathname))
