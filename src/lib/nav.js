@@ -27,6 +27,7 @@ export const NAV_PRIMARY = [
 
 export const NAV_SECONDARY = [
   { to: '/negotiations', icon: ArrowLeftRight, label: 'Negotiation Center' },
+  { to: '/chats', icon: MessageCircle, label: 'General Chat' },
   { to: '/messages', icon: MessageCircle, label: 'Deals Chat' },
   { to: '/wallet', icon: WalletIcon, label: 'Wallet' },
   { to: '/disputes', icon: Scale, label: 'Dispute Center' },
@@ -39,6 +40,7 @@ const TITLES = [
   { test: (p) => p === '/', title: 'Showroom' },
   { test: (p) => p === '/bento', title: 'Bento Feed' },
   { test: (p) => p.startsWith('/vibes'), title: 'Hits & Vibes' },
+  { test: (p) => p.startsWith('/chats'), title: 'General Chat' },
   { test: (p) => p.startsWith('/messages'), title: 'Deals Chat' },
   { test: (p) => p.startsWith('/negotiations'), title: 'Negotiation Center' },
   { test: (p) => p.startsWith('/notifications'), title: 'Notifications' },
