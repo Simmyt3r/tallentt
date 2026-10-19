@@ -3,8 +3,8 @@ import {api} from '../lib/api.js'
 
 const money=value=>{
  if(value===null||value===undefined)return 'Not recorded'
- const n=Number(value)
- return Number.isFinite(n)?'₦'+n.toLocaleString('en-NG',{maximumFractionDigits:0}):'Unavailable'
+ try{return '₦'+BigInt(String(value)).toLocaleString('en-NG')}
+ catch{return 'Unavailable'}
 }
 export default function AdminFinanceLedger(){
   const [summary,setSummary]=useState(null)
@@ -20,6 +20,10 @@ export default function AdminFinanceLedger(){
     finally{setBusy(false)}
   }
   useEffect(()=>{refresh()},[])
+  useEffect(()=>{
+    const selected=new URLSearchParams(window.location.search).get('stream')
+    if(selected==='live_support')openAudit(selected)
+  },[])
   async function openAudit(id,next=null){
     setBusy(true);setError('')
     try{
@@ -82,11 +86,10 @@ export default function AdminFinanceLedger(){
             </div>
             <div className="flex items-center gap-3">
               <strong className="text-[13px] tabular-nums">{money(item.inflow)}</strong>
-              {item.recorded&&<button type="button" disabled={busy}
-                onClick={()=>openAudit(item.id)}
-                className="min-h-10 rounded-full border border-[#0A13E6]/30 px-3 text-[11px] font-bold text-[#0A13E6]">
+              {item.recorded&&<a href={`/admin?tab=finance&stream=${encodeURIComponent(item.id)}`}
+                className="inline-flex min-h-10 items-center rounded-full border border-[#0A13E6]/30 px-3 text-[11px] font-bold text-[#0A13E6]">
                 Audit trail
-              </button>}
+              </a>}
             </div>
           </div>)}
         </div>
