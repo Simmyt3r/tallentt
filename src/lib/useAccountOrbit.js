@@ -4,6 +4,7 @@ const cached=new Map()
 export function useAccountOrbit(username){
   const node=useRef(null)
   const [score,setScore]=useState(null)
+  const [resolved,setResolved]=useState(false)
   useEffect(()=>{
     const key=String(username||'').trim().replace(/^[@^]+/,'').toLowerCase()
     if(!key)return undefined
@@ -19,7 +20,7 @@ export function useAccountOrbit(username){
           .catch(()=>null)}
         cached.set(key,entry)
       }
-      entry.promise.then(value=>{if(mounted)setScore(value)})
+      entry.promise.then(value=>{if(mounted){setScore(value);setResolved(true)}})
     }
     let observer
     if(typeof IntersectionObserver!=='undefined'&&node.current){
@@ -30,5 +31,5 @@ export function useAccountOrbit(username){
     }else request()
     return()=>{mounted=false;observer?.disconnect()}
   },[username])
-  return {node,score}
+  return {node,score,resolved}
 }
