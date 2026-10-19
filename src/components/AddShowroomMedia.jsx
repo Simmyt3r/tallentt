@@ -243,6 +243,9 @@ export default function AddShowroomMedia({ open, onClose, onAdded }) {
               <p className="text-[12px] text-black/50 font-medium">
                 {standalone ? 'Entertainment showcase (no booking link)' : <>Posting to <span className="font-semibold text-black">{selectedHat.hat_title}</span></>}
               </p>
+              <p className="rounded-xl bg-blue-50 px-3 py-2 text-[11px] font-medium text-[#0A13E6]">
+                After choosing media, the <strong>Add a caption</strong> field appears before publishing.
+              </p>
               <label
                 className={`flex flex-col items-center gap-2 cursor-pointer py-8 rounded-[16px] border-[1.5px] border-dashed transition ${
                   uploading ? 'border-black/10 bg-[#F5F3EF]/50' : 'border-black/15 bg-[#F5F3EF]/50 hover:border-black/30'
