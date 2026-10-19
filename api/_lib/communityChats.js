@@ -100,10 +100,14 @@ export async function communityChatsAction(userId,body){
     const thread=rows[0]
     if(!thread)throw fail(404,'Conversation not found.')
     if(action==='community_respond'){
-      if(thread.recipient_id!==userId||thread.status!=='pending')
-        throw fail(403,'Only the invited subscriber can respond to this request.')
-      if(!['accepted','declined','blocked'].includes(body.decision))
+      const acceptingOrDeclining=['accepted','declined'].includes(body.decision)
+      const blocking=body.decision==='blocked'
+      if(!acceptingOrDeclining&&!blocking)
         throw fail(400,'Choose accept, decline, or block.')
+      if(acceptingOrDeclining&&(thread.recipient_id!==userId||thread.status!=='pending'))
+        throw fail(403,'Only the invited subscriber can accept or decline a new request.')
+      if(blocking&&thread.status==='blocked')
+        throw fail(409,'This conversation is already blocked.')
       const {rows:updated}=await client.query(`UPDATE community_threads
         SET status=$2,updated_at=NOW() WHERE id=$1 RETURNING *`,[threadId,body.decision])
       target=updated[0].initiator_id
