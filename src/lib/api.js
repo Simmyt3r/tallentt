@@ -64,6 +64,10 @@ export const api = {
   // comment at the top of api/auth/index.js.
   me: () => request('/api/auth?action=me'),
   getMyOrbitScore: () => request('/api/auth?action=orbit'),
+  getAdminFinanceSummary: () => request('/api/admin?action=finance_summary',{cache:'no-store'}),
+  getAdminFinanceAudit: (stream,cursor) => request('/api/admin?'+new URLSearchParams({
+    action:'finance_audit',stream,...(cursor?{cursor}:{}),
+  }),{cache:'no-store'}),
   getAdminOrbitConfig: () => request('/api/admin?action=orbit_config'),
   saveAdminOrbitWeights: (weights) => request('/api/admin',{method:'POST',body:JSON.stringify({action:'configure_orbit',weights})}),
   getAdminHatReviews: () => request('/api/admin?action=hat_data_reviews'),
