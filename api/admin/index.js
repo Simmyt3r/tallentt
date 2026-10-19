@@ -2,6 +2,7 @@
 import { query, getClient } from '../_lib/db.js'
 import {pendingVibesVideos,reviewVibesVideo} from '../_lib/vibesReview.js'
 import {financeSummary,financeAudit} from '../_lib/financeReporting.js'
+import {resolveLiveMediaAvailability} from '../_lib/liveMedia.js'
 import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
 import { adminGalleryQueue, adminGalleryDecision } from '../_lib/showroomGallery.js'
@@ -135,6 +136,7 @@ async function requireAdmin(req, res) {
 
 async function getDashboard() {
   const pushStatusPromise = getAdminVapidStatus()
+  const mediaStatusPromise=resolveLiveMediaAvailability()
   const [
     metrics,
     applicationStatuses,
@@ -267,6 +269,7 @@ async function getDashboard() {
   ])
 
   const pushStatus = await pushStatusPromise
+  const mediaStatus=await mediaStatusPromise
 
   return {
     metrics: metrics.rows[0],
@@ -274,7 +277,8 @@ async function getDashboard() {
       database: Boolean(process.env.DATABASE_URL),
       paystack: Boolean(process.env.PAYSTACK_SECRET_KEY),
       cloudinary: Boolean(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)),
-      live_media: Boolean(process.env.LIVE_MEDIA_SERVER_URL && process.env.LIVE_WHIP_URL && process.env.LIVE_HLS_BASE_URL),
+      live_media: mediaStatus.mode === 'mediamtx',
+      live_media_reason: mediaStatus.reason || null,
       live_realtime: Boolean(process.env.LIVE_REALTIME_PUBLISH_URL && process.env.LIVE_REALTIME_SECRET),
       push: Boolean(pushStatus.configured),
     },
