@@ -6,6 +6,9 @@
     "api/admin/index.js": {
       "includeFiles": "db/patch-*.sql",
       "maxDuration": 60
+    },
+    "api/vibes/index.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
