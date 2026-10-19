@@ -109,7 +109,12 @@ try {
     await page.getByText('Recent notice').waitFor()
     await page.getByRole('button', { name: /Load older/ }).click()
     await page.getByText('Older notice').waitFor()
+    const filteredRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url())
+      return url.pathname === '/api/auth' && url.searchParams.get('action') === 'notifications' && url.searchParams.get('search') === 'Recent'
+    })
     await page.getByRole('searchbox', { name: 'Search all notifications' }).fill('Recent')
+    await filteredRequest
     await page.getByText('Recent notice').waitFor()
     notificationRefresh = true
     await page.evaluate(() => window.dispatchEvent(new Event('push:notification')))
