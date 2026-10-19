@@ -1,6 +1,7 @@
 // Path: api/admin/index.js
 import { query, getClient } from '../_lib/db.js'
 import {pendingVibesVideos,reviewVibesVideo} from '../_lib/vibesReview.js'
+import {financeSummary,financeAudit} from '../_lib/financeReporting.js'
 import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
 import { adminGalleryQueue, adminGalleryDecision } from '../_lib/showroomGallery.js'
@@ -41,6 +42,9 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
+      if (params.get('action') === 'finance_summary') return json(res,200,await financeSummary())
+      if (params.get('action') === 'finance_audit')
+        return json(res,200,await financeAudit({stream:params.get('stream')||'live_support',cursor:params.get('cursor')}))
       if (params.get('action') === 'vibes_video_review') return json(res,200,await pendingVibesVideos())
       if (params.get('action') === 'user_search'){
         const search=String(params.get('q')||'').trim()
@@ -163,7 +167,10 @@ async function getDashboard() {
         (SELECT COUNT(*)::int FROM wallet_transactions WHERE type = 'withdrawal' AND status = 'pending') as pending_withdrawals,
         (SELECT COALESCE(SUM(amount), 0)::int FROM wallet_transactions WHERE type = 'withdrawal' AND status = 'pending') as pending_withdrawal_value,
         (SELECT COUNT(*)::int FROM booking_disputes WHERE status = 'open') as open_disputes,
-        (SELECT COALESCE(SUM(balance), 0)::int FROM wallets) as wallet_liability
+        (SELECT COALESCE(SUM(balance), 0)::int FROM wallets) as wallet_liability,
+        (SELECT COALESCE(SUM(GREATEST(amount::bigint -
+           COALESCE(start_released_amount,0)::bigint,0)),0)::text
+           FROM escrows WHERE status='secured') AS escrow_liability
     `),
     query(`SELECT status, COUNT(*)::int as count FROM applications GROUP BY status ORDER BY status`),
     query(`
