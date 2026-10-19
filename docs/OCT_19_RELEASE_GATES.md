@@ -4,7 +4,8 @@
 
 - Hits & Vibes usernames are displayed as `^username`. Its composer uses two compact rows.
 - The unwanted header X and Back controls beside the ChombuTar logo were removed.
-  Device Back remains available. Notifications intentionally has no search input.
+  Device Back remains available. Notifications now includes the same
+  pill-style search input as Showroom, searching all inbox history on the server.
 - The shared `DiscoverySearch` component remains the same across Showroom,
   Vibes, BentoField, My Hats, and Deals.
 - Showroom media captions: **Showroom → + → choose posting route → select

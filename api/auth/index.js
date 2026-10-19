@@ -287,7 +287,7 @@ async function handleNotifications(req, res, url) {
   const session = getSessionUser(req)
   if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
   try {
-    return json(res, 200, await getNotificationInbox(session.sub, url.searchParams.get('before')))
+    return json(res, 200, await getNotificationInbox(session.sub, url.searchParams.get('before'), url.searchParams.get('search')))
   } catch (err) {
     console.error('notification inbox error:', err)
     return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to load notifications.' })

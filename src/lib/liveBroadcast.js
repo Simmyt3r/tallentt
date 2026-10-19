@@ -1,16 +1,23 @@
 // Path: src/lib/liveBroadcast.js
 // Browser camera/microphone -> WebRTC/WHIP -> MediaMTX.
 
-function waitForIceGathering(pc) {
+function waitForIceGathering(pc, timeoutMs = 10000) {
   if (pc.iceGatheringState === 'complete') return Promise.resolve()
-  return new Promise((resolve) => {
-    const onChange = () => {
-      if (pc.iceGatheringState === 'complete') {
-        pc.removeEventListener('icegatheringstatechange', onChange)
-        resolve()
-      }
+  return new Promise((resolve, reject) => {
+    const finish = (error) => {
+      clearTimeout(timer)
+      pc.removeEventListener('icegatheringstatechange', onChange)
+      if (error) reject(error)
+      else resolve()
     }
+    const onChange = () => {
+      if (pc.iceGatheringState === 'complete') finish()
+    }
+    const timer = setTimeout(() => finish(new Error(
+      'Live could not establish its network connection. Check WebRTC ICE/TURN server settings and try again.'
+    )), timeoutMs)
     pc.addEventListener('icegatheringstatechange', onChange)
+    onChange()
   })
 }
 
