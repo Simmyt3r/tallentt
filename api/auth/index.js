@@ -22,7 +22,7 @@ import {
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { listBanks, resolveBankAccount, createTransferRecipient } from '../_lib/paystack.js'
 import { requestPasswordReset, completePasswordReset } from '../_lib/passwordRecovery.js'
-import { getNotificationCount, getNotificationInbox, markAllNotificationsRead, markNotificationRead, deleteNotification, clearNotifications } from '../_lib/notifications.js'
+import { getNotificationCount, getNotificationUnreadByLane, getNotificationInbox, markAllNotificationsRead, markNotificationRead, deleteNotification, clearNotifications } from '../_lib/notifications.js'
 import {
   getPushPreferences,
   getVapidPublicKey,
@@ -287,7 +287,7 @@ async function handleNotifications(req, res, url) {
   const session = getSessionUser(req)
   if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
   try {
-    return json(res, 200, await getNotificationInbox(session.sub, url.searchParams.get('before'), url.searchParams.get('search')))
+    return json(res, 200, await getNotificationInbox(session.sub, url.searchParams.get('before'), url.searchParams.get('search'), url.searchParams.get('lane') || 'all'))
   } catch (err) {
     console.error('notification inbox error:', err)
     return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to load notifications.' })
@@ -298,7 +298,8 @@ async function handleNotificationCount(req, res) {
   const session = getSessionUser(req)
   if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
   try {
-    return json(res, 200, { unreadCount: await getNotificationCount(session.sub) })
+    const [unreadCount,unreadByLane] = await Promise.all([getNotificationCount(session.sub),getNotificationUnreadByLane(session.sub)])
+    return json(res, 200, { unreadCount, unreadByLane })
   } catch (err) {
     console.error('notification count error:', err)
     return json(res, 500, { error: 'Failed to load notification count.' })
