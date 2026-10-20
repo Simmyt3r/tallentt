@@ -1,4 +1,5 @@
 import { query } from '../_lib/db.js'
+import { associateVouchCounts } from '../_lib/associates.js'
 import { galleryFeed, galleryPost, galleryMine, signGalleryUpload, publishGallery, galleryAction } from '../_lib/showroomGallery.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
@@ -195,10 +196,12 @@ export default async function handler(req, res) {
     }
 
     const gallery = cursor ? {posts:[],nextCursor:null} : await galleryFeed(session?.sub,url)
+    const vouchCounts=await associateVouchCounts([...hats.map(h=>h.user_id),...(gallery.posts||[]).map(p=>p.user_id)])
     const { rows: categories } = await query('SELECT id, name FROM categories ORDER BY name')
     return json(res, 200, {
       hats: hats.map((h, index) => ({
         ...h,
+        associate_vouch_count:vouchCounts[h.user_id]||0,
         media: mediaByHat[h.id] || [],
         bento_accent: presentations[h.id]?.accent || 'electric',
         showroom_template: presentations[h.id]?.template || 'minimal',
@@ -206,7 +209,7 @@ export default async function handler(req, res) {
         isHost: !cursor && index === 0 && view === 'for_you',
       })),
       categories,
-      galleryPosts: gallery.posts,
+      galleryPosts: (gallery.posts||[]).map(post=>({...post,associate_vouch_count:vouchCounts[post.user_id]||0})),
       galleryNextCursor: gallery.nextCursor,
       view,
       nearbyAvailable: view !== 'near' || Boolean(nearLga),
