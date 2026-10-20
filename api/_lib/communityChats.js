@@ -127,6 +127,17 @@ export async function communityChatsAction(userId,body){
       target=updated[0].initiator_id
     }else{
       if(thread.status!=='accepted')throw fail(403,'Accept the chat request before replying.')
+      // If a subscriber blocks or removes an Associate, old chat consent
+      // cannot silently override that new explicit choice.
+      const {rows:relationsEnabled}=await client.query("SELECT to_regclass('associate_links') AS present")
+      if(relationsEnabled[0]?.present){
+        const partner=thread.initiator_id===userId?thread.recipient_id:thread.initiator_id
+        const {rows:relation}=await client.query(`SELECT status FROM associate_links
+          WHERE member_low=LEAST($1::uuid,$2::uuid)
+            AND member_high=GREATEST($1::uuid,$2::uuid)`,[userId,partner])
+        if(relation.length && relation[0].status!=='accepted')
+          throw fail(403,'This Associate connection is no longer active.')
+      }
       const text=cleanBody(body.text)
       if(!text||text.length>2000)throw fail(400,'Message must contain 1–2,000 characters.')
       const {rows:rate}=await client.query(`SELECT COUNT(*)::int AS n FROM community_messages
