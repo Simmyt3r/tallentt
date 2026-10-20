@@ -415,7 +415,7 @@ async function handleProfileUpdate(req, res) {
       return json(res, 200, { preferences })
     } catch (err) {
       console.error('push preference update error:', err)
-      return json(res, 500, { error: 'Failed to update push preferences.' })
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to update push preferences.' })
     }
   }
 
