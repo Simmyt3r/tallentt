@@ -6,6 +6,7 @@ import { ensurePushStorage,sendDigestPush } from './pushNotifications.js'
 export async function dispatchDailyFameDigests(){
   await ensurePushStorage()
   const day=new Date().toISOString().slice(0,10)
+  const started=Date.now()
   const {rows}=await query(`SELECT n.user_id,
       COUNT(*) FILTER (WHERE n.type LIKE 'vibes_%')::int AS vibes_count,
       COUNT(*) FILTER (WHERE n.type NOT LIKE 'vibes_%')::int AS fame_count
@@ -23,6 +24,7 @@ export async function dispatchDailyFameDigests(){
   // Each claim is unique per recipient/day. Parallel cron invocations cannot
   // send the same user's digest twice.
   for(let i=0;i<rows.length;i+=5){
+    if(Date.now()-started>40000)break
     const batch=rows.slice(i,i+5)
     await Promise.allSettled(batch.map(async item=>{
       const {rows:claim}=await query(`INSERT INTO notification_daily_digests
@@ -49,5 +51,5 @@ export async function dispatchDailyFameDigests(){
       }
     }))
   }
-  return {processed:rows.length,claimed,delivered,failed,limited:rows.length===100}
+  return {processed:rows.length,claimed,delivered,failed,limited:rows.length===100||claimed<rows.length}
 }
