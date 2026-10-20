@@ -580,6 +580,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_notifications_visible_user ON notifications (user_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_vibes_first_ten_milestone ON notifications(user_id,(metadata->>'post_id')) WHERE type='vibes_first_ten';
 -- General subscriber messaging is distinct from money-backed Deal conversations.
 CREATE TABLE IF NOT EXISTS community_threads (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
