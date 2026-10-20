@@ -105,7 +105,7 @@ export default function ProfileView({
   performance = null,
   onEditClick,
 }) {
-  const [activeTab, setActiveTab] = useState('portfolio')
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab')==='associates'?'associates':'portfolio')
   const [social, setSocial] = useState(null)
   useEffect(() => {
     if(!profileUser?.username)return undefined
