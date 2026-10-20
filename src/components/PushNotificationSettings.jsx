@@ -106,7 +106,7 @@ export default function PushNotificationSettings() {
             <div>
               <h2 className="text-[15px] font-black">Push notifications</h2>
               <p className="mt-1 max-w-xl text-[11.5px] leading-relaxed text-black/50">
-                Get important ChombuTar updates when the app is closed. Permission is requested only when you enable this device.
+                All categories start selected for new subscribers. You can uncheck any category below. Your browser asks permission only when you enable this device.
               </p>
             </div>
           </div>
