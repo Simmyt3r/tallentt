@@ -84,6 +84,9 @@ export async function associatesAction(userId,body){
   const [lo,hi]=pair(userId,other)
   if(action==='associate_follow'||action==='associate_unfollow'){
     if(action==='associate_follow'){
+      const {rows:blocked}=await query(`SELECT 1 FROM associate_links
+        WHERE member_low=$1 AND member_high=$2 AND status='blocked'`,[lo,hi])
+      if(blocked.length)throw fail(403,'This subscriber connection is blocked.')
       const {rows:rate}=await query(`SELECT COUNT(*)::int AS n FROM subscriber_follows
         WHERE follower_id=$1 AND created_at>NOW()-INTERVAL '24 hours'`,[userId])
       if(rate[0].n>=60)throw fail(429,'You have followed many accounts today.')
