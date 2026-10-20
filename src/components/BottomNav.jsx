@@ -1,7 +1,7 @@
 // Path: src/components/BottomNav.jsx
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Handshake, Store, Briefcase, LayoutGrid, MessageSquareHeart } from 'lucide-react'
+import { Store, LayoutGrid, MessageSquareHeart, MessageCircle, UserRound } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
@@ -70,8 +70,8 @@ export default function BottomNav() {
       <BottomNavLink to="/showroom" icon={Store} label="Showroom" />
       <BottomNavLink to="/bento" icon={LayoutGrid} label="Bento" />
       <BottomNavLink to="/vibes" icon={MessageSquareHeart} label="Vibes" />
-      <BottomNavLink to="/my-hats" icon={Briefcase} label="My Hats" />
-      <BottomNavLink to="/deals" icon={Handshake} label="My Deals" badge={pendingDeals} />
+      <BottomNavLink to="/inbox" icon={MessageCircle} label="Inbox" badge={pendingDeals} />
+      <BottomNavLink to="/profile" icon={UserRound} label="Profile" />
     </nav>
   )
 }
