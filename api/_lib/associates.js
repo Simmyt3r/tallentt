@@ -50,7 +50,7 @@ export async function associatesGet(viewerId,params){
       ORDER BY l.accepted_at DESC,l.id DESC LIMIT 12`,[target.id]),
     own?query(`SELECT l.id,l.requester_id,u.username,u.full_name,u.avatar_url
       FROM associate_links l JOIN users u ON u.id=l.requester_id
-      WHERE l.member_low=$1 OR l.member_high=$1
+      WHERE (l.member_low=$1 OR l.member_high=$1)
         AND l.status='pending' AND l.requester_id<>$1
       ORDER BY l.created_at DESC LIMIT 24`,[viewerId]):Promise.resolve({rows:[]}),
   ])
