@@ -42,7 +42,7 @@ function ErrorNotice({ message, onRetry }) {
   )
 }
 
-export default function Messages() {
+export default function Messages({ embedded = false, searchText = '' }) {
   const [params, setParams] = useSearchParams()
   const selected = params.get('escrow')
   const [items, setItems] = useState([])
@@ -112,9 +112,10 @@ export default function Messages() {
     }
   }
 
+  const filteredItems = items.filter(item => !searchText || [item.hat_title,item.peer_username,item.peer_full_name,item.status].some(value => String(value || '').toLowerCase().includes(searchText.toLowerCase().trim())))
   return (
     <div className="max-w-6xl mx-auto md:space-y-4">
-      <header className={`${selected ? 'hidden md:block' : ''} sticky top-14 md:top-16 z-10 -mx-4 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg`}><h1 className="text-[22px] font-bold">Deals Chat</h1><p className="text-[12px] text-black/55">Your active conversations about booked work.</p></header>
+      {!embedded && <header className={`${selected ? 'hidden md:block' : ''} sticky top-14 md:top-16 z-10 -mx-4 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg`}><h1 className="text-[22px] font-bold">Bento Chat</h1><p className="text-[12px] text-black/55">Your conversations about booked work.</p></header>}
       <div
         className={`grid md:grid-cols-[260px_minmax(0,1fr)] border-[1.5px] border-black rounded-[20px] bg-white overflow-hidden ${
           selected
@@ -134,14 +135,14 @@ export default function Messages() {
           {loading && <p className="p-5 text-sm text-black/50">Loading conversations...</p>}
           {!loading && !items.length && !error && (
             <div className="p-5 space-y-3 text-sm text-black/60">
-              <p>No deal conversations yet.</p>
+              <p>No jobs yet. Hire from Bento Field.</p>
               <Link className="underline" to="/showroom">
                 Browse talent
               </Link>
             </div>
           )}
           <ul className="flex-1 min-h-0 overflow-y-auto divide-y divide-black/10">
-            {items.map((item) => (
+            {filteredItems.map((item) => (
               <li key={item.id} className={`relative ${selected === item.id ? 'bg-[#0A13E6]/5' : ''}`}>
                 <button
                   type="button"
