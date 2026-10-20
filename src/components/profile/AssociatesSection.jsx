@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { cldImage } from '../../lib/cloudinary.js'
 import { api } from '../../lib/api.js'
+import { useAccountOrbit } from '../../lib/useAccountOrbit.js'
+
+function AssociateOrbit({username}) {
+  const {node,score,resolved}=useAccountOrbit(username)
+  return <span ref={node}>Orbit {score===null?(resolved?'—':'…'):score}/100</span>
+}
 
 export default function AssociatesSection({ data, isOwner, onRefresh }) {
   const [busy, setBusy] = useState('')
@@ -75,7 +81,7 @@ export default function AssociatesSection({ data, isOwner, onRefresh }) {
             <Link to={'/profile/'+encodeURIComponent(person.username)} className="block truncate text-[12px] font-bold hover:underline">{person.full_name||person.username}</Link>
             <p className="truncate text-[11px] text-black/55">^{person.username} · {(person.skills||[]).slice(0,2).join(', ')||person.headline||'Professional subscriber'}</p>
             <p className="text-[10px] text-black/45">
-              Orbit {person.orbit_score ?? '—'}/100 · Associated since {person.accepted_at?new Date(person.accepted_at).toLocaleDateString('en-NG'):'—'}
+              <AssociateOrbit username={person.username}/> · Associated since {person.accepted_at?new Date(person.accepted_at).toLocaleDateString('en-NG'):'—'}
               {person.received_vouch?' · Vouched':''}
             </p>
           </div>
