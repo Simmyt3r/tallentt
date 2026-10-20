@@ -136,6 +136,14 @@ export async function ensurePushStorage() {
     // version. The reviewed Admin migration records the same desired schema.
     await query("ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS associates BOOLEAN NOT NULL DEFAULT true")
     await query("ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS vibes_mode TEXT NOT NULL DEFAULT 'digest'")
+    await query(`CREATE TABLE IF NOT EXISTS notification_daily_digests (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      digest_day DATE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'sending' CHECK(status IN ('sending','sent')),
+      attempts INT NOT NULL DEFAULT 1,
+      sent_at TIMESTAMPTZ,
+      PRIMARY KEY(user_id,digest_day)
+    )`)
     await query(`
       CREATE TABLE IF NOT EXISTS push_vapid_config (
         singleton BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton = true),
