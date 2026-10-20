@@ -168,7 +168,7 @@ export async function notifyUserWithQuery(
   const { rows } = await runQuery(
     `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
      VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-     RETURNING id, type, title, body, link_url, metadata, read_at, created_at`,
+     RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
     [
       userId,
       cleanText(type, 60) || 'system',
