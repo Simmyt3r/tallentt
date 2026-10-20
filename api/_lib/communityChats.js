@@ -12,6 +12,9 @@ export async function communityChatsGet(userId,params){
     if(search.length<2)return {users:[]}
     const {rows}=await query(`SELECT id,username,full_name,avatar_url
       FROM users WHERE id<>$1 AND username ILIKE $2
+        AND EXISTS(SELECT 1 FROM associate_links a WHERE a.status='accepted'
+          AND ((a.member_low=$1 AND a.member_high=users.id) OR
+               (a.member_high=$1 AND a.member_low=users.id)))
       ORDER BY username LIMIT 15`,[userId,'%'+search+'%'])
     return {users:rows}
   }
@@ -60,6 +63,10 @@ export async function communityChatsAction(userId,body){
       const {rows:found}=await client.query(`SELECT id,username FROM users WHERE id=$1 FOR SHARE`,[recipientId])
       target=found[0]
       if(!target)throw fail(404,'Subscriber not found.')
+      const {rows:associate}=await client.query(`SELECT 1 FROM associate_links
+        WHERE status='accepted' AND member_low=LEAST($1::uuid,$2::uuid)
+          AND member_high=GREATEST($1::uuid,$2::uuid)`,[userId,recipientId])
+      if(!associate.length)throw fail(403,'Connect as mutual Associates on Profile before starting a chat.')
       const {rows:existing}=await client.query(`SELECT * FROM community_threads
         WHERE (initiator_id=$1 AND recipient_id=$2) OR
         (initiator_id=$2 AND recipient_id=$1) FOR UPDATE`,[userId,recipientId])
@@ -86,7 +93,7 @@ export async function communityChatsAction(userId,body){
     finally{client.release()}
     await notifyUser({userId:recipientId,type:'community_message',
       title:thread.status==='pending'?'New chat request':'New community message',
-      body:'A subscriber sent you a message.',linkUrl:'/chats?thread='+thread.id})
+      body:'A subscriber sent you a message.',linkUrl:'/inbox?tab=associates&thread='+thread.id})
     return {thread_id:thread.id,status:thread.status}
   }
   const threadId=body.thread_id
@@ -129,6 +136,6 @@ export async function communityChatsAction(userId,body){
   if(target)await notifyUser({userId:target,type:'community_message',
     title:action==='community_send'?'New community message':'Chat request response',
     body:action==='community_send'?'You received a message.':'A subscriber responded to your chat request.',
-    linkUrl:'/chats?thread='+threadId})
+    linkUrl:'/inbox?tab=associates&thread='+threadId})
   return {ok:true}
 }
