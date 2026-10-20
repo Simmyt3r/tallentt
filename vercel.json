@@ -48,5 +48,11 @@
         }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/auth?action=daily-notification-digest",
+      "schedule": "0 6 * * *"
+    }
   ]
 }
