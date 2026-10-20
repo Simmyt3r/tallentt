@@ -1,6 +1,5 @@
 import { query, getClient } from './db.js'
 import { notifyUser } from './notifications.js'
-import { accountOrbit } from './accountOrbit.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const fail = (status,message) => Object.assign(new Error(message),{status})
@@ -56,12 +55,6 @@ export async function associatesGet(viewerId,params){
   ])
   const follow=own?false:(await query('SELECT 1 FROM subscriber_follows WHERE follower_id=$1 AND followed_id=$2',[viewerId,target.id])).rows.length>0
   const relationRow=relation.rows[0]||null
-  // This list is deliberately bounded: Orbit is calculated from real activity,
-  // not from an unverified "associate" badge. No synthetic scores are created.
-  const rows=await Promise.all(people.rows.map(async person=>{
-    const score=await accountOrbit(person.peer_id).then(x=>x.score).catch(()=>null)
-    return {...person,orbit_score:score}
-  }))
   return {
     user_id:target.id,counts:counts.rows[0],
     relation:relationRow?{
@@ -72,7 +65,7 @@ export async function associatesGet(viewerId,params){
     }:null,
     following:follow,
     privacy:own?privacy.rows[0]?.who_can_request||'everyone':null,
-    associates:rows,
+    associates:people.rows,
     incoming:incoming.rows,
   }
 }
