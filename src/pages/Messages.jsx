@@ -44,6 +44,7 @@ function ErrorNotice({ message, onRetry }) {
 
 export default function Messages({ embedded = false, searchText = '' }) {
   const [params, setParams] = useSearchParams()
+  const setChatParams = next => setParams(embedded ? {tab:'bento',...next}:next)
   const selected = params.get('escrow')
   const [items, setItems] = useState([])
   const [cursor, setCursor] = useState(null)
@@ -90,7 +91,7 @@ export default function Messages({ embedded = false, searchText = '' }) {
     try {
       await api.hideConversation(item.id)
       setItems((previous) => previous.filter((entry) => entry.id !== item.id))
-      if (selected === item.id) setParams({})
+      if (selected === item.id) setChatParams({})
     } catch (err) {
       setError(err.message || 'Could not remove this chat.')
     }
@@ -146,7 +147,7 @@ export default function Messages({ embedded = false, searchText = '' }) {
               <li key={item.id} className={`relative ${selected === item.id ? 'bg-[#0A13E6]/5' : ''}`}>
                 <button
                   type="button"
-                  onClick={() => setParams({ escrow: item.id })}
+                  onClick={() => setChatParams({ escrow: item.id })}
                   aria-current={selected === item.id ? 'page' : undefined}
                   aria-label={`Open conversation with ${getPrimaryIdentity(identityFromRow(item, 'peer')) || 'this user'} about ${item.hat_title}`}
                   className="absolute inset-0 w-full hover:bg-black/5"
