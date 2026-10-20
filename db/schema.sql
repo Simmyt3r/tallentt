@@ -659,7 +659,17 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   payments BOOLEAN NOT NULL DEFAULT true,
   live BOOLEAN NOT NULL DEFAULT true,
   marketing BOOLEAN NOT NULL DEFAULT true,
+  associates BOOLEAN NOT NULL DEFAULT true,
+  vibes_mode TEXT NOT NULL DEFAULT 'digest',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS notification_daily_digests (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  digest_day DATE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'sending' CHECK(status IN ('sending','sent')),
+  attempts INT NOT NULL DEFAULT 1,
+  sent_at TIMESTAMPTZ,
+  PRIMARY KEY(user_id,digest_day)
 );
 
 CREATE TABLE IF NOT EXISTS push_vapid_config (
