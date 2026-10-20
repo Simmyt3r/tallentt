@@ -9,6 +9,12 @@ const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
   {
+    id: 'associates-2026-10',
+    title: 'Associates and Subscribers',
+    description: 'Mutual professional Associates, vouches, one-way subscribers, and request privacy.',
+    path: new URL('../../db/patch-associates-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'bento-inbox-2026-10',
     title: 'Bento fliers and inbox management',
     description: 'Bento card artwork, private notification deletion and chat visibility.',
