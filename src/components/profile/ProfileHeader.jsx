@@ -13,6 +13,9 @@ export default function ProfileHeader({
   hasClientHats,
   onEditClick,
   onShowHats,
+  orbit,
+  networkCounts,
+  onShowAssociates,
 }) {
   const [copied, setCopied] = useState(false)
   const isBusiness = isBusinessIdentity(user.role)
@@ -90,6 +93,15 @@ export default function ProfileHeader({
         </button>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-[12px]">
+        {orbit && <span className="font-black text-[#0A13E6]">Orbit {orbit.score}/100</span>}
+        <button type="button" onClick={onShowAssociates} className="font-bold text-black/70 underline underline-offset-2">
+          {networkCounts?.associates ?? '—'} Associates
+        </button>
+        <button type="button" onClick={onShowAssociates} className="font-bold text-black/70 underline underline-offset-2">
+          {networkCounts?.subscribers ?? '—'} Subscribers
+        </button>
+      </div>
       <div className="flex items-center gap-2 mt-4">
         {isOwner ? (
           <button type="button" onClick={onEditClick} className="tw-btn-primary h-9 px-4 text-[12px]">
