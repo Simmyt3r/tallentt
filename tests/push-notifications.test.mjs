@@ -74,10 +74,11 @@ test('push backend uses VAPID and encrypted aes128gcm without a new runtime depe
 test('critical deal and payment push cannot be suppressed by category preferences', () => {
   const source = read('api/_lib/pushNotifications.js')
   assert.match(source, /isCriticalNotification/)
-  assert.match(source, /value\.startsWith\('escrow_'\)/)
-  assert.match(source, /value === 'booking_checkpoint'/)
-  assert.match(source, /value === 'booking_lifecycle'/)
-  assert.match(source, /value === 'booking_dispute'/)
+  assert.match(source, /notificationUrgency\(type\)===\x27high\x27/)
+  const policy=read('api/_lib/notificationPriority.js')
+  assert.match(policy, /booking_/)
+  assert.match(policy, /escrow_/)
+  assert.match(source, /REQUIRED_CATEGORIES/)
   assert.match(source, /if \(!critical && preferences\[category\] === false\)/)
 })
 
