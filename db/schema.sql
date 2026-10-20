@@ -658,7 +658,7 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   messages BOOLEAN NOT NULL DEFAULT true,
   payments BOOLEAN NOT NULL DEFAULT true,
   live BOOLEAN NOT NULL DEFAULT true,
-  marketing BOOLEAN NOT NULL DEFAULT false,
+  marketing BOOLEAN NOT NULL DEFAULT true,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
