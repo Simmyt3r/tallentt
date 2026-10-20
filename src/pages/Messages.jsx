@@ -203,7 +203,7 @@ export default function Messages({ embedded = false, searchText = '' }) {
         </aside>
 
         {selected ? (
-          <BookingThread key={selected} id={selected} onBack={() => setParams({})} />
+          <BookingThread key={selected} id={selected} onBack={() => setChatParams({})} />
         ) : (
           <div className="hidden md:grid place-items-center min-h-[520px] text-sm text-black/50">
             Select a deal conversation.
