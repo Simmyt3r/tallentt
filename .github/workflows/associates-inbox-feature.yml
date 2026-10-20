@@ -1,0 +1,38 @@
+name: Associates and Inbox Feature Gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/_lib/associates.js'
+      - 'api/_lib/communityChats.js'
+      - 'api/escrows/index.js'
+      - 'src/pages/Inbox.jsx'
+      - 'src/pages/Messages.jsx'
+      - 'src/pages/CommunityChats.jsx'
+      - 'src/components/InboxChooser.jsx'
+      - 'src/components/profile/**'
+      - 'db/patch-associates-2026-10.sql'
+      - 'tests/associates-inbox.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  feature-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Test Associates and Inbox invariants
+        run: node --test tests/associates-inbox.test.mjs
+      - name: Check API syntax
+        run: npm run check:api
+      - name: Build PWA
+        run: npm run build
