@@ -8,6 +8,10 @@ ALTER TABLE notification_preferences
   ADD COLUMN IF NOT EXISTS vibes_mode TEXT NOT NULL DEFAULT 'digest';
 
 -- Allows a single claim per user/day and prevents duplicate digest delivery.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_vibes_first_ten_milestone
+  ON notifications(user_id,(metadata->>'post_id'))
+  WHERE type='vibes_first_ten';
+
 CREATE TABLE IF NOT EXISTS notification_daily_digests (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   digest_day DATE NOT NULL,
