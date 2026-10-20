@@ -62,7 +62,7 @@ const LANES=[['bento','Bento'],['money','Money'],['associates','Associates'],['f
 export default function Notifications() {
   const navigate = useNavigate()
   const [params,setParams] = useSearchParams()
-  const currentLane=LANES.some(([id])=>id===params.get('lane'))?params.get('lane'):'all'
+  const currentLane=LANES.some(([id])=>id===params.get('lane'))?params.get('lane'):'bento'
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -253,7 +253,7 @@ export default function Notifications() {
           className="inline-flex h-10 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black disabled:opacity-35"
         >
           <CheckCheck size={15} />
-          Mark all read
+          Mark all read (all categories)
         </button>
         </div>
       </header>
