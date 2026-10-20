@@ -127,7 +127,7 @@ export async function associatesAction(userId,body){
       RETURNING id`,[lo,hi,userId])
     if(!rows.length)throw fail(409,'An Associate request or active relationship already exists. Blocked requests cannot be renewed.')
     await notifyUser({userId:other,type:'associate_request',title:'New Associate request',
-      body:'Someone would like to connect professionally.',linkUrl:'/profile',
+      body:'Someone would like to connect professionally.',linkUrl:'/profile?tab=associates',
       metadata:{other_id:userId}})
     return {status:'pending'}
   }
