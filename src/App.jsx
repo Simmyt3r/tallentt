@@ -17,6 +17,7 @@ import Wallet from './pages/Wallet.jsx'
 import Admin from './pages/Admin.jsx'
 import Messages from './pages/Messages.jsx'
 import CommunityChats from './pages/CommunityChats.jsx'
+import Inbox from './pages/Inbox.jsx'
 import Negotiations from './pages/Negotiations.jsx'
 import Notifications from './pages/Notifications.jsx'
 import Settings from './pages/Settings.jsx'
@@ -47,6 +48,7 @@ export default function App() {
     <Route path="/" element={<HomeRoute />} />
     <Route path="/bento" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
     <Route path="/vibes" element={<ProtectedRoute><Vibes /></ProtectedRoute>} />
+    <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
     <Route path="/chats" element={<ProtectedRoute><CommunityChats /></ProtectedRoute>} />
     <Route path="/negotiations" element={<ProtectedRoute><Negotiations /></ProtectedRoute>} />
