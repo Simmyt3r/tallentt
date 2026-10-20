@@ -7,6 +7,7 @@ import { getSessionUser } from '../_lib/auth.js'
 import { json, readBody, methodNotAllowed } from '../_lib/http.js'
 import { uploadCloudCredentials, cloudinaryUploadSignature } from '../_lib/hatMediaUpload.js'
 import { notifyUser } from '../_lib/notifications.js'
+import {dispatchStoredNotification} from '../_lib/pushNotifications.js'
 
 const UUID = /^[a-f\d]{8}-[a-f\d]{4}-[1-8][a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i
 const IMAGE_MIMES = new Set(['image/jpeg','image/png','image/webp'])
@@ -318,7 +319,25 @@ async function toggleLike(userId,postId) {
       liked=inserted.rowCount>0
     }
     const {rows:[count]}=await client.query('SELECT COUNT(*)::int AS likes FROM vibes_likes WHERE post_id=$1',[postId])
+    let milestone=null
+    if(liked && Number(count.likes)===10) {
+      // First-ten is a milestone, never ten individual like alerts.
+      // Atomic with the like and deduplicated against prior milestones.
+      const {rows:made}=await client.query(`INSERT INTO notifications
+        (user_id,type,title,body,link_url,metadata)
+        SELECT p.author_id,'vibes_first_ten','Your Hit reached 10 likes',
+          'Your new Hit reached its first 10 likes.','/vibes?post='||p.id,
+          jsonb_build_object('post_id',p.id)
+        FROM vibes_posts p WHERE p.id=$1 AND p.author_id<>$2
+          AND p.created_at>NOW()-INTERVAL '7 days'
+          AND NOT EXISTS(SELECT 1 FROM notifications n
+            WHERE n.user_id=p.author_id AND n.type='vibes_first_ten'
+              AND n.metadata->>'post_id'=p.id::text)
+        RETURNING id,user_id,type,title,body,link_url,metadata,read_at,created_at`,[postId,userId])
+      milestone=made[0]||null
+    }
     await client.query('COMMIT')
+    if(milestone)await dispatchStoredNotification(milestone)
     return {liked,likes:count.likes}
   } catch(error){await client.query('ROLLBACK').catch(()=>{});throw error}
   finally{client.release()}
@@ -342,8 +361,26 @@ async function comment(userId,postId,body) {
   if(!rows.length) throw bad(404,'Post unavailable.')
   const {rows:owner}=await query('SELECT author_id FROM vibes_posts WHERE id=$1',[postId])
   if(owner[0]?.author_id!==userId) {
-    await notifyUser({userId:owner[0].author_id,type:'vibes_reply',title:'Someone replied to your Vibe',
-      body:'Open your post to see the new reply.',linkUrl:`/vibes?post=${postId}`,metadata:{post_id:postId}})
+    // Replies only make the daily digest when sent by a verified talent or
+    // a mutual Associate. Ordinary comments remain readable in the post.
+    const {rows:verification}=await query(`SELECT EXISTS(SELECT 1 FROM hats
+      WHERE user_id=$1 AND active=TRUE AND is_verified=TRUE) AS qualified`,[userId])
+    let meaningful=verification[0]?.qualified===true
+    if(!meaningful){
+      const {rows:installed}=await query("SELECT to_regclass('associate_links') AS links")
+      if(installed[0]?.links){
+        const {rows:related}=await query(`SELECT 1 FROM associate_links
+          WHERE status='accepted'
+            AND member_low=LEAST($1::uuid,$2::uuid)
+            AND member_high=GREATEST($1::uuid,$2::uuid) LIMIT 1`,
+          [owner[0].author_id,userId])
+        meaningful=related.length>0
+      }
+    }
+    if(meaningful)await notifyUser({userId:owner[0].author_id,type:'vibes_reply',
+      title:'A professional connection replied to your Hit',
+      body:'An Associate or verified talent commented on your post.',
+      linkUrl:`/vibes?post=${postId}`,metadata:{post_id:postId}})
   }
   return {id:rows[0].id}
 }
