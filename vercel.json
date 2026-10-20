@@ -9,6 +9,9 @@
     },
     "api/vibes/index.js": {
       "maxDuration": 60
+    },
+    "api/auth/index.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
