@@ -1,5 +1,6 @@
 import { query } from './db.js'
 import { dispatchStoredNotification } from './pushNotifications.js'
+import { NOTIFICATION_LANES, notificationLaneSql, isNoisyNotification } from './notificationPriority.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -59,7 +60,23 @@ export async function getNotificationCount(userId) {
   return Number(rows[0]?.count || 0)
 }
 
-export async function getNotificationInbox(userId, before = null, search = '') {
+export async function getNotificationUnreadByLane(userId) {
+  const lane = notificationLaneSql('n')
+  const {rows}=await query(`SELECT ${lane} AS lane,COUNT(*)::int AS count
+    FROM notifications n
+    WHERE n.user_id=$1 AND n.read_at IS NULL AND n.deleted_at IS NULL
+    GROUP BY 1`,[userId])
+  const counts=Object.fromEntries(NOTIFICATION_LANES.map(key=>[key,0]))
+  for(const row of rows) if(row.lane in counts) counts[row.lane]=Number(row.count)||0
+  return counts
+}
+
+export async function getNotificationInbox(userId, before = null, search = '', lane = 'all') {
+  if(lane!=='all' && !NOTIFICATION_LANES.includes(lane)){
+    const err=new Error('Invalid notification category.')
+    err.status=400
+    throw err
+  }
   if (before && !UUID_RE.test(String(before))) {
     const err = new Error('Invalid notification cursor.')
     err.status = 400
@@ -69,25 +86,30 @@ export async function getNotificationInbox(userId, before = null, search = '') {
   const pageSize = 30
   // Search across the entire inbox rather than only the already-loaded page.
   const term = String(search || '').trim().slice(0, 100)
-  const [items, unreadCount] = await Promise.all([
+  const laneSql=notificationLaneSql('n')
+  const [items, unreadCount, unreadByLane] = await Promise.all([
     query(
-      `SELECT id, type, title, body, link_url, metadata, read_at, created_at
-       FROM notifications
-       WHERE user_id = $1 AND deleted_at IS NULL
-         AND ($4::text = '' OR POSITION(LOWER($4::text) IN LOWER(CONCAT_WS(' ', type, title, body))) > 0)
-         AND ($2::uuid IS NULL OR (created_at, id) <
+      `SELECT n.id, n.type, n.title, n.body, n.link_url, n.metadata, n.read_at, n.created_at,
+         ${laneSql} AS lane
+       FROM notifications n
+       WHERE n.user_id = $1 AND n.deleted_at IS NULL
+         AND ($4::text = '' OR POSITION(LOWER($4::text) IN LOWER(CONCAT_WS(' ', n.type, n.title, n.body))) > 0)
+         AND ($5::text = 'all' OR ${laneSql} = $5::text)
+         AND ($2::uuid IS NULL OR (n.created_at, n.id) <
            (SELECT created_at, id FROM notifications WHERE id = $2 AND user_id = $1))
-       ORDER BY created_at DESC, id DESC
+       ORDER BY n.created_at DESC, n.id DESC
        LIMIT $3`,
-      [userId, before || null, pageSize + 1, term],
+      [userId, before || null, pageSize + 1, term, lane],
     ),
     getNotificationCount(userId),
+    getNotificationUnreadByLane(userId),
   ])
 
   const rows = items.rows.slice(0, pageSize)
   return {
     notifications: rows.map(mapNotification),
     unreadCount,
+    unreadByLane,
     nextCursor: items.rows.length > pageSize ? rows[rows.length - 1]?.id || null : null,
   }
 }
@@ -142,7 +164,7 @@ export async function notifyUserWithQuery(
   runQuery,
   { userId, type = 'system', title, body = null, linkUrl = null, metadata = {} },
 ) {
-  if (!userId || !title) return null
+  if (!userId || !title || isNoisyNotification(type)) return null
   const { rows } = await runQuery(
     `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
      VALUES ($1, $2, $3, $4, $5, $6::jsonb)
