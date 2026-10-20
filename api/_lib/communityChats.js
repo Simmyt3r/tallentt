@@ -7,11 +7,18 @@ const cleanBody=value=>typeof value==='string'?value.trim():''
 export async function communityChatsGet(userId,params){
   const {rows:exists}=await query("SELECT to_regclass('community_threads') AS present")
   if(!exists[0]?.present)throw fail(503,'Apply the General subscriber chats migration first.')
+  // During rollout the existing chat feature must work until the new
+  // Associate migration is actually applied by an administrator.
+  const {rows:relationshipTable}=await query("SELECT to_regclass('associate_links') AS present")
+  const associationEnabled=Boolean(relationshipTable[0]?.present)
   if(params.get('community_users')==='1'){
     const search=String(params.get('q')||'').trim().replace(/^[@^]+/,'').slice(0,48)
     if(search.length<2)return {users:[]}
+    const extra=associationEnabled ? `AND EXISTS(SELECT 1 FROM associate_links a WHERE a.status='accepted'
+          AND ((a.member_low=$1 AND a.member_high=users.id) OR
+               (a.member_high=$1 AND a.member_low=users.id)))` : ''
     const {rows}=await query(`SELECT id,username,full_name,avatar_url
-      FROM users WHERE id<>$1 AND username ILIKE $2
+      FROM users WHERE id<>$1 AND username ILIKE $2 ${extra}
       ORDER BY username LIMIT 15`,[userId,'%'+search+'%'])
     return {users:rows}
   }
@@ -60,6 +67,13 @@ export async function communityChatsAction(userId,body){
       const {rows:found}=await client.query(`SELECT id,username FROM users WHERE id=$1 FOR SHARE`,[recipientId])
       target=found[0]
       if(!target)throw fail(404,'Subscriber not found.')
+      const {rows:installed}=await client.query("SELECT to_regclass('associate_links') AS present")
+      if(installed[0]?.present){
+        const {rows:associate}=await client.query(`SELECT 1 FROM associate_links
+          WHERE status='accepted' AND member_low=LEAST($1::uuid,$2::uuid)
+            AND member_high=GREATEST($1::uuid,$2::uuid)`,[userId,recipientId])
+        if(!associate.length)throw fail(403,'Connect as mutual Associates on Profile before starting a chat.')
+      }
       const {rows:existing}=await client.query(`SELECT * FROM community_threads
         WHERE (initiator_id=$1 AND recipient_id=$2) OR
         (initiator_id=$2 AND recipient_id=$1) FOR UPDATE`,[userId,recipientId])
@@ -86,7 +100,7 @@ export async function communityChatsAction(userId,body){
     finally{client.release()}
     await notifyUser({userId:recipientId,type:'community_message',
       title:thread.status==='pending'?'New chat request':'New community message',
-      body:'A subscriber sent you a message.',linkUrl:'/chats?thread='+thread.id})
+      body:'A subscriber sent you a message.',linkUrl:'/inbox?tab=associates&thread='+thread.id})
     return {thread_id:thread.id,status:thread.status}
   }
   const threadId=body.thread_id
@@ -113,6 +127,17 @@ export async function communityChatsAction(userId,body){
       target=updated[0].initiator_id
     }else{
       if(thread.status!=='accepted')throw fail(403,'Accept the chat request before replying.')
+      // If a subscriber blocks or removes an Associate, old chat consent
+      // cannot silently override that new explicit choice.
+      const {rows:relationsEnabled}=await client.query("SELECT to_regclass('associate_links') AS present")
+      if(relationsEnabled[0]?.present){
+        const partner=thread.initiator_id===userId?thread.recipient_id:thread.initiator_id
+        const {rows:relation}=await client.query(`SELECT status FROM associate_links
+          WHERE member_low=LEAST($1::uuid,$2::uuid)
+            AND member_high=GREATEST($1::uuid,$2::uuid)`,[userId,partner])
+        if(relation.length && relation[0].status!=='accepted')
+          throw fail(403,'This Associate connection is no longer active.')
+      }
       const text=cleanBody(body.text)
       if(!text||text.length>2000)throw fail(400,'Message must contain 1–2,000 characters.')
       const {rows:rate}=await client.query(`SELECT COUNT(*)::int AS n FROM community_messages
@@ -129,6 +154,6 @@ export async function communityChatsAction(userId,body){
   if(target)await notifyUser({userId:target,type:'community_message',
     title:action==='community_send'?'New community message':'Chat request response',
     body:action==='community_send'?'You received a message.':'A subscriber responded to your chat request.',
-    linkUrl:'/chats?thread='+threadId})
+    linkUrl:'/inbox?tab=associates&thread='+threadId})
   return {ok:true}
 }

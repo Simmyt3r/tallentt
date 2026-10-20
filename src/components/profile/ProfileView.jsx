@@ -1,5 +1,7 @@
 // Path: src/components/profile/ProfileView.jsx
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '../../lib/api.js'
+import AssociatesSection from './AssociatesSection.jsx'
 import { isBusinessIdentity } from '../../lib/profile.js'
 import ProfileHeader from './ProfileHeader.jsx'
 import PortfolioSection from './PortfolioSection.jsx'
@@ -103,7 +105,16 @@ export default function ProfileView({
   performance = null,
   onEditClick,
 }) {
-  const [activeTab, setActiveTab] = useState('portfolio')
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab')==='associates'?'associates':'portfolio')
+  const [social, setSocial] = useState(null)
+  useEffect(() => {
+    if(!profileUser?.username)return undefined
+    let active=true
+    setSocial(null)
+    api.getAssociates(profileUser.username).then(data=>{if(active)setSocial(data)}).catch(()=>{})
+    return()=>{active=false}
+  },[profileUser?.username])
+  const refreshSocial = () => api.getAssociates(profileUser.username).then(setSocial)
 
   if (status === 'loading') return <ProfileSkeleton />
 
@@ -123,6 +134,7 @@ export default function ProfileView({
   const tabs = [
     !isBusiness && { id: 'portfolio', label: 'Portfolio' },
     { id: 'hats', label: 'Hats' },
+    { id: 'associates', label: 'Associates' },
     { id: 'reviews', label: 'Reviews' },
   ].filter(Boolean)
   const selectedTab = tabs.some(({ id }) => id === activeTab) ? activeTab : tabs[0].id
@@ -143,6 +155,9 @@ export default function ProfileView({
         hasClientHats={hats.client.length > 0}
         onEditClick={onEditClick}
         onShowHats={showHats}
+        orbit={orbit}
+        networkCounts={social?.counts}
+        onShowAssociates={() => setActiveTab('associates')}
       />
 
       {orbit && <section aria-label="Orbit credibility indicators" className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
@@ -224,7 +239,8 @@ export default function ProfileView({
               ? <ActiveHatsSection role={profileUser.role} talentHats={hats.talent} clientHats={hats.client} />
               : <p className="text-[12px] text-black/40 font-medium">No active Hats yet.</p>
           )}
-          {id === selectedTab && id === 'reviews' && <ReviewsSection rating={rating} ratedHatsCount={ratedHatsCount} />}
+          {id === selectedTab && id === 'associates' && <AssociatesSection data={social} isOwner={isOwner} onRefresh={refreshSocial} />}
+           {id === selectedTab && id === 'reviews' && <ReviewsSection rating={rating} ratedHatsCount={ratedHatsCount} />}
         </div>
       ))}
     </div>

@@ -85,6 +85,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
             <span className="bg-black text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
               {hat.hires || 0} {engagementLabel}
             </span>
+            {Number(hat.associate_vouch_count)>0 && <span className="rounded-full border border-black/15 bg-white px-2 py-1 text-[10px] font-bold text-black/65" title="Voluntary Associate vouches, not verified work history">Vouched by {hat.associate_vouch_count} Associates</span>}
             <span className="rounded-full border border-[#0A13E6]/20 bg-[#E9EAFF] px-2 py-1 text-[10px] font-bold text-[#0A13E6]"
               title="Account-level activity Orbit score. Open the card for its underlying performance evidence.">
               Orbit {accountOrbitScore===null?(orbitResolved?'—':'…'):Math.max(0,Math.min(100,Math.round(accountOrbitScore)))}/100

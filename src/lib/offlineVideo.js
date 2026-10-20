@@ -8,7 +8,7 @@ export function offlineVideoUrl(url,cloudName=import.meta.env?.VITE_CLOUDINARY_C
   const expectedCloud=String(cloudName||'').trim()
   const validPath=expectedCloud && target.pathname.startsWith('/'+expectedCloud+'/video/upload/')
   if(target.protocol!=='https:'||target.hostname!=='res.cloudinary.com'
-     || !validPath || !/\\.(mp4|webm|mov)$/i.test(target.pathname))
+     || !validPath || !/\.(mp4|webm|mov)$/i.test(target.pathname))
     throw new Error('Only ChombuTar video uploads can be saved offline.')
   target.searchParams.set('offline','1')
   return target.toString()
@@ -32,7 +32,7 @@ export async function saveVideo(url){
   if(!response.ok || response.status!==200 || response.type==='opaque')
     throw new Error('A complete video download is not available.')
   const type=String(response.headers.get('content-type')||'')
-  if(!/^video\\/(mp4|webm|quicktime)(?:;|$)/i.test(type))
+  if(!/^video\/(mp4|webm|quicktime)(?:;|$)/i.test(type))
     throw new Error('Video download returned unsupported content.')
   const size=Number(response.headers.get('content-length'))
   if(size && size>MAX_BYTES)throw new Error('This video is too large to save offline.')

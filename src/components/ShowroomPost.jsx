@@ -176,6 +176,9 @@ function ShowroomPost({
           }
         >
           {location && <p className="text-[11px] text-black/45 truncate min-w-0 hidden sm:block">{location}</p>}
+          {Number(hat.associate_vouch_count)>0 && <p className="text-[10px] font-bold text-[#0A13E6]" title="Voluntary endorsements by accepted Associates; not identity verification">
+            Vouched by {hat.associate_vouch_count} Associates
+          </p>}
           {caption && (
             <div className="flex items-end gap-1.5 mt-1">
               <p

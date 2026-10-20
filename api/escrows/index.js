@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { query, getClient } from '../_lib/db.js'
 import { getDealCall, dealCallAction } from '../_lib/dealCalls.js'
 import {communityChatsGet,communityChatsAction} from '../_lib/communityChats.js'
+import {associatesGet,associatesAction} from '../_lib/associates.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
 import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTransfer } from '../_lib/paystack.js'
@@ -27,6 +28,8 @@ export default async function handler(req, res) {
 
       const url = new URL(req.url, `http://${req.headers.host}`)
 
+      if(url.searchParams.has('associates')||url.searchParams.has('associate_privacy'))
+        return json(res,200,await associatesGet(session.sub,url.searchParams))
       if(url.searchParams.has('community')||url.searchParams.has('community_thread')||
         url.searchParams.has('community_users'))
         return json(res,200,await communityChatsGet(session.sub,url.searchParams))
@@ -147,6 +150,8 @@ export default async function handler(req, res) {
     const body = await readBody(req)
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'A JSON object is required.' })
 
+    if(String(body.action||'').startsWith('associate_'))
+      return json(res,200,await associatesAction(session.sub,body))
     if(['community_start','community_send','community_respond'].includes(body.action))
       return json(res,200,await communityChatsAction(session.sub,body))
     if (['start_call','accept_call','decline_call','end_call','call_signal'].includes(body.action))

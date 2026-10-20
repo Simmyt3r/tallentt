@@ -27,8 +27,7 @@ export const NAV_PRIMARY = [
 
 export const NAV_SECONDARY = [
   { to: '/negotiations', icon: ArrowLeftRight, label: 'Negotiation Center' },
-  { to: '/chats', icon: MessageCircle, label: 'General Chat' },
-  { to: '/messages', icon: MessageCircle, label: 'Deals Chat' },
+  { to: '/inbox', icon: MessageCircle, label: 'Inbox' },
   { to: '/wallet', icon: WalletIcon, label: 'Wallet' },
   { to: '/disputes', icon: Scale, label: 'Dispute Center' },
   { to: '/settings', icon: Settings2, label: 'Settings' },
@@ -40,8 +39,9 @@ const TITLES = [
   { test: (p) => p === '/', title: 'Showroom' },
   { test: (p) => p === '/bento', title: 'Bento Feed' },
   { test: (p) => p.startsWith('/vibes'), title: 'Hits & Vibes' },
-  { test: (p) => p.startsWith('/chats'), title: 'General Chat' },
-  { test: (p) => p.startsWith('/messages'), title: 'Deals Chat' },
+  { test: (p) => p.startsWith('/inbox'), title: 'Inbox' },
+  { test: (p) => p.startsWith('/chats'), title: 'Associates Chat' },
+  { test: (p) => p.startsWith('/messages'), title: 'Bento Chat' },
   { test: (p) => p.startsWith('/negotiations'), title: 'Negotiation Center' },
   { test: (p) => p.startsWith('/notifications'), title: 'Notifications' },
   { test: (p) => p.startsWith('/showroom'), title: 'Showroom' },
