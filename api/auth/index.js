@@ -8,6 +8,7 @@
 // back down with real headroom instead of just barely re-fitting.
 import { query, getClient } from '../_lib/db.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
+import {dispatchDailyFameDigests} from '../_lib/notificationDigest.js'
 import {containsContactBypass} from '../_lib/showroomEligibility.js'
 import {
   verifyPassword,
@@ -45,6 +46,15 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const action = url.searchParams.get('action') || 'me'
+    if (action === 'daily-notification-digest') {
+      // Vercel Cron adds the configured secret in this exact Bearer header.
+      // Without the secret, this administrative endpoint never runs.
+      if (!process.env.CRON_SECRET || req.headers.authorization!==`Bearer ${process.env.CRON_SECRET}`)
+        return json(res,401,{error:'Unauthorized'})
+      try {return json(res,200,await dispatchDailyFameDigests())}
+      catch(error){console.error('notification digest failed:',error.code||error.message)
+        return json(res,500,{error:'Daily digest dispatch failed.'})}
+    }
     if (action === 'me') return handleMe(req, res)
     if (action==='presence'){
       const session=getSessionUser(req)
