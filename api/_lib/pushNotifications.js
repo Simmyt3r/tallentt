@@ -9,7 +9,7 @@ import {
   sign,
 } from 'node:crypto'
 import { query } from './db.js'
-import { notificationLane, notificationDigestLane, notificationUrgency } from './notificationPriority.js'
+import { notificationLane, notificationDigestLane, notificationUrgency, isNoisyNotification } from './notificationPriority.js'
 
 const CATEGORY_KEYS = ['deals', 'negotiations', 'messages', 'payments', 'associates', 'live', 'marketing']
 const REQUIRED_CATEGORIES = new Set(['deals','negotiations','messages','payments'])
@@ -508,6 +508,7 @@ function pushPayload(notification) {
 
 export async function dispatchStoredNotification(notification) {
   if (!notification?.user_id) return { delivered: 0, skipped: true }
+  if (isNoisyNotification(notification.type)) return {delivered:0,skipped:true,reason:'noise_policy'}
   const config = await getVapidConfig()
   if (!config) return { delivered: 0, skipped: true, reason: 'not_configured' }
 
