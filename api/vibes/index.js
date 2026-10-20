@@ -333,6 +333,7 @@ async function toggleLike(userId,postId) {
           AND NOT EXISTS(SELECT 1 FROM notifications n
             WHERE n.user_id=p.author_id AND n.type='vibes_first_ten'
               AND n.metadata->>'post_id'=p.id::text)
+        ON CONFLICT DO NOTHING
         RETURNING id,user_id,type,title,body,link_url,metadata,read_at,created_at`,[postId,userId])
       milestone=made[0]||null
     }
