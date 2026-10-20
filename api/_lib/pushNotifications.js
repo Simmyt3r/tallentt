@@ -124,7 +124,7 @@ export async function ensurePushStorage() {
         messages BOOLEAN NOT NULL DEFAULT true,
         payments BOOLEAN NOT NULL DEFAULT true,
         live BOOLEAN NOT NULL DEFAULT true,
-        marketing BOOLEAN NOT NULL DEFAULT false,
+        marketing BOOLEAN NOT NULL DEFAULT true,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `)
@@ -378,7 +378,8 @@ function cleanPreferences(row = {}) {
     messages: row.messages !== false,
     payments: row.payments !== false,
     live: row.live !== false,
-    marketing: row.marketing === true,
+    // New accounts start with every category selected. Existing saved false values win.
+    marketing: row.marketing !== false,
   }
 }
 
