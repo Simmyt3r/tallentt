@@ -238,7 +238,7 @@ export default function Notifications() {
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <DiscoverySearch value={search} onChange={setSearch} placeholder="Search notifications…"
-          label="Search all notifications" className="w-full sm:w-64" />
+          label="Search selected notification category" className="w-full sm:w-64" />
         <button
           type="button"
           onClick={clearInbox}
