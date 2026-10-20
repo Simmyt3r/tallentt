@@ -152,6 +152,7 @@ export async function associatesAction(userId,body){
       await client.query(`UPDATE associate_links SET status='blocked',
         vouched_by_low=FALSE,vouched_by_high=FALSE,updated_at=NOW()
         WHERE member_low=$1 AND member_high=$2`,[lo,hi])
+      await client.query('DELETE FROM subscriber_follows WHERE (follower_id=$1 AND followed_id=$2) OR (follower_id=$2 AND followed_id=$1)',[lo,hi])
     }else if(action==='associate_remove'){
       if(link.status!=='accepted')throw fail(409,'No active Associate connection to remove.')
       updated='removed'
