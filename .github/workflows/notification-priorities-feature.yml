@@ -32,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Test notification priorities
-        run: node --test tests/notification-priorities.test.mjs tests/push-notifications.test.mjs tests/push-defaults.test.mjs
+        run: node --test tests/notification-priorities.test.mjs tests/notification-search.test.mjs tests/push-notifications.test.mjs tests/push-defaults.test.mjs
       - name: Verify API syntax
         run: npm run check:api
       - name: Build PWA
