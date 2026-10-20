@@ -9,8 +9,10 @@ import {
   sign,
 } from 'node:crypto'
 import { query } from './db.js'
+import { notificationLane, notificationDigestLane, notificationUrgency } from './notificationPriority.js'
 
-const CATEGORY_KEYS = ['deals', 'negotiations', 'messages', 'payments', 'live', 'marketing']
+const CATEGORY_KEYS = ['deals', 'negotiations', 'messages', 'payments', 'associates', 'live', 'marketing']
+const REQUIRED_CATEGORIES = new Set(['deals','negotiations','messages','payments'])
 const MAX_PUSH_PAYLOAD = 3500
 let storageReadyPromise = null
 let vapidCache = { value: null, expiresAt: 0 }
@@ -125,9 +127,15 @@ export async function ensurePushStorage() {
         payments BOOLEAN NOT NULL DEFAULT true,
         live BOOLEAN NOT NULL DEFAULT true,
         marketing BOOLEAN NOT NULL DEFAULT true,
+        associates BOOLEAN NOT NULL DEFAULT true,
+        vibes_mode TEXT NOT NULL DEFAULT 'digest' CHECK(vibes_mode IN ('digest','off')),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `)
+    // Additive compatibility for databases created before this notification
+    // version. The reviewed Admin migration records the same desired schema.
+    await query("ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS associates BOOLEAN NOT NULL DEFAULT true")
+    await query("ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS vibes_mode TEXT NOT NULL DEFAULT 'digest'")
     await query(`
       CREATE TABLE IF NOT EXISTS push_vapid_config (
         singleton BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton = true),
@@ -346,75 +354,63 @@ function encryptPayload(subscription, payload) {
 }
 
 function categoryFor(type) {
-  const value = String(type || '').toLowerCase()
-  if (value.startsWith('marketing_')) return 'marketing'
-  if (value.startsWith('live_')) return 'live'
-  if (value === 'booking_message') return 'messages'
-  if (value === 'booking_offer' || value.includes('negotiat') || value.includes('offer')) return 'negotiations'
-  if (
-    value.startsWith('escrow_') ||
-    value.startsWith('wallet_') ||
-    value.startsWith('withdrawal_') ||
-    value === 'booking_checkpoint'
-  ) return 'payments'
+  const lane=notificationLane(type)
+  if(lane==='associates')return 'associates'
+  if(lane==='fame')return 'marketing'
+  if(lane==='money')return 'payments'
+  const value=String(type||'').toLowerCase()
+  if(value==='booking_message')return 'messages'
+  if(value==='booking_offer'||value.includes('negotiat')||value.includes('offer'))return 'negotiations'
   return 'deals'
 }
 
 function isCriticalNotification(type) {
-  const value = String(type || '').toLowerCase()
-  return (
-    value.startsWith('escrow_') ||
-    value.startsWith('withdrawal_') ||
-    value === 'booking_checkpoint' ||
-    value === 'booking_lifecycle' ||
-    value === 'booking_dispute'
-  )
+  return notificationUrgency(type)==='high'
 }
 
 function cleanPreferences(row = {}) {
   return {
-    deals: row.deals !== false,
-    negotiations: row.negotiations !== false,
-    messages: row.messages !== false,
-    payments: row.payments !== false,
+    deals: true,
+    negotiations: true,
+    messages: true,
+    payments: true,
+    associates: row.associates !== false,
     live: row.live !== false,
-    // New accounts start with every category selected. Existing saved false values win.
     marketing: row.marketing !== false,
+    vibes_mode: row.vibes_mode === 'off' ? 'off' : 'digest',
   }
 }
 
 export async function getPushPreferences(userId) {
   await ensurePushStorage()
-  const { rows } = await query(
-    `SELECT deals, negotiations, messages, payments, live, marketing
-     FROM notification_preferences WHERE user_id = $1`,
-    [userId],
-  )
+  const {rows}=await query(
+    `SELECT deals,negotiations,messages,payments,live,marketing,associates,vibes_mode
+     FROM notification_preferences WHERE user_id = $1`,[userId])
   return cleanPreferences(rows[0])
 }
 
 export async function updatePushPreferences(userId, next = {}) {
   await ensurePushStorage()
-  const current = await getPushPreferences(userId)
-  const merged = { ...current }
-  for (const key of CATEGORY_KEYS) {
-    if (typeof next[key] === 'boolean') merged[key] = next[key]
+  const merged={...await getPushPreferences(userId)}
+  for(const key of CATEGORY_KEYS)
+    if(!REQUIRED_CATEGORIES.has(key)&&typeof next[key]==='boolean') merged[key]=next[key]
+  if(next.vibes_mode !== undefined) {
+    if(!['digest','off'].includes(next.vibes_mode))
+      throw Object.assign(new Error('Vibes notification mode must be daily digest or off.'),{status:400})
+    merged.vibes_mode=next.vibes_mode
   }
-  const { rows } = await query(
+  const {rows}=await query(
     `INSERT INTO notification_preferences
-       (user_id, deals, negotiations, messages, payments, live, marketing, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
+       (user_id,deals,negotiations,messages,payments,live,marketing,associates,vibes_mode,updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
      ON CONFLICT (user_id) DO UPDATE SET
-       deals = EXCLUDED.deals,
-       negotiations = EXCLUDED.negotiations,
-       messages = EXCLUDED.messages,
-       payments = EXCLUDED.payments,
-       live = EXCLUDED.live,
-       marketing = EXCLUDED.marketing,
-       updated_at = NOW()
-     RETURNING deals, negotiations, messages, payments, live, marketing`,
-    [userId, merged.deals, merged.negotiations, merged.messages, merged.payments, merged.live, merged.marketing],
-  )
+       deals=EXCLUDED.deals,negotiations=EXCLUDED.negotiations,
+       messages=EXCLUDED.messages,payments=EXCLUDED.payments,
+       live=EXCLUDED.live,marketing=EXCLUDED.marketing,associates=EXCLUDED.associates,
+       vibes_mode=EXCLUDED.vibes_mode,updated_at=NOW()
+     RETURNING deals,negotiations,messages,payments,live,marketing,associates,vibes_mode`,
+    [userId,merged.deals,merged.negotiations,merged.messages,merged.payments,
+      merged.live,merged.marketing,merged.associates,merged.vibes_mode])
   return cleanPreferences(rows[0])
 }
 
@@ -494,6 +490,7 @@ function pushPayload(notification) {
     body: String(notification.body || ''),
     url: String(notification.link_url || '/notifications'),
     type: String(notification.type || 'system'),
+    priority: notificationUrgency(notification.type),
     notificationId: notification.id || null,
     tag: `chombutar:${notification.type || 'system'}:${identity}`,
     icon: '/icons/icon-192.png',
@@ -511,6 +508,8 @@ export async function dispatchStoredNotification(notification) {
     const category = categoryFor(notification.type)
     const critical = isCriticalNotification(notification.type)
     const preferences = await getPushPreferences(notification.user_id)
+    if (notificationDigestLane(notification.type))
+      return {delivered:0,skipped:true,reason:'daily_digest'}
     if (!critical && preferences[category] === false) {
       return { delivered: 0, skipped: true, reason: 'preference' }
     }
@@ -568,4 +567,18 @@ export async function dispatchStoredNotifications(notifications = []) {
   const rows = Array.isArray(notifications) ? notifications.filter(Boolean) : []
   if (!rows.length) return
   await Promise.allSettled(rows.map((notification) => dispatchStoredNotification(notification)))
+}
+
+// Called only from a guarded scheduler. Delivery is still Web Push/VAPID.
+export async function sendDigestPush(userId, payload) {
+  if(!userId||!payload?.title)return {delivered:0,skipped:true}
+  if(!(await getVapidConfig()))return {delivered:0,skipped:true,reason:'not_configured'}
+  const {rows}=await query(`SELECT id,endpoint,p256dh,auth FROM push_subscriptions
+    WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 10`,[userId])
+  if(!rows.length)return {delivered:0,skipped:true,reason:'no_subscription'}
+  const message={title:String(payload.title).slice(0,120),body:String(payload.body||'').slice(0,300),
+    url:'/notifications?lane=fame',type:'fame_digest',tag:'chombutar:fame-digest:'+String(payload.day),
+    priority:'normal',icon:'/icons/icon-192.png',badge:'/icons/icon-192-maskable.png'}
+  const results=await Promise.allSettled(rows.map(r=>sendEncryptedPush(r,message,{critical:false,topic:message.tag})))
+  return {delivered:results.filter(x=>x.status==='fulfilled'&&x.value.ok).length,attempted:rows.length}
 }
