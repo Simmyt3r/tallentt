@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, WalletCards, XCircle, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
 import DiscoverySearch from '../components/DiscoverySearch.jsx'
@@ -57,8 +57,12 @@ function LoadingRows() {
   )
 }
 
+const LANES=[['bento','Bento'],['money','Money'],['associates','Associates'],['fame','Fame']]
+
 export default function Notifications() {
   const navigate = useNavigate()
+  const [params,setParams] = useSearchParams()
+  const currentLane=LANES.some(([id])=>id===params.get('lane'))?params.get('lane'):'all'
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -66,6 +70,7 @@ export default function Notifications() {
   const [search, setSearch] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadByLane,setUnreadByLane] = useState({bento:0,money:0,associates:0,fame:0})
   const [nextCursor, setNextCursor] = useState(null)
   const [paging, setPaging] = useState(false)
   const olderLoadedRef = useRef(false)
@@ -84,7 +89,7 @@ export default function Notifications() {
     const sequence = ++refreshSequenceRef.current
     if (!quiet) setLoading(true)
     try {
-      const data = await api.getNotifications(null, searchTerm)
+      const data = await api.getNotifications(null, searchTerm,currentLane)
       if (sequence !== refreshSequenceRef.current) return
       const fresh = data.notifications || []
       // A background refresh must not erase the older pages someone has
@@ -95,6 +100,7 @@ export default function Notifications() {
         return [...fresh, ...current.filter((item) => !seen.has(item.id))]
       })
       setUnreadCount(Number(data.unreadCount || 0))
+      if(data.unreadByLane)setUnreadByLane(data.unreadByLane)
       if (!quiet || !olderLoadedRef.current) setNextCursor(data.nextCursor || null)
       setError('')
     } catch (err) {
@@ -104,7 +110,7 @@ export default function Notifications() {
     } finally {
       if (sequence === refreshSequenceRef.current && !quiet) setLoading(false)
     }
-  }, [searchTerm])
+  }, [searchTerm,currentLane])
 
   useEffect(() => {
     olderLoadedRef.current = false
@@ -134,13 +140,14 @@ export default function Notifications() {
     setPaging(true)
     const sequence = refreshSequenceRef.current
     try {
-      const data = await api.getNotifications(nextCursor, searchTerm)
+      const data = await api.getNotifications(nextCursor, searchTerm,currentLane)
       if (sequence !== refreshSequenceRef.current) return
       setNotifications((current) => {
         const seen = new Set(current.map((item) => item.id))
         return [...current, ...(data.notifications || []).filter((item) => !seen.has(item.id))]
       })
       setUnreadCount(Number(data.unreadCount || 0))
+      if(data.unreadByLane)setUnreadByLane(data.unreadByLane)
       olderLoadedRef.current = true
       setNextCursor(data.nextCursor || null)
     } catch (err) {
@@ -158,9 +165,11 @@ export default function Notifications() {
         : item),
     )
     setUnreadCount((count) => Math.max(0, count - 1))
+    setUnreadByLane(counts=>({...counts,[notification.lane]:Math.max(0,(counts[notification.lane]||0)-1)}))
     try {
       const data = await api.markNotificationRead(notification.id)
       setUnreadCount(Number(data.unreadCount || 0))
+      if(data.unreadByLane)setUnreadByLane(data.unreadByLane)
     } catch {
       load({ quiet: true })
     }
@@ -175,6 +184,7 @@ export default function Notifications() {
       read_at: item.read_at || now,
     })))
     setUnreadCount(0)
+    setUnreadByLane({bento:0,money:0,associates:0,fame:0})
     try {
       await api.markAllNotificationsRead()
     } catch {
@@ -199,6 +209,7 @@ export default function Notifications() {
       await api.clearNotifications()
       setNotifications([])
       setUnreadCount(0)
+      setUnreadByLane({bento:0,money:0,associates:0,fame:0})
       setNextCursor(null)
       olderLoadedRef.current = false
       window.dispatchEvent(new Event('push:notification'))
@@ -222,7 +233,7 @@ export default function Notifications() {
             <h1 className="text-[23px] font-black">Notifications</h1>
           </div>
           <p className="mt-1 text-[12px] font-medium text-black/50">
-            Deal, application, payment and platform updates in one place.
+            Essential booking and money alerts, professional connections, and quieter Fame updates.
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -247,6 +258,16 @@ export default function Notifications() {
         </div>
       </header>
 
+      <nav role="tablist" aria-label="Notification categories" className="mb-3 grid grid-cols-4 gap-1.5">
+        {LANES.map(([id,label])=><button key={id} type="button" role="tab"
+          aria-selected={currentLane===id} onClick={()=>setParams({lane:id})}
+          className={`flex min-h-11 items-center justify-center gap-1 rounded-xl border px-2 py-2 text-[11px] font-black
+            ${currentLane===id?'border-[#0A13E6] bg-[#EEF0FF] text-[#0A13E6]':'border-black/10 bg-white text-black/65'}`}>
+          {label}
+          {Number(unreadByLane[id])>0&&<span className={`inline-block h-2 w-2 shrink-0 rounded-full ${id==='bento'||id==='money'?'bg-red-600':'bg-blue-600'}`}
+            aria-label={`${unreadByLane[id]} unread ${label} notifications`}/>}
+        </button>)}
+      </nav>
       <section className="overflow-hidden border-y border-black/10 bg-white" aria-label="Notification list">
         <div className="border-b border-black/10 bg-white px-4 py-3">
           <p className="text-[12px] font-black">{unreadCount ? `${unreadCount} unread` : 'You’re all caught up'} <span className="ml-2 font-normal text-black/45">Press and hold a message to delete, or right-click on desktop.</span></p>
@@ -304,6 +325,9 @@ export default function Notifications() {
                         <span className="mt-1 block break-words text-[11.5px] leading-relaxed text-black/55">{notification.body}</span>
                       )}
                       <span className="mt-2 flex items-center justify-between gap-2">
+                        <span className={`text-[10px] font-bold ${['bento','money'].includes(notification.lane)?'text-red-700':'text-blue-700'}`}>
+                          {LANES.find(([id])=>id===notification.lane)?.[1]||'Fame'}
+                        </span>
                         {notification.unread ? (
                           <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-[#0A13E6]">
                             <span className="h-1.5 w-1.5 rounded-full bg-[#0A13E6]" />
