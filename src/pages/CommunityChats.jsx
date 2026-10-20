@@ -4,7 +4,7 @@ import {MessageCircle,Send,Search,ShieldCheck} from 'lucide-react'
 import {api} from '../lib/api.js'
 import {useAuth} from '../context/AuthContext.jsx'
 
-export default function CommunityChats(){
+export default function CommunityChats({ embedded = false, searchText = '' }){
  const {user}=useAuth()
  const [params,setParams]=useSearchParams()
  const [threads,setThreads]=useState([])
@@ -83,15 +83,16 @@ export default function CommunityChats(){
  const incoming=thread?.status==='pending'&&thread?.recipient_id===user?.id
  const accepted=thread?.status==='accepted'
  const composeReady=Boolean(newUser)||accepted
+ const visibleThreads=threads.filter(item=>!searchText || [item.peer_username,item.peer_name,item.last_message].some(value=>String(value||'').toLowerCase().includes(searchText.toLowerCase().trim())))
  return <main className="mx-auto max-w-[950px] space-y-3 pb-12">
-   <header className="sticky top-14 z-10 border-b border-black/10 bg-[#F7F3EB]/95 px-2 py-3 backdrop-blur md:top-16">
-     <h1 className="text-[21px] font-black">Chats</h1>
-     <p className="text-[12px] text-black/55">Connect with subscribers, or open deal conversations when working on a booking.</p>
-   </header>
-   <div className="flex flex-wrap gap-2 px-2">
-     <span className="rounded-full bg-[#0A13E6] px-4 py-2 text-[12px] font-bold text-white">Community Chat</span>
-     <Link to="/messages" className="rounded-full border border-black/20 bg-white px-4 py-2 text-[12px] font-bold">Deals Chat</Link>
-   </div>
+   {!embedded && <header className="sticky top-14 z-10 border-b border-black/10 bg-[#F7F3EB]/95 px-2 py-3 backdrop-blur md:top-16">
+     <h1 className="text-[21px] font-black">Associates Chat</h1>
+     <p className="text-[12px] text-black/55">Connect with associates. Job money stays in Bento Chat.</p>
+   </header>}
+   {!embedded && <div className="flex flex-wrap gap-2 px-2">
+     <span className="rounded-full bg-[#0A13E6] px-4 py-2 text-[12px] font-bold text-white">Associates Chat</span>
+     <Link to="/inbox?tab=bento" className="rounded-full border border-black/20 bg-white px-4 py-2 text-[12px] font-bold">Bento Chat</Link>
+   </div>}
    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-[12px] text-red-700">{error}</p>}
    <div className="grid min-h-[440px] gap-3 md:grid-cols-[270px_minmax(0,1fr)]">
      <aside className="rounded-2xl border border-black/10 bg-white p-3" aria-label="Subscribers and conversations">
@@ -114,8 +115,8 @@ export default function CommunityChats(){
        </div>}
        <h2 className="mt-4 text-[11px] font-bold uppercase tracking-wide text-black/45">Conversations</h2>
        {loading&&<p className="py-4 text-[12px] text-black/50">Loading conversations…</p>}
-       {!loading&&!threads.length&&<p className="py-4 text-[12px] text-black/50">No community chats yet.</p>}
-       {threads.map(item=><button key={item.id} type="button"
+       {!loading&&!threads.length&&<p className="py-4 text-[12px] text-black/50">No associates yet. Send a request from Profile.</p>}
+       {visibleThreads.map(item=><button key={item.id} type="button"
          onClick={()=>{setNewUser(null);setParams({thread:item.id});setMessage('')}}
          aria-current={active===item.id}
          className={`mt-1 block w-full rounded-xl px-3 py-3 text-left ${active===item.id?'bg-blue-50':'hover:bg-black/5'}`}>
@@ -124,7 +125,7 @@ export default function CommunityChats(){
          <span className="text-[10px] font-semibold text-black/40">{item.status}</span>
        </button>)}
      </aside>
-     <section className="flex min-h-[440px] min-w-0 flex-col rounded-2xl border border-black/10 bg-white" aria-label="Community chat">
+     <section className="flex min-h-[440px] min-w-0 flex-col rounded-2xl border border-black/10 bg-white" aria-label="Associates chat">
        <div className="border-b border-black/10 px-4 py-3">
          <h2 className="text-[15px] font-black">
            {newUser?'^'+newUser.username:thread?'^'+thread.peer_username:'Select a subscriber or conversation'}
