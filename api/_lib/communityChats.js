@@ -7,14 +7,18 @@ const cleanBody=value=>typeof value==='string'?value.trim():''
 export async function communityChatsGet(userId,params){
   const {rows:exists}=await query("SELECT to_regclass('community_threads') AS present")
   if(!exists[0]?.present)throw fail(503,'Apply the General subscriber chats migration first.')
+  // During rollout the existing chat feature must work until the new
+  // Associate migration is actually applied by an administrator.
+  const {rows:relationshipTable}=await query("SELECT to_regclass('associate_links') AS present")
+  const associationEnabled=Boolean(relationshipTable[0]?.present)
   if(params.get('community_users')==='1'){
     const search=String(params.get('q')||'').trim().replace(/^[@^]+/,'').slice(0,48)
     if(search.length<2)return {users:[]}
-    const {rows}=await query(`SELECT id,username,full_name,avatar_url
-      FROM users WHERE id<>$1 AND username ILIKE $2
-        AND EXISTS(SELECT 1 FROM associate_links a WHERE a.status='accepted'
+    const extra=associationEnabled ? `AND EXISTS(SELECT 1 FROM associate_links a WHERE a.status='accepted'
           AND ((a.member_low=$1 AND a.member_high=users.id) OR
-               (a.member_high=$1 AND a.member_low=users.id)))
+               (a.member_high=$1 AND a.member_low=users.id)))` : ''
+    const {rows}=await query(`SELECT id,username,full_name,avatar_url
+      FROM users WHERE id<>$1 AND username ILIKE $2 ${extra}
       ORDER BY username LIMIT 15`,[userId,'%'+search+'%'])
     return {users:rows}
   }
@@ -63,10 +67,13 @@ export async function communityChatsAction(userId,body){
       const {rows:found}=await client.query(`SELECT id,username FROM users WHERE id=$1 FOR SHARE`,[recipientId])
       target=found[0]
       if(!target)throw fail(404,'Subscriber not found.')
-      const {rows:associate}=await client.query(`SELECT 1 FROM associate_links
-        WHERE status='accepted' AND member_low=LEAST($1::uuid,$2::uuid)
-          AND member_high=GREATEST($1::uuid,$2::uuid)`,[userId,recipientId])
-      if(!associate.length)throw fail(403,'Connect as mutual Associates on Profile before starting a chat.')
+      const {rows:installed}=await client.query("SELECT to_regclass('associate_links') AS present")
+      if(installed[0]?.present){
+        const {rows:associate}=await client.query(`SELECT 1 FROM associate_links
+          WHERE status='accepted' AND member_low=LEAST($1::uuid,$2::uuid)
+            AND member_high=GREATEST($1::uuid,$2::uuid)`,[userId,recipientId])
+        if(!associate.length)throw fail(403,'Connect as mutual Associates on Profile before starting a chat.')
+      }
       const {rows:existing}=await client.query(`SELECT * FROM community_threads
         WHERE (initiator_id=$1 AND recipient_id=$2) OR
         (initiator_id=$2 AND recipient_id=$1) FOR UPDATE`,[userId,recipientId])
