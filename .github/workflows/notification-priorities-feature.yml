@@ -1,0 +1,39 @@
+name: Notifications Priority Feature Gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/_lib/notificationPriority.js'
+      - 'api/_lib/notificationDigest.js'
+      - 'api/_lib/notifications.js'
+      - 'api/_lib/pushNotifications.js'
+      - 'api/auth/index.js'
+      - 'api/vibes/index.js'
+      - 'src/pages/Notifications.jsx'
+      - 'src/components/NotificationsMenu.jsx'
+      - 'src/components/PushNotificationSettings.jsx'
+      - 'db/patch-notification-priorities-2026-10.sql'
+      - 'tests/notification-priorities.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  feature-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Test notification priorities
+        run: node --test tests/notification-priorities.test.mjs tests/push-notifications.test.mjs tests/push-defaults.test.mjs
+      - name: Verify API syntax
+        run: npm run check:api
+      - name: Build PWA
+        run: npm run build
