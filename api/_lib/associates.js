@@ -173,3 +173,22 @@ export async function associatesAction(userId,body){
   }
   return {ok:true,status:updated}
 }
+
+/**
+ * Public-safe social proof derived only from accepted, voluntary vouches.
+ * Missing migration is not a reason to break Showroom/Bento discovery.
+ */
+export async function associateVouchCounts(userIds=[]){
+  const ids=[...new Set(userIds.filter(valid))]
+  if(!ids.length)return {}
+  const {rows:meta}=await query("SELECT to_regclass('associate_links') AS present")
+  if(!meta[0]?.present)return {}
+  const {rows}=await query(`SELECT subject_id,COUNT(*)::int AS vouches FROM (
+    SELECT member_high AS subject_id FROM associate_links
+      WHERE status='accepted' AND vouched_by_low=TRUE
+    UNION ALL
+    SELECT member_low AS subject_id FROM associate_links
+      WHERE status='accepted' AND vouched_by_high=TRUE
+  ) verified WHERE subject_id=ANY($1::uuid[]) GROUP BY subject_id`,[ids])
+  return Object.fromEntries(rows.map(item=>[item.subject_id,Number(item.vouches)]))
+}
