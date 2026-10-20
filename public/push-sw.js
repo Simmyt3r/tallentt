@@ -22,6 +22,9 @@ self.addEventListener('push', (event) => {
       badge: payload.badge || '/icons/icon-192-maskable.png',
       tag: payload.tag || 'chombutar-notification',
       renotify: false,
+      // Browsers control the actual sound, but a high-priority notification
+      // can use the device's normal alert; optional social alerts stay quiet.
+      silent: payload.priority !== 'high',
       data: {
         url: payload.url || '/notifications',
         notificationId: payload.notificationId || null,
