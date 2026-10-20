@@ -7,6 +7,7 @@ import {useAuth} from '../context/AuthContext.jsx'
 export default function CommunityChats({ embedded = false, searchText = '' }){
  const {user}=useAuth()
  const [params,setParams]=useSearchParams()
+ const setChatParams = next => setParams(embedded ? {tab:'associates',...next}:next)
  const [threads,setThreads]=useState([])
  const [people,setPeople]=useState([])
  const [search,setSearch]=useState('')
@@ -53,7 +54,7 @@ export default function CommunityChats({ embedded = false, searchText = '' }){
      const data=await api.communityChatAction({action:'community_start',recipient_id:newUser.id,text:message})
      setNewUser(null);setSearch('');setMessage('')
      await refresh()
-     setParams({thread:data.thread_id})
+     setChatParams({thread:data.thread_id})
    }catch(e){setError(e.message||'Unable to send your request.')}
    finally{setSending(false)}
  }
@@ -100,13 +101,13 @@ export default function CommunityChats({ embedded = false, searchText = '' }){
          <Search size={16} className="absolute left-3 text-black/40"/>
          <input value={search} onChange={e=>setSearch(e.target.value)}
            aria-label="Search subscribers to start a chat"
-           placeholder="Find subscriber by username"
+           placeholder="Find Associate by username"
            className="h-10 w-full min-w-0 rounded-full border border-black/15 bg-[#F7F3EB] pl-9 pr-3 text-[12px] outline-none focus:border-[#0A13E6]"/>
        </label>
        {search.trim().length>1&&<div className="mt-3 space-y-1">
          <p className="text-[10px] font-bold uppercase text-black/45">Start a new chat</p>
          {people.map(person=><button key={person.id} type="button"
-           onClick={()=>{setNewUser(person);setSelected(null);setParams({})}}
+           onClick={()=>{setNewUser(person);setSelected(null);setChatParams({})}}
            className="block min-h-10 w-full rounded-xl px-3 text-left hover:bg-blue-50">
            <span className="block text-[12px] font-bold">{person.full_name||person.username}</span>
            <span className="text-[11px] text-black/45">^{person.username}</span>
@@ -117,7 +118,7 @@ export default function CommunityChats({ embedded = false, searchText = '' }){
        {loading&&<p className="py-4 text-[12px] text-black/50">Loading conversations…</p>}
        {!loading&&!threads.length&&<p className="py-4 text-[12px] text-black/50">No associates yet. Send a request from Profile.</p>}
        {visibleThreads.map(item=><button key={item.id} type="button"
-         onClick={()=>{setNewUser(null);setParams({thread:item.id});setMessage('')}}
+         onClick={()=>{setNewUser(null);setChatParams({thread:item.id});setMessage('')}}
          aria-current={active===item.id}
          className={`mt-1 block w-full rounded-xl px-3 py-3 text-left ${active===item.id?'bg-blue-50':'hover:bg-black/5'}`}>
          <span className="block truncate text-[12px] font-bold">^{item.peer_username}</span>
