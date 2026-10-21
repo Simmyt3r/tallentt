@@ -1,7 +1,7 @@
 // Path: api/admin/index.js
 import { query, getClient } from '../_lib/db.js'
 import {pendingVibesVideos,reviewVibesVideo} from '../_lib/vibesReview.js'
-import {financeSummary,financeAudit} from '../_lib/financeReporting.js'
+import {financeSummary,financeAudit,financeLiabilityAudit} from '../_lib/financeReporting.js'
 import {resolveLiveMediaAvailability} from '../_lib/liveMedia.js'
 import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
@@ -43,6 +43,8 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
+      if (params.get('action') === 'finance_liability_audit')
+        return json(res,200,await financeLiabilityAudit({kind:params.get('kind')||'escrow',cursor:params.get('cursor')}))
       if (params.get('action') === 'finance_summary') return json(res,200,await financeSummary())
       if (params.get('action') === 'finance_audit')
         return json(res,200,await financeAudit({stream:params.get('stream')||'live_support',cursor:params.get('cursor')}))

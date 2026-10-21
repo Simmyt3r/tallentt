@@ -1,7 +1,7 @@
 // Path: src/components/Layout.jsx
-import { Link, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Menu, Plus, MessageCircle, Radio } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
 import { useAuth } from '../context/AuthContext'
@@ -16,26 +16,8 @@ const QUICK_ACTION =
 
 export default function Layout({ children }) {
   const location = useLocation()
-  const navigate = useNavigate()
-  const navigationType=useNavigationType()
-  const lastPath=useRef(location.pathname)
-  const { user } = useAuth()
-  // Device Back may walk within a tab, but must never make users traverse
-  // every previously visited major tab. If POP crosses tab boundaries,
-  // return directly to the Showroom home.
-  useEffect(()=>{
-    const primary=path=>{
-      const root=String(path||'').split('/')[1]
-      return ['showroom','bento','vibes','my-hats','deals','live'].includes(root)?root:null
-    }
-    const previous=lastPath.current
-    const from=primary(previous),to=primary(location.pathname)
-    lastPath.current=location.pathname
-    if(navigationType==='POP'&&from&&to&&from!==to&&to!=='showroom'){
-      navigate('/showroom',{replace:true})
-    }
-  },[location.pathname,navigationType,navigate])
-
+  // Respect browser/device Back history. Do not unexpectedly redirect a
+  // user to Showroom when they are returning to a previous major tab.
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
 
@@ -134,7 +116,7 @@ export default function Layout({ children }) {
                 className={`${QUICK_ACTION} hidden sm:flex`}>
                 <Plus size={21} aria-hidden="true" />
               </Link>
-              <Link to="/chats" aria-label="General Chat" title="Community and subscriber messages"
+              <Link to="/chats" aria-label="Open general chat" title="General chat, not restricted to deals"
                 className={QUICK_ACTION}>
                 <MessageCircle size={20} aria-hidden="true" />
               </Link>

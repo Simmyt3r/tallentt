@@ -337,8 +337,8 @@ export default function Vibes() {
         <div className="min-w-0 flex-1">
           <label htmlFor="vibe-text" className="sr-only">Say something…</label>
           <textarea id="vibe-text" value={text} onChange={e=>setText(e.target.value)}
-            rows={2} placeholder="Say something…"
-            className="w-full min-h-0 resize-y rounded-xl border-0 bg-[#F7F3EB] px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0A13E6]"/>
+            rows={1} placeholder="Say something…"
+            className="w-full h-10 min-h-0 resize-y rounded-xl border-0 bg-[#F7F3EB] px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0A13E6]"/>
           <div className="mt-1 text-right text-[10px] text-black/40">Up to 10,000 characters</div>
         </div>
       </div>
