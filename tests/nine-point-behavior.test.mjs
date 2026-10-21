@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {financeLiabilityAudit} from '../api/_lib/financeReporting.js'
+// Stub the optional pooled database before importing its wrapper.
+global.__tworldPool={query:async()=>{throw new Error('Database should not be called during invalid input checks.')}}
+const {financeLiabilityAudit}=await import('../api/_lib/financeReporting.js')
 import {resolveLiveMediaAvailability} from '../api/_lib/liveMedia.js'
 
 // The test runner starts this file in an isolated process. No real database,
