@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, WalletCards, XCircle, Trash2 } from 'lucide-react'
+import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, WalletCards, XCircle, Trash2, Search } from 'lucide-react'
 import { api } from '../lib/api.js'
 import DiscoverySearch from '../components/DiscoverySearch.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -70,6 +70,7 @@ export default function Notifications() {
   const [paging, setPaging] = useState(false)
   const olderLoadedRef = useRef(false)
   const refreshSequenceRef = useRef(0)
+  const searchRef = useRef(null)
   const holdTimer = useRef(null)
   const heldRef = useRef(false)
   const [selectedForDelete, setSelectedForDelete] = useState(null)
@@ -220,13 +221,20 @@ export default function Notifications() {
           <div className="flex items-center gap-2">
             <Bell size={22} />
             <h1 className="text-[23px] font-black">Notifications</h1>
+            <button type="button" aria-label="Search notifications" title="Search notifications"
+              onClick={()=>{
+                searchRef.current?.scrollIntoView?.({block:'nearest',behavior:'smooth'})
+                searchRef.current?.focus()
+              }} className="ml-1 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-black/20 bg-white text-black/70 hover:bg-[#EEF0FF] focus-visible:outline-2 focus-visible:outline-[#0A13E6]">
+              <Search size={18} aria-hidden="true"/>
+            </button>
           </div>
           <p className="mt-1 text-[12px] font-medium text-black/50">
             Deal, application, payment and platform updates in one place.
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-        <DiscoverySearch value={search} onChange={setSearch} placeholder="Search notifications…"
+        <DiscoverySearch ref={searchRef} value={search} onChange={setSearch} placeholder="Search notifications…"
           label="Search all notifications" className="w-full sm:w-64" />
         <button
           type="button"
