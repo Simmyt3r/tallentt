@@ -65,6 +65,7 @@ export const api = {
   me: () => request('/api/auth?action=me'),
   getMyOrbitScore: () => request('/api/auth?action=orbit'),
   getAdminFinanceSummary: () => request('/api/admin?action=finance_summary',{cache:'no-store'}),
+  getAdminLiabilityAudit: (kind,cursor) => request('/api/admin?'+new URLSearchParams({action:'finance_liability_audit',kind,...(cursor?{cursor}:{})}),{cache:'no-store'}),
   getAdminFinanceAudit: (stream,cursor) => request('/api/admin?'+new URLSearchParams({
     action:'finance_audit',stream,...(cursor?{cursor}:{}),
   }),{cache:'no-store'}),
