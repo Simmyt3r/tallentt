@@ -24,8 +24,9 @@ a domain and TLS termination. Where UDP is blocked, provide public TURN.
    or `playback`, because doing so bypasses the room's active-state gate.
    Publishing with an invalid token is always denied.
 4. Configure Vercel *production environment variables*, preserving secrets:
-   - `LIVE_MEDIA_SERVER_URL=https://<mediamtx-health-origin>`
-     (reachable from Vercel for readiness)
+   - `LIVE_MEDIA_SERVER_URL=https://<public-health-endpoint>`
+     (reachable from Vercel; must return HTTP 2xx and non-HTML content.
+     MediaMTX root returning 404 is NOT a valid health-check endpoint.)
    - `LIVE_WHIP_URL=https://<public-whip-origin>`
    - `LIVE_HLS_BASE_URL=https://<public-hls-origin>`
    - `VITE_LIVE_ICE_SERVERS_JSON` in the frontend as needed for approved
