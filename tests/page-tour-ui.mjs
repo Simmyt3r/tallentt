@@ -37,7 +37,17 @@ try{
     // Each page introduces itself once; a normal dismissal does not opt out globally.
     await page.goto('http://127.0.0.1:5188/showroom')
     const guide=()=>page.getByRole('dialog',{name:/Welcome to Showroom|This is Bento Field|Welcome to Hits & Vibes/})
-    await page.getByRole('dialog',{name:'Welcome to Showroom'}).waitFor()
+    try {
+      await page.getByRole('dialog',{name:'Welcome to Showroom'}).waitFor({timeout:8000})
+    }catch(error){
+      console.error('Page tour diagnostic',JSON.stringify({
+        url:page.url(),
+        body:(await page.locator('body').innerText().catch(()=>'' )).slice(0,1400),
+        dialogs:await page.locator('[role="dialog"]').count(),
+        errors,
+      }))
+      throw error
+    }
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
     await page.getByRole('button',{name:'Got it',exact:true}).click()
     assert.equal(await guide().count(),0)
