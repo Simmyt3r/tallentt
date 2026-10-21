@@ -1,0 +1,30 @@
+name: First Visit Page Tour Gate
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tour:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Test page rules and preference persistence
+        run: node --test tests/page-tour.test.mjs
+      - name: Check server API syntax
+        run: npm run check:api
+      - name: Build full PWA
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test mobile and desktop tour
+        run: npm run test:ui:page-tour

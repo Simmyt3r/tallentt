@@ -2,6 +2,7 @@ import { chromium } from 'playwright'
 import { createServer } from 'vite'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
+import {optOutPageToursForFixture} from './page-tour-fixture.mjs'
 
 const vite=await createServer({
   root:fileURLToPath(new URL('..',import.meta.url)),
@@ -16,6 +17,7 @@ try {
   })
   for(const width of [320,390,1280]) {
     const context=await browser.newContext({viewport:{width,height:900}})
+    await optOutPageToursForFixture(context)
     const page=await context.newPage()
     page.setDefaultTimeout(12000)
     const errors=[]
