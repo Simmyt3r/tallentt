@@ -17,6 +17,7 @@ const QUICK_ACTION =
 
 export default function Layout({ children }) {
   const location = useLocation()
+  const { user } = useAuth()
   // Respect browser/device Back history. Do not unexpectedly redirect a
   // user to Showroom when they are returning to a previous major tab.
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
