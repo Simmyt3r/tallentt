@@ -52,17 +52,16 @@ async function signUpload(userId, body) {
   return {cloudName:cloud.cloudName, apiKey:cloud.apiKey,permitId,params,signature,resourceType:video?'video':'image'}
 }
 
-// Fast automatic video moderation uses approved provider decisions when
-// available, otherwise scans a small spread of video frames with Vision.
-// Unknown, unavailable and flagged results require review; never label
-// an unscanned video as AI-approved.
+// Prefer configured provider decisions, otherwise scan video frames with Vision.
+// Before Google Vision is configured, Cloudinary-verified uploads publish by
+// default. Once screening is configured, flagged or unavailable results stay held.
 async function videoModeration(asset,cloud){
   const verdict=providerVerdict(asset.moderation)
   if(verdict==='review')return {needs_review:true,risk:'provider_rejected'}
   if(verdict==='pending')return {needs_review:true,risk:'provider_pending'}
   if(verdict==='approved')return {needs_review:false,risk:null}
   const key=process.env.GOOGLE_CLOUD_VISION_API_KEY
-  if(!key)return {needs_review:true,risk:'screening_unconfigured'}
+  if(!key)return {needs_review:false,risk:null}
   const duration=Number(asset.duration)
   if(!Number.isFinite(duration)||duration<=0)return {needs_review:true,risk:'duration_unknown'}
   const samples=[0.1,0.25,0.5,0.75,0.95]
@@ -130,7 +129,10 @@ async function verifyUploads(userId, media) {
         bytes:asset.bytes,needs_review:photoVerdict!=='approved'}
     }
     if(!process.env.GOOGLE_CLOUD_VISION_API_KEY)
-      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',bytes:asset.bytes,needs_review:true}
+      // Vision is not configured yet. The signed permit and authoritative
+      // Cloudinary asset checks above still run; don't create a review queue
+      // solely because the optional safety provider has not been connected.
+      return {upload_id:permit.id,public_id:permit.public_id,url:item.url,type:'image',bytes:asset.bytes,needs_review:false}
     // Fail closed when screening is unreachable. Do not disclose images until a
     // safety decision has been obtained.
     let screened
