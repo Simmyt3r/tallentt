@@ -1,7 +1,7 @@
 // Path: src/components/Layout.jsx
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { Menu, Plus, MessageCircle, Radio } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
 import PageTour from './PageTour.jsx'
@@ -17,9 +17,24 @@ const QUICK_ACTION =
 
 export default function Layout({ children }) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const navigationType=useNavigationType()
+  const lastPath=useRef(location.pathname)
   const { user } = useAuth()
-  // Respect browser/device Back history. Do not unexpectedly redirect a
-  // user to Showroom when they are returning to a previous major tab.
+  // Preserve the original cross-tab Back behavior: returning across major
+  // sections lands on Showroom rather than traversing every prior tab.
+  useEffect(()=>{
+    const primary=path=>{
+      const root=String(path||'').split('/')[1]
+      return ['showroom','bento','vibes','my-hats','deals','live'].includes(root)?root:null
+    }
+    const previous=lastPath.current
+    const from=primary(previous),to=primary(location.pathname)
+    lastPath.current=location.pathname
+    if(navigationType==='POP'&&from&&to&&from!==to&&to!=='showroom'){
+      navigate('/showroom',{replace:true})
+    }
+  },[location.pathname,navigationType,navigate])
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
 
