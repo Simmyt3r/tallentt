@@ -11,9 +11,6 @@ export default function AdminFinanceLedger(){
   const [rows,setRows]=useState([])
   const [cursor,setCursor]=useState(null)
   const [stream,setStream]=useState(null)
-  const [liabilityKind,setLiabilityKind]=useState(null)
-  const [liabilityRows,setLiabilityRows]=useState([])
-  const [liabilityCursor,setLiabilityCursor]=useState(null)
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   async function refresh(){
@@ -36,22 +33,6 @@ export default function AdminFinanceLedger(){
     }catch(e){setError(e.message||'Could not load accrual audit.')}
     finally{setBusy(false)}
   }
-  async function openLiability(kind,next=null){
-    setBusy(true);setError('')
-    try{
-      const data=await api.getAdminLiabilityAudit(kind,next)
-      setLiabilityRows(current=>next?[...current,...data.transactions]:data.transactions)
-      setLiabilityCursor(data.next_cursor)
-      setLiabilityKind(kind)
-      setStream(null)
-    }catch(err){setError(err.message||'Could not load liability records.')}
-    finally{setBusy(false)}
-  }
-  const liabilityLabels={
-    escrow:'Outstanding secured escrow',
-    wallet:'Subscriber wallet balances',
-    pending_payout:'Pending payout obligations',
-  }
   const liabilities=summary?.liabilities||{}
   const streams=summary?.income_streams||[]
   return <div className="space-y-4 p-4" aria-label="Escrow liability and platform earnings">
@@ -69,16 +50,12 @@ export default function AdminFinanceLedger(){
         <h4 className="text-[14px] font-black">Customer money / liabilities</h4>
         <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3">
           {[
-            ['escrow',liabilities.escrow_liability],
-            ['wallet',liabilities.wallet_liability],
-            ['pending_payout',liabilities.pending_withdrawal_liability],
-          ].map(([kind,value])=><div key={kind} className="rounded-xl bg-white p-3">
+            ['Outstanding secured escrow',liabilities.escrow_liability],
+            ['Subscriber wallet balances',liabilities.wallet_liability],
+            ['Pending payout obligations',liabilities.pending_withdrawal_liability],
+          ].map(([name,value])=><div key={name} className="rounded-xl bg-white p-3">
             <p className="text-[18px] font-black tabular-nums">{money(value)}</p>
-            <p className="mt-1 text-[11px] font-semibold text-black/60">{liabilityLabels[kind]}</p>
-            <button type="button" onClick={()=>openLiability(kind)} disabled={busy}
-              className="mt-2 min-h-9 rounded-full border border-black/20 px-3 text-[11px] font-bold text-[#0A13E6] disabled:opacity-40">
-              View liability audit
-            </button>
+            <p className="mt-1 text-[11px] font-semibold text-black/60">{name}</p>
           </div>)}
         </div>
         <p className="mt-3 text-[11px] text-black/60">
@@ -86,27 +63,6 @@ export default function AdminFinanceLedger(){
           These categories must be reconciled with Paystack and bank settlement accounts before reporting total cash.
         </p>
       </section>
-      {liabilityKind&&<section className="rounded-2xl border border-black/15 bg-white p-4" aria-label="Customer liability audit trail">
-        <div className="flex items-center justify-between gap-3">
-          <div><h4 className="text-[14px] font-black">{liabilityLabels[liabilityKind]} · audit trail</h4>
-            <p className="mt-1 text-[11px] text-black/55">Read-only outstanding obligations. Not platform revenue or net profit.</p></div>
-          <button type="button" onClick={()=>setLiabilityKind(null)} className="min-h-10 rounded-full border border-black/20 px-3 text-[11px]">Close audit</button>
-        </div>
-        <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[620px] text-left text-[11px]">
-          <thead><tr className="border-b border-black/15"><th className="p-2">Recorded/updated</th>
-            <th className="p-2">Source reference</th><th className="p-2">Subscriber</th>
-            <th className="p-2">Outstanding</th><th className="p-2">Status</th></tr></thead>
-          <tbody>{liabilityRows.map(item=><tr key={item.id} className="border-b border-black/10">
-            <td className="p-2">{new Date(item.created_at).toLocaleString('en-NG')}</td>
-            <td className="max-w-48 break-all p-2 font-mono">{item.source_reference}</td>
-            <td className="p-2">{item.username||item.full_name||'Deleted account'}<span className="block text-black/50">{item.description||''}</span></td>
-            <td className="p-2 font-bold">{money(item.amount)}</td><td className="p-2">{item.status}</td>
-          </tr>)}</tbody></table>
-          {!liabilityRows.length&&<p className="p-3 text-[12px] text-black/50">No outstanding records in this category.</p>}
-        </div>
-        {liabilityCursor&&<button type="button" disabled={busy} onClick={()=>openLiability(liabilityKind,liabilityCursor)}
-          className="mt-3 min-h-10 rounded-full border border-black/20 px-4 text-[12px] font-bold">Load older records</button>}
-      </section>}
       <section className="rounded-2xl border border-black/15 bg-white p-4" aria-label="Platform owner revenue">
         <h4 className="text-[14px] font-black">Platform owners' income account</h4>
         <p className="mt-1 text-[12px] text-black/60">
