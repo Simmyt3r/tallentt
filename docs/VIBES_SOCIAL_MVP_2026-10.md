@@ -16,7 +16,7 @@ Vibes does **not** implement a second escrow chat, direct message inbox, arbitra
 
 The community API **always signs media uploads** with a server-held Cloudinary secret. It checks authenticated uploader identity, declared MIME/size, permit expiry and Cloudinary's authoritative resource record before publication. If `GOOGLE_CLOUD_VISION_API_KEY` is absent, verified uploads publish automatically unless Cloudinary's own moderation flags them. Once Vision is configured, images are checked with SafeSearch and videos are sampled across five frames; flagged or unavailable results remain held for review. The no-key behavior is a temporary launch fallback, not a claim that media was safety-screened. Allowed: JPEG, PNG, WebP (up to 8 MB), and MP4/WebM/MOV videos (up to 20 MB), up to ten attachments per post.
 
-Media is **disabled by default** until operators supply the existing Vercel secrets and intentionally enable the feature:
+Media is **disabled by default** until operators configure Cloudinary and intentionally enable the feature. Google Vision is optional during the initial rollout:
 ```
 CLOUDINARY_CLOUD_NAME=<your-cloud>
 CLOUDINARY_API_KEY=<your-key>
