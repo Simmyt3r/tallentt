@@ -8,6 +8,7 @@
 // back down with real headroom instead of just barely re-fitting.
 import { query, getClient } from '../_lib/db.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
+import {dispatchDailyFameDigests} from '../_lib/notificationDigest.js'
 import {containsContactBypass} from '../_lib/showroomEligibility.js'
 import {
   verifyPassword,
@@ -22,7 +23,7 @@ import {
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { listBanks, resolveBankAccount, createTransferRecipient } from '../_lib/paystack.js'
 import { requestPasswordReset, completePasswordReset } from '../_lib/passwordRecovery.js'
-import { getNotificationCount, getNotificationInbox, markAllNotificationsRead, markNotificationRead, deleteNotification, clearNotifications } from '../_lib/notifications.js'
+import { getNotificationCount, getNotificationUnreadByLane, getNotificationInbox, markAllNotificationsRead, markNotificationRead, deleteNotification, clearNotifications } from '../_lib/notifications.js'
 import {
   getPushPreferences,
   getVapidPublicKey,
@@ -45,6 +46,15 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const action = url.searchParams.get('action') || 'me'
+    if (action === 'daily-notification-digest') {
+      // Vercel Cron adds the configured secret in this exact Bearer header.
+      // Without the secret, this administrative endpoint never runs.
+      if (!process.env.CRON_SECRET || req.headers.authorization!==`Bearer ${process.env.CRON_SECRET}`)
+        return json(res,401,{error:'Unauthorized'})
+      try {return json(res,200,await dispatchDailyFameDigests())}
+      catch(error){console.error('notification digest failed:',error.code||error.message)
+        return json(res,500,{error:'Daily digest dispatch failed.'})}
+    }
     if (action === 'me') return handleMe(req, res)
     if (action==='presence'){
       const session=getSessionUser(req)
@@ -287,7 +297,7 @@ async function handleNotifications(req, res, url) {
   const session = getSessionUser(req)
   if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
   try {
-    return json(res, 200, await getNotificationInbox(session.sub, url.searchParams.get('before'), url.searchParams.get('search')))
+    return json(res, 200, await getNotificationInbox(session.sub, url.searchParams.get('before'), url.searchParams.get('search'), url.searchParams.get('lane') || 'all'))
   } catch (err) {
     console.error('notification inbox error:', err)
     return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to load notifications.' })
@@ -298,7 +308,8 @@ async function handleNotificationCount(req, res) {
   const session = getSessionUser(req)
   if (!session?.sub) return json(res, 401, { error: 'Not signed in' })
   try {
-    return json(res, 200, { unreadCount: await getNotificationCount(session.sub) })
+    const [unreadCount,unreadByLane] = await Promise.all([getNotificationCount(session.sub),getNotificationUnreadByLane(session.sub)])
+    return json(res, 200, { unreadCount, unreadByLane })
   } catch (err) {
     console.error('notification count error:', err)
     return json(res, 500, { error: 'Failed to load notification count.' })
@@ -404,7 +415,7 @@ async function handleProfileUpdate(req, res) {
       return json(res, 200, { preferences })
     } catch (err) {
       console.error('push preference update error:', err)
-      return json(res, 500, { error: 'Failed to update push preferences.' })
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to update push preferences.' })
     }
   }
 

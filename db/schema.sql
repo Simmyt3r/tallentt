@@ -580,6 +580,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_notifications_visible_user ON notifications (user_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_vibes_first_ten_milestone ON notifications(user_id,(metadata->>'post_id')) WHERE type='vibes_first_ten';
 -- General subscriber messaging is distinct from money-backed Deal conversations.
 CREATE TABLE IF NOT EXISTS community_threads (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -659,7 +660,17 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   payments BOOLEAN NOT NULL DEFAULT true,
   live BOOLEAN NOT NULL DEFAULT true,
   marketing BOOLEAN NOT NULL DEFAULT true,
+  associates BOOLEAN NOT NULL DEFAULT true,
+  vibes_mode TEXT NOT NULL DEFAULT 'digest',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS notification_daily_digests (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  digest_day DATE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'sending' CHECK(status IN ('sending','sent')),
+  attempts INT NOT NULL DEFAULT 1,
+  sent_at TIMESTAMPTZ,
+  PRIMARY KEY(user_id,digest_day)
 );
 
 CREATE TABLE IF NOT EXISTS push_vapid_config (

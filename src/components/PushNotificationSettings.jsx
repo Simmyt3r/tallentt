@@ -9,12 +9,13 @@ import {
 } from '../lib/pushNotifications.js'
 
 const OPTIONS = [
-  ['deals', 'Deals', 'Bookings, applications, delivery and dispute updates.'],
-  ['negotiations', 'Negotiations', 'New offers, counteroffers and agreement updates.'],
-  ['messages', 'Deals Chat', 'New deal messages while you are away.'],
-  ['payments', 'Payments', 'Wallet and escrow reminders. Critical money alerts always stay enabled.'],
-  ['live', 'Live', 'Live-session and support activity.'],
-  ['marketing', 'Marketing', 'Product announcements and promotional updates.'],
+  ['deals', 'Bento Field', 'Hire requests, accept/decline, delivery and disputes. Required.', true],
+  ['negotiations', 'Job offers', 'Proposals and agreements requiring action. Required.', true],
+  ['messages', 'Bento Chat', 'Messages about booked work. Required.', true],
+  ['payments', 'Audio Money', 'Escrow, wallet and withdrawal transactions. Required.', true],
+  ['associates', 'Associates', 'Professional connection requests and responses. Optional.', false],
+  ['live', 'Live sessions', 'Live-session updates. Optional.', false],
+  ['marketing', 'Announcements', 'Optional platform announcements; no generic comeback reminders.', false],
 ]
 
 export default function PushNotificationSettings() {
@@ -106,7 +107,7 @@ export default function PushNotificationSettings() {
             <div>
               <h2 className="text-[15px] font-black">Push notifications</h2>
               <p className="mt-1 max-w-xl text-[11.5px] leading-relaxed text-black/50">
-                All categories start selected for new subscribers. You can uncheck any category below. Your browser asks permission only when you enable this device.
+                Bento Field and Audio Money are always active in the app. You may mute Associates and other optional alerts. Browser push still requires permission on each device.
               </p>
             </div>
           </div>
@@ -172,20 +173,32 @@ export default function PushNotificationSettings() {
 
       {config?.preferences && (
         <div className="divide-y divide-black/10">
-          {OPTIONS.map(([key, label, description]) => (
-            <label key={key} className="flex cursor-pointer items-start gap-3 px-4 py-3.5 sm:px-5">
+          {OPTIONS.map(([key, label, description, required]) => (
+            <label key={key} className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
               <span className="min-w-0 flex-1">
                 <span className="block text-[12px] font-black">{label}</span>
                 <span className="mt-0.5 block text-[10.5px] leading-relaxed text-black/45">{description}</span>
+                {required && <span className="mt-1 block text-[10px] font-bold text-[#0A13E6]">Always on</span>}
               </span>
               <input
                 type="checkbox"
-                checked={Boolean(config.preferences[key])}
+                checked={required || Boolean(config.preferences[key])}
+                disabled={required}
                 onChange={(event) => changePreference(key, event.target.checked)}
                 className="mt-1 h-4 w-4 accent-[#0A13E6]"
               />
             </label>
           ))}
+          <div className="space-y-2 px-4 py-4 sm:px-5">
+            <label htmlFor="vibes-mode" className="block text-[12px] font-black">Vibes & Hits</label>
+            <p className="text-[10.5px] text-black/55">No alerts for individual likes or views. Important activity is grouped into a daily digest.</p>
+            <select id="vibes-mode" value={config.preferences.vibes_mode||'digest'}
+              onChange={event=>changePreference('vibes_mode',event.target.value)}
+              className="min-h-11 w-full rounded-xl border border-black/20 bg-white px-3 text-[12px] font-semibold">
+              <option value="digest">Daily digest</option>
+              <option value="off">Off</option>
+            </select>
+          </div>
         </div>
       )}
     </section>

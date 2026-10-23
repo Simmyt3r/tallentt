@@ -4,9 +4,10 @@ import assert from 'node:assert/strict'
 const seen = []
 global.__tworldPool = {
   query: async (sql, params) => {
+    if (sql.includes('GROUP BY 1')) return { rows: [{ lane: 'money', count: 4 }] }
     if (sql.includes('COUNT(*)::int AS count FROM notifications'))
       return { rows: [{ count: 4 }] }
-    if (sql.includes('SELECT id, type, title, body, link_url')) {
+    if (sql.includes('SELECT n.id, n.type, n.title, n.body, n.link_url')) {
       seen.push({ sql, params })
       return { rows: [{ id: '11111111-1111-4111-8111-111111111111', title: 'Escrow funded', body: 'Deal complete', read_at: null }] }
     }
@@ -22,7 +23,9 @@ test('notification search is server-side, user-scoped and paginated', async () =
   assert.equal(result.unreadCount, 4)
   assert.equal(seen[0].params[0], '99999999-9999-4999-8999-999999999999')
   assert.equal(seen[0].params[3], 'Escrow')
-  assert.match(seen[0].sql, /user_id = \$1 AND deleted_at IS NULL/)
+  assert.match(seen[0].sql, /n\.user_id = \$1 AND n\.deleted_at IS NULL/)
+  assert.equal(result.unreadByLane.money, 4)
+  assert.equal(seen[0].params[4], 'all')
   assert.match(seen[0].sql, /POSITION\(LOWER\(\$4::text\)/)
   assert.equal(seen[0].params[2], 31)
 })
