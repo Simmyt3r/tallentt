@@ -35,7 +35,7 @@ export default function CompactPageHeader({
   }
 
   return (
-    <header className={`sticky top-14 md:top-16 z-30 isolate -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 h-[52px] flex items-center gap-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg ${className}`}>
+    <header className={`sticky top-[57.5px] md:top-16 z-30 isolate -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 h-[52px] flex items-center gap-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg ${className}`}>
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {Icon && <Icon size={18} aria-hidden="true" className="shrink-0" />}
         <h1 className="min-w-0 truncate text-[18px] sm:text-[21px] font-black tracking-tight">{title}</h1>
