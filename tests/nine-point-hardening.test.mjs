@@ -35,7 +35,12 @@ test('shared discovery input avoids native X and original cross-tab Back behavio
   assert.match(layout,/useNavigationType/)
   assert.match(layout,/navigationType==='POP'/)
   assert.match(layout,/navigate\('\/showroom',\{replace:true\}\)/)
-  assert.match(layout,/to="\/chats" aria-label="Open general chat"/)
+  assert.match(layout,/aria-label="Open Inbox"/)
+  assert.match(layout,/setInboxChooserOpen\(true\)/)
+  const chooser=read('src/components/InboxChooser.jsx')
+  assert.match(chooser,/Associates Chat/)
+  assert.ok(chooser.includes('to={`/inbox?tab=${lane}`}'),
+    'the global chat entry must expose Associates Chat, not only deal chat')
 })
 
 test('BentoCards display real account-level Orbit and notifications retain the original searchable field',()=>{
