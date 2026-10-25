@@ -261,6 +261,9 @@ export const api = {
   dealCallAction: (body) => request('/api/escrows',{
     method:'POST',body:JSON.stringify(body),
   }),
+  getAssociates: (username) => request('/api/escrows?associates='+encodeURIComponent(username),{cache:'no-store'}),
+  getAssociatePrivacy: () => request('/api/escrows?associate_privacy=1',{cache:'no-store'}),
+  associateAction: (body) => request('/api/escrows',{method:'POST',body:JSON.stringify(body)}),
   getCommunityChats: () => request('/api/escrows?community=1',{cache:'no-store'}),
   searchCommunityUsers: (q) => request('/api/escrows?community_users=1&q='+encodeURIComponent(q),{cache:'no-store'}),
   getCommunityThread: (id) => request('/api/escrows?community_thread='+encodeURIComponent(id),{cache:'no-store'}),

@@ -8,6 +8,7 @@ import PageTour from './PageTour.jsx'
 import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
 import NotificationsMenu from './NotificationsMenu.jsx'
+import InboxChooser from './InboxChooser.jsx'
 
 // Facebook-style quick actions without any role-based browsing switch.
 const MENU_BUTTON =
@@ -37,6 +38,7 @@ export default function Layout({ children }) {
   },[location.pathname,navigationType,navigate])
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [inboxChooserOpen, setInboxChooserOpen] = useState(false)
 
   useEffect(() => {
     localStorage.setItem('chombutar_sidebar_collapsed', collapsed ? '1' : '0')
@@ -133,10 +135,12 @@ export default function Layout({ children }) {
                 className={`${QUICK_ACTION} hidden sm:flex`}>
                 <Plus size={21} aria-hidden="true" />
               </Link>
+              <button type="button" onClick={() => setInboxChooserOpen(true)}
+                aria-label="Open Inbox" title="Inbox: Bento Chat and Associates Chat" className={QUICK_ACTION}>
               <Link to="/chats" aria-label="Open general chat" title="General chat, not restricted to deals"
                 className={QUICK_ACTION}>
                 <MessageCircle size={20} aria-hidden="true" />
-              </Link>
+              </button>
               <NotificationsMenu className="flex"
                 buttonClassName={QUICK_ACTION} iconSize={19} />
             </nav>
@@ -156,6 +160,8 @@ export default function Layout({ children }) {
       </header>
 
       <BottomNav />
+      <InboxChooser open={inboxChooserOpen} onClose={() => setInboxChooserOpen(false)}
+        preferred={location.pathname.startsWith('/bento') || location.pathname.startsWith('/deals') || location.pathname.startsWith('/messages') ? 'bento' : 'associates'} />
       <PageTour />
 
       <main

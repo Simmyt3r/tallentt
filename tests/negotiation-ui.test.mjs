@@ -58,7 +58,7 @@ test('negotiation center, My Deals, and Deals Chat have strict responsibilities'
 
   assert.match(messages, /message\.kind !== 'offer'/)
   assert.match(messages, /Type a message…/)
-  assert.match(messages, /Messaging only/)
+  assert.match(messages, /Private deal conversation/)
   assert.doesNotMatch(messages, /fundEscrowWithWallet/)
   assert.doesNotMatch(messages, /DealQrCheckpoint/)
   assert.doesNotMatch(messages, /EscrowFundingCard/)

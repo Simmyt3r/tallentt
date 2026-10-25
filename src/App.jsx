@@ -1,5 +1,5 @@
 // Path: src/App.jsx
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import Landing from './pages/Landing.jsx'
@@ -15,8 +15,7 @@ import Profile from './pages/Profile.jsx'
 import TalentProfile from './pages/TalentProfile.jsx'
 import Wallet from './pages/Wallet.jsx'
 import Admin from './pages/Admin.jsx'
-import Messages from './pages/Messages.jsx'
-import CommunityChats from './pages/CommunityChats.jsx'
+import Inbox from './pages/Inbox.jsx'
 import Negotiations from './pages/Negotiations.jsx'
 import Notifications from './pages/Notifications.jsx'
 import Settings from './pages/Settings.jsx'
@@ -28,6 +27,8 @@ import StageRoom from './pages/Live/StageRoom.jsx'
 import StageCompetitions from './pages/Live/StageCompetitions.jsx'
 import StageCompetitionRoom from './pages/Live/StageCompetitionRoom.jsx'
 import { decideLanding } from './lib/landing.js'
+
+function LegacyInboxRedirect({ tab }) { const { search } = useLocation(); const params = new URLSearchParams(search); params.set('tab', tab); return <Navigate to={'/inbox?' + params.toString()} replace /> }
 
 function FullPageSpinner() { return <div className="min-h-screen grid place-items-center text-gray-500">Loading…</div> }
 function ProtectedRoute({ children }) { const { user, loading } = useAuth(); if (loading) return <FullPageSpinner />; if (!user) return <Navigate to="/auth" replace />; return <Layout>{children}</Layout> }
@@ -47,8 +48,9 @@ export default function App() {
     <Route path="/" element={<HomeRoute />} />
     <Route path="/bento" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
     <Route path="/vibes" element={<ProtectedRoute><Vibes /></ProtectedRoute>} />
-    <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-    <Route path="/chats" element={<ProtectedRoute><CommunityChats /></ProtectedRoute>} />
+    <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
+    <Route path="/messages" element={<LegacyInboxRedirect tab="bento" />} />
+    <Route path="/chats" element={<LegacyInboxRedirect tab="associates" />} />
     <Route path="/negotiations" element={<ProtectedRoute><Negotiations /></ProtectedRoute>} />
     <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
     <Route path="/showroom/:postId?" element={<ProtectedRoute><ShowroomPage /></ProtectedRoute>} />

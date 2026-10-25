@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react'
 import {Link,useNavigate} from 'react-router-dom'
-import {Bell,BookOpen,LockKeyhole,LogOut,Settings2,UserRound,Wallet} from 'lucide-react'
+import {Bell,LockKeyhole,LogOut,Settings2,UserRound,Wallet,ShieldCheck,BookOpen} from 'lucide-react'
 import {useAuth} from '../context/AuthContext.jsx'
 import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
 import {api} from '../lib/api.js'
@@ -19,12 +19,27 @@ export default function Settings(){
   const [signingOut,setSigningOut]=useState(false)
   const [presenceVisible,setPresenceVisible]=useState(true)
   const [presenceBusy,setPresenceBusy]=useState(false)
+  const [associatePolicy,setAssociatePolicy]=useState('everyone')
+  const [privacyBusy,setPrivacyBusy]=useState(false)
+  const [privacyError,setPrivacyError]=useState('')
   useEffect(()=>{
     let active=true
     api.getPresenceVisibility().then(value=>{if(active)setPresenceVisible(value.visible!==false)})
       .catch(()=>{})
     return()=>{active=false}
   },[])
+  useEffect(()=>{
+    let active=true
+    api.getAssociatePrivacy().then(result=>{if(active)setAssociatePolicy(result.privacy||'everyone')})
+      .catch(err=>{if(active)setPrivacyError(err.message||'Associate privacy unavailable.')})
+    return()=>{active=false}
+  },[])
+  async function changeAssociatePolicy(policy){
+    setPrivacyBusy(true);setPrivacyError('')
+    try{const result=await api.associateAction({action:'associate_privacy',policy});setAssociatePolicy(result.privacy)}
+    catch(err){setPrivacyError(err.message||'Unable to save Associate privacy settings.')}
+    finally{setPrivacyBusy(false)}
+  }
   async function changePresence(visible){
     setPresenceBusy(true);setError('')
     try{await api.setPresenceVisibility(visible);setPresenceVisible(visible)}
@@ -53,7 +68,7 @@ export default function Settings(){
       <p className="mt-1 text-[12px] text-black/55">Manage your account, device notifications and security.</p>
     </header>
     <nav aria-label="Settings sections" className="flex gap-2">
-      {[['account','Account',UserRound],['notifications','Notifications',Bell],['security','Security',LockKeyhole]].map(([id,label,Icon])=>
+      {[['account','Account',UserRound],['notifications','Notifications',Bell],['privacy','Privacy',ShieldCheck],['security','Security',LockKeyhole]].map(([id,label,Icon])=>
         <button key={id} type="button" onClick={()=>setSection(id)} aria-pressed={section===id}
           className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-[12px] font-bold ${section===id?'bg-[#0A13E6] text-white':'border border-black/10 bg-white text-black/70'}`}>
           <Icon size={15}/>{label}
@@ -127,6 +142,19 @@ export default function Settings(){
       <PushNotificationSettings/>
       <Link to="/notifications" className="text-[12px] font-bold text-[#0A13E6] underline">Open notifications inbox</Link>
     </div>}
+    {section==='privacy'&&<section className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
+      <h2 className="text-[15px] font-black">Associate requests</h2>
+      <p className="text-[12px] text-black/60">Choose who may ask to become your professional Associate. Subscribers can still follow public Vibes without approval.</p>
+      {privacyError&&<p role="alert" className="text-[12px] text-red-700">{privacyError}</p>}
+      <label className="block text-[12px] font-semibold" htmlFor="associate-request-policy">Who may send an Associate request?</label>
+      <select id="associate-request-policy" value={associatePolicy} disabled={privacyBusy||Boolean(privacyError)}
+        onChange={e=>changeAssociatePolicy(e.target.value)}
+        className="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-[13px]">
+        <option value="everyone">Everyone</option>
+        <option value="verified_talents">Verified talents only</option>
+        <option value="nobody">No one</option>
+      </select>
+    </section>}
     {section==='security'&&<section className="space-y-4 rounded-2xl border border-black/10 bg-white p-5">
       <div>
         <h2 className="text-[15px] font-black">Password and access</h2>

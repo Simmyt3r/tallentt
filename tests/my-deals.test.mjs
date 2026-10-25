@@ -15,15 +15,11 @@ test('My Deals replaces split application/booking navigation', () => {
   assert.match(app, /my-bookings".*deals\?role=client&tab=outgoing/)
 })
 
-test('mobile nav puts Home (Showroom) and Bento before My Deals and Live, with pending badge', () => {
+test('mobile nav keeps exactly Showroom, Bento, Vibes, Inbox and Profile', () => {
   const source = read('src/components/BottomNav.jsx')
-  const home = source.indexOf('to="/showroom" icon={Store} label="Showroom"')
-  const bento = source.indexOf('to="/bento" icon={LayoutGrid} label="Bento"')
-  const hats = source.indexOf('label="My Hats"')
-  const deals = source.indexOf('label="My Deals"')
-  const live = source.indexOf('label="Live"')
-  assert.ok(home > -1 && bento > home && hats > bento && deals > hats && live > deals)
-  assert.match(source, /badge=\{pendingDeals\}/)
+  const items = [...source.matchAll(/<BottomNavLink to="([^"]+)"/g)].map(x=>x[1])
+  assert.deepEqual(items,['/showroom','/bento','/vibes','/inbox','/profile'])
+  assert.match(source, /badge=\{unreadBento\}/)
 })
 
 test('My Deals page is URL-driven, paginated, and includes permanent History', () => {
@@ -90,7 +86,7 @@ test('badges and notification history use lightweight paginated APIs', () => {
   assert.match(api, /getNotificationCount/)
   assert.match(api, /getMyDealsCount/)
   assert.match(bell, /getNotificationCount/)
-  assert.match(bottom, /getMyDealsCount/)
+  assert.match(bottom, /getConversations/)
   assert.match(notifications, /Load older/)
   assert.match(server, /nextCursor/)
   assert.match(server, /LIMIT \$3/)
