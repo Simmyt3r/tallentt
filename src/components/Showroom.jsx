@@ -71,9 +71,9 @@ export default function Showroom() {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const query = params.get('q')
-    if (query !== null && query !== search) setSearch(query)
+    if (query !== null) setSearch((current) => current === query ? current : query)
     if (params.get('focus') === 'search') searchRef.current?.focus()
-  }, [location.search, search])
+  }, [location.search])
 
   // ── ui ────────────────────────────────────────────────────────────────
   const [muted, setMuted] = useState(false) // shared across posts; sound on by default
