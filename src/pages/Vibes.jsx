@@ -326,7 +326,7 @@ export default function Vibes() {
     <div className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 flex items-center justify-between gap-2 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
       <div className="min-w-0 flex-1">
         <h1 className="text-[18px] sm:text-[23px] font-black tracking-tight">Hits & Vibes</h1>
-        <p className="text-[12px] text-black/50">Share your thoughts, photos or videos. Most uploads publish automatically after safety screening. Flagged media goes to review.</p>
+        <p className="text-[12px] text-black/50">Share your thoughts, photos or videos. Without Google Vision, verified uploads publish automatically unless Cloudinary flags them. Once Vision is configured, uncertain media goes to review.</p>
       </div>
       <DiscoverySearch value={search} onChange={setSearch} placeholder="Search Vibes…"
           label="Search Vibes posts and people" className="w-full max-w-[min(48vw,340px)] min-w-[115px] shrink-0" />
