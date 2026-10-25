@@ -181,7 +181,7 @@ export default function Admin() {
   }
 
   if (loading && !dashboard) {
-    return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading admin command center…</p>
+    return <><CompactPageHeader title="Admin Command Center" icon={ShieldCheck}/><p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading admin command center…</p></>
   }
 
   const activeSection = SECTIONS.find((item) => item.id === tab) || SECTIONS[0]
