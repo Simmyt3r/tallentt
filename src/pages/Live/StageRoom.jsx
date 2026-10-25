@@ -6,6 +6,7 @@ import { ArrowLeft, Camera, Heart, Maximize, Mic, MicOff, VideoOff, Wifi, Users,
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import UserIdentity from '../../components/UserIdentity'
+import CompactPageHeader from '../../components/CompactPageHeader.jsx'
 import { connectLiveRealtime } from '../../lib/liveRealtime'
 import { clearLivePublisher, getLivePublisher } from '../../lib/liveSession'
 
@@ -358,9 +359,9 @@ export default function StageRoom() {
     setLocalMedia((state) => ({ ...state, [kind === 'audio' ? 'mic' : 'camera']: track.enabled }))
   }
 
-  if (loading) return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading Live…</p>
-  if (error && !room) return <p className="text-center text-red-600 py-16 text-[13px] font-medium">{error}</p>
-  if (!room) return <p className="text-center text-red-600 py-16 text-[13px] font-medium">Live not found.</p>
+  if (loading) return <><CompactPageHeader title="Live Room"/><p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading Live…</p></>
+  if (error && !room) return <><CompactPageHeader title="Live Room"/><p className="text-center text-red-600 py-16 text-[13px] font-medium">{error}</p></>
+  if (!room) return <><CompactPageHeader title="Live Room"/><p className="text-center text-red-600 py-16 text-[13px] font-medium">Live not found.</p></>
 
   const isLive = ['live', 'reconnecting'].includes(room.status)
   const isFallback = room.media_mode === 'fallback' || room.media_status === 'fallback'
@@ -372,9 +373,10 @@ export default function StageRoom() {
 
   return (
     <div className="max-w-[780px] mx-auto space-y-4 pb-10" ref={shellRef}>
+      <CompactPageHeader title={room.title || 'Live Room'}/>
       <div className="flex items-center gap-3">
-        <Link to="/live" className="w-9 h-9 rounded-full border-[1.5px] border-black grid place-items-center"><ArrowLeft size={15} /></Link>
-        <div className="min-w-0 flex-1"><h1 className="text-[16px] font-bold truncate">{room.title}</h1><p className="text-[11px] font-semibold text-black/45">{room.category}</p></div>
+        <Link to="/live" aria-label="Back to Live" className="w-9 h-9 rounded-full border-[1.5px] border-black grid place-items-center"><ArrowLeft size={15} /></Link>
+        <div className="min-w-0 flex-1 text-[11px] font-semibold text-black/45">{room.category}</div>
         <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${isLive ? 'bg-red-600 text-white' : 'bg-black/10 text-black/60'}`}>{room.status === 'reconnecting' ? 'RECONNECTING…' : room.status.toUpperCase()}</span>
       </div>
 
