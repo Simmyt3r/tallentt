@@ -65,6 +65,7 @@ export const api = {
   me: () => request('/api/auth?action=me'),
   getMyOrbitScore: () => request('/api/auth?action=orbit'),
   getAdminFinanceSummary: () => request('/api/admin?action=finance_summary',{cache:'no-store'}),
+  getAdminLiabilityAudit: (kind,cursor) => request('/api/admin?'+new URLSearchParams({action:'finance_liability_audit',kind,...(cursor?{cursor}:{})}),{cache:'no-store'}),
   getAdminFinanceAudit: (stream,cursor) => request('/api/admin?'+new URLSearchParams({
     action:'finance_audit',stream,...(cursor?{cursor}:{}),
   }),{cache:'no-store'}),
@@ -82,7 +83,7 @@ export const api = {
   heartbeatPresence: () => request('/api/auth',{method:'POST',body:JSON.stringify({action:'presence_heartbeat'})}),
   setPresenceVisibility: (visible) => request('/api/auth',{method:'POST',body:JSON.stringify({action:'presence_visibility',visible})}),
   updateProfile: (body) => request('/api/auth', { method: 'PUT', body: JSON.stringify(body) }),
-  getNotifications: (before, search = '') => request(`/api/auth?action=notifications${before ? `&before=${encodeURIComponent(before)}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
+  getNotifications: (before, search = '', lane = 'all') => request(`/api/auth?action=notifications${before ? `&before=${encodeURIComponent(before)}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}&lane=${encodeURIComponent(lane)}`, {cache:'no-store'}),
   deleteNotification: (notificationId) => request('/api/auth', { method: 'PUT', body: JSON.stringify({ action: 'delete_notification', notificationId }) }),
   clearNotifications: () => request('/api/auth', { method: 'PUT', body: JSON.stringify({ action: 'clear_notifications' }) }),
   getNotificationCount: () => request('/api/auth?action=notification-count'),

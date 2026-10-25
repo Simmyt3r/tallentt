@@ -8,6 +8,15 @@ import UserIdentity from '../../components/UserIdentity'
 import { getLiveMedia, startFallbackBroadcast, startWhipBroadcast } from '../../lib/liveBroadcast'
 import { clearLivePublisher, setLivePublisher } from '../../lib/liveSession'
 
+const LIVE_READINESS_HELP = {
+  unconfigured: 'The production media relay has not been connected. Configure LIVE_MEDIA_SERVER_URL, LIVE_WHIP_URL and LIVE_HLS_BASE_URL.',
+  incomplete: 'The production Live relay requires all three media URLs. Check your deployment environment.',
+  invalid: 'The media URL configuration is invalid or uses insecure HTTP. WHIP and HLS must be HTTPS in production.',
+  health_http_error: 'The media health endpoint returned an error. Check the exact health-check path and relay availability.',
+  unexpected_health_response: 'The media health URL returned an HTML page instead of a media service health response.',
+  unreachable: 'Vercel cannot reach the media relay. Check its deployment, hostname, TLS and firewall.',
+  preflight_failed: 'The app could not verify Live readiness. Check your connection, session and deployment status.',
+}
 const CATEGORIES = ['Music', 'Dance', 'Comedy', 'Fashion', 'Acting', 'Modeling', 'Art & Design', 'Writing', 'Photography', 'Content Creation', 'Sports', 'Other']
 
 function connectionLabel(state) {
@@ -95,7 +104,7 @@ export default function LiveHub() {
       setMediaReadiness(readiness)
     }
     if(!readiness.broadcast_ready){
-      setError('Live Broadcast is unavailable ('+(readiness.reason||'media transport not ready')+'). The streaming server must be configured and reachable before cameras can broadcast to viewers.')
+      setError(LIVE_READINESS_HELP[readiness.reason] || 'Broadcast is unavailable. The Live media server must be reachable before video can be transmitted to viewers.')
       return
     }
     setError('')
@@ -188,7 +197,8 @@ export default function LiveHub() {
 
       {mediaReadiness?.broadcast_ready===false&&<div role="alert" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
         <p className="font-bold">Live Broadcast connection unavailable ({mediaReadiness.reason||'transport not ready'}).</p>
-        <p>Video publishing requires a running, secure WHIP/MediaMTX relay and HLS playback endpoint. Stage competitions remain separate.</p>
+        <p>{LIVE_READINESS_HELP[mediaReadiness.reason] || 'Video publishing requires a running WHIP/MediaMTX relay and HLS playback endpoint.'}</p>
+        <p className="text-[11px]">The production media server is separate from Vercel. A camera preview alone is not a public broadcast.</p>
         <button type="button" onClick={async()=>{
           try{setMediaReadiness(await api.getLiveMediaStatus())}
           catch{setMediaReadiness({broadcast_ready:false,reason:'preflight_failed'})}

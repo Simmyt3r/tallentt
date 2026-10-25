@@ -132,3 +132,62 @@ test('real signed photo receipts can publish after independent Cloudinary and Sa
     global.fetch=originalFetch
   }
 })
+
+
+test('Cloudinary-verified photos and videos auto-publish before Google Vision is configured',async()=>{
+  process.env.VIBES_MEDIA_UPLOADS='enabled'
+  delete process.env.GOOGLE_CLOUD_VISION_API_KEY
+  process.env.CLOUDINARY_CLOUD_NAME='demo'
+  process.env.CLOUDINARY_API_KEY='fixture-key'
+  process.env.CLOUDINARY_API_SECRET='fixture-secret'
+  const photo=await request('POST','/api/vibes',{action:'upload_sign',mime:'image/png',bytes:1024})
+  const video=await request('POST','/api/vibes',{action:'upload_sign',mime:'video/mp4',bytes:2048})
+  assert.equal(photo.status,200,JSON.stringify(photo.body))
+  assert.equal(video.status,200,JSON.stringify(video.body))
+  const photoUrl=`https://res.cloudinary.com/demo/image/upload/v123/${photo.body.params.public_id}.png`
+  const videoUrl=`https://res.cloudinary.com/demo/video/upload/v123/${video.body.params.public_id}.mp4`
+  const originalFetch=global.fetch
+  let cloudVerified=0,visionChecked=0
+  global.fetch=async(target,options)=>{
+    const address=String(target)
+    if(address.includes('/resources/image/upload/')||address.includes('/resources/video/upload/')){
+      cloudVerified++
+      const isVideo=address.includes('/resources/video/upload/')
+      const signed=isVideo?video:photo
+      return new Response(JSON.stringify({
+        public_id:signed.body.params.public_id,
+        resource_type:isVideo?'video':'image',
+        type:'upload',
+        bytes:isVideo?2048:1024,
+        version:123,
+        secure_url:isVideo?videoUrl:photoUrl,
+        ...(isVideo?{duration:12}:{}),
+      }),{status:200})
+    }
+    if(address.includes('/images:annotate')){
+      visionChecked++
+      throw new Error('Vision must not be called when its key is absent')
+    }
+    throw new Error('Unexpected request in no-Vision upload test')
+  }
+  try{
+    const data=await request('POST','/api/vibes',{
+      action:'publish',
+      text:'My photo and video before Vision setup',
+      media:[
+        {upload_id:photo.body.permitId,public_id:photo.body.params.public_id,url:photoUrl},
+        {upload_id:video.body.permitId,public_id:video.body.params.public_id,url:videoUrl},
+      ],
+    })
+    assert.equal(data.status,201,JSON.stringify(data.body))
+    assert.equal(data.body.pending_review,false)
+    assert.equal(cloudVerified,2)
+    assert.equal(visionChecked,0)
+    const page=await request('GET','/api/vibes',undefined,friend)
+    const current=page.body.posts.find(post=>post.id===data.body.id)
+    assert.ok(current,'the new post should be visible in the public feed')
+    assert.equal(current.media.length,2)
+  }finally{
+    global.fetch=originalFetch
+  }
+})

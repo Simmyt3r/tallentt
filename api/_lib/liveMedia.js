@@ -96,7 +96,16 @@ export async function resolveLiveMediaAvailability() {
       cache: 'no-store',
       signal: AbortSignal.timeout(3000),
     })
-    if (response.status >= 500) throw new Error(`HTTP ${response.status}`)
+    // A 404, 401 or 403 is not a healthy media server. Previously every
+    // non-5xx response was treated as broadcast-ready, including login pages,
+    // missing health endpoints and expired reverse proxies.
+    if (!response.ok) {
+      return { mode: 'fallback', reason: 'health_http_error', healthStatus: response.status }
+    }
+    const contentType=response.headers?.get?.('content-type')||''
+    if (/text\/html/i.test(contentType)) {
+      return { mode:'fallback', reason:'unexpected_health_response' }
+    }
     return { mode: 'mediamtx', reason: null }
   } catch (error) {
     console.error('Live media server unreachable; using fallback mode:', error.message)

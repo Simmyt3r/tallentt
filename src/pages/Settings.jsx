@@ -1,11 +1,12 @@
 import {useEffect,useState} from 'react'
 import {Link,useNavigate} from 'react-router-dom'
-import {Bell,LockKeyhole,LogOut,Settings2,UserRound,Wallet,ShieldCheck} from 'lucide-react'
+import {Bell,LockKeyhole,LogOut,Settings2,UserRound,Wallet,ShieldCheck,BookOpen} from 'lucide-react'
 import {useAuth} from '../context/AuthContext.jsx'
 import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
 import {api} from '../lib/api.js'
 import {useDataMode,setDataMode} from '../lib/dataMode.js'
 import {clearSavedVideos} from '../lib/offlineVideo.js'
+import {restartPageTours} from '../lib/pageTour.js'
 
 export default function Settings(){
   const {user,logout}=useAuth()
@@ -113,6 +114,20 @@ export default function Settings(){
           onChange={e=>changePresence(e.target.checked)}
           aria-label="Show my online status" className="h-5 w-5 shrink-0 accent-[#0A13E6]"/>
       </label>
+      <div className="rounded-xl border border-black/10 bg-[#F7F3EB] p-3">
+        <div className="flex items-start gap-2.5">
+          <BookOpen size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-[#0A13E6]"/>
+          <div>
+            <h3 className="text-[12px] font-bold">Page introductions</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-black/55">Each main screen shows a short explanation the first time you visit it. The Don't show me again button disables them all on this device.</p>
+            <button type="button" disabled={!user?.id}
+              onClick={()=>{restartPageTours(user.id);navigate('/showroom')}}
+              className="mt-3 inline-flex min-h-10 items-center rounded-full border border-[#0A13E6]/30 bg-white px-4 text-[12px] font-bold text-[#0A13E6] disabled:opacity-50">
+              Restart page tour
+            </button>
+          </div>
+        </div>
+      </div>
       <div className="flex flex-wrap gap-3">
         <Link to="/profile" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
           <UserRound size={16}/> Edit profile

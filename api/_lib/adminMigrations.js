@@ -13,6 +13,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     title: 'Associates and Subscribers',
     description: 'Mutual professional Associates, vouches, one-way subscribers, and request privacy.',
     path: new URL('../../db/patch-associates-2026-10.sql', import.meta.url),
+    id: 'notification-priorities-2026-10',
+    title: 'Notification priorities and daily digests',
+    description: 'Protected Bento/Money alerts, Associate controls, and idempotent Fame digest delivery.',
+    path: new URL('../../db/patch-notification-priorities-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'push-defaults-2026-10',
     title: 'All push categories selected by default',
     description: 'Sets the future marketing preference column default to true; preserves every existing subscriber choice.',

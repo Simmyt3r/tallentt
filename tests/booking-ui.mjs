@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { mkdir } from 'node:fs/promises'
 import assert from 'node:assert/strict'
 import { closePreview } from './preview-server.mjs'
+import {optOutPageToursForFixture} from './page-tour-fixture.mjs'
 
 await mkdir('test-results', { recursive: true })
 const vite = await createServer({ root: fileURLToPath(new URL('..', import.meta.url)),
@@ -15,6 +16,8 @@ try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined })
   const clientContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
   const talentContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 1 })
+  await optOutPageToursForFixture(clientContext)
+  await optOutPageToursForFixture(talentContext)
   const client = await clientContext.newPage()
   const talent = await talentContext.newPage()
   const dealCard = (page, escrowId = '44444444-4444-4444-8444-444444444444') => page.locator('article').filter({
@@ -154,6 +157,7 @@ try {
   await talent.getByRole('button', { name: 'Send', exact: true }).click()
   await talent.locator('article').filter({ hasText: 'agree to a wallet refund' }).waitFor()
   const admin = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
+  await optOutPageToursForFixture(admin)
   admin.on('pageerror', (err) => errors.push(err.message))
   await admin.goto('http://127.0.0.1:5179/api/__test/session?role=admin')
   await admin.getByRole('button', { name: 'Review dispute', exact: true }).click()

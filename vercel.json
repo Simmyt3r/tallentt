@@ -9,6 +9,9 @@
     },
     "api/vibes/index.js": {
       "maxDuration": 60
+    },
+    "api/auth/index.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
@@ -47,6 +50,12 @@
           "value": "camera=(self), microphone=(self), geolocation=()"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/auth?action=daily-notification-digest",
+      "schedule": "0 6 * * *"
     }
   ]
 }

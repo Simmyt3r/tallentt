@@ -4,6 +4,7 @@ import { Menu, Plus, MessageCircle, Radio } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
+import PageTour from './PageTour.jsx'
 import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
 import NotificationsMenu from './NotificationsMenu.jsx'
@@ -21,9 +22,8 @@ export default function Layout({ children }) {
   const navigationType=useNavigationType()
   const lastPath=useRef(location.pathname)
   const { user } = useAuth()
-  // Device Back may walk within a tab, but must never make users traverse
-  // every previously visited major tab. If POP crosses tab boundaries,
-  // return directly to the Showroom home.
+  // Preserve the original cross-tab Back behavior: returning across major
+  // sections lands on Showroom rather than traversing every prior tab.
   useEffect(()=>{
     const primary=path=>{
       const root=String(path||'').split('/')[1]
@@ -36,7 +36,6 @@ export default function Layout({ children }) {
       navigate('/showroom',{replace:true})
     }
   },[location.pathname,navigationType,navigate])
-
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [inboxChooserOpen, setInboxChooserOpen] = useState(false)
@@ -138,6 +137,8 @@ export default function Layout({ children }) {
               </Link>
               <button type="button" onClick={() => setInboxChooserOpen(true)}
                 aria-label="Open Inbox" title="Inbox: Bento Chat and Associates Chat" className={QUICK_ACTION}>
+              <Link to="/chats" aria-label="Open general chat" title="General chat, not restricted to deals"
+                className={QUICK_ACTION}>
                 <MessageCircle size={20} aria-hidden="true" />
               </button>
               <NotificationsMenu className="flex"
@@ -161,6 +162,7 @@ export default function Layout({ children }) {
       <BottomNav />
       <InboxChooser open={inboxChooserOpen} onClose={() => setInboxChooserOpen(false)}
         preferred={location.pathname.startsWith('/bento') || location.pathname.startsWith('/deals') || location.pathname.startsWith('/messages') ? 'bento' : 'associates'} />
+      <PageTour />
 
       <main
         className={`w-full transition-[padding] duration-200 ease-out ${collapsed ? 'md:pl-[72px]' : 'md:pl-[236px]'}`}

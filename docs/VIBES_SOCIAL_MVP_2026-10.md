@@ -14,9 +14,9 @@ Vibes does **not** implement a second escrow chat, direct message inbox, arbitra
 
 ## Media policy and launch checklist
 
-The community API **always signs image uploads** with a server-held Cloudinary secret. It checks authenticated uploader identity, declared MIME/size, permit expiry, Cloudinary's authoritative resource record and SafeSearch response **before** publication. Allowed: JPEG, PNG, WebP, max 8 MB/image, up to four photos per post.
+The community API **always signs media uploads** with a server-held Cloudinary secret. It checks authenticated uploader identity, declared MIME/size, permit expiry and Cloudinary's authoritative resource record before publication. If `GOOGLE_CLOUD_VISION_API_KEY` is absent, verified uploads publish automatically unless Cloudinary's own moderation flags them. Once Vision is configured, images are checked with SafeSearch and videos are sampled across five frames; flagged or unavailable results remain held for review. The no-key behavior is a temporary launch fallback, not a claim that media was safety-screened. Allowed: JPEG, PNG, WebP (up to 8 MB), and MP4/WebM/MOV videos (up to 20 MB), up to ten attachments per post.
 
-Media is **disabled by default** until operators supply the existing Vercel secrets and intentionally enable the feature:
+Media is **disabled by default** until operators configure Cloudinary and intentionally enable the feature. Google Vision is optional during the initial rollout:
 ```
 CLOUDINARY_CLOUD_NAME=<your-cloud>
 CLOUDINARY_API_KEY=<your-key>
@@ -24,7 +24,7 @@ CLOUDINARY_API_SECRET=<your-secret>
 GOOGLE_CLOUD_VISION_API_KEY=<your-key>
 VIBES_MEDIA_UPLOADS=enabled
 ```
-Never put server Cloudinary secrets in `VITE_*` variables. If Vision is unavailable, photo publication fails closed with a retryable error; text posting continues. Reports have a database queue but the admin-review UI needs its own later QA/release. There is no automatic hard deletion upon reports, avoiding easy coordinated abuse.
+Never put server Cloudinary secrets in `VITE_*` variables. The Google Vision key is optional during initial rollout: without it, Cloudinary-verified uploads publish automatically unless Cloudinary's own moderation flags them. After the key is configured, Vision checks apply; flagged or unavailable analysis keeps media held for review. Text posting remains available. Reports have a database queue but the admin-review UI needs its own later QA/release. There is no automatic hard deletion upon reports, avoiding easy coordinated abuse.
 
 ## Required SQL migrations
 

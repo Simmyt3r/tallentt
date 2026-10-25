@@ -3,6 +3,7 @@ import { createServer } from 'vite'
 import { fileURLToPath } from 'node:url'
 import { mkdir } from 'node:fs/promises'
 import assert from 'node:assert/strict'
+import {optOutPageToursForFixture} from './page-tour-fixture.mjs'
 
 // UI contract checks use isolated API fixtures; hat-feed-visibility.test.mjs
 // exercises the real handlers and PostgreSQL queries separately.
@@ -16,6 +17,7 @@ try {
   for (const [width, mode] of [[1280, 'grid'], [390, 'list']]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
     await context.addInitScript((mode) => localStorage.setItem('chombutar_viewMode', mode), mode)
+    await optOutPageToursForFixture(context)
     const page = await context.newPage()
     const errors = []
     page.on('pageerror', (e) => errors.push(e.message))

@@ -3,6 +3,7 @@ import { createServer } from 'vite'
 import { fileURLToPath } from 'node:url'
 import { mkdir } from 'node:fs/promises'
 import assert from 'node:assert/strict'
+import {optOutPageToursForFixture} from './page-tour-fixture.mjs'
 
 const vite=await createServer({
   root:fileURLToPath(new URL('..',import.meta.url)),
@@ -28,6 +29,7 @@ try{
     screening_reason:'audio_requires_manual_review'}
   for(const width of [390,1280]){
     const context=await browser.newContext({viewport:{width,height:880}})
+    await optOutPageToursForFixture(context)
     const page=await context.newPage()
     page.setDefaultTimeout(15000)
     const errors=[]

@@ -188,7 +188,9 @@ export async function startWhipBroadcast({ ingestUrl, publishToken, mediaStream,
     if (response.status === 401 || response.status === 403) {
       throw new Error('MediaMTX rejected this Live publish session. Start a new Live and try again.')
     }
-    if (!response.ok) throw new Error(`WHIP publish failed (${response.status}).`)
+    if (response.status === 404 || response.status === 405)
+      throw new Error('The Live WHIP ingest endpoint is missing or incorrectly routed. Check the media server proxy and LIVE_WHIP_URL.')
+    if (!response.ok) throw new Error(`WHIP publish failed (${response.status}). Check the media relay logs and endpoint configuration.`)
 
     const location = response.headers.get('Location')
     if (location) resourceUrl = new URL(location, ingestUrl).toString()

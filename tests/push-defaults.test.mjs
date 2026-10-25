@@ -7,14 +7,14 @@ let saved = null
 let writes = 0
 global.__tworldPool = {
   query: async (sql, args = []) => {
-    if (/^\s*CREATE (?:TABLE|INDEX)/i.test(sql)) return { rows: [], rowCount: 0 }
+    if (/^\s*(?:CREATE (?:TABLE|INDEX)|ALTER TABLE)/i.test(sql)) return { rows: [], rowCount: 0 }
     if (sql.includes('FROM notification_preferences WHERE user_id = $1')) {
       return { rows: saved ? [saved] : [] }
     }
     if (sql.includes('INSERT INTO notification_preferences')) {
-      assert.equal(args.length, 7)
+      assert.equal(args.length, 9)
       writes += 1
-      saved = Object.fromEntries(['deals','negotiations','messages','payments','live','marketing']
+      saved = Object.fromEntries(['deals','negotiations','messages','payments','live','marketing','associates','vibes_mode']
         .map((key, i) => [key, args[i + 1]]))
       return { rows: [saved] }
     }
@@ -24,12 +24,13 @@ global.__tworldPool = {
 
 const { getPushPreferences, updatePushPreferences } = await import('../api/_lib/pushNotifications.js')
 const id = '22222222-2222-4222-8222-222222222222'
-const categories = ['deals','negotiations','messages','payments','live','marketing']
+const categories = ['deals','negotiations','messages','payments','associates','live','marketing']
 
-test('first-time subscriber sees all six push categories selected by default', async () => {
+test('new account receives always-on Bento/Money and optional categories selected', async () => {
   saved = null
   const preferences = await getPushPreferences(id)
-  assert.deepEqual(Object.keys(preferences), categories)
+  assert.deepEqual(Object.keys(preferences), [...categories,'vibes_mode'])
+  assert.equal(preferences.vibes_mode,'digest')
   assert.ok(categories.every((category) => preferences[category] === true))
   assert.equal(writes, 0, 'reading defaults should not silently persist user consent')
 })
@@ -43,14 +44,14 @@ test('unchecking a category persists, and other categories stay checked', async 
   assert.equal((await getPushPreferences(id)).marketing, false)
   await updatePushPreferences(id, { deals: false })
   assert.equal((await getPushPreferences(id)).marketing, false)
-  assert.equal((await getPushPreferences(id)).deals, false)
+  assert.equal((await getPushPreferences(id)).deals, true, 'Bento is mandatory under the new notification policy')
 })
 
 test('existing subscriber opt-outs are respected by the new defaults', async () => {
   saved = { deals: false, negotiations: true, messages: true,
     payments: true, live: false, marketing: false }
   const preferences = await getPushPreferences(id)
-  assert.equal(preferences.deals, false)
+  assert.equal(preferences.deals, true, 'previously muted Bento now delivers required work alerts')
   assert.equal(preferences.live, false)
   assert.equal(preferences.marketing, false)
   assert.equal(preferences.negotiations, true)

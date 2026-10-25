@@ -3,6 +3,7 @@ import { createServer } from 'vite'
 import { fileURLToPath } from 'node:url'
 import { mkdir } from 'node:fs/promises'
 import assert from 'node:assert/strict'
+import {optOutPageToursForFixture} from './page-tour-fixture.mjs'
 
 const vite = await createServer({ root: fileURLToPath(new URL('..', import.meta.url)),
   server: { host: '127.0.0.1', port: 5182, strictPort: true } })
@@ -13,6 +14,7 @@ try {
   await mkdir('test-results', { recursive: true })
   for (const width of [1280, 390]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
+    await optOutPageToursForFixture(context)
     const page = await context.newPage()
     page.setDefaultTimeout(15000)
     const errors = []
