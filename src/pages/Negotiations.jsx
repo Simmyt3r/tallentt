@@ -5,6 +5,7 @@ import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { NegotiationPanel, NegotiationHistory } from '../components/NegotiationPanel.jsx'
 import NegotiationParties from '../components/NegotiationParties.jsx'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import { identityFromRow } from '../lib/profile.js'
 
 const tabs = ['Action needed', 'Ongoing', 'Completed']
@@ -29,6 +30,7 @@ export default function Negotiations() {
   const [paging, setPaging] = useState(false)
   const [error, setError] = useState('')
   const [refresh, setRefresh] = useState(0)
+  const [search, setSearch] = useState('')
   const cursorInitialized = useRef(false)
 
   useEffect(() => {
@@ -64,26 +66,18 @@ export default function Negotiations() {
     setParams(next)
   }
 
-  const visible = items.filter((item) => category(item, user.id) === activeTab)
+  const searchTerm = search.trim().toLowerCase()
+  const visible = items.filter((item) => category(item, user.id) === activeTab &&
+    [item.hat_title, item.peer?.full_name, item.peer?.username, item.id].some((value) => String(value ?? '').toLowerCase().includes(searchTerm)))
   return (
     <main className="max-w-5xl mx-auto space-y-4 pb-8">
-      <div className={`${selected ? 'hidden md:block' : ''} sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg`}>
-        <h1 className="text-[23px] font-black">Negotiation Center</h1>
-        <p className="text-[12px] text-black/55">Only deals that enter price negotiation appear here. Completed is negotiation history only.</p>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[#0A13E6]/15 bg-[#0A13E6]/[0.04] px-4 py-3">
-          <div>
-            <p className="text-[11px] font-black text-[#0A13E6]">Price negotiation only</p>
-            <p className="mt-0.5 text-[10.5px] leading-relaxed text-black/55">
-              Offers and counteroffers happen here. Messaging stays in Deals Chat. Payment, escrow, QR checkpoints, delivery and disputes stay in My Deals.
-            </p>
-          </div>
-          <Link
-            to="/messages"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black"
-          >
-            <MessageCircle size={14} /> Open Deals Chat
-          </Link>
-        </div>
+      <CompactPageHeader title="Negotiation Center" searchValue={search} onSearchChange={setSearch}
+        searchPlaceholder="Search negotiations…" searchLabel="Search negotiations by Hat or participant"/>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#0A13E6]/15 bg-[#0A13E6]/[0.04] px-3 py-2">
+        <p className="text-[11px] text-black/60">Offers and counteroffers only. Messages, escrow, QR checkpoints, delivery and disputes stay in My Deals.</p>
+        <Link to="/messages" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-black/20 bg-white px-3 text-[11px] font-black">
+          <MessageCircle size={13}/> Deals Chat
+        </Link>
       </div>
       <div className={selected ? 'hidden md:flex gap-2' : 'flex gap-2'} role="tablist" aria-label="Negotiation status">
         {tabs.map((tab) => {
