@@ -10,7 +10,8 @@ test('Vibes composer retains pre-PR33 height, creator handle stays prefixed and 
   assert.match(page,/\^'\+String\(user\.username/)
   assert.match(page,/rows=\{2\} placeholder="Say something…"/)
   assert.doesNotMatch(page,/rows=\{1\} placeholder="Say something…"/)
-  assert.match(page,/Without Google Vision, verified uploads publish automatically unless Cloudinary flags them/)
+  assert.match(page,/<CompactPageHeader title="Hits & Vibes" searchValue=\{search\} onSearchChange=\{setSearch\}/)
+  assert.doesNotMatch(page,/Without Google Vision, verified uploads publish automatically unless Cloudinary flags them/)
   assert.match(server,/if\(!key\)return \{needs_review:false,risk:null\}/)
   assert.match(server,/videoModeration/)
   assert.match(server,/moderation_status/)
@@ -49,8 +50,8 @@ test('BentoCards display real account-level Orbit and notifications retain the o
   assert.match(bento,/useAccountOrbit\(hat\.username\)/)
   assert.match(bento,/Orbit \{accountOrbitScore/)
   assert.doesNotMatch(notifications,/aria-label="Search notifications"/)
-  assert.match(notifications,/<DiscoverySearch value=\{search\} onChange=\{setSearch\}/)
-  assert.match(notifications,/placeholder="Search notifications…"/)
+  assert.match(notifications,/<CompactPageHeader title="Notifications" icon=\{Bell\} searchValue=\{search\} onSearchChange=\{setSearch\}/)
+  assert.match(notifications,/searchPlaceholder="Search notifications…"/)
 })
 
 test('admin keeps original liability and income summary layout while read-only liability API remains available',()=>{
