@@ -73,8 +73,13 @@ export default function Negotiations() {
     <main className="max-w-5xl mx-auto space-y-4 pb-8">
       <CompactPageHeader title="Negotiation Center" searchValue={search} onSearchChange={setSearch}
         searchPlaceholder="Search negotiations…" searchLabel="Search negotiations by Hat or participant"/>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className={selected ? 'hidden md:flex gap-2' : 'flex gap-2'} role="tablist" aria-label="Negotiation status">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-semibold text-black/45">
+        <span>Price negotiation only. Completed is negotiation history only.</span>
+        <Link to="/messages" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-black/20 bg-white px-3 text-[11px] font-black text-black">
+          <MessageCircle size={13}/> Deals Chat
+        </Link>
+      </div>
+      <div className={selected ? 'hidden md:flex gap-2' : 'flex gap-2'} role="tablist" aria-label="Negotiation status">
         {tabs.map((tab) => {
           const count = items.filter((item) => category(item, user.id) === tab).length
           return (
@@ -86,10 +91,6 @@ export default function Negotiations() {
           )
         })}
         </div>
-        <Link to="/messages" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-black/20 bg-white px-3 text-[11px] font-black">
-          <MessageCircle size={13}/> Deals Chat
-        </Link>
-      </div>
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 flex justify-between gap-2">{error}<button type="button" onClick={() => setRefresh((v) => v + 1)} aria-label="Retry"><RefreshCw size={16} /></button></div>}
       <div className="grid md:grid-cols-[minmax(240px,350px)_minmax(0,1fr)] md:min-h-[520px] rounded-[20px] border-[1.5px] border-black bg-white overflow-hidden">
         <div className={`${selected ? 'hidden md:block' : ''} md:border-r border-black/10 min-w-0`}>
