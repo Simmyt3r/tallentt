@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import ProfileView from '../components/profile/ProfileView.jsx'
 import EditProfileForm from '../components/profile/EditProfileForm.jsx'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 
 const EMPTY_DATA = { portfolio: [], hats: { talent: [], client: [] }, isVerified: false, rating: 0, ratedHatsCount: 0, orbit: null, performance:null }
 
@@ -45,28 +46,34 @@ export default function Profile() {
 
   if (editing) {
     return (
-      <EditProfileForm
-        user={user}
-        onCancel={() => setEditing(false)}
-        onSaved={() => setEditing(false)}
-      />
+      <>
+        <CompactPageHeader title="Edit Profile"/>
+        <EditProfileForm
+          user={user}
+          onCancel={() => setEditing(false)}
+          onSaved={() => setEditing(false)}
+        />
+      </>
     )
   }
 
   return (
-    <ProfileView
-      key={user.username}
-      status={loading ? 'loading' : 'ready'}
-      isOwner
-      profileUser={user}
-      portfolio={data.portfolio}
-      hats={data.hats}
-      isVerified={data.isVerified}
-      rating={data.rating}
-      ratedHatsCount={data.ratedHatsCount}
-      orbit={data.orbit}
-      performance={data.performance}
-      onEditClick={() => setEditing(true)}
-    />
+    <>
+      <CompactPageHeader title="My Profile"/>
+      <ProfileView
+        key={user.username}
+        status={loading ? 'loading' : 'ready'}
+        isOwner
+        profileUser={user}
+        portfolio={data.portfolio}
+        hats={data.hats}
+        isVerified={data.isVerified}
+        rating={data.rating}
+        ratedHatsCount={data.ratedHatsCount}
+        orbit={data.orbit}
+        performance={data.performance}
+        onEditClick={() => setEditing(true)}
+      />
+    </>
   )
 }
