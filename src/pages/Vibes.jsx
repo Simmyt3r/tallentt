@@ -347,6 +347,7 @@ export default function Vibes() {
             <X size={16}/></button>
         </div>)}
       </div>}
+      {photos.length>0&&<p className="mt-2 text-[10px] leading-relaxed text-black/45">Without Google Vision, verified uploads publish automatically unless Cloudinary flags them. Once Vision is configured, uncertain media goes to review.</p>}
       {postError&&<p role="alert" className="mt-2 text-[12px] text-red-700">{postError}</p>}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-black/10 pt-3">
         <div>
