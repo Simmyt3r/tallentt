@@ -249,7 +249,19 @@ test('wallet uses accepted price and QR checkpoints credit talent once in two st
   const releaseHandler = (await import('../api/escrows/[id]/[action].js')).default
   const lifecycle = (await import('../api/_lib/bookingLifecycle.js')).bookingLifecycle
   const { issueBookingQr, redeemBookingQr } = await import('../api/_lib/bookingQr.js')
+  const qrActionHandler = (await import('../api/escrows/[id]/[action].js')).default
   const start = await issueBookingQr(clientId, escrowId, 'start')
+  assert.ok(start.token.startsWith('CT1.'))
+  const unauthorizedQrPush = await request(qrActionHandler, outsiderId, 'POST', '', { stage: 'start' },
+    { id: escrowId, action: 'notify-qr-ready' })
+  assert.equal(unauthorizedQrPush.status, 404)
+  const qrPush = await request(qrActionHandler, clientId, 'POST', '', { stage: 'start' },
+    { id: escrowId, action: 'notify-qr-ready' })
+  assert.equal(qrPush.status, 200)
+  assert.equal(qrPush.body.queued, true)
+  const duplicateQrPush = await request(qrActionHandler, clientId, 'POST', '', { stage: 'start' },
+    { id: escrowId, action: 'notify-qr-ready' })
+  assert.equal(duplicateQrPush.body.queued, false)
   await redeemBookingQr(talentId, escrowId, start.token)
   assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 2550)
   await lifecycle(talentId, escrowId, 'submit_delivery', { expected_version: 1, note: 'Completed the edit.', client_token: randomUUID() })
@@ -258,6 +270,9 @@ test('wallet uses accepted price and QR checkpoints credit talent once in two st
   assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 2550)
   assert.equal((await request(releaseHandler, clientId, 'POST', '', releaseBody, { id: escrowId, action: 'release' })).body.alreadyProcessed, true)
   const finish = await issueBookingQr(clientId, escrowId, 'completion')
+  const completionPush = await request(qrActionHandler, clientId, 'POST', '', { stage: 'completion' },
+    { id: escrowId, action: 'notify-qr-ready' })
+  assert.equal(completionPush.body.queued, true)
   await redeemBookingQr(talentId, escrowId, finish.token)
   assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 8500)
 })

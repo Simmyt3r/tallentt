@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
-import { getClient } from './db.js'
+import { getClient, query } from './db.js'
 import { bookingError, requireAmount, requireBookingId } from './bookingRules.js'
 import { creditWallet } from './wallet.js'
 import { emitMyDealsEvent } from './myDeals.js'
@@ -40,7 +40,7 @@ export async function issueBookingQr(userId, escrowId, stage) {
          AND metadata->>'escrow_id' = $2 AND metadata->>'stage' = $3 AND metadata->>'event' = 'qr_ready'`,
       [escrow.talent_id, escrowId, stage],
     )
-    const { rows: notificationRows } = await client.query(
+    await client.query(
       `INSERT INTO notifications (user_id, type, title, body, link_url, metadata)
        VALUES ($1, 'booking_checkpoint', $2, $3, $4, $5::jsonb)
        RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
@@ -53,13 +53,61 @@ export async function issueBookingQr(userId, escrowId, stage) {
         JSON.stringify({ escrow_id: escrowId, stage, event: 'qr_ready' })],
     )
     await client.query('COMMIT')
-    if (notificationRows[0]) await dispatchStoredNotifications(notificationRows)
     return { token, stage, expiresAt: issued[0].expires_at, amount: stage === 'start'
       ? startShare(escrow.amount) : Number(escrow.amount) - Number(escrow.start_released_amount) }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     throw err
   } finally { client.release() }
+}
+
+
+export async function dispatchBookingQrReadyNotification(userId, escrowId, stage) {
+  requireBookingId(escrowId)
+  if (!['start', 'completion'].includes(stage)) throw bookingError(400, 'Choose a valid QR checkpoint.')
+
+  const { rows: bookings } = await query(
+    'SELECT id, status, work_status, talent_id FROM escrows WHERE id = $1 AND client_id = $2',
+    [escrowId, userId],
+  )
+  const booking = bookings[0]
+  if (!booking) throw bookingError(404, 'Booking not found.')
+  if (booking.status !== 'secured' || booking.work_status !== (stage === 'start' ? 'awaiting_start' : 'awaiting_completion')) {
+    throw bookingError(409, 'This QR checkpoint is no longer available.')
+  }
+
+  // Push delivery is triggered by a separate request after the QR is rendered.
+  // Claim the notification atomically so retries cannot send duplicate pushes.
+  const { rows: notifications } = await query(
+    `WITH target AS (
+       SELECT n.id
+       FROM notifications n
+       JOIN booking_qr_tokens t ON t.escrow_id = $1 AND t.stage = $2
+       WHERE n.user_id = $3
+         AND n.type = 'booking_checkpoint'
+         AND COALESCE(n.metadata, '{}'::jsonb)->>'escrow_id' = $1::text
+         AND COALESCE(n.metadata, '{}'::jsonb)->>'stage' = $2
+         AND COALESCE(n.metadata, '{}'::jsonb)->>'event' = 'qr_ready'
+         AND t.expires_at > NOW()
+         AND t.consumed_at IS NULL
+         AND n.created_at >= t.created_at
+         AND NOT (COALESCE(n.metadata, '{}'::jsonb) ? 'push_dispatch_requested_at')
+       ORDER BY n.created_at DESC
+       LIMIT 1
+       FOR UPDATE OF n
+     )
+     UPDATE notifications n
+     SET metadata = COALESCE(n.metadata, '{}'::jsonb) ||
+       jsonb_build_object('push_dispatch_requested_at', NOW())
+     FROM target
+     WHERE n.id = target.id
+       AND NOT (COALESCE(n.metadata, '{}'::jsonb) ? 'push_dispatch_requested_at')
+     RETURNING n.id, n.user_id, n.type, n.title, n.body, n.link_url, n.metadata, n.read_at, n.created_at`,
+    [escrowId, stage, booking.talent_id],
+  )
+  if (!notifications.length) return { queued: false }
+  await dispatchStoredNotifications(notifications)
+  return { queued: true }
 }
 
 export async function redeemBookingQr(userId, escrowId, token) {
