@@ -2,6 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import { Camera, RefreshCw } from 'lucide-react'
 import { api } from '../lib/api.js'
 
+let qrCodeModulePromise
+function loadQrCodeModule() {
+  if (!qrCodeModulePromise) {
+    qrCodeModulePromise = import('qrcode').catch((error) => {
+      qrCodeModulePromise = null
+      throw error
+    })
+  }
+  return qrCodeModulePromise
+}
+
+// Start loading the encoder when the deal workspace opens, not after the button is clicked.
+void loadQrCodeModule().catch(() => {})
+
 const money = (amount) => new Intl.NumberFormat('en-NG', {
   style: 'currency', currency: 'NGN', maximumFractionDigits: 0,
 }).format(amount)
@@ -33,9 +47,14 @@ export default function DealQrCheckpoint({ booking, role, onComplete, compact = 
     setBusy(true); setError(''); setIssued(null); setImage('')
     try {
       const next = await api.generateBookingQr(booking.id, stage)
-      const { default: QRCode } = await import('qrcode')
+      const { default: QRCode } = await loadQrCodeModule()
       const src = await QRCode.toDataURL(next.token, { width: 256, margin: 2, errorCorrectionLevel: 'M' })
       setIssued(next); setImage(src); setNow(Date.now())
+      // Push is supplemental: the in-app notification is already stored.
+      // Do not keep the QR-generation spinner open while a push provider responds.
+      void api.notifyBookingQrReady(booking.id, stage).catch((notificationError) => {
+        console.warn('QR-ready push notification failed:', notificationError)
+      })
     } catch (err) { setError(err.message || 'Could not generate the QR code.') }
     finally { setBusy(false) }
   }
