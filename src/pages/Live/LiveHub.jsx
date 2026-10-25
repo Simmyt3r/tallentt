@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Camera, Mic, Radio, Users, Wifi, X, Trophy } from 'lucide-react'
 import { api } from '../../lib/api'
+import CompactPageHeader from '../../components/CompactPageHeader.jsx'
 import { useAuth } from '../../context/AuthContext'
 import UserIdentity from '../../components/UserIdentity'
 import { getLiveMedia, startFallbackBroadcast, startWhipBroadcast } from '../../lib/liveBroadcast'
@@ -33,6 +34,7 @@ export default function LiveHub() {
   const previewRef = useRef(null)
   const handedOffRef = useRef(false)
   const [rooms, setRooms] = useState([])
+  const [search, setSearch] = useState('')
   const [roomsLoading, setRoomsLoading] = useState(true)
   const [roomsError, setRoomsError] = useState('')
   const [mediaReadiness,setMediaReadiness]=useState(null)
@@ -184,16 +186,14 @@ export default function LiveHub() {
   }
 
   const canGoLive = ['talent', 'dual'].includes(user?.role)
+  const searchTerm = search.trim().toLowerCase()
+  const visibleRooms = rooms.filter((room) => [room.title, room.category, room.username, room.full_name, room.host_username]
+    .some((value) => String(value ?? '').toLowerCase().includes(searchTerm)))
 
   return (
     <div className="max-w-[860px] mx-auto space-y-5 pb-8">
-      <header className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 flex items-center justify-between gap-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight flex items-center gap-2"><Radio size={20} className="text-[#0A13E6]" /> ChombuTar Live</h1>
-          <p className="text-[12px] text-black/50 font-medium mt-1">Watch talent live. Support careers with real value.</p>
-        </div>
-
-      </header>
+      <CompactPageHeader title="ChombuTar Live" icon={Radio} searchValue={search} onSearchChange={setSearch}
+        searchPlaceholder="Search live rooms…" searchLabel="Search live rooms by title, category or host"/>
 
       {mediaReadiness?.broadcast_ready===false&&<div role="alert" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
         <p className="font-bold">Live Broadcast connection unavailable ({mediaReadiness.reason||'transport not ready'}).</p>
@@ -248,9 +248,9 @@ export default function LiveHub() {
             className="min-h-10 rounded-full border border-red-300 bg-white px-4 font-bold">Retry loading Live</button>
         </div>}
         {roomsLoading && !rooms.length && <p role="status" className="rounded-2xl bg-white p-6 text-center text-[12px] text-black/55">Loading Live rooms…</p>}
-        {!roomsLoading && !roomsError && !rooms.length && <div className="rounded-[22px] border border-black/10 bg-white p-8 text-center text-[12px] text-black/45 font-medium">No Talent is live right now.</div>}
+        {!roomsLoading && !roomsError && !visibleRooms.length && <div className="rounded-[22px] border border-black/10 bg-white p-8 text-center text-[12px] text-black/45 font-medium">{searchTerm ? 'No matching Live rooms.' : 'No Talent is live right now.'}</div>}
         <div className="grid sm:grid-cols-2 gap-3">
-          {rooms.map((room) => (
+          {visibleRooms.map((room) => (
             <Link key={room.id} to={`/live/stage/${room.id}`} className="bg-white rounded-[22px] border-[1.5px] border-black p-4 hover:-translate-y-0.5 transition">
               <div className="flex items-center justify-between gap-3">
                 <UserIdentity user={room} />

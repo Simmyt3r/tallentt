@@ -7,6 +7,7 @@ import BookingProgress from '../components/BookingProgress.jsx'
 import DealQrCheckpoint from '../components/DealQrCheckpoint.jsx'
 import EscrowFundingCard from '../components/EscrowFundingCard.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 
 function money(value, currency = 'NGN') {
   if (value == null) return '—'
@@ -70,20 +71,26 @@ export default function DealDetails() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-4xl">
-        <div className="h-72 animate-pulse rounded-[22px] border border-black/10 bg-white" />
-      </div>
+      <>
+        <CompactPageHeader title="Deal Details"/>
+        <div className="mx-auto max-w-4xl">
+          <div className="h-72 animate-pulse rounded-[22px] border border-black/10 bg-white" />
+        </div>
+      </>
     )
   }
 
   if (!data?.thread) {
     return (
-      <div className="mx-auto max-w-4xl">
-        <div className="rounded-[20px] border border-red-200 bg-red-50 p-5">
-          <p className="text-[13px] font-bold text-red-700">{error || 'Deal not found.'}</p>
-          <Link to="/deals" className="mt-3 inline-flex h-9 items-center rounded-full border border-red-300 bg-white px-4 text-[11px] font-black text-red-700">Back to My Deals</Link>
+      <>
+        <CompactPageHeader title="Deal Details"/>
+        <div className="mx-auto max-w-4xl">
+          <div className="rounded-[20px] border border-red-200 bg-red-50 p-5">
+            <p className="text-[13px] font-bold text-red-700">{error || 'Deal not found.'}</p>
+            <Link to="/deals" className="mt-3 inline-flex h-9 items-center rounded-full border border-red-300 bg-white px-4 text-[11px] font-black text-red-700">Back to My Deals</Link>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
@@ -101,6 +108,7 @@ export default function DealDetails() {
 
   return (
     <div className="mx-auto max-w-4xl pb-8">
+      <CompactPageHeader title={thread.hat_title || 'Deal Details'}/>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Link to={backUrl} className="inline-flex h-10 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black">
           <ArrowLeft size={15} /> My Deals
@@ -119,11 +127,9 @@ export default function DealDetails() {
 
       <section className="overflow-hidden rounded-[24px] border-[1.5px] border-black bg-[#F7F3EB]">
         <header className="border-b border-black/10 bg-white px-4 py-5 sm:px-6">
-          <p className="text-[10px] font-black uppercase tracking-[0.1em] text-black/35">Deal workspace</p>
-          <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-[22px] font-black tracking-tight">{thread.hat_title}</h1>
-              <div className="mt-2">
+              <div className="mt-1">
                 <UserIdentity
                   user={{
                     fullName: thread.peer?.full_name,

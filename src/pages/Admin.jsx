@@ -16,13 +16,13 @@ import {
   LayoutDashboard,
   RefreshCw,
   Save,
-  Search,
   ShieldCheck,
   Users,
   Wallet,
 } from 'lucide-react'
 import { api } from '../lib/api.js'
 import AdminDisputes from '../components/AdminDisputes.jsx'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import AdminMigrations from '../components/AdminMigrations.jsx'
 import AdminOrbitAndHatReview from '../components/AdminOrbitAndHatReview.jsx'
 import AdminUserErasure, {AdminUserMediaCleanup} from '../components/AdminUserErasure.jsx'
@@ -181,43 +181,24 @@ export default function Admin() {
   }
 
   if (loading && !dashboard) {
-    return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading admin command center…</p>
+    return <><CompactPageHeader title="Admin Command Center" icon={ShieldCheck}/><p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading admin command center…</p></>
   }
 
   const activeSection = SECTIONS.find((item) => item.id === tab) || SECTIONS[0]
 
   return (
     <div className="space-y-4 pb-8">
-      <header className="rounded-[22px] border-[1.5px] border-black bg-white p-4 md:p-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-[#0A13E6]">
-              <ShieldCheck size={16} />
-              <span className="text-[11px] font-bold tracking-widest uppercase">ChombuTar Operations</span>
-            </div>
-            <h1 className="text-[24px] md:text-[28px] font-bold tracking-tight mt-1">Admin Command Center</h1>
-            <p className="text-[12px] text-black/50 font-medium mt-1 max-w-2xl">
-              Users, deal settlement, money movement, moderation and operational evidence in one place.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {dashboard?.admin?.username && (
-              <span className="hidden sm:inline-flex h-10 items-center rounded-full bg-[#F7F3EB] px-4 text-[11px] font-bold">
-                @{dashboard.admin.username}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={load}
-              disabled={loading}
-              className="h-10 px-4 rounded-full border-[1.5px] border-black bg-white text-[12px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              Refresh
-            </button>
-          </div>
-        </div>
-      </header>
+      <CompactPageHeader title="Admin Command Center" icon={ShieldCheck}
+        searchValue={SEARCHABLE_TABS.has(tab) ? query : undefined}
+        onSearchChange={SEARCHABLE_TABS.has(tab) ? setQuery : undefined}
+        searchPlaceholder={SEARCHABLE_TABS.has(tab) ? `Search ${activeSection.label.toLowerCase()}…` : 'Search ChombuTar…'}
+        searchLabel={SEARCHABLE_TABS.has(tab) ? `Search ${activeSection.label.toLowerCase()}` : 'Search ChombuTar'}/>
+      <div className="flex justify-end">
+        <button type="button" onClick={load} disabled={loading}
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-black/20 bg-white px-3.5 text-[11px] font-bold disabled:opacity-50">
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''}/> Refresh
+        </button>
+      </div>
 
       {error && (
         <div className="rounded-[14px] border-[1.5px] border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
@@ -291,18 +272,7 @@ export default function Admin() {
                   <p className="text-[10px] font-bold tracking-widest uppercase text-black/35">Operations</p>
                   <h2 className="text-[17px] font-bold tracking-tight mt-0.5">{activeSection.label}</h2>
                 </div>
-                {SEARCHABLE_TABS.has(tab) && (
-                  <div className="relative w-full md:w-80">
-                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/35" />
-                    <input
-                      type="search"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder={`Search ${activeSection.label.toLowerCase()}…`}
-                      className="w-full h-10 pl-9 pr-3 rounded-full border-[1.5px] border-black/10 bg-[#F7F3EB] text-[13px] font-medium outline-none focus:border-black/30"
-                    />
-                  </div>
-                )}
+
               </div>
 
               {tab === 'users' && <>

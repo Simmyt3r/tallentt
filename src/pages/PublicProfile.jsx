@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import ProfileView from '../components/profile/ProfileView.jsx'
 import EditProfileForm from '../components/profile/EditProfileForm.jsx'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 
 export default function PublicProfile() {
   const { username } = useParams()
@@ -42,11 +43,14 @@ export default function PublicProfile() {
 
   if (status === 'ready' && isOwnUsername && editing) {
     return (
-      <EditProfileForm
-        user={user}
-        onCancel={() => setEditing(false)}
-        onSaved={() => setEditing(false)}
-      />
+      <>
+        <CompactPageHeader title="Edit Profile"/>
+        <EditProfileForm
+          user={user}
+          onCancel={() => setEditing(false)}
+          onSaved={() => setEditing(false)}
+        />
+      </>
     )
   }
 
@@ -56,19 +60,22 @@ export default function PublicProfile() {
   const profileUser = status === 'ready' ? (isOwnUsername ? user : profile.user) : null
 
   return (
-    <ProfileView
-      key={username}
-      status={status}
-      isOwner={isOwnUsername}
-      profileUser={profileUser}
-      portfolio={profile?.portfolio}
-      hats={profile?.hats}
-      isVerified={profile?.isVerified}
-      rating={profile?.rating}
-      ratedHatsCount={profile?.ratedHatsCount}
-      orbit={profile?.orbit}
-      performance={profile?.performance}
-      onEditClick={() => setEditing(true)}
-    />
+    <>
+      <CompactPageHeader title={isOwnUsername ? 'My Profile' : 'Profile'}/>
+      <ProfileView
+        key={username}
+        status={status}
+        isOwner={isOwnUsername}
+        profileUser={profileUser}
+        portfolio={profile?.portfolio}
+        hats={profile?.hats}
+        isVerified={profile?.isVerified}
+        rating={profile?.rating}
+        ratedHatsCount={profile?.ratedHatsCount}
+        orbit={profile?.orbit}
+        performance={profile?.performance}
+        onEditClick={() => setEditing(true)}
+      />
+    </>
   )
 }

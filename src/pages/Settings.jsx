@@ -3,6 +3,7 @@ import {Link,useNavigate} from 'react-router-dom'
 import {Bell,LockKeyhole,LogOut,Settings2,UserRound,Wallet,ShieldCheck,BookOpen} from 'lucide-react'
 import {useAuth} from '../context/AuthContext.jsx'
 import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import {api} from '../lib/api.js'
 import {useDataMode,setDataMode} from '../lib/dataMode.js'
 import {clearSavedVideos} from '../lib/offlineVideo.js'
@@ -63,10 +64,7 @@ export default function Settings(){
     finally{setSigningOut(false)}
   }
   return <main className="mx-auto max-w-[820px] space-y-5 pb-10">
-    <header className="sticky top-14 md:top-16 z-10 -mx-4 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg md:-mx-6 md:px-6">
-      <h1 className="flex items-center gap-2 text-[22px] font-black"><Settings2 size={21}/> Settings</h1>
-      <p className="mt-1 text-[12px] text-black/55">Manage your account, device notifications and security.</p>
-    </header>
+    <CompactPageHeader title="Settings" icon={Settings2}/>
     <nav aria-label="Settings sections" className="flex gap-2">
       {[['account','Account',UserRound],['notifications','Notifications',Bell],['privacy','Privacy',ShieldCheck],['security','Security',LockKeyhole]].map(([id,label,Icon])=>
         <button key={id} type="button" onClick={()=>setSection(id)} aria-pressed={section===id}

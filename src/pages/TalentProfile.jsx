@@ -9,6 +9,7 @@ import { identityFromHat } from '../lib/profile.js'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 import { bookHat, submitApplication } from '../lib/hatActions'
 import { formatAvailabilityWindow } from '../components/bentoCardShared'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 
 const fmtMoney = (n, currency = 'NGN') => {
   if (n == null) return null
@@ -121,17 +122,20 @@ export default function TalentProfile() {
   }
 
   if (loading) {
-    return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading profile…</p>
+    return <><CompactPageHeader title="Talent Profile"/><p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading profile…</p></>
   }
 
   if (error || !hat) {
     return (
+      <>
+      <CompactPageHeader title="Talent Profile"/>
       <div className="text-center py-16 bg-white rounded-[24px] border-[1.5px] border-dashed border-black/20 space-y-3">
         <p className="text-black/50 text-[13px] font-medium">{error || 'This profile could not be found.'}</p>
         <button type="button" onClick={() => navigate(-1)} className="tw-btn-ghost h-9 px-4 text-[12px] inline-flex mx-auto">
           Go back
         </button>
       </div>
+      </>
     )
   }
 
@@ -143,6 +147,7 @@ export default function TalentProfile() {
 
   return (
     <div className="max-w-[720px] mx-auto space-y-4">
+      <CompactPageHeader title={hat.title || 'Talent Profile'}/>
       <button
         type="button"
         onClick={() => navigate(-1)}

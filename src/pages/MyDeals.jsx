@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronRight, Clock, Handshake, History, MessageCircle, Undo2 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import DiscoverySearch from '../components/DiscoverySearch.jsx'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
@@ -239,35 +239,21 @@ export default function MyDeals() {
 
   return (
     <div className="mx-auto max-w-6xl pb-8">
-      <header className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 mb-5 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
-        <div className="flex flex-wrap items-center gap-2">
-          <Handshake size={23} />
-          <h1 className="text-[23px] font-black tracking-tight">My Deals</h1>
-          {quietLoading && <span className="text-[10px] font-bold text-black/35">Updating…</span>}
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="mt-1 text-[12px] font-medium text-black/50">Manage requests, active work and your complete deal record.</p>
-          <DiscoverySearch value={search} onChange={setSearch} placeholder="Search My Deals…"
-            label="Search loaded deal records" className="ml-auto w-full max-w-[min(52vw,340px)]"/>
-        </div>
-
-        <div className="mt-4 inline-flex rounded-full border-[1.5px] border-black bg-white p-1">
-          {['talent', 'client'].map((value) => (
-            <button
-              type="button"
-              key={value}
-              onClick={() => setView(value, 'incoming')}
-              className={`h-9 rounded-full px-4 text-[12px] font-black transition ${
-                role === value
-                  ? value === 'talent' ? 'bg-[#0A13E6] text-white' : 'bg-black text-white'
-                  : 'text-black/50'
-              }`}
-            >
-              {value === 'talent' ? 'Talent Mode' : 'Client Mode'}
-            </button>
-          ))}
-        </div>
-      </header>
+      <CompactPageHeader title="My Deals" icon={Handshake} searchValue={search} onSearchChange={setSearch}
+        searchPlaceholder="Search My Deals…" searchLabel="Search loaded deal records"
+        status={quietLoading ? <span className="text-[10px] font-bold text-black/35">Updating…</span> : null}/>
+      <div className="mb-3 inline-flex rounded-full border-[1.5px] border-black bg-white p-1">
+        {['talent', 'client'].map((value) => (
+          <button type="button" key={value} onClick={() => setView(value, 'incoming')}
+            className={`h-9 rounded-full px-4 text-[12px] font-black transition ${
+              role === value
+                ? value === 'talent' ? 'bg-[#0A13E6] text-white' : 'bg-black text-white'
+                : 'text-black/50'
+            }`}>
+            {value === 'talent' ? 'Talent Mode' : 'Client Mode'}
+          </button>
+        ))}
+      </div>
 
       <section className="rounded-[22px] border-[1.5px] border-black bg-[#F7F3EB] p-4 sm:p-5" aria-label="My Deals">
         <div>

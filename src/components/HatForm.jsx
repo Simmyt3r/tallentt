@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye } from 'lucide-react'
 import { api } from '../lib/api'
+import CompactPageHeader from './CompactPageHeader.jsx'
 import { useAuth } from '../context/AuthContext'
 import { showToast } from '../lib/toast'
 import {
@@ -321,9 +322,9 @@ function HatFormScreen({ editId, showcaseId = '' }) {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────
-  if (load.status === 'loading') return <FormSkeleton />
-  if (load.status === 'error') return <LoadProblem message={load.message} sessionExpired={load.sessionExpired} onRetry={() => setReloadKey((k) => k + 1)} />
-  if (load.status === 'forbidden') return <LoadProblem message="You can only edit your own Hats." />
+  if (load.status === 'loading') return <><CompactPageHeader title={editing ? 'Edit Hat' : 'Create Hat'}/><FormSkeleton /></>
+  if (load.status === 'error') return <><CompactPageHeader title={editing ? 'Edit Hat' : 'Create Hat'}/><LoadProblem message={load.message} sessionExpired={load.sessionExpired} onRetry={() => setReloadKey((k) => k + 1)} /></>
+  if (load.status === 'forbidden') return <><CompactPageHeader title="Edit Hat"/><LoadProblem message="You can only edit your own Hats." /></>
 
   const uploading = media.stats.uploading > 0
   const submitLabel = submitting ? (editing ? 'Saving…' : 'Publishing…') : uploading ? 'Uploading media…' : editing ? 'Save Changes' : 'Publish Hat'
@@ -331,15 +332,12 @@ function HatFormScreen({ editId, showcaseId = '' }) {
 
   return (
     <div className="max-w-[680px] mx-auto">
-      <header className="flex items-start justify-between gap-3 mb-4">
-        <div className="min-w-0">
-          <h1 className="text-[20px] font-bold tracking-tight">{editing ? 'Edit Hat' : 'Create Hat'}</h1>
-          <p className="text-[12px] text-black/55 font-medium mt-0.5">{editing ? 'Update your Hat' : copy.headerSubtitle}</p>
-        </div>
-        <button type="button" onClick={() => setPreviewOpen(true)} aria-haspopup="dialog" className="tw-btn-ghost h-11 px-4 text-[13px] inline-flex items-center gap-1.5 shrink-0">
-          <Eye size={15} aria-hidden="true" /> Preview
+      <CompactPageHeader title={editing ? 'Edit Hat' : 'Create Hat'}/>
+      <div className="mb-4 flex justify-end">
+        <button type="button" onClick={() => setPreviewOpen(true)} aria-haspopup="dialog" className="tw-btn-ghost h-9 px-3.5 text-[12px] inline-flex items-center gap-1.5 shrink-0">
+          <Eye size={14} aria-hidden="true" /> Preview
         </button>
-      </header>
+      </div>
 
       {showcaseId && importStatus === 'loading' && <p role="status"
         className="mb-3 rounded-xl bg-blue-50 p-3 text-[12px]">

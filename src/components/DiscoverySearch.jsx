@@ -5,7 +5,7 @@ import {forwardRef} from 'react'
 // accessible label and keyboard behavior. No floating X or browser-native clear button.
 const DiscoverySearch=forwardRef(function DiscoverySearch({
   value,onChange,placeholder='Search Hats and creators…',label='Search Hats and creators',
-  id,className='',onClear,
+  id,className='',onClear,onSubmit,
 },ref){
   return <div className={`relative min-w-0 ${className}`}>
     <Search aria-hidden="true" size={15}
@@ -13,7 +13,7 @@ const DiscoverySearch=forwardRef(function DiscoverySearch({
     <input ref={ref} id={id} type="text" inputMode="search" autoComplete="off" aria-label={label} value={value}
       onChange={event=>onChange(event.target.value)} placeholder={placeholder}
       className="h-9 w-full min-w-0 rounded-full border border-black/20 bg-white pl-9 pr-3 text-[13px] font-medium outline-none focus:border-[#0A13E6]/60 focus:ring-2 focus:ring-[#0A13E6]/10"
-      onKeyDown={event=>{if(event.key==='Escape'&&value){onChange('');onClear?.()}}}/>
+      onKeyDown={event=>{if(event.key==='Escape'&&value){onChange('');onClear?.()}else if(event.key==='Enter'&&onSubmit){event.preventDefault();onSubmit(value)}}}/>
   </div>
 })
 export default DiscoverySearch

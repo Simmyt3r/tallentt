@@ -6,7 +6,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import BentoCard from './BentoCard'
 import HatFeedToggle from './HatFeedToggle'
-import DiscoverySearch from './DiscoverySearch.jsx'
+import CompactPageHeader from './CompactPageHeader.jsx'
 import { Link } from 'react-router-dom'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 import UserIdentity from './UserIdentity'
@@ -109,20 +109,15 @@ export default function MyHats() {
   }
 
   if (loading) {
-    return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your hats…</p>
+    return <><CompactPageHeader title="My Hats" searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search My Hats…" searchLabel="Search your Hats"/><p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your hats…</p></>
   }
 
   return (
     <div className="space-y-5">
-      <div className="sticky top-[57.5px] md:top-16 z-30 isolate -mx-4 px-4 py-3 flex items-center justify-between gap-3 flex-wrap border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight">My Hats</h1>
-          <p className="text-[12px] text-black/50 font-medium mt-0.5">{hats.length} hat{hats.length !== 1 ? 's' : ''}</p>
-          <p className="text-[12px] text-black/50 mt-1">Choose which Hats appear in the Bento feed. Range pricing requires a fee notice confirmation.</p>
-        </div>
-        <DiscoverySearch value={search} onChange={setSearch} placeholder="Search My Hats…"
-          label="Search your Hats" className="ml-auto w-full max-w-[min(52vw,340px)]"/>
-        <div className="flex items-center gap-2">
+      <CompactPageHeader title="My Hats" searchValue={search} onSearchChange={setSearch}
+        searchPlaceholder="Search My Hats…" searchLabel="Search your Hats"
+        status={<span className="text-[10px] font-bold text-black/40">{hats.length}</span>}/>
+      <div className="flex items-center justify-end gap-2">
           <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5">
             <button
               type="button"
@@ -149,7 +144,6 @@ export default function MyHats() {
           >
             + New Hat
           </Link>
-        </div>
       </div>
 
       <MyShowroomAppeals />

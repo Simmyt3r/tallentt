@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, WalletCards, XCircle, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
-import DiscoverySearch from '../components/DiscoverySearch.jsx'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 
@@ -226,34 +226,18 @@ export default function Notifications() {
 
   return (
     <main className="max-w-4xl mx-auto pb-8">
-      <header className="sticky top-14 md:top-16 z-10 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 py-3 mb-4 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
-        <div className="flex w-full flex-wrap items-center justify-between gap-3">
-          <div className="flex shrink-0 items-center gap-2">
-            <Bell size={22} />
-            <h1 className="text-[23px] font-black">Notifications</h1>
-          </div>
-          <DiscoverySearch value={search} onChange={setSearch} placeholder="Search notifications…"
-            label="Search selected notification category" className="w-full sm:w-64" />
-        </div>
-        <div className="mt-3 flex w-full flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={clearInbox}
-            disabled={!notifications.length}
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-red-200 bg-white px-4 text-[11px] font-black text-red-700 disabled:opacity-35">
-            <Trash2 size={14} /> Clear all
-          </button>
-          <button
-            type="button"
-            onClick={markAll}
-            disabled={!unreadCount}
-            className="inline-flex h-10 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black disabled:opacity-35"
-          >
-            <CheckCheck size={15} />
-            Mark all read (all categories)
-          </button>
-        </div>
-      </header>
+      <CompactPageHeader title="Notifications" icon={Bell} searchValue={search} onSearchChange={setSearch}
+        searchPlaceholder="Search notifications…" searchLabel="Search selected notification category"/>
+      <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+        <button type="button" onClick={clearInbox} disabled={!notifications.length}
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-red-200 bg-white px-3.5 text-[11px] font-black text-red-700 disabled:opacity-35">
+          <Trash2 size={14}/> Clear all
+        </button>
+        <button type="button" onClick={markAll} disabled={!unreadCount}
+          className="inline-flex h-9 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-3.5 text-[11px] font-black disabled:opacity-35">
+          <CheckCheck size={15}/> Mark all read
+        </button>
+      </div>
 
       <nav role="tablist" aria-label="Notification categories" className="mb-3 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
         {LANES.map(([id,label])=><button key={id} type="button" role="tab"

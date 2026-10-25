@@ -54,7 +54,7 @@ export default function Showroom() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [reloadTick, setReloadTick] = useState(0)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(() => new URLSearchParams(location.search).get('q') || '')
   const [serverSearch, setServerSearch] = useState('')
   const [view, setView] = useState('for_you')
   const [category, setCategory] = useState('')
@@ -69,9 +69,10 @@ export default function Showroom() {
   // Showroom and BentoField share the same always-visible search control.
   // Old deep links with focus=search continue to focus the field.
   useEffect(() => {
-    if (new URLSearchParams(location.search).get('focus') === 'search') {
-      searchRef.current?.focus()
-    }
+    const params = new URLSearchParams(location.search)
+    const query = params.get('q')
+    if (query !== null) setSearch((current) => current === query ? current : query)
+    if (params.get('focus') === 'search') searchRef.current?.focus()
   }, [location.search])
 
   // ── ui ────────────────────────────────────────────────────────────────

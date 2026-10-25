@@ -6,6 +6,7 @@ import { api, payWithPaystack } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromRow } from '../lib/profile.js'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 
 // Co-located per the codebase's existing pattern (see MyBookings.jsx,
 // TalentProfile.jsx) rather than pulled into a shared helper.
@@ -48,6 +49,7 @@ export default function Wallet() {
   const returnTo = requestedReturn.startsWith('/') && !requestedReturn.startsWith('//') ? requestedReturn : ''
   const [balance, setBalance] = useState(null)
   const [transactions, setTransactions] = useState([])
+  const [activitySearch, setActivitySearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -181,15 +183,13 @@ export default function Wallet() {
   }
 
   if (loading) {
-    return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your wallet…</p>
+    return <><CompactPageHeader title="Wallet" searchValue={activitySearch} onSearchChange={setActivitySearch} searchPlaceholder="Search wallet activity…" searchLabel="Search wallet transactions"/><p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your wallet…</p></>
   }
 
   return (
     <div className="space-y-5 max-w-[560px] mx-auto">
-      <div className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
-        <h1 className="text-[22px] font-bold tracking-tight">Wallet</h1>
-        <p className="text-[12px] text-black/50 font-medium mt-0.5">Top up, get paid, and withdraw</p>
-      </div>
+      <CompactPageHeader title="Wallet" searchValue={activitySearch} onSearchChange={setActivitySearch}
+        searchPlaceholder="Search wallet activity…" searchLabel="Search wallet transactions"/>
 
       {pendingReference && (
         <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-2">
@@ -245,13 +245,15 @@ export default function Wallet() {
 
       <div>
         <h2 className="text-[13px] font-bold tracking-tight mb-2">Activity</h2>
-        {transactions.length === 0 ? (
+        {transactions.filter((t) => [TYPE_LABEL[t.type], t.type, t.status, t.counterparty_username, t.id, t.escrow_id, t.amount]
+          .some((value) => String(value ?? '').toLowerCase().includes(activitySearch.trim().toLowerCase()))).length === 0 ? (
           <div className="text-center py-12 bg-white rounded-[20px] border-[1.5px] border-dashed border-black/20">
-            <p className="text-black/50 text-[13px] font-medium">No wallet activity yet.</p>
+            <p className="text-black/50 text-[13px] font-medium">{activitySearch.trim() ? 'No matching wallet activity.' : 'No wallet activity yet.'}</p>
           </div>
         ) : (
           <ul className="bg-white rounded-[20px] border-[1.5px] border-black divide-y divide-black/10 overflow-hidden">
-            {transactions.map((t) => (
+            {transactions.filter((t) => [TYPE_LABEL[t.type], t.type, t.status, t.counterparty_username, t.id, t.escrow_id, t.amount]
+              .some((value) => String(value ?? '').toLowerCase().includes(activitySearch.trim().toLowerCase()))).map((t) => (
               <li key={t.id} className="flex items-center gap-3 p-4">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[13px]">{t.type === 'refund' && t.escrow_id ? 'Booking refund' : TYPE_LABEL[t.type] || t.type}</p>

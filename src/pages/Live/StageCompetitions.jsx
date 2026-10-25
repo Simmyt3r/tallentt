@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link,useNavigate } from 'react-router-dom'
 import { Radio, Trophy, Users } from 'lucide-react'
+import CompactPageHeader from '../../components/CompactPageHeader.jsx'
 import { api } from '../../lib/api.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 
@@ -9,11 +10,14 @@ export default function StageCompetitions() {
   const {user}=useAuth()
   const navigate=useNavigate()
   const [items,setItems]=useState([])
+  const [search,setSearch]=useState('')
   const [loading,setLoading]=useState(true)
   const [error,setError]=useState('')
   const [creating,setCreating]=useState(false)
   const [form,setForm]=useState({title:'',category:'Music',description:'',max_contestants:4})
   const canHost=['talent','dual'].includes(user?.role)
+  const searchTerm=search.trim().toLowerCase()
+  const visibleItems=items.filter(item=>[item.title,item.description,item.host_username,item.category,item.status].some(value=>String(value??'').toLowerCase().includes(searchTerm)))
   async function refresh(){
     try{const result=await api.getStageCompetitions();setItems(result.competitions||[]);setError('')}
     catch(err){setError(err.message||'Stage Competitions are unavailable.')}
@@ -31,14 +35,9 @@ export default function StageCompetitions() {
     finally{setCreating(false)}
   }
   return <main className="mx-auto max-w-[900px] space-y-5 pb-10">
-    <header className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
-      <Link to="/live" className="text-[12px] font-semibold text-[#0A13E6]">← Live broadcasts</Link>
-      <h1 className="flex items-center gap-2 text-[22px] font-black"><Trophy size={22}/> Stage Competitions</h1>
-      <p className="text-[12px] text-black/60">
-        Talents perform through their active Live streams, audiences watch and vote once per round.
-        Stage voting does not stake or withdraw wallet funds.
-      </p>
-    </header>
+    <CompactPageHeader title="Stage Competitions" icon={Trophy} searchValue={search} onSearchChange={setSearch}
+      searchPlaceholder="Search competitions…" searchLabel="Search Stage competitions by title, host or category"/>
+    <Link to="/live" className="inline-flex text-[11px] font-semibold text-[#0A13E6]">← Live broadcasts</Link>
     {canHost&&<form onSubmit={create} className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
       <h2 className="text-[15px] font-black">Host a Stage competition</h2>
       <label className="block space-y-1 text-[12px] font-bold">Title
@@ -78,9 +77,9 @@ export default function StageCompetitions() {
       </div>
       {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-[12px] text-red-700">{error}</p>}
       {loading&&<p role="status" className="py-6 text-[12px] text-black/50">Loading Stage competitions…</p>}
-      {!loading&&!error&&!items.length&&<p className="rounded-xl border border-black/10 bg-white p-6 text-[12px] text-black/50">No Stage competitions yet.</p>}
+      {!loading&&!error&&!visibleItems.length&&<p className="rounded-xl border border-black/10 bg-white p-6 text-[12px] text-black/50">{searchTerm?'No matching Stage competitions.':'No Stage competitions yet.'}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
-        {items.map(item=><Link key={item.id} to={'/live/competitions/'+item.id}
+        {visibleItems.map(item=><Link key={item.id} to={'/live/competitions/'+item.id}
           className="block space-y-3 rounded-2xl border border-black/10 bg-white p-4 hover:border-[#0A13E6]">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-bold text-black/50">{item.category}</span>

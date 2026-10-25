@@ -216,8 +216,6 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
       onSubmit={onSave}
       className="max-w-[560px] mx-auto bg-white rounded-[24px] border-[1.5px] border-black p-6 shadow-[0_8px_24px_rgba(0,0,0,0.06)] space-y-5"
     >
-      <h1 className="text-[20px] font-bold tracking-tight">Edit profile</h1>
-
       <div className="flex items-center gap-4">
         <div className="relative w-16 h-16 shrink-0">
           <div className="w-16 h-16 rounded-full border-[1.5px] border-black bg-black text-white flex items-center justify-center text-[18px] font-bold overflow-hidden">
