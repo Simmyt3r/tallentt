@@ -331,15 +331,12 @@ function HatFormScreen({ editId, showcaseId = '' }) {
 
   return (
     <div className="max-w-[680px] mx-auto">
-      <header className="flex items-start justify-between gap-3 mb-4">
-        <div className="min-w-0">
-          <h1 className="text-[20px] font-bold tracking-tight">{editing ? 'Edit Hat' : 'Create Hat'}</h1>
-          <p className="text-[12px] text-black/55 font-medium mt-0.5">{editing ? 'Update your Hat' : copy.headerSubtitle}</p>
-        </div>
-        <button type="button" onClick={() => setPreviewOpen(true)} aria-haspopup="dialog" className="tw-btn-ghost h-11 px-4 text-[13px] inline-flex items-center gap-1.5 shrink-0">
-          <Eye size={15} aria-hidden="true" /> Preview
+      <CompactPageHeader title={editing ? 'Edit Hat' : 'Create Hat'}/>
+      <div className="mb-4 flex justify-end">
+        <button type="button" onClick={() => setPreviewOpen(true)} aria-haspopup="dialog" className="tw-btn-ghost h-9 px-3.5 text-[12px] inline-flex items-center gap-1.5 shrink-0">
+          <Eye size={14} aria-hidden="true" /> Preview
         </button>
-      </header>
+      </div>
 
       {showcaseId && importStatus === 'loading' && <p role="status"
         className="mb-3 rounded-xl bg-blue-50 p-3 text-[12px]">
