@@ -5,6 +5,7 @@ import { Radio,Trophy,Users,Wifi } from 'lucide-react'
 import { api } from '../../lib/api.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import UserIdentity from '../../components/UserIdentity.jsx'
+import CompactPageHeader from '../../components/CompactPageHeader.jsx'
 
 function LiveVideo({src,quality}){
   const ref=useRef(null)
@@ -90,8 +91,9 @@ export default function StageCompetitionRoom(){
     finally{setBusy(false)}
   }
 
-  if(loading&&!data)return <p className="py-12 text-center text-[12px] text-black/50">Loading Stage competition…</p>
-  if(!data)return <main className="mx-auto max-w-[900px] space-y-3 p-4">
+  if(loading&&!data)return <><CompactPageHeader title="Stage Competition"/><p className="py-12 text-center text-[12px] text-black/50">Loading Stage competition…</p></>
+  if(!data)return <main className="mx-auto max-w-[900px] space-y-3 pb-8">
+    <CompactPageHeader title="Stage Competition"/>
     <Link to="/live/competitions" className="text-[12px] font-bold text-[#0A13E6]">← Stage Competitions</Link>
     <p role="alert" className="rounded-xl bg-red-50 p-4 text-[12px] text-red-700">{error||'Competition unavailable.'}</p>
   </main>
@@ -100,10 +102,10 @@ export default function StageCompetitionRoom(){
   const canJoin=!is_host&&!is_entrant&&['talent','dual'].includes(user?.role)&&contest.status==='registration'
   const canVote=contest.status==='live'&&!is_host&&!is_entrant&&!voted_for
   return <main className="mx-auto max-w-[1000px] space-y-5 pb-12">
-    <Link to="/live/competitions" className="inline-flex min-h-10 items-center text-[12px] font-bold text-[#0A13E6]">← All Stage Competitions</Link>
-    <header className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-[21px] font-black"><Trophy size={21}/>{contest.title}</h1>
+    <CompactPageHeader title={contest.title || 'Stage Competition'} icon={Trophy}/>
+    <Link to="/live/competitions" className="inline-flex min-h-9 items-center text-[11px] font-bold text-[#0A13E6]">← All Stage Competitions</Link>
+    <header className="space-y-3 rounded-2xl border border-black/10 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <span className="rounded-full bg-[#EEF0FF] px-3 py-2 text-[11px] font-bold">{contest.status.toUpperCase()}</span>
       </div>
       <p className="text-[12px] text-black/60">{contest.description||'Watch contestants compete and support them with a single audience vote.'}</p>
