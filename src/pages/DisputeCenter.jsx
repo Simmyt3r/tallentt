@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import { api } from '../lib/api.js'
 
 const money = value => new Intl.NumberFormat('en-NG', {
@@ -10,6 +11,7 @@ const money = value => new Intl.NumberFormat('en-NG', {
 export default function DisputeCenter() {
   const [cases, setCases] = useState([])
   const [filter, setFilter] = useState('open')
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -27,19 +29,14 @@ export default function DisputeCenter() {
   }
   useEffect(() => { refresh() }, [])
 
-  const visible = cases.filter(item => filter === 'all' || item.status === filter)
+  const searchTerm = search.trim().toLowerCase()
+  const visible = cases.filter(item => (filter === 'all' || item.status === filter) &&
+    [item.hat_title, item.client_username, item.talent_username, item.reason, item.resolution_note, item.escrow_id]
+      .some(value => String(value ?? '').toLowerCase().includes(searchTerm)))
   return <main className="mx-auto max-w-[860px] space-y-5 pb-10">
-    <header className="sticky top-14 md:top-16 z-10 -mx-4 rounded-none border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg">
-      <h1 className="text-[22px] font-black">Dispute Center</h1>
-      <p className="mt-2 text-[12px] text-black/60">
-        Track an escrow dispute, read the decision, and return to the deal to review messages and evidence.
-        Neither party can release held funds while a dispute is under review.
-      </p>
-      <p className="mt-2 text-[12px] text-black/60">
-        To open a new dispute, choose an eligible deal in <Link to="/deals?tab=active" className="font-bold text-[#0A13E6] underline">My Deals</Link>
-        and select Open dispute in its progress section.
-      </p>
-    </header>
+    <CompactPageHeader title="Dispute Center" searchValue={search} onSearchChange={setSearch}
+      searchPlaceholder="Search disputes…" searchLabel="Search disputes by Hat, participant or reason"/>
+    <p className="text-[11px] text-black/50">Held escrow funds cannot be released while a dispute is under review. To open a dispute, choose an eligible deal in <Link to="/deals?tab=active" className="font-bold text-[#0A13E6] underline">My Deals</Link>.</p>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex gap-2" aria-label="Dispute status filter">
         {['open','released','refunded','all'].map(status =>
