@@ -233,7 +233,7 @@ export default function Notifications() {
             <h1 className="text-[23px] font-black">Notifications</h1>
           </div>
           <DiscoverySearch value={search} onChange={setSearch} placeholder="Search notifications…"
-            label="Search notifications" className="w-full sm:w-64" />
+            label="Search selected notification category" className="w-full sm:w-64" />
         </div>
         <div className="mt-3 flex w-full flex-wrap items-center justify-end gap-2">
           <button
