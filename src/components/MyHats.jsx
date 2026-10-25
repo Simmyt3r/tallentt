@@ -109,7 +109,7 @@ export default function MyHats() {
   }
 
   if (loading) {
-    return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your hats…</p>
+    return <><CompactPageHeader title="My Hats" searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search My Hats…" searchLabel="Search your Hats"/><p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your hats…</p></>
   }
 
   return (
