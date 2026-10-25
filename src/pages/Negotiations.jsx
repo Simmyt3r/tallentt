@@ -68,7 +68,7 @@ export default function Negotiations() {
 
   const searchTerm = search.trim().toLowerCase()
   const visible = items.filter((item) => category(item, user.id) === activeTab &&
-    [item.hat_title, item.peer?.full_name, item.peer?.username, item.id].some((value) => String(value ?? '').toLowerCase().includes(searchTerm)))
+    [item.hat_title, item.peer_full_name, item.peer_username, item.peer?.full_name, item.peer?.username, item.id].some((value) => String(value ?? '').toLowerCase().includes(searchTerm)))
   return (
     <main className="max-w-5xl mx-auto space-y-4 pb-8">
       <CompactPageHeader title="Negotiation Center" searchValue={search} onSearchChange={setSearch}
