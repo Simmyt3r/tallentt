@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye } from 'lucide-react'
 import { api } from '../lib/api'
+import CompactPageHeader from './CompactPageHeader.jsx'
 import { useAuth } from '../context/AuthContext'
 import { showToast } from '../lib/toast'
 import {
