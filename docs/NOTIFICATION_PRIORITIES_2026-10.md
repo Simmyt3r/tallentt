@@ -3,14 +3,14 @@ Based on the uploaded two-page **Chombotar - Notifications System**.
 
 ## Delivery rules
 
-The subscriber-facing inbox has four real server-filtered lanes: **Bento**, **Money**, **Associates**, **Fame**. The same lanes power unread count/dot priority. Searches and older-page pagination are scoped on the server to the chosen lane, never just filtered after a page is downloaded.
+The subscriber-facing inbox has an **All** filter (the default) plus four server-filtered lanes: **Bento**, **Wallet**, **Associates**, and **Hits & Vibes**. The same lanes power unread count/dot priority. Searches and older-page pagination are scoped on the server to the chosen lane, never just filtered after a page is downloaded.
 
 | Lane | Examples | Priority | Can mute |
 |---|---|---|---|
 | Bento | Booking/request, proposal, job accepted/rejected, checkpoint, dispute | High | No, for essential work alerts |
-| Money / Audio Money | Escrow, wallet top-up, release, withdrawal | High | No, for essential money alerts |
+| Wallet / Audio Money | Escrow, wallet top-up, release, withdrawal | High | No, for essential money alerts |
 | Associates | Associate request and response, community networking chat | Normal | Yes |
-| Fame | Showroom/Orbit/verification and eligible Hits & Vibes | Daily digest | Vibes digest or Off |
+| Hits & Vibes | Showroom/Orbit/verification and eligible Hits & Vibes | Daily digest | Vibes digest or Off |
 
 The backend categorizes from existing trusted `notifications.type` values. This does not add money to a wallet, approve escrow payments, or create fictitious work. A repeated like/view or generic comeback prompt is not dispatched as a notification.
 
