@@ -57,12 +57,12 @@ function LoadingRows() {
   )
 }
 
-const LANES=[['bento','Bento'],['money','Money'],['associates','Associates'],['fame','Fame']]
+const LANES=[['all','All'],['bento','Bento'],['money','Wallet'],['associates','Associates'],['fame','Hits & Vibes']]
 
 export default function Notifications() {
   const navigate = useNavigate()
   const [params,setParams] = useSearchParams()
-  const currentLane=LANES.some(([id])=>id===params.get('lane'))?params.get('lane'):'bento'
+  const currentLane=LANES.some(([id])=>id===params.get('lane'))?params.get('lane'):'all'
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -226,46 +226,43 @@ export default function Notifications() {
 
   return (
     <main className="max-w-4xl mx-auto pb-8">
-      <header className="sticky top-14 md:top-16 z-10 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 py-3 mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
-        <div>
-          <div className="flex items-center gap-2">
+      <header className="sticky top-14 md:top-16 z-10 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 py-3 mb-4 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+          <div className="flex shrink-0 items-center gap-2">
             <Bell size={22} />
             <h1 className="text-[23px] font-black">Notifications</h1>
           </div>
-          <p className="mt-1 text-[12px] font-medium text-black/50">
-            Essential booking and money alerts, professional connections, and quieter Fame updates.
-          </p>
+          <DiscoverySearch value={search} onChange={setSearch} placeholder="Search notifications…"
+            label="Search selected notification category" className="w-full sm:w-64" />
         </div>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-        <DiscoverySearch value={search} onChange={setSearch} placeholder="Search notifications…"
-          label="Search selected notification category" className="w-full sm:w-64" />
-        <button
-          type="button"
-          onClick={clearInbox}
-          disabled={!notifications.length}
-          className="inline-flex h-10 items-center gap-2 rounded-full border border-red-200 bg-white px-4 text-[11px] font-black text-red-700 disabled:opacity-35">
-          <Trash2 size={14} /> Clear all
-        </button>
-        <button
-          type="button"
-          onClick={markAll}
-          disabled={!unreadCount}
-          className="inline-flex h-10 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black disabled:opacity-35"
-        >
-          <CheckCheck size={15} />
-          Mark all read (all categories)
-        </button>
+        <div className="mt-3 flex w-full flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={clearInbox}
+            disabled={!notifications.length}
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-red-200 bg-white px-4 text-[11px] font-black text-red-700 disabled:opacity-35">
+            <Trash2 size={14} /> Clear all
+          </button>
+          <button
+            type="button"
+            onClick={markAll}
+            disabled={!unreadCount}
+            className="inline-flex h-10 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black disabled:opacity-35"
+          >
+            <CheckCheck size={15} />
+            Mark all read (all categories)
+          </button>
         </div>
       </header>
 
-      <nav role="tablist" aria-label="Notification categories" className="mb-3 grid grid-cols-4 gap-1.5">
+      <nav role="tablist" aria-label="Notification categories" className="mb-3 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
         {LANES.map(([id,label])=><button key={id} type="button" role="tab"
           aria-selected={currentLane===id} onClick={()=>setParams({lane:id})}
           className={`flex min-h-11 items-center justify-center gap-1 rounded-xl border px-2 py-2 text-[11px] font-black
             ${currentLane===id?'border-[#0A13E6] bg-[#EEF0FF] text-[#0A13E6]':'border-black/10 bg-white text-black/65'}`}>
           {label}
-          {Number(unreadByLane[id])>0&&<span className={`inline-block h-2 w-2 shrink-0 rounded-full ${id==='bento'||id==='money'?'bg-red-600':'bg-blue-600'}`}
-            aria-label={`${unreadByLane[id]} unread ${label} notifications`}/>}
+          {(id==='all'?unreadCount:Number(unreadByLane[id]||0))>0&&<span className={`inline-block h-2 w-2 shrink-0 rounded-full ${id==='bento'||id==='money'?'bg-red-600':'bg-blue-600'}`}
+            aria-label={`${id==='all'?unreadCount:unreadByLane[id]} unread ${label} notifications`}/>}
         </button>)}
       </nav>
       <section className="overflow-hidden border-y border-black/10 bg-white" aria-label="Notification list">
@@ -326,7 +323,7 @@ export default function Notifications() {
                       )}
                       <span className="mt-2 flex items-center justify-between gap-2">
                         <span className={`text-[10px] font-bold ${['bento','money'].includes(notification.lane)?'text-red-700':'text-blue-700'}`}>
-                          {LANES.find(([id])=>id===notification.lane)?.[1]||'Fame'}
+                          {LANES.find(([id])=>id===notification.lane)?.[1]||'Hits & Vibes'}
                         </span>
                         {notification.unread ? (
                           <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-[#0A13E6]">

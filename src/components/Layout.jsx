@@ -137,8 +137,6 @@ export default function Layout({ children }) {
               </Link>
               <button type="button" onClick={() => setInboxChooserOpen(true)}
                 aria-label="Open Inbox" title="Inbox: Bento Chat and Associates Chat" className={QUICK_ACTION}>
-              <Link to="/chats" aria-label="Open general chat" title="General chat, not restricted to deals"
-                className={QUICK_ACTION}>
                 <MessageCircle size={20} aria-hidden="true" />
               </button>
               <NotificationsMenu className="flex"

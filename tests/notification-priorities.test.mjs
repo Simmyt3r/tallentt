@@ -50,10 +50,13 @@ test('notification pages filter and paginate by lane at the database, not client
   assert.match(backend,/AND \(\$5::text = 'all' OR/)
   assert.match(backend,/n\.user_id = \$1/)
   assert.match(backend,/getNotificationUnreadByLane/)
+  assert.match(ui,/\['all','All'\]/)
+  assert.match(ui,/params\.get\('lane'\):'all'/)
   assert.match(ui,/\['bento','Bento'\]/)
-  assert.match(ui,/\['money','Money'\]/)
+  assert.match(ui,/\['money','Wallet'\]/)
   assert.match(ui,/\['associates','Associates'\]/)
-  assert.match(ui,/\['fame','Fame'\]/)
+  assert.match(ui,/\['fame','Hits & Vibes'\]/)
+  assert.doesNotMatch(ui,/Essential booking and money alerts/)
 })
 
 test('critical categories cannot be muted and browser push permission is never forced',()=>{
