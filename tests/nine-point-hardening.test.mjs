@@ -11,7 +11,7 @@ test('Vibes composer retains pre-PR33 height, creator handle stays prefixed and 
   assert.match(page,/rows=\{2\} placeholder="Say something…"/)
   assert.doesNotMatch(page,/rows=\{1\} placeholder="Say something…"/)
   assert.match(page,/<CompactPageHeader title="Hits & Vibes" searchValue=\{search\} onSearchChange=\{setSearch\}/)
-  assert.doesNotMatch(page,/Without Google Vision, verified uploads publish automatically unless Cloudinary flags them/)
+  assert.match(page,/Without Google Vision, verified uploads publish automatically unless Cloudinary flags them/)
   assert.match(server,/if\(!key\)return \{needs_review:false,risk:null\}/)
   assert.match(server,/videoModeration/)
   assert.match(server,/moderation_status/)
