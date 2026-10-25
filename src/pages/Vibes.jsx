@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Heart, ImagePlus, MessageCircle, Send, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
 import EntryActions from '../components/EntryActions.jsx'
 import VibesMediaGallery from '../components/VibesMediaGallery.jsx'
-import DiscoverySearch from '../components/DiscoverySearch.jsx'
+import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api, uploadVibePhoto } from '../lib/api.js'
 import { compressImageFile } from '../lib/media.js'
@@ -323,14 +323,8 @@ export default function Vibes() {
   }
   const change=(id,patch)=>setPosts(current=>current.map(p=>p.id===id?{...p,...patch}:p))
   return <main className="mx-auto max-w-[660px] space-y-4 pb-10">
-    <div className="sticky top-14 md:top-16 z-10 -mx-4 px-4 py-3 flex items-center justify-between gap-2 border-b border-black/10 bg-[#F7F3EB]/95 backdrop-blur-lg">
-      <div className="min-w-0 flex-1">
-        <h1 className="text-[18px] sm:text-[23px] font-black tracking-tight">Hits & Vibes</h1>
-        <p className="text-[12px] text-black/50">Share your thoughts, photos or videos. Without Google Vision, verified uploads publish automatically unless Cloudinary flags them. Once Vision is configured, uncertain media goes to review.</p>
-      </div>
-      <DiscoverySearch value={search} onChange={setSearch} placeholder="Search Vibes…"
-          label="Search Vibes posts and people" className="w-full max-w-[min(48vw,340px)] min-w-[115px] shrink-0" />
-    </div>
+    <CompactPageHeader title="Hits & Vibes" searchValue={search} onSearchChange={setSearch}
+      searchPlaceholder="Search Vibes…" searchLabel="Search Vibes posts and people"/>
     <form onSubmit={publish} aria-label="Create a Vibe" className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
       <div className="flex gap-3">
         <Avatar user={user}/>
