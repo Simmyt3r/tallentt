@@ -322,9 +322,9 @@ function HatFormScreen({ editId, showcaseId = '' }) {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────
-  if (load.status === 'loading') return <FormSkeleton />
-  if (load.status === 'error') return <LoadProblem message={load.message} sessionExpired={load.sessionExpired} onRetry={() => setReloadKey((k) => k + 1)} />
-  if (load.status === 'forbidden') return <LoadProblem message="You can only edit your own Hats." />
+  if (load.status === 'loading') return <><CompactPageHeader title={editing ? 'Edit Hat' : 'Create Hat'}/><FormSkeleton /></>
+  if (load.status === 'error') return <><CompactPageHeader title={editing ? 'Edit Hat' : 'Create Hat'}/><LoadProblem message={load.message} sessionExpired={load.sessionExpired} onRetry={() => setReloadKey((k) => k + 1)} /></>
+  if (load.status === 'forbidden') return <><CompactPageHeader title="Edit Hat"/><LoadProblem message="You can only edit your own Hats." /></>
 
   const uploading = media.stats.uploading > 0
   const submitLabel = submitting ? (editing ? 'Saving…' : 'Publishing…') : uploading ? 'Uploading media…' : editing ? 'Save Changes' : 'Publish Hat'
