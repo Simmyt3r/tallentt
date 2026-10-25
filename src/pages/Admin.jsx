@@ -16,7 +16,6 @@ import {
   LayoutDashboard,
   RefreshCw,
   Save,
-  Search,
   ShieldCheck,
   Users,
   Wallet,
