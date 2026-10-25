@@ -251,7 +251,7 @@ test('wallet uses accepted price and QR checkpoints credit talent once in two st
   const { issueBookingQr, redeemBookingQr } = await import('../api/_lib/bookingQr.js')
   const qrActionHandler = (await import('../api/escrows/[id]/[action].js')).default
   const start = await issueBookingQr(clientId, escrowId, 'start')
-  assert.match(start.token, /^CT1\\./)
+  assert.ok(start.token.startsWith('CT1.'))
   const unauthorizedQrPush = await request(qrActionHandler, outsiderId, 'POST', '', { stage: 'start' },
     { id: escrowId, action: 'notify-qr-ready' })
   assert.equal(unauthorizedQrPush.status, 404)
