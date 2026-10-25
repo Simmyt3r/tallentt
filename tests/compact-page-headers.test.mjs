@@ -41,7 +41,7 @@ test('primary authenticated screens use the shared compact sticky header', () =>
 
 test('global search from screens without a local list filter opens Showroom with the query', () => {
   const header = read('src/components/CompactPageHeader.jsx')
-  assert.match(header, /navigate\(`\/showroom\?q=\$\{encodeURIComponent\(query\)\}`\)/)
+  assert.ok(header.includes("navigate(`/showroom?q=${encodeURIComponent(query)}`)"))
 
   const showroom = read('src/components/Showroom.jsx')
   assert.match(showroom, /new URLSearchParams\(location\.search\)\.get\('q'\)/)
