@@ -253,6 +253,7 @@ export const api = {
     request(`/api/escrows/${id}/fund-wallet`, { method: 'POST', body: JSON.stringify({ expected_amount }) }),
   bookingAction: (id, action, body) => request(`/api/escrows/${id}/${action}`, { method: 'POST', body: JSON.stringify(body) }),
   generateBookingQr: (id, stage) => request(`/api/escrows/${id}/generate-qr`, { method: 'POST', body: JSON.stringify({ stage }) }),
+  notifyBookingQrReady: (id, stage) => request(`/api/escrows/${id}/notify-qr-ready`, { method: 'POST', body: JSON.stringify({ stage }) }),
   redeemBookingQr: (id, token) => request(`/api/escrows/${id}/redeem-qr`, { method: 'POST', body: JSON.stringify({ token }) }),
   hideConversation: (escrow_id) => request('/api/escrows', { method: 'POST', body: JSON.stringify({ action: 'hide_conversation', escrow_id }) }),
   getDealCall: (escrow_id,after=0) => request(`/api/escrows?${new URLSearchParams({
