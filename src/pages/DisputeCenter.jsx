@@ -36,7 +36,6 @@ export default function DisputeCenter() {
   return <main className="mx-auto max-w-[860px] space-y-5 pb-10">
     <CompactPageHeader title="Dispute Center" searchValue={search} onSearchChange={setSearch}
       searchPlaceholder="Search disputes…" searchLabel="Search disputes by Hat, participant or reason"/>
-    <p className="text-[11px] text-black/50">Held escrow funds cannot be released while a dispute is under review. To open a dispute, choose an eligible deal in <Link to="/deals?tab=active" className="font-bold text-[#0A13E6] underline">My Deals</Link>.</p>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex gap-2" aria-label="Dispute status filter">
         {['open','released','refunded','all'].map(status =>
