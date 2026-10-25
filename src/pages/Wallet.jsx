@@ -183,7 +183,7 @@ export default function Wallet() {
   }
 
   if (loading) {
-    return <p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your wallet…</p>
+    return <><CompactPageHeader title="Wallet" searchValue={activitySearch} onSearchChange={setActivitySearch} searchPlaceholder="Search wallet activity…" searchLabel="Search wallet transactions"/><p className="text-center text-black/40 py-16 text-[13px] font-medium">Loading your wallet…</p></>
   }
 
   return (
