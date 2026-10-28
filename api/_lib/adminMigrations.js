@@ -121,6 +121,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-card-detail-2026-10.sql', import.meta.url),
   },
   {
+    id: 'work-pass-2026-10',
+    title: 'Work Pass identity, proof & robot registry',
+    description: 'Customer-approved completed-job photos, robot ownership and vetted issuer/endorsement tables. QR signing requires separate server configuration.',
+    path: new URL('../../db/patch-work-pass-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'password-recovery-2026-10',
     title: 'Password recovery',
     description: 'One-use expiring reset tokens and request throttling.',

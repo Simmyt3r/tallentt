@@ -1,6 +1,6 @@
 # In-app database migrations for chombuTar
 
-**Admin → Database Migrations** enables authorized administrators to check and run two known, additive patches through the existing authenticated `/api/admin` endpoint. No user-editable SQL, uploaded patch, arbitrary path, code evaluation or unauthenticated bootstrap endpoint exists.
+**Admin → Database Migrations** enables authorized administrators to check and run approved, allowlisted, additive patches through the existing authenticated `/api/admin` endpoint. No user-editable SQL, uploaded patch, arbitrary path, code evaluation or unauthenticated bootstrap endpoint exists.
 
 ## Workflow
 1. Log in as a user with `users.is_admin=true`.
@@ -10,9 +10,21 @@
 5. The server revalidates authorization against `users.is_admin`, recognizes only an allowlisted ID, checks the deployed SQL checksum, acquires an exclusive PostgreSQL advisory transaction lock, and executes inside a transaction. The patch, receipt and `admin_audit_logs` entry commit together. Failed SQL rolls back.
 6. Refresh to view the applied timestamp and checksum. Repeated requests do not rerun an already recorded patch. Checksum drift blocks reapplication and requires a new reviewed migration.
 
-## Supported scripts
+## Selected supported scripts
 - `bento-inbox-2026-10` → `db/patch-bento-inbox-2026-10.sql`
 - `vibes-2026-10` → `db/patch-vibes-2026-10.sql`
+- `work-pass-2026-10` → `db/patch-work-pass-2026-10.sql`
+
+### Work Pass activation from Admin
+1. Deploy the release that includes the new Work Pass migration catalog entry.
+2. Open **Admin → Database Migrations** (`/admin?tab=migrations`) and confirm the target database name and a recent backup.
+3. Find **Work Pass identity, proof & robot registry** and select **Review & apply**. The exact confirmation is `APPLY work-pass-2026-10`.
+4. After the transaction completes, refresh and confirm the entry is marked **Applied** and records an admin/checksum receipt.
+5. This migration creates tables for customer-approved completed-work evidence, robot registrations, issuer records and endorsements. It does **not** issue credentials or verify robots automatically.
+6. Configure `WORK_PASS_SIGNING_PRIVATE_KEY` securely in the server environment (plus a stable `WORK_PASS_SIGNING_KEY_ID`) to activate signed QR credentials. Database migration success alone cannot enable digital signing.
+
+If the Work Pass SQL was already applied by CLI, the migration's `CREATE TABLE IF NOT EXISTS` operations are designed to be repeatable; the Admin run records it as an audited migration. Verify existing schema and take a backup first.
+
 
 These scripts are deliberately limited. The general `db/schema.sql`, large backfills, schema drops and dynamic raw SQL must **not** be exposed through this UI. Add later reviewed patches to the static catalog and deploy them as normal code changes. SQL files are bundled with the Vercel Admin function by `vercel.json functions.api/admin/index.js.includeFiles`.
 
