@@ -35,8 +35,8 @@ test('primary screens keep classic flexible page headers with title and search',
   const header = read('src/components/CompactPageHeader.jsx')
   assert.match(header, /sticky top-14 md:top-16 z-10/)
   assert.match(header, /flex w-full flex-wrap items-center justify-between gap-3/)
-  assert.doesNotMatch(header, /h-\\[52px\\]/)
-  assert.match(header, /<h1[^>]*>\\{title\\}<\\/h1>/)
+  assert.doesNotMatch(header, /h-\[52px\]/)
+  assert.match(header, /<h1[^>]*>\{title\}<\/h1>/)
   assert.match(header, /<DiscoverySearch/)
 
   // Preserve the original global top bar, desktop sidebar, and mobile tabs.
