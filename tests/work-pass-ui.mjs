@@ -90,7 +90,7 @@ try{
     const workPass=page.getByRole('dialog',{name:'ChombuTar Work Pass'})
     await workPass.getByRole('heading',{name:'Studio Designer'}).waitFor()
     assert.equal(await workPass.getByText('Gold Work Pass',{exact:true}).count(),1)
-    assert.equal(await workPass.getByText(/76\\s*\\/100/).count(),1)
+    assert.equal(await workPass.getByText(/76\s*\/100/).count(),1)
     assert.equal(await workPass.getByText('Signed Work Pass',{exact:true}).count(),1)
     const logo=workPass.locator('img[src="/logo.png"]')
     assert.equal(await logo.count(),1,'Use actual ChombuTar logo asset')
