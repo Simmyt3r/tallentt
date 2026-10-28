@@ -1,6 +1,7 @@
 // Path: src/components/profile/ProfileHeader.jsx
 import { useState } from 'react'
-import { BadgeCheck, Share2, Star } from 'lucide-react'
+import { BadgeCheck, Eye, Share2, Star } from 'lucide-react'
+import ProfilePhotoViewer from '../ProfilePhotoViewer.jsx'
 import UserIdentity from '../UserIdentity.jsx'
 import { getPrimaryIdentity, getProfilePath, isBusinessIdentity } from '../../lib/profile.js'
 
@@ -18,6 +19,7 @@ export default function ProfileHeader({
   onShowAssociates,
 }) {
   const [copied, setCopied] = useState(false)
+  const [photoOpen, setPhotoOpen] = useState(false)
   const isBusiness = isBusinessIdentity(user.role)
   const identityLine = getPrimaryIdentity(user)
   const canonicalUrl = `${window.location.origin}${getProfilePath(user) || ''}`
@@ -55,6 +57,8 @@ export default function ProfileHeader({
           gap="gap-4"
           className="flex-1"
           avatarClassName="w-16 h-16 sm:w-20 sm:h-20"
+          onAvatarClick={(user.avatarUrl||user.avatar_url)?()=>setPhotoOpen(true):null}
+          avatarBadge={(user.avatarUrl||user.avatar_url)?<span aria-hidden="true" className="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full border-2 border-white bg-[#0A13E6] text-white shadow-sm"><Eye size={12}/></span>:null}
           nameAs="h1"
           nameClassName="text-[17px] font-extrabold tracking-tight"
           usernameClassName="text-[13px] font-bold text-[#0A13E6] leading-tight"
@@ -102,6 +106,10 @@ export default function ProfileHeader({
           {networkCounts?.subscribers ?? '—'} Subscribers
         </button>
       </div>
+      {(user.avatarUrl||user.avatar_url)&&<button type="button" onClick={()=>setPhotoOpen(true)}
+        className="mt-2 text-[11px] font-bold text-[#0A13E6] underline underline-offset-2">
+        View full profile picture
+      </button>}
       <div className="flex items-center gap-2 mt-4">
         {isOwner ? (
           <button type="button" onClick={onEditClick} className="tw-btn-primary h-9 px-4 text-[12px]">
@@ -115,6 +123,8 @@ export default function ProfileHeader({
           )
         )}
       </div>
+      {photoOpen&&<ProfilePhotoViewer src={user.avatarUrl||user.avatar_url}
+        name={identityLine} onClose={()=>setPhotoOpen(false)}/>}
     </header>
   )
 }
