@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Handshake, MessageCircle, WalletCards } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
@@ -34,22 +34,28 @@ export default function DealDetails() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const requestSequence = useRef(0)
 
   const load = useCallback(async ({ quiet = false } = {}) => {
+    const sequence = ++requestSequence.current
     if (!quiet) setLoading(true)
     try {
       const next = await api.getDealDetail(dealId)
+      if (sequence !== requestSequence.current) return
       setData(next)
       setError('')
     } catch (err) {
-      setError(err.message || 'Could not load this deal.')
+      if (sequence === requestSequence.current) {
+        setError(err.message || 'Could not load this deal.')
+      }
     } finally {
-      if (!quiet) setLoading(false)
+      if (!quiet && sequence === requestSequence.current) setLoading(false)
     }
   }, [dealId])
 
   useEffect(() => {
-    load()
+    void load()
+    return () => { ++requestSequence.current }
   }, [load])
 
   async function run(operation) {
@@ -57,10 +63,19 @@ export default function DealDetails() {
     setBusy(true)
     setError('')
     try {
-      await operation()
-      await refreshUser()
-      await load({ quiet: true })
+      // Only paint a new payment/work state after the authoritative API succeeds.
+      const result = await operation()
+      if (result?.escrow) {
+        ++requestSequence.current // Ignore an earlier in-flight detail response.
+        setData((current) => current?.thread && String(current.thread.id) === String(result.escrow.id)
+          ? { ...current, thread: { ...current.thread, ...result.escrow } }
+          : current)
+      }
       window.dispatchEvent(new CustomEvent('mydeals:changed'))
+      // Wallet and timeline reconciliation are independent of action feedback.
+      void refreshUser()
+      void load({ quiet: true })
+      return result
     } catch (err) {
       setError(err.message || 'Could not update this deal.')
       throw err
@@ -200,7 +215,7 @@ export default function DealDetails() {
               returnTo={`/deals/${thread.id}?role=client`}
               blockedByNegotiation={fundingBlocked}
               negotiationUrl={`/negotiations?escrow=${thread.id}`}
-              onFund={() => run(() => api.fundEscrowWithWallet(thread.id, thread.amount))}
+              onFund={() => { void run(() => api.fundEscrowWithWallet(thread.id, thread.amount)).catch(() => {}) }}
             />
           )}
 
@@ -215,7 +230,7 @@ export default function DealDetails() {
             <DealQrCheckpoint
               booking={thread}
               role={thread.is_client ? 'client' : 'talent'}
-              onComplete={() => run(async () => {})}
+              onComplete={(result) => run(() => Promise.resolve(result))}
             />
           )}
 
@@ -226,7 +241,6 @@ export default function DealDetails() {
               eventsCursor={data.eventsCursor || null}
               busy={busy}
               run={run}
-              refreshUser={refreshUser}
               showHistory
             />
           )}

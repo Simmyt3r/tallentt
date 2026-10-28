@@ -68,7 +68,6 @@ export default function BookingProgress({
   eventsCursor,
   busy,
   run,
-  refreshUser,
   compact = false,
   showHistory = true,
   showActions = true,
@@ -111,16 +110,17 @@ export default function BookingProgress({
     if (retry.current?.fingerprint !== fingerprint) {
       retry.current = { fingerprint, token: crypto.randomUUID() }
     }
-    await run(async () => {
-      await api.bookingAction(thread.id, action, {
+    try {
+      await run(() => api.bookingAction(thread.id, action, {
         ...payload,
         client_token: retry.current.token,
-      })
+      }))
       setAction('')
       setNote('')
       retry.current = null
-      await refreshUser()
-    })
+    } catch {
+      // The parent shows the API error. Keep the form and retry token intact.
+    }
   }
 
   async function loadOlder() {

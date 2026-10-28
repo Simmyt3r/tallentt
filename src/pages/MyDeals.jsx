@@ -169,22 +169,59 @@ export default function MyDeals() {
     undoTimer.current = setTimeout(() => setToast(null), 7000)
   }
 
+  // Apply only server-confirmed decisions to the visible list. The slower
+  // count/page reconciliation can run afterward without holding the button.
+  function confirmListChange(item, destination, requestedView = viewKey) {
+    if (currentViewRef.current !== requestedView) return
+    const isApplication = Boolean(item.application_id) && !item.id
+    const id = isApplication ? item.application_id : item.id
+    ++requestSequence.current // Older refreshes must not resurrect the old card.
+    setItems((current) => current.filter((entry) =>
+      (isApplication ? entry.application_id : entry.id) !== id))
+    setCounts((current) => ({
+      ...current,
+      [tab]: Math.max(0, Number(current[tab] || 0) - 1),
+      ...(destination ? { [destination]: Number(current[destination] || 0) + 1 } : {}),
+    }))
+    setError('')
+    void load({ quiet: true })
+  }
+
   async function respond(item, status) {
     const isApplication = Boolean(item.application_id) && !item.id
     const id = isApplication ? item.application_id : item.id
+    const requestedView = viewKey
     setBusyId(id)
+    setError('')
     try {
       if (isApplication) await api.respondToApplication(item.hat_id, item.application_id, status)
       else await api.respondToBooking(item.id, status)
-      await load({ quiet: true })
+      confirmListChange(item, status === 'accepted' ? 'active' : !isApplication ? 'history' : null, requestedView)
       notifyLocalChange()
       if (status === 'rejected') {
         armUndo('Deal rejected.', async () => {
           setToast(null)
-          if (isApplication) await api.respondToApplication(item.hat_id, item.application_id, 'pending')
-          else await api.respondToBooking(item.id, 'pending')
-          await load({ quiet: true })
-          notifyLocalChange()
+          setBusyId(id)
+          try {
+            if (isApplication) await api.respondToApplication(item.hat_id, item.application_id, 'pending')
+            else await api.respondToBooking(item.id, 'pending')
+            if (currentViewRef.current === requestedView) {
+              ++requestSequence.current
+              setItems((current) => [item, ...current.filter((entry) =>
+                (isApplication ? entry.application_id : entry.id) !== id)])
+              setCounts((current) => ({
+                ...current,
+                [tab]: Number(current[tab] || 0) + 1,
+                ...(!isApplication ? { history: Math.max(0, Number(current.history || 0) - 1) } : {}),
+              }))
+              void load({ quiet: true })
+            }
+            notifyLocalChange()
+          } catch (err) {
+            setError(err.message || 'Could not restore this deal.')
+          } finally {
+            setBusyId(null)
+          }
         })
       }
     } catch (err) {
@@ -195,10 +232,12 @@ export default function MyDeals() {
   }
 
   async function withdrawApplication(item) {
+    const requestedView = viewKey
     setBusyId(item.application_id)
+    setError('')
     try {
       await api.withdrawApplication(item.hat_id)
-      await load({ quiet: true })
+      confirmListChange(item, null, requestedView)
       notifyLocalChange()
     } catch (err) {
       setError(err.message || 'Could not withdraw this application.')
@@ -348,15 +387,15 @@ export default function MyDeals() {
                     <div className="flex flex-wrap justify-end gap-2 border-t border-black/10 px-4 py-3">
                       {tab === 'incoming' && (
                         <>
-                          <button type="button" disabled={busyId === id} onClick={() => respond(item, 'rejected')} className="h-9 rounded-full border-[1.5px] border-black px-4 text-[11px] font-black disabled:opacity-50">Reject</button>
+                          <button type="button" disabled={busyId === id} onClick={() => respond(item, 'rejected')} className="h-9 rounded-full border-[1.5px] border-black px-4 text-[11px] font-black disabled:opacity-50">{busyId === id ? 'Rejecting…' : 'Reject'}</button>
                           <button type="button" disabled={busyId === id || unresolvedRange} onClick={() => respond(item, 'accepted')} className="h-9 rounded-full border-[1.5px] border-black bg-[#0A13E6] px-4 text-[11px] font-black text-white disabled:opacity-50">
-                            <span className="inline-flex items-center gap-1.5"><Check size={14} />{unresolvedRange ? 'Agree price first' : 'Accept'}</span>
+                            <span className="inline-flex items-center gap-1.5"><Check size={14} />{busyId === id ? 'Accepting…' : unresolvedRange ? 'Agree price first' : 'Accept'}</span>
                           </button>
                         </>
                       )}
 
                       {tab === 'outgoing' && isApplication && (
-                        <button type="button" disabled={busyId === id} onClick={() => withdrawApplication(item)} className="h-9 rounded-full border border-black/20 px-4 text-[11px] font-black text-black/60 disabled:opacity-50">Withdraw</button>
+                        <button type="button" disabled={busyId === id} onClick={() => withdrawApplication(item)} className="h-9 rounded-full border border-black/20 px-4 text-[11px] font-black text-black/60 disabled:opacity-50">{busyId === id ? 'Withdrawing…' : 'Withdraw'}</button>
                       )}
 
                       {negotiable && (item.negotiation_escrow_id || item.id) && (
