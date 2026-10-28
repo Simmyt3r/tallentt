@@ -177,6 +177,14 @@ try{
     await publicPhoto.waitFor({state:'detached'})
     assert.equal(await profileAvatar.isVisible(),true,'The profile remains in place after viewing the photo')
     await page.screenshot({path:'test-results/work-pass-profile-'+width+'.png',animations:'disabled'})
+    // Editing a profile must keep its existing camera upload and add a
+    // separate full-resolution preview rather than hijacking the edit action.
+    await page.getByRole('button',{name:'Edit Profile'}).click()
+    await page.getByRole('button',{name:'View full profile picture'}).click()
+    const editingPhoto=page.getByRole('dialog',{name:'Studio Designer full profile photo'})
+    await editingPhoto.getByRole('img',{name:'Studio Designer full profile photo'}).waitFor()
+    await editingPhoto.getByRole('button',{name:'Close full profile photo'}).click()
+    await editingPhoto.waitFor({state:'detached'})
     assert.deepEqual(pageErrors,[],'no uncaught browser errors expected')
     await context.close()
   }
