@@ -78,7 +78,7 @@ export default function ProfilePhotoViewer({src,name='Member',onClose}){
   }
   function up(e){touches.current.delete(e.pointerId);start()}
   function onKeys(e){
-    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();onClose?.()}
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();e.nativeEvent.stopImmediatePropagation?.();onClose?.()}
     else if(e.key==='+'||e.key==='='){e.preventDefault();zoom(.5)}
     else if(e.key==='-'){e.preventDefault();zoom(-.5)}
     else if(e.key==='0'){e.preventDefault();reset()}
@@ -91,7 +91,7 @@ export default function ProfilePhotoViewer({src,name='Member',onClose}){
   }
   if(!src)return null
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label={label+' full profile photo'}
+    <div data-profile-photo-viewer role="dialog" aria-modal="true" aria-label={label+' full profile photo'}
       onKeyDown={onKeys}
       onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget)onClose?.()}}
       className="fixed inset-0 z-[120] flex flex-col bg-[#05091B]/95 text-white backdrop-blur-sm">
