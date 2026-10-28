@@ -10,10 +10,10 @@
 3. **Silabs and Co Technologies Ltd:** technology partner; proposed equity for agreed historical IP/development contributions **plus a separately contracted monthly maintenance fee**.
 4. Company incorporation is **in progress**; all three are intended to be shareholders. **No percentages have been agreed or issued.**
 5. **Google Play Console account owner/publisher: Silabs and Co Technologies Ltd**, as directed by the project promoters; this is separate from ownership of ChombuTar-specific software and IP by the future operating company. The publisher relationship requires a signed agreement and formal app transfer/continuity terms.
-5. The future ChombuTar operating company should own the **agreed assigned project IP**. Pre-existing Silabs frameworks/components require identification and an appropriate license.
-6. Market: Nigeria first, then international; closed beta targeted before 31 December 2026, subject to release gates.
-7. Product: marketplace commissions on completed jobs (rate undecided); direct and protected payments may coexist subject to legal/payment-partner review. Hybrid media: platform retains necessary evidence and optimized files, user retains originals. Beta includes photos, videos and Live.
-8. No external users or verified revenue; do **not** classify wallet balances or secured escrow funds as revenue.
+6. The future ChombuTar operating company should own the **agreed assigned project IP**. Pre-existing Silabs frameworks/components require identification and an appropriate license.
+7. Market: Nigeria first, then international; closed beta targeted before 31 December 2026, subject to release gates.
+8. Product: marketplace commissions on completed jobs (rate undecided); direct and protected payments may coexist subject to legal/payment-partner review. Hybrid media: platform retains necessary evidence and optimized files, user retains originals. Beta includes photos, videos and Live.
+9. No external users or verified revenue; do **not** classify wallet balances or secured escrow funds as revenue.
 
 ## Lean six-month funding decision
 - One-time launch allocation: **₦840,000**
