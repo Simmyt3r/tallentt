@@ -1,8 +1,8 @@
 Month,Opening_Cash_NGN,One_Time_Launch_NGN,Fixed_Opex_NGN,Earned_Revenue_NGN,Closing_Cash_NGN,Assumption
-Month 0,5000000,800000,0,0,4200000,Raise target not committed
-Month 1,4200000,0,485000,0,3715000,No revenue assumed
-Month 2,3715000,0,485000,0,3230000,No revenue assumed
-Month 3,3230000,0,485000,0,2745000,No revenue assumed
-Month 4,2745000,0,485000,0,2260000,No revenue assumed
-Month 5,2260000,0,485000,0,1775000,No revenue assumed
-Month 6,1775000,0,485000,0,1290000,Before earmarked contingency
+Month 0,5000000,840000,0,0,4160000,Target not committed; includes one-time Google Play developer registration
+Month 1,4160000,0,485000,0,3675000,No revenue assumed
+Month 2,3675000,0,485000,0,3190000,No revenue assumed
+Month 3,3190000,0,485000,0,2705000,No revenue assumed
+Month 4,2705000,0,485000,0,2220000,No revenue assumed
+Month 5,2220000,0,485000,0,1735000,No revenue assumed
+Month 6,1735000,0,485000,0,1250000,Before earmarked contingency

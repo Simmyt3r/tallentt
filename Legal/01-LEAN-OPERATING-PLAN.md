@@ -14,7 +14,8 @@ Keep the already-developed feature set but control paid operational exposure: sm
 | Live streaming server/TURN setup and verification | ₦100,000 |
 | Ambassador beta, outreach and launch testing | ₦200,000 |
 | Domain, brand and administrative setup | ₦150,000 |
-| **Total** | **₦800,000** |
+| Google Play Console organization registration (USD $25 one-time, FX/transaction cushion) | ₦40,000 |
+| **Total** | **₦840,000** |
 
 CAC fees, solicitor quotations, trademark expenses, penetration testing and video infrastructure may make these caps inadequate; reallocate or obtain additional funding rather than skipping mandatory requirements.
 
@@ -36,7 +37,7 @@ CAC fees, solicitor quotations, trademark expenses, penetration testing and vide
 Monthly infrastructure subtotal = **₦160,000**. Cloudinary's Plus tier is published at **USD $99/month**, so this lean allocation assumes a low-use or free allowance and **cannot** support uncontrolled video storage and delivery. Vercel Pro begins at USD $20/month before excess usage; Neon is consumption-based. Pricing is dynamic and billable in foreign currency. Sources: https://vercel.com/pricing ; https://neon.com/pricing ; https://cloudinary.com/pricing
 
 ## Fundraising and runway
-Six-month pre-contingency cash needs = ₦800,000 + (6 × ₦485,000) = **₦3,710,000**. 20% contingency = **₦742,000**. Minimum scenario = **₦4,452,000**. A **₦5,000,000** discussion target leaves **₦548,000** above that complete budget; this is **not** a commitment by any investor.
+Six-month pre-contingency cash needs = ₦840,000 + (6 × ₦485,000) = **₦3,750,000**. 20% contingency = **₦750,000**. Minimum scenario = **₦4,500,000**. A **₦5,000,000** discussion target leaves **₦500,000** above that complete budget; this is **not** a commitment by any investor.
 
 Fund operations from an approved company bank account; distinguish pre-incorporation expenses, equity receipts, shareholder loans and earned commissions. Keep wallet/escrow funds in their permitted arrangements and outside operating revenue.
 
@@ -51,6 +52,9 @@ Fund operations from an approved company bank account; distinguish pre-incorpora
 
 ## Core performance metrics
 Active subscribers, completed paid jobs, GMV, realized commission, payment processing fees, collections/payouts, refunds, net transaction contribution, media GB delivered, average Live viewer-hours, retention, cost per verified active account, support response time, disputes per completed job and cash runway.
+
+## Play Store account and Android package
+Google Play Console costs **USD $25 once**, not a recurring subscription. Reserve **₦40,000** with an FX/card buffer. Register as the future ChombuTar operating company's **organization account** after CAC identity, company website and D-U-N-S number are available. Treat Android App Bundle packaging, SDK API 36 compliance, listing, privacy disclosures and QA as part of existing ₦200k QA/remediation allocation; procure separately if it is inadequate. A company-wide D-U-N-S application is free but may take several weeks. Store policy and billing review are mandatory before Android paid features are released; see 10-GOOGLE-PLAY-PUBLISHING.md.
 
 ## 2026 closed beta
 Target a gated beta in November–December 2026, after company identity, core policies, appropriate payment setup, controlled content operations and technical release tests pass. If they fail, shift the date rather than bypass protections.

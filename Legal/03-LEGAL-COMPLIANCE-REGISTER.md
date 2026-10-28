@@ -17,6 +17,7 @@
 | Trademark search and filing | P1 | Not verified | Founder + counsel | Search ChombuTar names/logos, classes, registered owner and future international strategy |
 | Employment / contractor and confidentiality | P1 | Not evidenced | Admin | IP, NDAs, payment, confidentiality, labor status and conflicts |
 | Cybersecurity and disaster recovery plan | P0 | Tests/config exist, no full approval | Tech + security | Access control, secret rotation, backup drills, breach handling and external security testing |
+| Google Play Console organization registration and Android publishing | P0 | Not registered / unverified | Company + Silabs | D-U-N-S, verified company profile, $25 one-time fee, compliant AAB target API 36, Data safety, privacy and deletion, Play payments policy |
 | Domain ownership and software vendor contracts | P1 | Not supplied | Founder + tech | Commercial plan rights, authorized owners, renewal and recovery |
 
 ## Actual registration UI risks
@@ -27,6 +28,9 @@ Bronze/Silver/Gold/Diamond status, past-customer endorsements and QR cryptograph
 
 ## Media rights
 Written media license must allow only the necessary service, verification and opted-in promotions. A QR overlay/verified sticker in external shared videos requires accurate verification claims; respect copyright, privacy and the platform's watermark terms.
+
+## Android platform policy
+Google Play *developer registration* is **US$25 paid once**, not a subscription. Google Play *Billing* rules are a separate issue: fees for physical real-world services have different rules from sales of digital services, app features, storage and memberships. Payment flows through Paystack should be evaluated per purchase type before submitting Android app. An organization account requires D-U-N-S, website and verified contact data; registration should be held by the ChombuTar operating company. References: https://support.google.com/googleplay/android-developer/answer/6112435 ; https://support.google.com/googleplay/android-developer/answer/13628312 ; https://support.google.com/googleplay/android-developer/answer/9858738 .
 
 ## Nigerian legal reference starting points
 - CAC: https://www.cac.gov.ng/ and official fee schedule at https://news.cac.gov.ng/wp-content/uploads/2025/06/New-Schedule-of-Fees-29th-May-2025.pdf

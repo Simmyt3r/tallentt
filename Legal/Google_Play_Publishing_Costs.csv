@@ -1,0 +1,13 @@
+Category,Item,NGN,Frequency,Funding treatment,Source
+Existing,Brand domain administrative setup,150000,One time,Existing lean budget,Prior approved scenario
+Google Play,Developer registration,40000,One time,USD 25 official fee plus FX/payment buffer,https://support.google.com/googleplay/android-developer/answer/6112435
+Google Play,Annual developer subscription,0,None,No recurring registration fee,https://support.google.com/googleplay/android-developer/answer/6112435
+Google Play,DUNS request,0,One time,Application is free - verification time required,https://support.google.com/googleplay/android-developer/answer/13628312
+Android,App packaging listing and testing,0,Variable,Included in existing 200000 QA estimate; review actual capacity,https://developer.android.com/google/play/requirements/target-sdk
+Summary,Total revised launch,840000,One time,Original 800000 plus 40000,Scenario
+Summary,Monthly operations,485000,Monthly,Unchanged by Play Console registration,Scenario
+Summary,Six months operations,2910000,Six months,Unchanged,Scenario
+Summary,Contingency 20 percent,750000,Six months,Percent of launch and six months expenses,Scenario
+Summary,Required capital,4500000,Six months,Before verified revenue,Scenario
+Summary,Funding discussion target,5000000,Once,Not pledged or paid,Scenario
+Summary,Buffer above requirement,500000,Once,Only if target fully funded,Scenario

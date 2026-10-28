@@ -1,11 +1,11 @@
 # Lean Financial Workbook — Editing and Interpretation
 
-**Workbook generated separately:** ChombuTar_Lean_Funding_Model.xlsx (11 sheets; downloadable via the related ChatGPT deliverable). **Native repo Excel summary:** ChombuTar_Lean_Funding_Summary.xlsx (one worksheet, editable formula-driven budget, break-even and operating capital). **Repository spreadsheet tables:** Lean_Budget.csv, Six_Month_Cashflow.csv, Shareholder_Contribution_Register.csv, Compliance_Tracker.csv. CSVs open in Excel but do not preserve cross-sheet Excel formulas. **Date:** 28 October 2026.
+**Workbook generated separately:** ChombuTar_Lean_Funding_Model_Google_Play.xlsx (12 sheets; companion downloadable file). **Native repo Excel summary:** ChombuTar_Lean_Funding_Summary.xlsx (one worksheet, editable formula-driven budget, break-even and operating capital). **Repository spreadsheet tables:** Lean_Budget.csv, Six_Month_Cashflow.csv, Shareholder_Contribution_Register.csv, Compliance_Tracker.csv. CSVs open in Excel but do not preserve cross-sheet Excel formulas. **Date:** 28 October 2026.
 
 ## Workbook tabs
 - **Overview:** six-month cash requirement, funding gap, reported prior contributions and throughput example.
 - **Assumptions:** edit **blue numeric cells**; all values are illustrative unless specified otherwise.
-- **Launch Costs:** ₦800,000 one-time lean expenses; replace with vendor quotations.
+- **Launch Costs:** ₦840,000 one-time lean expenses including ₦40,000 one-time Google Play developer account; replace with quotations.
 - **Monthly Opex:** ₦485,000 monthly ceiling; infrastructure is the most uncertain component.
 - **6M Cashflow:** starts with modelled ₦5m raise, deducts one-off and monthly costs and defaults to **zero completed paid jobs**.
 - **Unit Economics:** 8% and 10% fee examples; Paystack standard local collection/payout assumptions.
@@ -13,10 +13,11 @@
 - **Valuation & Equity:** negotiation illustrations; initial actual investor cash **₦0** and all ownership percentages remain **unapproved**.
 - **Contribution Register:** Mathias reported ₦100k, Silabs modelled labor benchmark, no Dr. Butu commitment.
 - **Compliance Register:** accountable launch requirements, status and release gates.
+- **Google Play:** organization registration cost and Android publishing requirements.
 - **Sources:** user decisions, repository evidence and official provider links.
 
 ## Key figures (at initial inputs)
-Launch ₦800,000 + 6 × ₦485,000 = ₦3,710,000; contingency 20% = ₦742,000; capital requirement = **₦4,452,000**. Proposed raise **₦5,000,000** yields ₦548,000 above requirement. Six-month cashflow ending cash if revenue remains nil = ₦1,290,000 **before setting aside contingency**, not available distributable profit.
+Launch ₦840,000 + 6 × ₦485,000 = ₦3,750,000; contingency 20% = ₦750,000; capital requirement = **₦4,500,000**. Proposed raise **₦5,000,000** yields ₦500,000 above requirement. Six-month cashflow ending cash if revenue remains nil = ₦1,290,000 **before setting aside contingency**, not available distributable profit.
 
 At ₦50k job value, 8% commission contributes ₦3,100 before other variable costs and taxes, break-even at about 157 paid completions per month; 10% contributes ₦4,100, break-even about 119. Payment fees must be recalculated for actual customer/payout flows.
 
@@ -31,4 +32,5 @@ At ₦50k job value, 8% commission contributes ₦3,100 before other variable co
 https://paystack.com/pricing  
 https://vercel.com/pricing  
 https://neon.com/pricing  
-https://cloudinary.com/pricing
+https://cloudinary.com/pricing  
+https://support.google.com/googleplay/android-developer/answer/6112435

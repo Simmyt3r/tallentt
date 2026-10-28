@@ -21,6 +21,14 @@
 - Verify signed uploads, Work Pass cryptographic key management and verification under rotation/revocation.
 - Run automated checks plus independent browser/device tests, database migrations, permission controls, rate limits and backup/restore.
 
+## Android Play Store release gates
+- Open a **company-owned organization** Play Console only after CAC registration and D-U-N-S/identity verification; fee US$25 once. Preserve company ownership of developer profile, app package and release-signing credentials.
+- Produce a compliant Android App Bundle (.aab) from the existing PWA, including camera, microphone, notifications, external link and in-app browser testing. For new Android phone apps, target API level 36 under 2026 policy.
+- Complete Data safety, privacy policy, content rating, support information, account deletion **inside the app and through a web page**, plus appropriate permissions and moderation declarations.
+- Use Play internal/closed testing with ambassador cohort. New personal developer accounts require 12 testers opted in for 14 continuous days before applying for production; this specific rule should **not** be asserted as automatically applying to organization accounts.
+- Classify each payable item: physical service job, digital feature, premium placement, credits, in-app subscription, cloud storage; Google Play Billing rules differ. No production paid Android sale until reviewed.
+- If required identity validation or testing cannot finish in time, web/PWA beta may proceed only if its independent release gates pass; public Play release waits.
+
 ## Phase 3 — Lean operating controls
 - 501–2,000 active user target is a **ceiling for planning**, not guaranteed acquisition.
 - Hard budget per service, quota per file/user, max bitrate and max concurrent Live rooms/viewers, active cost telemetry and shutdown/escalation threshold.
