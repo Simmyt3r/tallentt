@@ -7,6 +7,7 @@ import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureM
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
 import { adminGalleryQueue, adminGalleryDecision } from '../_lib/showroomGallery.js'
 import { adminMigrationStatus, applyAdminMigration } from '../_lib/adminMigrations.js'
+import { adminSigningStatus, adminActivateSigning } from '../_lib/workPassSigning.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { bookingLifecycle, listDisputes, getDispute } from '../_lib/bookingLifecycle.js'
@@ -66,6 +67,7 @@ export default async function handler(req, res) {
       if (params.get('action') === 'orbit_config') return json(res,200,await orbitAdminStatus())
       if (params.get('action') === 'hat_data_reviews') return json(res,200,await newHatReviewQueue())
       if (params.get('action') === 'db_migrations') return json(res, 200, await adminMigrationStatus())
+      if (params.get('action') === 'work_pass_signing') return json(res,200,await adminSigningStatus())
       if (params.get('action') === 'push_config') return json(res, 200, await getAdminVapidStatus())
       if (params.get('action') === 'gallery_review') return json(res,200,await adminGalleryQueue())
       if (params.get('action') === 'showroom_reports') return json(res, 200, await getShowroomReviewQueue())
@@ -316,6 +318,8 @@ async function handleAdminAction(admin, body) {
   }
 
   if (action === 'apply_db_migration') return applyAdminMigration(admin.id, body)
+  if (action === 'activate_work_pass_signing') return adminActivateSigning(admin.id)
+  if (action === 'rotate_work_pass_signing') return adminActivateSigning(admin.id,{rotate:true,confirmation:body.confirmation})
 
   if (action === 'generate_vapid') {
     const result = await generateAdminVapidConfig(admin.id, body.subject)

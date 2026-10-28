@@ -63,7 +63,7 @@ export default async function handler(req, res) {
       catch(err){return json(res,err.status||500,{error:err.status?err.message:'Could not load deal evidence.'})}
     }
     if (action === 'work_pass_key') {
-      try{return json(res,200,workPassKey())}catch(err){return json(res,503,{error:'Work Pass signing key unavailable.'})}
+      try{return json(res,200,await workPassKey())}catch(err){return json(res,503,{error:'Work Pass signing key unavailable.'})}
     }
     if (action === 'work_pass') {
       try {return json(res,200,await getWorkPass(url.searchParams.get('username')))}

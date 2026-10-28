@@ -1,41 +1,21 @@
 // Work Pass: authenticated write operations, public read projections,
 // server-only ECDSA signatures. Never trust scores or evidence supplied by a client.
-import { createPrivateKey, createPublicKey, createHash, sign as signBytes } from 'node:crypto'
 import { query, getClient } from './db.js'
 import { accountOrbit } from './accountOrbit.js'
 import { signedHatMediaEnabled, verifyNewHatMedia, claimHatMediaPermits } from './hatMediaUpload.js'
 import { workPassTier, WORK_PASS_DISCLAIMER } from '../../shared/workPass.js'
+import { signingPublicKey, signWorkPassClaim } from './workPassSigning.js'
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i
 const invalid = (code, message) => Object.assign(new Error(message), { status: code })
 const safeString = (value, max=120) => String(value || '').trim().slice(0,max)
-const pem = () => process.env.WORK_PASS_SIGNING_PRIVATE_KEY?.replace(/\\n/g, '\n')
-function privateKey() {
-  if (!pem()) return null
-  const key = createPrivateKey(pem())
-  if (key.asymmetricKeyType !== 'ec' || key.asymmetricKeyDetails?.namedCurve !== 'prime256v1')
-    throw invalid(503, 'Work Pass signing key must be an EC P-256 private key.')
-  return key
-}
-export function workPassKey() {
-  const key = privateKey()
-  if (!key) return { configured:false, keyId:null, jwk:null }
-  return {configured:true,keyId:process.env.WORK_PASS_SIGNING_KEY_ID||'workpass-v1',
-    jwk:createPublicKey(key).export({format:'jwk'})}
-}
-function signedQr(payload) {
-  const key=privateKey()
-  if (!key) return null
-  const body=Buffer.from(JSON.stringify(payload)).toString('base64url')
-  const kid=process.env.WORK_PASS_SIGNING_KEY_ID||'workpass-v1'
-  const prefix='CTWP1.'+kid+'.'+body
-  const signature=signBytes('sha256',Buffer.from(prefix),{key,dsaEncoding:'ieee-p1363'}).toString('base64url')
-  return prefix+'.'+signature
+export async function workPassKey() {
+  return signingPublicKey()
 }
 async function ensureSchema(){
   const {rows}=await query("SELECT to_regclass('work_pass_evidence') AS evidence, to_regclass('work_pass_robots') AS robots, to_regclass('work_pass_endorsements') AS endorsements")
   if(!rows[0]?.evidence||!rows[0]?.robots||!rows[0]?.endorsements)
-    throw invalid(503,'Work Pass tables are not ready. Run npm run db:migrate:work-pass.')
+    throw invalid(503,'Work Pass tables are not ready. Open Admin → Database Migrations and apply the Work Pass migration.')
 }
 export async function getWorkPass(username) {
   const clean=safeString(username,30).replace(/^[@^]/,'')
@@ -76,11 +56,11 @@ export async function getWorkPass(username) {
     tier,completedJobs,successfulHires,orbit,
     issuedAt:Math.floor(Date.now()/1000),expiresAt:Math.floor(Date.now()/1000)+7*86400,
   }
-  const token=signedQr(claim)
+  const {token,keyId}=await signWorkPassClaim(claim)
   return {user:{username:user.username,name:user.full_name,role:user.role,avatarUrl:user.avatar_url,
       skills:user.skills||[],industry:user.industry||[],headline:user.headline},
     tier,orbit,completedJobs,successfulHires,rating:null,ratingCount:0,
-    claim,token,keyId:token?(process.env.WORK_PASS_SIGNING_KEY_ID||'workpass-v1'):null,
+    claim,token,keyId,
     signatureStatus:token?'signed':'not_configured',disclaimer:WORK_PASS_DISCLAIMER,
     evidence:evidence.rows,robots:robots.rows,endorsements:endorsements.rows,
     evidenceAvailable:installed}

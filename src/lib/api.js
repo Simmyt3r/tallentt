@@ -339,6 +339,9 @@ export const api = {
     method:'POST',body:JSON.stringify({action:'retry_user_media_erasure'}),
   }),
   getAdminMigrations: () => request('/api/admin?action=db_migrations'),
+  getAdminWorkPassSigning: () => request('/api/admin?action=work_pass_signing',{cache:'no-store'}),
+  activateAdminWorkPassSigning: () => request('/api/admin',{method:'POST',body:JSON.stringify({action:'activate_work_pass_signing'})}),
+  rotateAdminWorkPassSigning: () => request('/api/admin',{method:'POST',body:JSON.stringify({action:'rotate_work_pass_signing',confirmation:'ROTATE WORK PASS KEY'})}),
   applyAdminMigration: (migrationId, checksum) => request('/api/admin', {
     method: 'POST',
     body: JSON.stringify({ action: 'apply_db_migration', migrationId, checksum, confirm: `APPLY ${migrationId}` }),

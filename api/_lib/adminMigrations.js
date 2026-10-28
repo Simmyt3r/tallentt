@@ -127,6 +127,12 @@ export const MIGRATION_CATALOG = Object.freeze([
     path: new URL('../../db/patch-work-pass-2026-10.sql', import.meta.url),
   },
   {
+    id: 'work-pass-signing-2026-10',
+    title: 'Work Pass signing key storage',
+    description: 'Server-side encrypted signing key storage and safe key rotation. Admin can activate signing without uploading secrets.',
+    path: new URL('../../db/patch-work-pass-signing-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'password-recovery-2026-10',
     title: 'Password recovery',
     description: 'One-use expiring reset tokens and request throttling.',
