@@ -3,12 +3,14 @@
 **Status:** Planning requirement, **not purchased or published**. Reviewed 28 October 2026.
 
 ## 1. This is not a subscription
-Google Play Console charges **US$25 one time** for a developer account. No standard recurring annual or monthly Play Console registration subscription. **Lean planning allocation: ₦40,000 one time**, covering US$25 at an illustrative ₦1,350/USD (₦33,750) and a small FX/card/payment buffer. This allowance is a model input, not a verified charge. Official: https://support.google.com/googleplay/android-developer/answer/6112435
+Google Play Console charges **US$25 one time** for a developer account. No standard recurring annual or monthly Play Console registration subscription. **Lean contingent allowance: ₦40,000 one time if Silabs needs a new Play developer account**, covering US$25 at an illustrative ₦1,350/USD (₦33,750) and a small FX/card/payment buffer. If Silabs already owns an eligible verified organization account, the new-account registration charge may be zero. Who pays for any account fee is **not agreed**; account ownership is not itself evidence of an equity contribution. The existing ₦5m planning target remains unchanged until actual cash responsibility is agreed. Official: https://support.google.com/googleplay/android-developer/answer/6112435
 
-## 2. Account holder: ChombuTar company, not individual shareholders
-The three parties agreed that the new ChombuTar operating company should own platform IP, brand and operating assets. Therefore create a **Play Console Organization developer account in the company's legal name once CAC registration and the requisite Google organization identity checks are complete.** Avoid registration in a founder, investor or technical vendor's private account for convenience. Record approved primary account owner, financial owner, backups, 2FA, published support contacts, developer access roles and app signing-key management in company registers.
+## 2. Account holder: Silabs and Co Technologies Ltd
+**Confirmed business direction:** Silabs will own and operate the Google Play Console developer account used to publish ChombuTar. Use a Google Play **organization account registered to Silabs and Co Technologies Ltd**, either an existing eligible verified organization account or a new one if necessary. No account has been confirmed active or paid. Silabs' own legal entity identity, D-U-N-S number, organization address, website, phone and Google payments profile must be used and kept current; Nigerian organization verification may require company records and a verified representative. The user-directed Play ownership arrangement does **not** overturn the separate plan for ChombuTar's new operating company to own specifically assigned app code, branding and IP. These rights must be expressly documented.
 
-Google requires an organization D-U-N-S number, legal organization name/address, website, organization phone, verified developer and contact information and Google payments profile. D-U-N-S application is free but can take several weeks. Start verification early. https://support.google.com/googleplay/android-developer/answer/13628312
+Do **not** share the Google primary owner password between shareholders. Silabs retains account-owner credentials and security obligations; company representatives should obtain appropriately scoped delegated Play permissions, written release-approval rights, independent repository/asset access and rights to obtain an app transfer upon agreed exit triggers. Store developer identity, customer support listing, payment profiles, revenue routing and tax responsibility require express agreement. See 11-SILABS-PLAY-PUBLISHING-AGREEMENT-DRAFT.md.
+
+Google requirements for organization identities: https://support.google.com/googleplay/android-developer/answer/13628312 and https://support.google.com/googleplay/android-developer/answer/13634888 .
 
 ## 3. Development and app-store readiness
 Current repo is a React/Vite PWA with Vercel serverless APIs, not proof of an existing Android App Bundle. Package and test a compliant Android **AAB** (e.g. Trusted Web Activity where appropriate or tested native wrapper) without assuming the web app is automatically publishable. For new Android phone apps/updates from 31 August 2026, target Android 16 **API 36** or higher. https://support.google.com/googleplay/android-developer/answer/11926878
@@ -41,12 +43,13 @@ Play Console processing and store-review time are not guaranteed; the planned cl
 This assumes Android packaging and Play listing work can be performed within the **existing ₦200,000 security/QA allocation and Silabs technical agreement**, without a separately charged contractor; confirm with Silabs. Future Google Play Billing fees for digital items, content ratings and special paid services are **not** included.
 
 ## 8. Status and accountable owners
-- CAC incorporation and company legal identity — **Management / counsel: in progress**.
-- D-U-N-S application and business verification — **Management: not confirmed**.
-- Console signup and one-time fee — **Management: not paid**.
+- ChombuTar company incorporation and platform IP assignment — **Management / counsel: in progress**.
+- Silabs company identity, D-U-N-S and Google organization verification — **Silabs: not confirmed**.
+- Existence of eligible Silabs Play developer account / any $25 registration payment — **Silabs: not confirmed; expense bearer undecided**.
+- Silabs–ChombuTar app publishing agreement / company approval and access rights — **Management + Silabs: not signed**.
 - Android AAB, signing and target API 36 — **Silabs: not verified**.
 - Data safety, app content, web/in-app account deletion — **Product + counsel: not verified**.
 - Billing/Paystack policy categorization — **Finance + counsel: not verified**.
 - Closed beta Google Play release — **Management + Silabs: contingent on gates**.
 
-**Account ownership instruction:** the future operating company should have durable administrative and recovery control. Merely sharing a personal Google password with the three parties is not an acceptable governance arrangement.
+**Publisher agreement instruction:** Silabs owns the console. The ChombuTar operating company should have documented rights to continued publication, scoped approvals/reporting access and cooperation in **Google's official app-transfer process** if the publishing arrangement terminates. App transfer requires an eligible receiving account and Google's conditions; it is not guaranteed instant or unconditional. Neither party should share personal account passwords. Official account/app transfer policy: https://support.google.com/googleplay/android-developer/answer/6230247 and https://support.google.com/googleplay/android-developer/answer/10788890 .

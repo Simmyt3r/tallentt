@@ -18,9 +18,11 @@
 | D12 | Agreed commission (8/10% scenarios), paid collection flow and precise contractual charge bearer | Finance + Legal | Undecided |
 | D13 | Company bank and payment processor entity, reserve mechanics and settlement responsibilities | Finance | Not confirmed |
 | D14 | Signed definitive agreements and board approvals before funding or shares issued | All three | Not started |
-| D15 | Company-owned Google Play Console, CAC/D-U-N-S and verified identity | Management / Silabs | Not started |
+| D15 | Silabs-owned Google Play Console; verify Silabs CAC/D-U-N-S, developer eligibility and existing/new account | Silabs | Ownership selected; verification pending |
 | D16 | Android app bundle (AAB), target SDK API 36, signing/ownership inventory | Silabs | Not evidenced |
 | D17 | Play Data safety, deletion links, microphone/camera/privacy and billing policy review | Silabs / counsel | Not verified |
+| D18 | Signed Silabs–ChombuTar Google Play publishing rights, scope, approvals and exit/official app-transfer protocol | Silabs / company / counsel | Draft required |
+| D19 | Determine whether Silabs account already exists; identify who pays registration, merchant receipts and taxes | Silabs / finance | Undecided |
 
 ## Valuation limitations
 The Github repo can support a **replacement-effort estimate**; it does not prove actual work hours, which developers performed which tasks, or a company's fair-market value. The preliminary 860–1,700 hour range and the 1,200 × ₦5,000 = ₦6m base figure are **illustrative and unverified**. The discussed ₦4m–₦8m pre-money range is also only a negotiating hypothesis.

@@ -26,6 +26,9 @@ An illustrative 1,200 hours at ₦5,000/hour = **₦6,000,000 replacement-labor 
 
 **Double-counting rule:** If Mathias funded a developer's hours, those costs must not also be recorded as Silabs' unpaid contribution. If Silabs is granted shares for past work, separately scope *future* support under a monthly SLA (lean worksheet currently allows ₦120,000/month but not yet approved).
 
+## Play Store publisher exception and IP separation
+Silabs shall be the **legal holder/operator of the Google Play Console developer account** for ChombuTar's Android distribution, subject to eligibility and a signed app-publishing services agreement. The future ChombuTar operating company retains intended ownership of specifically assigned ChombuTar app IP, branding, customer relationship and agreed user data rights. Publisher-account control does **not** itself transfer app copyright, trademarks or marketplace revenues to Silabs. Give company-designated personnel scoped release/reporting access without sharing Silabs' primary credentials. Record who controls listing metadata, app package, app-signing material, incident response, Play Billing setup and merchant payouts. Require cooperation and official app transfer upon qualifying termination; transfer is subject to Google requirements and cannot be guaranteed unconditional. See 11-SILABS-PLAY-PUBLISHING-AGREEMENT-DRAFT.md.
+
 ## Shareholder protections to negotiate
 Capital classes; preemption; voting thresholds and reserved matters; director appointments; technical oversight and access; founding management salary; vesting for unperformed future contributions; leaver and bad-leaver provisions; dilution; anti-dilution only if negotiated; restrictions on sales; distributions; reporting; audited accounts; related-party transactions with Silabs; conflicts of interest; capital calls; deadlock; exit; mediation/arbitration and Nigerian governing law.
 

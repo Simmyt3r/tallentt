@@ -30,6 +30,9 @@ Provisional lean funding conversation is **₦5m** targeting the ₦4.452m six-m
 ### 6. Continuing technical services
 Separate signed agreement between Silabs and ChombuTar for maintenance, security, Live operations, bug fixes and response targets. Monthly fee currently modelled at **₦120,000 as a budget assumption**, not an approved contractual amount. Related-party approval and independent benchmarking required.
 
+### 6A. Android publication by Silabs
+The parties' operational direction is that **Silabs and Co Technologies Ltd will own and operate the Google Play Console developer account** used to publish ChombuTar. This does **not** convey the app's copyrighted code, brand, platform IP or customer money to Silabs. The new ChombuTar company shall receive an enforceable publishing/continuity agreement recording delegated permissions, release approvals, app-specific licence scope, storefront attribution, developer responsibility for policy declarations, security, payment/merchant routing, and compliant cooperation with Google's official app-transfer process on agreed triggers. Account status, registration expense bearer, revenue recipient and transfer deadline remain **[TO NEGOTIATE]**.
+
 ### 7. Governance
 Board composition [__], decision thresholds [__], bank signatories [__], developer/admin access [__], spending approvals [__], audited accounts [__], dispute resolution [__], permitted founder compensation [__], reserved matters [__].
 

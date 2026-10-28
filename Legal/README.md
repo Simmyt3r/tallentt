@@ -9,6 +9,7 @@
 2. **Dr. Butu Hemenseter:** prospective equity investor; no funding amount committed and no payment made.
 3. **Silabs and Co Technologies Ltd:** technology partner; proposed equity for agreed historical IP/development contributions **plus a separately contracted monthly maintenance fee**.
 4. Company incorporation is **in progress**; all three are intended to be shareholders. **No percentages have been agreed or issued.**
+5. **Google Play Console account owner/publisher: Silabs and Co Technologies Ltd**, as directed by the project promoters; this is separate from ownership of ChombuTar-specific software and IP by the future operating company. The publisher relationship requires a signed agreement and formal app transfer/continuity terms.
 5. The future ChombuTar operating company should own the **agreed assigned project IP**. Pre-existing Silabs frameworks/components require identification and an appropriate license.
 6. Market: Nigeria first, then international; closed beta targeted before 31 December 2026, subject to release gates.
 7. Product: marketplace commissions on completed jobs (rate undecided); direct and protected payments may coexist subject to legal/payment-partner review. Hybrid media: platform retains necessary evidence and optimized files, user retains originals. Beta includes photos, videos and Live.
@@ -32,7 +33,8 @@ This is a **highly constrained lean budget**. Full Live streaming, moderation co
 - [03-LEGAL-COMPLIANCE-REGISTER.md](03-LEGAL-COMPLIANCE-REGISTER.md): legal and regulatory deliverables.
 - [04-DATA-AND-MEDIA-GOVERNANCE.md](04-DATA-AND-MEDIA-GOVERNANCE.md): data, media, Work Pass and privacy requirements.
 - [05-REVENUE-AND-UNIT-ECONOMICS.md](05-REVENUE-AND-UNIT-ECONOMICS.md): commission options, payments and competitors.
-- [10-GOOGLE-PLAY-PUBLISHING.md](10-GOOGLE-PLAY-PUBLISHING.md): one-time Play Console account, organization identity, Android app-store compliance and release gates.
+- [10-GOOGLE-PLAY-PUBLISHING.md](10-GOOGLE-PLAY-PUBLISHING.md): **Silabs-owned** Play Console account, organization identity, Android app-store compliance and release gates.
+- [11-SILABS-PLAY-PUBLISHING-AGREEMENT-DRAFT.md](11-SILABS-PLAY-PUBLISHING-AGREEMENT-DRAFT.md): draft publisher–platform obligations, permissions, payment treatment and transfer/exit controls.
 - [06-BETA-LAUNCH-GATES.md](06-BETA-LAUNCH-GATES.md): 2026 closed beta and controlled public launch gates.
 - [07-OPEN-DECISIONS-AND-EVIDENCE.md](07-OPEN-DECISIONS-AND-EVIDENCE.md): evidence request and sign-off checklist.
 - [08-TRIPARTITE-HEADS-OF-TERMS-DRAFT.md](08-TRIPARTITE-HEADS-OF-TERMS-DRAFT.md): non-binding commercial term-sheet outline.

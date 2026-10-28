@@ -22,11 +22,12 @@
 - Run automated checks plus independent browser/device tests, database migrations, permission controls, rate limits and backup/restore.
 
 ## Android Play Store release gates
-- Open a **company-owned organization** Play Console only after CAC registration and D-U-N-S/identity verification; fee US$25 once. Preserve company ownership of developer profile, app package and release-signing credentials.
+- **Silabs and Co Technologies Ltd will hold the Google Play Console organization account**, using its own verified corporate credentials and D-U-N-S number (or an existing compliant organization account). A new account costs US$25 once; do not assume a new registration is needed if Silabs already owns an eligible verified account. Preserve ChombuTar operating company's ownership of specifically assigned app source/IP while granting Silabs the publishing rights required by contract; put agreed company personnel on scoped permissions and formalize signing-key custody and transfer support.
 - Produce a compliant Android App Bundle (.aab) from the existing PWA, including camera, microphone, notifications, external link and in-app browser testing. For new Android phone apps, target API level 36 under 2026 policy.
 - Complete Data safety, privacy policy, content rating, support information, account deletion **inside the app and through a web page**, plus appropriate permissions and moderation declarations.
 - Use Play internal/closed testing with ambassador cohort. New personal developer accounts require 12 testers opted in for 14 continuous days before applying for production; this specific rule should **not** be asserted as automatically applying to organization accounts.
 - Classify each payable item: physical service job, digital feature, premium placement, credits, in-app subscription, cloud storage; Google Play Billing rules differ. No production paid Android sale until reviewed.
+- Execute a written ChombuTar–Silabs publishing addendum before Play release: listing owner and displayed publisher identity, update approvals, Data safety sign-off, access roles, account fees, merchant payouts, incident escalation and official app-transfer duties.
 - If required identity validation or testing cannot finish in time, web/PWA beta may proceed only if its independent release gates pass; public Play release waits.
 
 ## Phase 3 — Lean operating controls
