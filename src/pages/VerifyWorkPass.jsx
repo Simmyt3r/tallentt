@@ -23,7 +23,7 @@ export default function VerifyWorkPass(){
   }
   return <main className="mx-auto max-w-xl space-y-4">
     <CompactPageHeader title="Verify Work Pass"/>
-    <p className="text-xs text-black/60">Enter the QR payload to check its signature. Cached public keys permit offline signature verification, but revocation and live work history require an internet connection.</p>
+    <p className="text-xs text-black/60">Enter the QR payload to check its signature. Cached trusted public keys—including recently rotated keys—permit offline signature verification. Revocation and live work history require an internet connection.</p>
     <form onSubmit={check} className="rounded-2xl bg-white p-4 space-y-3">
       <label className="block text-xs font-bold">Work Pass QR text
         <textarea value={token} onChange={e=>setToken(e.target.value)} rows={4} className="mt-2 w-full rounded-xl border border-black/15 p-3 text-xs" placeholder="CTWP1.…"/>

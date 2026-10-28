@@ -37,3 +37,8 @@ The first successful run creates `chombutar_schema_migrations` with `migration_i
 `tests/admin-migrations.test.mjs` checks anonymous and ordinary account denials; unknown ID; invalid confirmation; stale checksum; application, replay, drift detection, history and audit; and simultaneous advisory lock conflict on real PostgreSQL CI. Existing booking, financial, mobile, and regression tests must continue passing.
 
 The feature is not a backup system. Before a live migration, verify the correct production `DATABASE_URL`, backup and current database privileges. A running Vercel deployment is not proof that live migration execution works: run the first migration and refresh the page to verify the receipt. No new environment variable is required.
+
+## Work Pass signing: one-click Admin activation
+Open **Admin → Work Pass Security** (`/admin?tab=work-pass`) and click **Activate signing**. The server automatically applies its allowlisted signing-key storage migration if needed, generates an ECDSA P-256 key, encrypts it with HKDF + AES-256-GCM using the existing server `JWT_SECRET`, verifies that it can sign, and records the administrator and key ID in the audit log. No private key is exposed to the browser or recorded in application logs. The `WORK_PASS_SIGNING_PRIVATE_KEY` environment variable remains a backward-compatible fallback only.
+
+Administrators can rotate keys from the same screen. Prior public verification keys remain available for eight days while existing signed QR passes expire after seven days. **Keep JWT_SECRET stable:** changing it without first re-encrypting the stored private keys makes the old keys unusable. Continue to back up the database.

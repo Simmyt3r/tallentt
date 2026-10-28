@@ -24,6 +24,7 @@ import { api } from '../lib/api.js'
 import AdminDisputes from '../components/AdminDisputes.jsx'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import AdminMigrations from '../components/AdminMigrations.jsx'
+import AdminWorkPassSigning from '../components/AdminWorkPassSigning.jsx'
 import AdminOrbitAndHatReview from '../components/AdminOrbitAndHatReview.jsx'
 import AdminUserErasure, {AdminUserMediaCleanup} from '../components/AdminUserErasure.jsx'
 import AdminShowroomReports from '../components/AdminShowroomReports.jsx'
@@ -49,6 +50,7 @@ const SECTIONS = [
   { id: 'showroom-config', label: 'Showroom Settings', icon: ShieldCheck },
   { id: 'push', label: 'Push Setup', icon: BellRing },
   { id: 'migrations', label: 'Database Migrations', icon: Database },
+  { id: 'work-pass', label: 'Work Pass Security', icon: KeyRound },
   { id: 'audit', label: 'Audit Log', icon: FileText },
 ]
 
@@ -298,6 +300,7 @@ export default function Admin() {
               {tab === 'showroom-config' && <AdminShowroomConfig />}
               {tab === 'push' && <PushSetupPanel />}
               {tab === 'migrations' && <AdminMigrations /> }
+              {tab === 'work-pass' && <AdminWorkPassSigning /> }
               {tab === 'audit' && <AuditTable rows={filtered} />}
             </section>
           )}
