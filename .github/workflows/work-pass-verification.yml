@@ -1,0 +1,41 @@
+name: Work Pass Feature Verification
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  work-pass:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Server-side API syntax
+        run: npm run check:api
+      - name: Work Pass unit and security tests
+        run: node --test tests/work-pass.test.mjs tests/work-pass-top12.test.mjs tests/work-pass-video.test.mjs
+      - name: Production build
+        run: npm run build
+      - name: Install Chromium and media validation tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          npx playwright install --with-deps chromium
+      - name: Desktop and mobile browser tests with video encode
+        run: npm run test:work-pass:ui
+      - name: Evidence screenshots and exported clips
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: work-pass-test-artifacts
+          path: |
+            test-results/work-pass-*.png
+            test-results/chombutar-work-pass.*
+          if-no-files-found: ignore

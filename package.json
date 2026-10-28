@@ -27,6 +27,7 @@
     "push:vapid": "node scripts/generate-vapid.mjs",
     "check:api": "node scripts/check-api.mjs",
     "test": "node --test tests/*.test.mjs",
+    "test:work-pass:ui": "node tests/work-pass-ui.mjs",
     "test:ui": "node tests/booking-ui.mjs && node tests/hat-feed-ui.mjs && node tests/hat-create-feed-ui.mjs && node tests/showroom-ux-ui.mjs && node tests/loose-ends-ui.mjs && node tests/vibes-ui.mjs && node tests/page-tour-ui.mjs",
     "test:ui:hat-feed": "node tests/hat-feed-ui.mjs",
     "test:ui:page-tour": "node tests/page-tour-ui.mjs",

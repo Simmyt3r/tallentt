@@ -63,7 +63,7 @@ export async function createSignedWorkPassVideo({ url, username, onProgress = ()
   video.playsInline=true
   video.muted=true
   video.src=url
-  let recorder,canvasStream,sourceStream,raf=0,ctxAudio
+  let recorder,canvasStream,raf=0,ctxAudio
   const finished=new Promise((resolve,reject)=>{
     video.addEventListener('loadedmetadata',resolve,{once:true})
     video.addEventListener('error',()=>reject(new Error('Cannot load the video with cross-origin permission.')),{once:true})
@@ -90,24 +90,30 @@ export async function createSignedWorkPassVideo({ url, username, onProgress = ()
     audioSource.connect(audioSink)
     for(const track of audioSink.stream.getAudioTracks())canvasStream.addTrack(track)
     const chunks=[]
+    let bytes=0
+    let exportError=null
     recorder=new MediaRecorder(canvasStream,{mimeType,videoBitsPerSecond:2500000})
     const recorded=new Promise((resolve,reject)=>{
       recorder.ondataavailable=e=>{
-        if(e.data?.size)chunks.push(e.data)
-        if(chunks.reduce((sum,c)=>sum+c.size,0)>MAX_EXPORT_BYTES){
-          recorder.stop()
-          reject(new Error('Video export exceeded the safe file-size limit.'))
+        if(e.data?.size){chunks.push(e.data);bytes+=e.data.size}
+        if(bytes>MAX_EXPORT_BYTES){
+          exportError=new Error('Video export exceeded the safe file-size limit.')
+          if(recorder.state!=='inactive')recorder.stop()
         }
       }
       recorder.onerror=e=>reject(e.error||new Error('Video encoding failed.'))
-      recorder.onstop=()=>resolve(new Blob(chunks,{type:mimeType.split(';')[0]}))
+      recorder.onstop=()=>{
+        if(exportError)reject(exportError)
+        else resolve(new Blob(chunks,{type:mimeType.split(';')[0]}))
+      }
     })
     const draw=()=>{
       if(video.readyState>=2){
         ctx.drawImage(video,0,0,canvas.width,canvas.height)
         paintWorkPassSticker(ctx,{width:canvas.width,height:canvas.height,pass,qr})
       }
-      onProgress(Math.min(99,Math.round(video.currentTime/video.duration*100)))
+      const progress=Math.min(99,Math.round(video.currentTime/video.duration*100))
+      if(progress!==draw.previousProgress){onProgress(progress);draw.previousProgress=progress}
       if(!video.ended)raf=requestAnimationFrame(draw)
     }
     // Render an initial frame before recording, and never report completion
@@ -134,7 +140,6 @@ export async function createSignedWorkPassVideo({ url, username, onProgress = ()
     video.removeAttribute('src');video.load()
     if(recorder?.state==='recording')recorder.stop()
     canvasStream?.getTracks().forEach(track=>track.stop())
-    sourceStream?.getTracks().forEach(track=>track.stop())
     await ctxAudio?.close().catch(()=>{})
   }
 }
