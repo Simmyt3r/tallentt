@@ -20,7 +20,7 @@ jobs:
       - name: Server-side API syntax
         run: npm run check:api
       - name: Work Pass unit and security tests
-        run: node --test tests/work-pass.test.mjs tests/work-pass-top12.test.mjs tests/work-pass-top12-integration.test.mjs tests/work-pass-video.test.mjs tests/admin-work-pass-migration.test.mjs tests/admin-work-pass-signing.test.mjs
+        run: node --test tests/work-pass.test.mjs tests/work-pass-top12.test.mjs tests/work-pass-top12-integration.test.mjs tests/work-pass-video.test.mjs tests/admin-work-pass-migration.test.mjs tests/admin-work-pass-signing.test.mjs tests/work-pass-signing-source.test.mjs
       - name: Production build
         run: npm run build
       - name: Install Chromium and media validation tools
