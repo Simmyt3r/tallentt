@@ -1,11 +1,13 @@
 // Path: src/components/BentoCard.jsx
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { BookOpen, Send, Share2 } from 'lucide-react'
 import {shareContent} from '../lib/shareContent.js'
 import {useAccountOrbit} from '../lib/useAccountOrbit.js'
 import BentoCardDetailModal from './BentoCardDetailModal'
 import UserIdentity from './UserIdentity'
 import RoleCardBadge from './RoleCardBadge'
+import WorkPassDrawer from './WorkPassDrawer.jsx'
+import {workPassTier,workPassAccent} from '../../shared/workPass.js'
 import { identityFromHat } from '../lib/profile.js'
 import { getHatAccent, getShowroomTemplate } from '../lib/hatPresentation.js'
 import {
@@ -18,6 +20,8 @@ import {
 // flier image. Both layouts keep identity, role and booking controls visible.
 export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, fullWidth = false, siblingHats = [], showFeedAction = false }) {
   const [open, setOpen] = useState(false)
+  const [passOpen,setPassOpen]=useState(false)
+  const holdTimer=useRef(null)
   const [shareMessage,setShareMessage]=useState('')
   const [showOtherHats, setShowOtherHats] = useState(false)
 
@@ -31,6 +35,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
     dark: 'bg-[#182033] text-white border-[#283A51]',
   }[layout]
   const owner = identityFromHat(hat)
+  const tier=workPassTier(Number(hat.hires||0),Number(accountOrbitScore||0))
   const {node:orbitNode,score:accountOrbitScore,resolved:orbitResolved}=useAccountOrbit(hat.username)
   // "N jobs" on a talent hat (completed gigs), "N hires" on a client hat
   // (people they've successfully hired) — same underlying released-escrow
@@ -65,6 +70,16 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
       >
         <RoleCardBadge role={hat.role} className="absolute top-3 right-3 z-10" />
         {layout !== 'minimal' && <span className={`mb-2 w-fit rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${layout === 'dark' ? 'bg-white/15 text-white' : 'bg-black/5 text-black/60'}`}>{layout.replace('-', ' ')}</span>}
+        <div className="mb-2 rounded-2xl border border-black/10 bg-white/90 p-2" style={{borderTop:'3px solid '+workPassAccent(tier)}}>
+          <button type="button" aria-label={'Open '+(hat.username||'owner')+' Work Pass'}
+            onPointerDown={()=>{holdTimer.current=setTimeout(()=>setPassOpen(true),550)}}
+            onPointerUp={()=>clearTimeout(holdTimer.current)}
+            onPointerCancel={()=>clearTimeout(holdTimer.current)}
+            onPointerLeave={()=>clearTimeout(holdTimer.current)}
+            onClick={()=>setPassOpen(true)}
+            className="mb-1 rounded-full px-2 py-1 text-[10px] font-black" style={{color:workPassAccent(tier)}}>
+            {tier} Work Pass · View album
+          </button>
         <UserIdentity
           user={owner}
           className="pr-11"
@@ -92,6 +107,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
             </span>
           </div>
         </UserIdentity>
+        </div>
 
         {!flyer && layout === 'media-first' && featuredMedia && (
           <div className="order-first mb-3 overflow-hidden rounded-xl border border-black/10 bg-black/5">
@@ -221,6 +237,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
         {shareMessage&&<p role="status" className="mt-1 text-[11px] text-[#0A13E6]">{shareMessage}</p>}
       </article>
 
+      {passOpen && hat.username && <WorkPassDrawer username={hat.username} onClose={()=>setPassOpen(false)}/>}
       {open && (
         <BentoCardDetailModal
           hat={hat}

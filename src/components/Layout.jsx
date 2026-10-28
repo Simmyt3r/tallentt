@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
 import NotificationsMenu from './NotificationsMenu.jsx'
 import InboxChooser from './InboxChooser.jsx'
+import WorkPassDrawer from './WorkPassDrawer.jsx'
 
 // Facebook-style quick actions without any role-based browsing switch.
 const MENU_BUTTON =
@@ -39,6 +40,7 @@ export default function Layout({ children }) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [inboxChooserOpen, setInboxChooserOpen] = useState(false)
+  const [workPassOpen,setWorkPassOpen]=useState(false)
 
   useEffect(() => {
     localStorage.setItem('chombutar_sidebar_collapsed', collapsed ? '1' : '0')
@@ -142,21 +144,24 @@ export default function Layout({ children }) {
               <NotificationsMenu className="flex"
                 buttonClassName={QUICK_ACTION} iconSize={19} />
             </nav>
-            <Link
-              to="/profile"
-              aria-label="Profile"
-              className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-[1.5px] border-black bg-[#0A13E6] text-[12px] font-black text-white md:h-10 md:w-10 md:text-[13px]"
+            <button
+              type="button"
+              onClick={() => setWorkPassOpen(true)}
+              aria-label="Open my Work Pass and profile"
+              title="My Work Pass"
+              className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-amber-500 bg-[#0A13E6] text-[12px] font-black text-white md:h-10 md:w-10 md:text-[13px]"
             >
               {user?.avatarUrl ? (
                 <img src={cldImage(user.avatarUrl, { w: 80, h: 80 })} alt="" className="w-full h-full object-cover" />
               ) : (
                 initial
               )}
-            </Link>
+            </button>
           </div>
         </div>
       </header>
 
+      {workPassOpen && user?.username && <WorkPassDrawer username={user.username} onClose={() => setWorkPassOpen(false)} />}
       <BottomNav />
       <InboxChooser open={inboxChooserOpen} onClose={() => setInboxChooserOpen(false)}
         preferred={location.pathname.startsWith('/bento') || location.pathname.startsWith('/deals') || location.pathname.startsWith('/messages') ? 'bento' : 'associates'} />

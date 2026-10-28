@@ -70,6 +70,14 @@ export default function AssociatesSection({ data, isOwner, onRefresh }) {
     </div>}
     <div className="rounded-2xl border border-black/10 bg-white p-4">
       <h3 className="text-[14px] font-black">Accepted Associates</h3>
+      {(data.associates||[]).length>0&&<div className="mt-4 flex min-h-20 items-center justify-center overflow-x-auto pb-4" aria-label="Associate Work Pass stack">
+        {data.associates.slice(0,6).map((person,index)=><Link key={person.id} to={'/profile/'+encodeURIComponent(person.username)}
+          aria-label={'Open '+person.username+' Work Pass'}
+          className="-ml-3 first:ml-0 grid h-20 w-16 shrink-0 place-items-center overflow-hidden rounded-xl border-2 border-amber-500 bg-white shadow-md transition hover:-translate-y-2"
+          style={{transform:'rotate('+((index-2)*5)+'deg)'}}>
+          {person.avatar_url?<img src={cldImage(person.avatar_url,{w:96,h:110})} alt="" className="h-full w-full object-cover"/>:<span className="font-black">{(person.full_name||person.username)[0]}</span>}
+        </Link>)}
+      </div>}
       {!data.associates?.length&&<p className="mt-3 text-[12px] text-black/55">No Associates yet. Professional connections begin with an invitation.</p>}
       <div className="mt-3 divide-y divide-black/10">
         {(data.associates||[]).map(person=><div key={person.id} className="flex items-center gap-3 py-3">

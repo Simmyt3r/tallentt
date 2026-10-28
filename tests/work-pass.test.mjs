@@ -28,3 +28,12 @@ test('work pass reuses existing auth serverless function rather than adding anot
   assert.match(auth,/work_pass_submit_evidence/)
   assert.match(auth,/getSessionUser\(req\)/)
 })
+
+test('work pass is accessible from navbar, public profile and each Bento tile',()=>{
+  const layout=source('src/components/Layout.jsx')
+  const bento=source('src/components/BentoCard.jsx')
+  const profile=source('src/components/profile/ProfileView.jsx')
+  assert.match(layout,/setWorkPassOpen\(true\)/)
+  assert.match(bento,/setPassOpen\(true\)/)
+  assert.match(profile,/<WorkPass username=\{profileUser.username\}/)
+})

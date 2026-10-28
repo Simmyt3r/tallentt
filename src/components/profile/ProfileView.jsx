@@ -4,6 +4,7 @@ import { api } from '../../lib/api.js'
 import AssociatesSection from './AssociatesSection.jsx'
 import { isBusinessIdentity } from '../../lib/profile.js'
 import ProfileHeader from './ProfileHeader.jsx'
+import WorkPass from '../WorkPass.jsx'
 import PortfolioSection from './PortfolioSection.jsx'
 import ActiveHatsSection from './ActiveHatsSection.jsx'
 import ReviewsSection from './ReviewsSection.jsx'
@@ -160,6 +161,7 @@ export default function ProfileView({
         onShowAssociates={() => setActiveTab('associates')}
       />
 
+      {profileUser?.username && <div className="flex justify-center"><WorkPass username={profileUser.username} compact /></div>}
       {orbit && <section aria-label="Orbit credibility indicators" className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
         <div className="flex items-start justify-between gap-3">
           <div>

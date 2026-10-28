@@ -153,8 +153,8 @@ export default function AuthPage() {
         country: 'Nigeria',
         lga: category, // store category until dedicated column exists
       })
-      setSuccess('Welcome — Your spotlight is live')
-      setTimeout(() => navigate('/', { replace: true }), 900)
+      setSuccess('Welcome! Claim your Bronze Work Pass.')
+      setTimeout(() => navigate('/profile', { replace: true }), 900)
     } catch (err) {
       setError(err.message || 'Could not create account.')
     } finally {
