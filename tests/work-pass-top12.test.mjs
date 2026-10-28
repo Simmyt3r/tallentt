@@ -1,8 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { selectGoldTop12 } from '../api/_lib/workPassTop12.js'
-import { ORBIT_DEFAULTS } from '../api/_lib/accountOrbit.js'
+// Pure scoring tests don't open a DB connection; the module's SQL imports
+// still expect an environment variable when the Node module is initialized.
+process.env.DATABASE_URL ||= 'postgres://unused:unused@localhost:5432/unused'
+const { selectGoldTop12 } = await import('../api/_lib/workPassTop12.js')
+const { ORBIT_DEFAULTS } = await import('../api/_lib/accountOrbit.js')
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8')
 const owner=(n,completed=10)=>({
   id:'person-'+n,username:'talent'+n,avatar_url:'portrait.jpg',bio:'Worker',

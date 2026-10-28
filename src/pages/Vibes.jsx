@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { api, uploadVibePhoto } from '../lib/api.js'
 import { compressImageFile } from '../lib/media.js'
 import { cldImage } from '../lib/cloudinary.js'
+import { shareSignedWorkPassVideo } from '../lib/workPassVideoShare.js'
 
 const MAX_PHOTOS = 10
 const MAX_POST_BYTES = 80 * 1024 * 1024
@@ -134,6 +135,8 @@ function VibeCard({post,me,onChange,onDeleted}) {
   const [reported,setReported]=useState(false)
   const [editingPost,setEditingPost]=useState(false)
   const [editBody,setEditBody]=useState(post.body||'')
+  const [exporting,setExporting]=useState(false)
+  const [exportProgress,setExportProgress]=useState(0)
   async function like() {
     if(busy)return
     setBusy(true)
@@ -168,7 +171,19 @@ function VibeCard({post,me,onChange,onDeleted}) {
       setReported(true)
     } catch(err){setError(err.message||'Could not report this post.')}
   }
-  async function share() {
+  async function share(media = null) {
+    const clip=media?.type==='video'?media:(post.media||[]).find(item=>item.type==='video')
+    if(clip?.url){
+      if(exporting)return
+      setExporting(true);setExportProgress(0);setError('')
+      try {
+        const outcome=await shareSignedWorkPassVideo({url:clip.url,username:post.username,
+          onProgress:setExportProgress})
+        if(outcome==='downloaded')setError('Branded video saved. Share the downloaded file on WhatsApp or Instagram.')
+      }catch(err){setError(err.message||'Could not export a branded clip.')}
+      finally{setExporting(false)}
+      return
+    }
     const url=new URL('/vibes?post='+post.id,window.location.origin).toString()
     try {
       if(navigator.share) await navigator.share({title:'Vibes on chombuTar',url})
@@ -187,7 +202,7 @@ function VibeCard({post,me,onChange,onDeleted}) {
       </div>
     </header>
     {editingPost?<div className="mt-3 space-y-2"><textarea autoFocus rows={5} value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full resize-y rounded-xl border border-black/15 p-3 text-[13px]"/><div className="flex gap-2"><button type="button" disabled={busy||(!editBody.trim()&&!post.media?.length)} onClick={savePost} className="rounded-full bg-[#0A13E6] px-4 py-2 text-[12px] text-white">Save changes</button><button type="button" onClick={()=>setEditingPost(false)} className="text-[12px]">Cancel</button></div></div> : post.body&&<p className="mt-3 whitespace-pre-wrap break-words text-[14px] leading-relaxed">{post.body}{post.edited_at&&<span className="ml-1 text-[10px] text-black/40">(edited)</span>}</p>}
-    <VibesMediaGallery media={post.media||[]} owner={post.full_name||post.username}/>
+    <VibesMediaGallery media={post.media||[]} owner={post.full_name||post.username} onShareVideo={share} sharing={exporting}/>
     <div className="mt-3 grid grid-cols-3 gap-1 border-t border-black/10 pt-2">
       <button type="button" onClick={like} disabled={busy} aria-pressed={post.liked_by_me}
         aria-label={post.liked_by_me?'Unlike Vibe':'Like Vibe'}
@@ -198,9 +213,9 @@ function VibeCard({post,me,onChange,onDeleted}) {
         className="flex min-h-11 items-center justify-center gap-2 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB]">
         <MessageCircle size={17}/>{post.replies||0} <span className="hidden sm:inline">Replies</span>
       </button>
-      <button type="button" onClick={share}
-        className="flex min-h-11 items-center justify-center gap-2 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB]">
-        <Share2 size={17}/> Share
+      <button type="button" onClick={()=>share()} disabled={exporting}
+        className="flex min-h-11 items-center justify-center gap-2 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB] disabled:opacity-50">
+        <Share2 size={17}/> {exporting ? 'Branding '+exportProgress+'%' : (post.media||[]).some(m=>m.type==='video') ? 'Share branded clip' : 'Share'}
       </button>
     </div>
     {error&&<p role="status" className="mt-2 text-[11px] text-black/60">{error}</p>}

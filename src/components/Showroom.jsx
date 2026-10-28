@@ -10,6 +10,7 @@ import AddShowroomMedia from './AddShowroomMedia'
 import ShowroomDetailModal from './ShowroomDetailModal'
 import ShowroomPost from './ShowroomPost'
 import ShowroomReportDialog from './ShowroomReportDialog.jsx'
+import { shareSignedWorkPassVideo } from '../lib/workPassVideoShare.js'
 
 // How many posts are kept mounted above/below the ones on screen, and how far
 // ahead of the last visible post the endless sequence is topped up.
@@ -441,6 +442,15 @@ export default function Showroom() {
   // Feed and modal both come through here → the same canonical URL.
   const handleShare = useCallback(
     async (hat) => {
+      const clip=(hat.media||[]).find(item=>item.type==='video'&&item.url)
+      if(clip){
+        notify('Preparing a video with its signed Work Pass badge…')
+        try{
+          const outcome=await shareSignedWorkPassVideo({url:clip.url,username:hat.username})
+          if(outcome==='downloaded')notify('Branded video saved. Share the downloaded file.')
+        }catch(err){notify(err.message||'Could not export branded video.')}
+        return
+      }
       const result = await shareShowroomPost({ id: hat.id, name: getPrimaryIdentity(identityFromHat(hat)) })
       if (result === 'copied') notify('Link copied')
       else if (result === 'failed') notify("Couldn't copy the link")

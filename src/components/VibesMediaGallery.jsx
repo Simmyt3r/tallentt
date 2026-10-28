@@ -6,7 +6,7 @@ import {isVideoSaved,offlineVideoUrl,saveVideo} from '../lib/offlineVideo.js'
 
 // Opening any attachment gives a single gallery for the entire post. Videos
 // only load their first bytes when opened, preserving mobile data.
-export default function VibesMediaGallery({media=[],owner='subscriber'}){
+export default function VibesMediaGallery({media=[],owner='subscriber',onShareVideo,sharing=false}){
   const [active,setActive]=useState(null)
   const [offlineSaved,setOfflineSaved]=useState(false)
   const [saving,setSaving]=useState(false)
@@ -90,6 +90,10 @@ export default function VibesMediaGallery({media=[],owner='subscriber'}){
             className="absolute right-0 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-black/70"><ChevronRight/></button></>}
         </div>
         {current.type==='video'&&<div className="flex shrink-0 flex-wrap items-center justify-center gap-3 text-[12px]">
+          {onShareVideo&&<button type="button" disabled={sharing} onClick={()=>onShareVideo(current)}
+            className="min-h-10 rounded-full border border-amber-300 px-4 font-bold disabled:opacity-50">
+            {sharing?'Branding video…':'Share video with signed Work Pass QR'}
+          </button>}
           <button type="button" disabled={saving||offlineSaved} onClick={downloadOffline}
             className="min-h-10 rounded-full border border-white/40 px-4 font-bold disabled:opacity-60">
             {offlineSaved?'Saved for offline playback':saving?'Saving video…':'Save video offline'}
