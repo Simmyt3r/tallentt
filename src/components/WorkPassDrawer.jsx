@@ -5,7 +5,7 @@ export default function WorkPassDrawer({username,onClose}){
   useEffect(()=>{
     const before=document.body.style.overflow
     document.body.style.overflow='hidden'
-    const key=e=>{if(e.key==='Escape' && !e.defaultPrevented && !e.target?.closest?.('[data-profile-photo-viewer]'))onClose()}
+    const key=e=>{if(e.key==='Escape' && !e.defaultPrevented && !document.querySelector('[data-profile-photo-viewer]') && !e.target?.closest?.('[data-profile-photo-viewer]'))onClose()}
     window.addEventListener('keydown',key)
     dialogRef.current?.focus()
     return()=>{window.removeEventListener('keydown',key);document.body.style.overflow=before}
