@@ -36,7 +36,11 @@ This is a **highly constrained lean budget**. Full Live streaming, moderation co
 - [07-OPEN-DECISIONS-AND-EVIDENCE.md](07-OPEN-DECISIONS-AND-EVIDENCE.md): evidence request and sign-off checklist.
 - [08-TRIPARTITE-HEADS-OF-TERMS-DRAFT.md](08-TRIPARTITE-HEADS-OF-TERMS-DRAFT.md): non-binding commercial term-sheet outline.
 - [09-FINANCIAL-MODEL-GUIDE.md](09-FINANCIAL-MODEL-GUIDE.md): workbook methodology and update instructions.
-- [ChombuTar_Lean_Funding_Model.xlsx](ChombuTar_Lean_Funding_Model.xlsx): editable formula-based financial workbook.
+- [Lean_Budget.csv](Lean_Budget.csv): Excel-readable line-item lean budget (repository copy).
+- [Six_Month_Cashflow.csv](Six_Month_Cashflow.csv): Excel-readable six-month zero-revenue runway.
+- [Shareholder_Contribution_Register.csv](Shareholder_Contribution_Register.csv): Excel-readable contribution evidence register.
+- [Compliance_Tracker.csv](Compliance_Tracker.csv): Excel-readable regulatory and release tracker.
+- **ChombuTar_Lean_Funding_Model.xlsx:** a separate downloadable, formula-based 11-tab workbook accompanies this review; binary file is not yet stored in this repository.
 
 ## Document hierarchy and use
 These notes record proposed arrangements, **not legal rights**, until approved and executed. A qualified Nigerian solicitor should prepare definitive investment/shareholders/IP documents, verify CAC filings, consumer terms, data protection, tax and applicable financial-services restrictions. Technical sign-off is separate from legal sign-off.

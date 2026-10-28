@@ -1,6 +1,6 @@
 # Lean Financial Workbook — Editing and Interpretation
 
-**File:** ChombuTar_Lean_Funding_Model.xlsx. **Date:** 28 October 2026.
+**Workbook generated separately:** ChombuTar_Lean_Funding_Model.xlsx (11 sheets; downloadable via the related ChatGPT deliverable). **Repository spreadsheet tables:** Lean_Budget.csv, Six_Month_Cashflow.csv, Shareholder_Contribution_Register.csv, Compliance_Tracker.csv. CSVs open in Excel but do not preserve cross-sheet Excel formulas. **Date:** 28 October 2026.
 
 ## Workbook tabs
 - **Overview:** six-month cash requirement, funding gap, reported prior contributions and throughput example.

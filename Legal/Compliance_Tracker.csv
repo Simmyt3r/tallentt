@@ -1,0 +1,12 @@
+Priority,Requirement,Owner,Status,Preconditions
+P0,CAC incorporation and registers,Founder and Nigerian counsel,In progress,Verify legal operating entity
+P0,Shareholders and investment agreements,Three parties and counsel,Not signed,Agree equity and funding terms
+P0,Silabs technology agreement and IP rights,Silabs and new company,Not signed,Asset and licence inventory
+P0,Complete user terms and policy acceptance,Product and counsel,Incomplete,Versioned main terms and separate consents
+P0,Privacy and data retention governance,Privacy lead and counsel,Incomplete,Review NDPA duties and processors
+P0,Payments and wallet escrow regulatory review,Finance and counsel,Not verified,Confirm licensed payment arrangements
+P0,Production payment 30 and 70 lifecycle tests,Silabs and independent tester,Not verified,Reconcile collection payout refunds disputes
+P0,Live server TURN and video moderation beta tests,Silabs and trust team,Not verified,Two-network verification and hard cost limits
+P1,Trademark search and registration strategy,Counsel and founder,Not verified,Check classes and correct filing owner
+P1,Ambassador agreement and advertising approvals,Marketing and counsel,Not signed,Compensation and advertising claims
+P1,Financial controls and six-month cash policy,Finance and directors,Proposed,Approve budget and signatories

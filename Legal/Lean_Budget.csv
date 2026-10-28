@@ -1,0 +1,23 @@
+Category,Item,NGN,Notes
+Launch,CAC legal trademark allowance,150000,Estimated not quoted
+Launch,Security QA compliance remediation,200000,Estimated not quoted
+Launch,Live setup and remote tests,100000,Estimated not quoted
+Launch,Ambassador beta and outreach,200000,Estimated not quoted
+Launch,Domain brand and admin setup,150000,Estimated not quoted
+Launch,ONE TIME TOTAL,800000,Five launch items
+Monthly,Vercel and app API hosting,27000,USD based subject to usage
+Monthly,Neon database and backups,15000,Usage allowance / estimate
+Monthly,Cloudinary and video media,27000,Could exceed if paid plan required
+Monthly,Live VPS and TURN,60000,Capacity and concurrent viewers control
+Monthly,Media bandwidth and processing reserve,31000,Strict usage monitoring
+Monthly,Silabs technical service allowance,120000,Unagreed future maintenance contract
+Monthly,Subscriber support and moderation,80000,Operating plan
+Monthly,Advertisement and acquisition,75000,Operating plan
+Monthly,Bookkeeping compliance administration,50000,Operating plan
+Monthly,MONTHLY TOTAL,485000,Nine monthly items
+Runway,Six months fixed expense,2910000,6 months x 485000
+Runway,Total launch plus six-month opex,3710000,Without earned income
+Runway,Contingency 20 percent,742000,Working assumption
+Runway,Minimum planning capital,4452000,Not pledged by investor
+Runway,Fundraising discussion target,5000000,Not committed
+Runway,Buffer over contingency,548000,Modelled spare allowance
