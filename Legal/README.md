@@ -36,6 +36,7 @@ This is a **highly constrained lean budget**. Full Live streaming, moderation co
 - [07-OPEN-DECISIONS-AND-EVIDENCE.md](07-OPEN-DECISIONS-AND-EVIDENCE.md): evidence request and sign-off checklist.
 - [08-TRIPARTITE-HEADS-OF-TERMS-DRAFT.md](08-TRIPARTITE-HEADS-OF-TERMS-DRAFT.md): non-binding commercial term-sheet outline.
 - [09-FINANCIAL-MODEL-GUIDE.md](09-FINANCIAL-MODEL-GUIDE.md): workbook methodology and update instructions.
+- [ChombuTar_Lean_Funding_Summary.xlsx](ChombuTar_Lean_Funding_Summary.xlsx): native formula-driven Excel summary, committed to this repository.
 - [Lean_Budget.csv](Lean_Budget.csv): Excel-readable line-item lean budget (repository copy).
 - [Six_Month_Cashflow.csv](Six_Month_Cashflow.csv): Excel-readable six-month zero-revenue runway.
 - [Shareholder_Contribution_Register.csv](Shareholder_Contribution_Register.csv): Excel-readable contribution evidence register.
