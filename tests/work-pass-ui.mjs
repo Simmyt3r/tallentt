@@ -56,7 +56,8 @@ try{
       const send=body=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)})
       if(url.pathname==='/api/auth'){
         if(action==='work_pass')return send({token:qrPayload,signatureStatus:'signed',tier:'Gold',
-          user:{username:'studio'},completedJobs:12,orbit:76})
+          user:{username:'studio',name:'Studio Designer',role:'talent',headline:'Visual storyteller',skills:['Photography','Editing']},
+          completedJobs:12,successfulHires:3,orbit:76,evidence:[],endorsements:[],robots:[]})
         if(action==='me'||!action)return send({user})
         return send({count:0,notifications:[],user})
       }
@@ -82,6 +83,32 @@ try{
       'Top 12 must show only the eligible server item')
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'Top 12 must not overflow the viewport')
+    // Exercise the same Work Pass drawer users open from the navbar,
+    // including the real logo asset, profile identity, signed QR and the
+    // downloadable story artwork on desktop and mobile sizes.
+    await page.getByRole('button',{name:'Open my Work Pass and profile'}).click()
+    const workPass=page.getByRole('dialog',{name:'ChombuTar Work Pass'})
+    await workPass.getByRole('heading',{name:'Studio Designer'}).waitFor()
+    assert.equal(await workPass.getByText('Gold Work Pass',{exact:true}).count(),1)
+    assert.equal(await workPass.getByText('76',{exact:true}).count(),1)
+    assert.equal(await workPass.getByText('Signed Work Pass',{exact:true}).count(),1)
+    const logo=workPass.locator('img[src="/logo.png"]')
+    assert.equal(await logo.count(),1,'Use actual ChombuTar logo asset')
+    assert.equal(await logo.evaluate(img=>img.complete&&img.naturalWidth>0),true,'Brand logo must load')
+    const hero=workPass.locator('.workpass-hero')
+    assert.match(await hero.evaluate(el=>getComputedStyle(el).backgroundImage),/rgb\\(10, 19, 230\\)/)
+    await page.screenshot({path:'test-results/work-pass-card-'+width+'.png',animations:'disabled'})
+    if(width===1280){
+      const artDownloadPromise=page.waitForEvent('download',{timeout:30000})
+      await workPass.getByRole('button',{name:'Flex My Work Pass'}).click()
+      const artDownload=await artDownloadPromise
+      assert.match(artDownload.suggestedFilename(),/chombutar-work-pass-studio\\.png/)
+      const png=await readFile(await artDownload.path())
+      assert.equal(png.toString('ascii',1,4),'PNG')
+      assert.equal(png.readUInt32BE(16),1080)
+      assert.equal(png.readUInt32BE(20),1920)
+    }
+    await workPass.getByRole('button',{name:'Close Work Pass'}).click()
     if(width===1280){
       const downloadPromise=page.waitForEvent('download',{timeout:90000})
       const rendering=page.evaluate(async()=>{
