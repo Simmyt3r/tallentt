@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { BadgeCheck, BriefcaseBusiness, CircleHelp, Crown, Download, ExternalLink, Fingerprint, Image as ImageIcon, Orbit, ScanQrCode, Share2, ShieldCheck, Users, UserRound, X } from 'lucide-react'
 import QRCode from 'qrcode'
 import WorkPassRobots from './WorkPassRobots.jsx'
+import ProfilePhotoViewer from './ProfilePhotoViewer.jsx'
 import { api } from '../lib/api.js'
 import { cldImage } from '../lib/cloudinary.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -48,6 +49,7 @@ export default function WorkPass({username,onClose,compact=false}) {
   const [qr,setQr]=useState('')
   const [busy,setBusy]=useState(true)
   const [exporting,setExporting]=useState(false)
+  const [photoOpen,setPhotoOpen]=useState(false)
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
   useEffect(()=>{
@@ -103,10 +105,15 @@ export default function WorkPass({username,onClose,compact=false}) {
             :<span className="flex shrink-0 items-center gap-1 rounded-full border border-white/25 bg-white/10 px-3 py-2 text-[9px] font-extrabold uppercase tracking-wider"><Fingerprint size={12}/> Digital ID</span>}
         </div>
         <div className="relative z-10 mt-8 flex min-w-0 items-center gap-4 sm:mt-10 sm:gap-6">
-          <div className="h-[102px] w-[102px] shrink-0 rounded-full border-[3px] p-[4px] shadow-[0_0_0_5px_rgba(255,255,255,.08)] sm:h-[129px] sm:w-[129px]" style={{borderColor:accent}}>
-            {avatar?<img src={avatar} alt={nameOf(owner)+' profile photograph'} className="h-full w-full rounded-full bg-white object-cover"/>
-              :<span className="grid h-full w-full place-items-center rounded-full bg-[#F7F3EB] text-[36px] font-black text-[#0A13E6]">{nameOf(owner).slice(0,1).toUpperCase()}</span>}
-          </div>
+          {avatar?<button type="button" aria-label={'View '+nameOf(owner)+' full profile photo'}
+            onClick={()=>setPhotoOpen(true)} title="View full profile picture"
+            className="group relative h-[102px] w-[102px] shrink-0 cursor-zoom-in rounded-full border-[3px] p-[4px] shadow-[0_0_0_5px_rgba(255,255,255,.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:h-[129px] sm:w-[129px]"
+            style={{borderColor:accent}}>
+            <img src={avatar} alt={nameOf(owner)+' profile photograph'} className="h-full w-full rounded-full bg-white object-cover"/>
+            <span aria-hidden="true" className="absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[11px] font-black text-transparent transition-colors group-hover:bg-black/45 group-hover:text-white">View photo</span>
+          </button>:<div className="h-[102px] w-[102px] shrink-0 rounded-full border-[3px] p-[4px] shadow-[0_0_0_5px_rgba(255,255,255,.08)] sm:h-[129px] sm:w-[129px]" style={{borderColor:accent}}>
+            <span className="grid h-full w-full place-items-center rounded-full bg-[#F7F3EB] text-[36px] font-black text-[#0A13E6]">{nameOf(owner).slice(0,1).toUpperCase()}</span>
+          </div>}
           <div className="min-w-0">
             <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#151727]" style={{backgroundColor:accent}}><Crown size={12}/>{data.tier} Work Pass</span>
             <h2 className="mt-3 break-words text-[22px] font-black leading-[1.08] tracking-[-.05em] sm:text-[30px]">{nameOf(owner)}</h2>
@@ -170,5 +177,6 @@ export default function WorkPass({username,onClose,compact=false}) {
       <button type="button" onClick={()=>window.print()} className="inline-flex min-h-10 items-center rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold">Print card</button>
     </div>}
     {notice&&<p role="status" className="mt-2 text-xs font-semibold text-[#0A13E6]">{notice}</p>}
+    {photoOpen&&owner?.avatarUrl&&<ProfilePhotoViewer src={owner.avatarUrl} name={nameOf(owner)} onClose={()=>setPhotoOpen(false)}/>}
   </section>
 }
