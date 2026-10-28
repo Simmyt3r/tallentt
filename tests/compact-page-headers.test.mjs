@@ -27,16 +27,23 @@ const primaryScreens = [
   'src/components/HatForm.jsx',
 ]
 
-test('primary authenticated screens use the shared compact sticky header', () => {
+test('primary screens keep classic flexible page headers with title and search', () => {
   for (const path of primaryScreens) {
     assert.match(read(path), /CompactPageHeader/, `${path} should use CompactPageHeader`)
   }
 
   const header = read('src/components/CompactPageHeader.jsx')
-  assert.match(header, /sticky top-\[57\.5px\] md:top-16/)
-  assert.match(header, /h-\[52px\]/)
-  assert.match(header, /<h1[^>]*>\{title\}<\/h1>/)
+  assert.match(header, /sticky top-14 md:top-16 z-10/)
+  assert.match(header, /flex w-full flex-wrap items-center justify-between gap-3/)
+  assert.doesNotMatch(header, /h-\\[52px\\]/)
+  assert.match(header, /<h1[^>]*>\\{title\\}<\\/h1>/)
   assert.match(header, /<DiscoverySearch/)
+
+  // Preserve the original global top bar, desktop sidebar, and mobile tabs.
+  const layout = read('src/components/Layout.jsx')
+  assert.match(layout, /<DesktopSidebar/)
+  assert.match(layout, /<BottomNav/)
+  assert.match(layout, /<NotificationsMenu/)
 })
 
 test('global search from screens without a local list filter opens Showroom with the query', () => {
