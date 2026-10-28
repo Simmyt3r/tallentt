@@ -641,9 +641,11 @@ export default function Showroom() {
           placeholder="Search Showroom…" className="ml-auto w-full max-w-[min(52vw,340px)]" />
       </div>
 
+      {view === 'top12' && <p role="status" className="mt-2 text-xs font-semibold text-amber-800">Top 12 is reserved for Gold and Diamond Work Passes, ranked by verified completed jobs and Orbit activity. No paid placements.</p>}
       <div className="flex gap-2 overflow-x-auto py-2" aria-label="Showroom discovery views">
         {[
           ['for_you', 'For You'],
+          ['top12', '🏆 Top 12 · Gold+'],
           ['trending', 'Trending'],
           ['new', 'New & Rising'],
           ['near', 'Near You'],
