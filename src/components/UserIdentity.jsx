@@ -59,6 +59,7 @@ export default function UserIdentity({
   nameClassName = NAME_CLASS,
   usernameClassName = USERNAME_CLASS,
   avatarBadge = null,
+  onAvatarClick = null,
   nameBadge = null,
   nameAs: NameTag = 'div',
   nameId,
@@ -72,17 +73,26 @@ export default function UserIdentity({
   const avatarLabel = primary ? `View ${primary}'s profile` : undefined
   const avatarName = identity.fullName || identity.username || fallbackLabel
 
-  const avatar = showAvatar ? (
+  const avatarContents = <><Avatar src={identity.avatarUrl} name={avatarName} className={avatarClassName} />{avatarBadge}</>
+  // Only explicit profile surfaces opt in to photo viewing. Other avatar
+  // links still navigate to the profile and keep their event isolation.
+  const avatar = !showAvatar ? null : (onAvatarClick && identity.avatarUrl) ? (
+    <button type="button" onClick={event=>{event.stopPropagation();onAvatarClick()}}
+      aria-label={`View ${avatarName}'s full profile photo`}
+      data-identity="avatar"
+      className="relative shrink-0 cursor-zoom-in rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6]">
+      {avatarContents}
+    </button>
+  ) : (
     <ProfileLink
       user={identity}
       ariaLabel={avatarLabel}
       className="relative shrink-0 rounded-full"
       data-identity="avatar"
     >
-      <Avatar src={identity.avatarUrl} name={avatarName} className={avatarClassName} />
-      {avatarBadge}
+      {avatarContents}
     </ProfileLink>
-  ) : null
+  )
 
   if (layout === 'inline') {
     return (
