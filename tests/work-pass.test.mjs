@@ -18,7 +18,8 @@ test('proof requires both a completed escrow and authenticated signed media',()=
   assert.match(backend,/claimHatMediaPermits/)
   assert.match(backend,/client_id=\$2 AND status='pending'/)
   assert.match(backend,/status='approved'/)
-  assert.match(backend,/signBytes\('sha256'/)
+  assert.match(backend,/signWorkPassClaim\(claim\)/)
+  assert.match(source('api/_lib/workPassSigning.js'),/cryptoSign\('sha256'/)
   assert.match(backend,/manufacturer_verified BOOLEAN|manufacturer_verified/)
 })
 test('work pass reuses existing auth serverless function rather than adding another one',()=>{
