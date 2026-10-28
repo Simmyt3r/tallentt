@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Download, Share2, X } from 'lucide-react'
 import QRCode from 'qrcode'
+import WorkPassRobots from './WorkPassRobots.jsx'
 import { api } from '../lib/api.js'
 import { workPassAccent, WORK_PASS_DISCLAIMER } from '../../shared/workPass.js'
 
@@ -88,6 +89,7 @@ export default function WorkPass({ username, onClose, compact = false }) {
         <p className="mt-4 text-[10px] text-black/50">{data.disclaimer||WORK_PASS_DISCLAIMER}</p>
       </div>
     </div>}
+    {data&&compact&&data.user.role!=='client'&&<WorkPassRobots robots={data.robots} onCreated={robot=>setData(prev=>({...prev,robots:[robot,...prev.robots]}))}/>}
     {data&&<div className="mt-3 flex flex-wrap gap-2">
       <button type="button" onClick={share} className="inline-flex items-center gap-1 rounded-full bg-black px-3 py-2 text-xs font-bold text-white"><Share2 size={14}/> Share</button>
       <button type="button" onClick={flex} className="inline-flex items-center gap-1 rounded-full border border-black/20 px-3 py-2 text-xs font-bold"><Download size={14}/> Flex My Work Pass</button>
