@@ -18,6 +18,8 @@ export default function ProfilePhotoViewer({src,name='Member',onClose}){
   const gesture=useRef(null)
   const suppressBackdropClick=useRef(false)
   const closeButton=useRef(null)
+  const latestOnClose=useRef(onClose)
+  latestOnClose.current=onClose
   const label=String(name||'Member')
   const fullImage=cldImage(src,{w:2048,h:2048,crop:'limit'})
 
@@ -35,6 +37,21 @@ export default function ProfilePhotoViewer({src,name='Member',onClose}){
     positionRef.current=origin();setPosition(origin())
     touches.current.clear();gesture.current=null
     setLoading(true);setFailed(false)
+  },[src])
+  // Capture Escape globally while the viewer is open: after a Reset/Zoom
+  // button becomes disabled, browsers may move focus to <body>, outside the
+  // modal. The topmost viewer must still close before the underlying drawer.
+  useEffect(()=>{
+    if(!src)return undefined
+    const escape=e=>{
+      if(e.key!=='Escape')return
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation?.()
+      latestOnClose.current?.()
+    }
+    window.addEventListener('keydown',escape,true)
+    return()=>window.removeEventListener('keydown',escape,true)
   },[src])
   useEffect(()=>{
     if(!src)return undefined
