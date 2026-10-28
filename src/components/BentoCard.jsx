@@ -35,8 +35,8 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
     dark: 'bg-[#182033] text-white border-[#283A51]',
   }[layout]
   const owner = identityFromHat(hat)
-  const tier=workPassTier(Number(hat.hires||0),Number(accountOrbitScore||0))
   const {node:orbitNode,score:accountOrbitScore,resolved:orbitResolved}=useAccountOrbit(hat.username)
+  const tier=workPassTier(Number(hat.hires||0),Number(accountOrbitScore||0))
   // "N jobs" on a talent hat (completed gigs), "N hires" on a client hat
   // (people they've successfully hired) — same underlying released-escrow
   // count from the API, the label is the only thing that differs by role.
