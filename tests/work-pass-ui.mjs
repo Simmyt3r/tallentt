@@ -46,6 +46,14 @@ try{
     const qrPayload='CTWP1.test.'+Buffer.from(JSON.stringify({
       username:'studio',tier:'Gold',expiresAt:Math.floor(Date.now()/1000)+3600,
     })).toString('base64url')+'.'+Buffer.from('test-signed-claim').toString('base64url')
+    // Self-contained visual media fixtures; no reliance on third-party hosts.
+    const portrait='<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500"><defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#BBC8FF"/><stop offset="1" stop-color="#182B87"/></linearGradient></defs><rect width="500" height="500" fill="url(#bg)"/><path d="M70 500Q92 315 250 305Q408 315 430 500" fill="#1E264D"/><circle cx="250" cy="207" r="119" fill="#9C6549"/><path d="M129 201Q123 54 250 61Q384 69 371 205Q351 133 250 133Q153 134 129 201" fill="#151B32"/><path d="M210 231h24m41 0h24" stroke="#302421" stroke-width="7" stroke-linecap="round"/><path d="M226 274Q251 293 277 274" fill="none" stroke="#693C33" stroke-width="6" stroke-linecap="round"/></svg>'
+    await page.route('**/fixture-portrait.svg',route=>route.fulfill({
+      status:200,contentType:'image/svg+xml',body:portrait,
+    }))
+    await page.route('**/fixture-evidence.svg',route=>route.fulfill({
+      status:200,contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="400" height="320"><rect width="400" height="320" rx="16" fill="#0A13E6"/><rect x="50" y="56" width="300" height="208" rx="18" fill="#F7F3EB"/><rect x="73" y="84" width="255" height="22" rx="5" fill="#ADB4F3"/><rect x="73" y="126" width="110" height="90" rx="10" fill="#0A13E6"/><rect x="198" y="130" width="110" height="10" rx="4" fill="#ADB4F3"/><rect x="198" y="153" width="110" height="10" rx="4" fill="#ADB4F3"/></svg>',
+    }))
     await page.route('**/fixture-video.mp4',route=>route.fulfill({
       status:200,contentType:'video/mp4',
       headers:{'access-control-allow-origin':'*','accept-ranges':'bytes'},body:clip,
@@ -56,8 +64,8 @@ try{
       const send=body=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)})
       if(url.pathname==='/api/auth'){
         if(action==='work_pass')return send({token:qrPayload,signatureStatus:'signed',tier:'Gold',
-          user:{username:'studio',name:'Studio Designer',role:'talent',headline:'Visual storyteller',skills:['Photography','Editing']},
-          completedJobs:12,successfulHires:3,orbit:76,evidence:[],endorsements:[],robots:[]})
+          user:{username:'studio',name:'Studio Designer',role:'talent',headline:'Visual storyteller',avatarUrl:'/fixture-portrait.svg',skills:['Photography','Editing']},
+          completedJobs:12,successfulHires:3,orbit:76,evidence:[{id:'evidence-1',image_url:'/fixture-evidence.svg'}],endorsements:[],robots:[]})
         if(action==='me'||!action)return send({user})
         return send({count:0,notifications:[],user})
       }
@@ -94,7 +102,12 @@ try{
     assert.equal(await workPass.getByText('Signed Work Pass',{exact:true}).count(),1)
     const logo=workPass.locator('img[src="/logo.png"]')
     assert.equal(await logo.count(),1,'Use actual ChombuTar logo asset')
+    await logo.evaluate(img=>img.decode())
     assert.equal(await logo.evaluate(img=>img.complete&&img.naturalWidth>0),true,'Brand logo must load')
+    const portraitImage=workPass.getByRole('img',{name:'Studio Designer profile photograph'})
+    await portraitImage.evaluate(img=>img.decode())
+    assert.ok(await portraitImage.evaluate(img=>img.naturalWidth>0),'User profile image must render')
+    assert.equal(await workPass.getByRole('img',{name:'Customer-approved work 1'}).count(),1)
     const hero=workPass.locator('.workpass-hero')
     assert.match(await hero.evaluate(el=>getComputedStyle(el).backgroundImage),/rgb\(10, 19, 230\)/)
     await page.screenshot({path:'test-results/work-pass-card-'+width+'.png',animations:'disabled'})
