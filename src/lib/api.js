@@ -66,6 +66,7 @@ export const api = {
   getMyOrbitScore: () => request('/api/auth?action=orbit'),
   getWorkPass: (username) => request('/api/auth?action=work_pass&username='+encodeURIComponent(username),{cache:'no-store'}),
   getWorkPassKey: () => request('/api/auth?action=work_pass_key',{cache:'no-store'}),
+  getDealWorkPassEvidence: (id) => request('/api/auth?action=work_pass_deal_evidence&escrow_id='+encodeURIComponent(id),{cache:'no-store'}),
   workPassAction: (body) => request('/api/auth',{method:'POST',body:JSON.stringify(body)}),
   getAdminFinanceSummary: () => request('/api/admin?action=finance_summary',{cache:'no-store'}),
   getAdminLiabilityAudit: (kind,cursor) => request('/api/admin?'+new URLSearchParams({action:'finance_liability_audit',kind,...(cursor?{cursor}:{})}),{cache:'no-store'}),

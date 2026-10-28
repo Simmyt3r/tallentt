@@ -141,3 +141,13 @@ export async function registerWorkPassRobot(userId,body){
     [userId,manufacturer,serial,displayName,capabilities])
   return {robot:rows[0],message:'Robot registered; manufacturer verification is pending.'}
 }
+
+export async function getDealWorkPassEvidence(userId,escrowId){
+  await ensureSchema()
+  if(!uuid.test(escrowId))throw invalid(400,'Invalid deal.')
+  const {rows:deal}=await query('SELECT id FROM escrows WHERE id=$1 AND (client_id=$2 OR talent_id=$2)',[escrowId,userId])
+  if(!deal.length)throw invalid(404,'Deal not found.')
+  const {rows}=await query(`SELECT id,escrow_id,image_url,image_sha256,status,client_note,captured_at,reviewed_at
+    FROM work_pass_evidence WHERE escrow_id=$1`,[escrowId])
+  return {evidence:rows[0]||null}
+}

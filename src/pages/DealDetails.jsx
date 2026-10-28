@@ -8,6 +8,7 @@ import DealQrCheckpoint from '../components/DealQrCheckpoint.jsx'
 import EscrowFundingCard from '../components/EscrowFundingCard.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
+import WorkPassEvidence from '../components/WorkPassEvidence.jsx'
 
 function money(value, currency = 'NGN') {
   if (value == null) return '—'
@@ -244,6 +245,8 @@ export default function DealDetails() {
               showHistory
             />
           )}
+
+          <WorkPassEvidence thread={thread} />
 
           {thread.contacts_unlocked && (thread.peer?.email || thread.peer?.phone) && (
             <section className="rounded-[16px] border border-black/10 bg-white p-4" aria-label="Unlocked contact">

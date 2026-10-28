@@ -21,6 +21,7 @@ import Notifications from './pages/Notifications.jsx'
 import Settings from './pages/Settings.jsx'
 import MyDeals from './pages/MyDeals.jsx'
 import DealDetails from './pages/DealDetails.jsx'
+import VerifyWorkPass from './pages/VerifyWorkPass.jsx'
 import DisputeCenter from './pages/DisputeCenter.jsx'
 import LiveHub from './pages/Live/LiveHub.jsx'
 import StageRoom from './pages/Live/StageRoom.jsx'
@@ -58,6 +59,7 @@ export default function App() {
     <Route path="/create" element={<ProtectedRoute><HatForm /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="/profile/:username" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
+    <Route path="/work-pass/verify" element={<ProtectedRoute><VerifyWorkPass /></ProtectedRoute>} />
     <Route path="/deals" element={<ProtectedRoute><MyDeals /></ProtectedRoute>} />
     <Route path="/deals/:dealId" element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
     <Route path="/my-applications" element={<Navigate to="/deals?role=talent&tab=outgoing" replace />} />

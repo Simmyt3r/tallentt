@@ -8,7 +8,7 @@
 // back down with real headroom instead of just barely re-fitting.
 import { query, getClient } from '../_lib/db.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
-import {getWorkPass,workPassKey,submitWorkPassEvidence,reviewWorkPassEvidence,registerWorkPassRobot} from '../_lib/workPass.js'
+import {getWorkPass,workPassKey,submitWorkPassEvidence,reviewWorkPassEvidence,registerWorkPassRobot,getDealWorkPassEvidence} from '../_lib/workPass.js'
 import {dispatchDailyFameDigests} from '../_lib/notificationDigest.js'
 import {containsContactBypass} from '../_lib/showroomEligibility.js'
 import {
@@ -55,6 +55,12 @@ export default async function handler(req, res) {
       try {return json(res,200,await dispatchDailyFameDigests())}
       catch(error){console.error('notification digest failed:',error.code||error.message)
         return json(res,500,{error:'Daily digest dispatch failed.'})}
+    }
+    if (action === 'work_pass_deal_evidence') {
+      const session=getSessionUser(req)
+      if(!session?.sub)return json(res,401,{error:'Sign in to see deal evidence.'})
+      try{return json(res,200,await getDealWorkPassEvidence(session.sub,url.searchParams.get('escrow_id')))}
+      catch(err){return json(res,err.status||500,{error:err.status?err.message:'Could not load deal evidence.'})}
     }
     if (action === 'work_pass_key') {
       try{return json(res,200,workPassKey())}catch(err){return json(res,503,{error:'Work Pass signing key unavailable.'})}

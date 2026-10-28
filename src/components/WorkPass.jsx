@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BadgeCheck, Copy, Download, Share2, Star, X } from 'lucide-react'
+import { Download, Share2, X } from 'lucide-react'
 import QRCode from 'qrcode'
 import { api } from '../lib/api.js'
 import { workPassAccent, WORK_PASS_DISCLAIMER } from '../../shared/workPass.js'
@@ -94,6 +94,8 @@ export default function WorkPass({ username, onClose, compact = false }) {
       <Link to="/profile" onClick={onClose} className="rounded-full border border-black/20 px-3 py-2 text-xs font-bold">Profile</Link>
       <Link to="/settings" onClick={onClose} className="rounded-full border border-black/20 px-3 py-2 text-xs font-bold">Settings</Link>
       <Link to="/wallet" onClick={onClose} className="rounded-full border border-black/20 px-3 py-2 text-xs font-bold">Money</Link>
+      <Link to="/work-pass/verify" onClick={onClose} className="rounded-full border border-black/20 px-3 py-2 text-xs font-bold">Verify QR</Link>
+      <button type="button" onClick={()=>window.print()} className="rounded-full border border-black/20 px-3 py-2 text-xs font-bold">Print card</button>
     </div>}
   </section>
 }
