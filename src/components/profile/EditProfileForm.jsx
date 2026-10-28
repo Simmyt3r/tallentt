@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { api, uploadToCloudinary } from '../../lib/api.js'
 import { compressImageFile } from '../../lib/media.js'
 import { cldImage } from '../../lib/cloudinary.js'
+import ProfilePhotoViewer from '../ProfilePhotoViewer.jsx'
 import { COMPANY_SUFFIXES, isBusinessIdentity } from '../../lib/profile.js'
 
 const MAX_BIO = 280
@@ -42,6 +43,7 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
   const [nin, setNin] = useState('')
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [viewingPhoto, setViewingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const usernameDebounce = useRef(null)
@@ -230,9 +232,15 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
             <input type="file" accept="image/*" className="hidden" onChange={onAvatarFile} disabled={uploadingAvatar} />
           </label>
         </div>
-        <p className="text-[12px] text-black/50 font-medium">
-          {uploadingAvatar ? 'Uploading…' : `Tap the camera to change your ${isBusiness ? 'logo' : 'photo'}`}
-        </p>
+        <div className="min-w-0 space-y-1.5">
+          <p className="text-[12px] text-black/50 font-medium">
+            {uploadingAvatar ? 'Uploading…' : `Tap the camera to change your ${isBusiness ? 'logo' : 'photo'}`}
+          </p>
+          {avatarUrl&&<button type="button" onClick={()=>setViewingPhoto(true)}
+            className="text-[11px] font-bold text-[#0A13E6] underline underline-offset-2">
+            View full {isBusiness?'logo':'profile picture'}
+          </button>}
+        </div>
       </div>
 
       <Field label="Username" required>
@@ -416,6 +424,8 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
           Cancel
         </button>
       </div>
+      {viewingPhoto&&avatarUrl&&<ProfilePhotoViewer src={avatarUrl}
+        name={user?.fullName||user?.name||username} onClose={()=>setViewingPhoto(false)}/>}
     </form>
   )
 }
