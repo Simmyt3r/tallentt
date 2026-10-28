@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "db:migrate": "node db/migrate.js",
+    "db:migrate:work-pass": "node db/migrate.js --work-pass",
     "db:migrate:completion": "node db/migrate.js --completion",
     "db:migrate:qr-settlement": "node db/migrate.js --qr-settlement",
     "db:migrate:live": "node db/migrate.js --live",

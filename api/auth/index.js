@@ -8,6 +8,7 @@
 // back down with real headroom instead of just barely re-fitting.
 import { query, getClient } from '../_lib/db.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
+import {getWorkPass,workPassKey,submitWorkPassEvidence,reviewWorkPassEvidence,registerWorkPassRobot} from '../_lib/workPass.js'
 import {dispatchDailyFameDigests} from '../_lib/notificationDigest.js'
 import {containsContactBypass} from '../_lib/showroomEligibility.js'
 import {
@@ -55,6 +56,14 @@ export default async function handler(req, res) {
       catch(error){console.error('notification digest failed:',error.code||error.message)
         return json(res,500,{error:'Daily digest dispatch failed.'})}
     }
+    if (action === 'work_pass_key') {
+      try{return json(res,200,workPassKey())}catch(err){return json(res,503,{error:'Work Pass signing key unavailable.'})}
+    }
+    if (action === 'work_pass') {
+      try {return json(res,200,await getWorkPass(url.searchParams.get('username')))}
+      catch(err){if(!err.status)console.error('Work Pass read failed',err)
+        return json(res,err.status||500,{error:err.status?err.message:'Could not load Work Pass.'})}
+    }
     if (action === 'me') return handleMe(req, res)
     if (action==='presence'){
       const session=getSessionUser(req)
@@ -91,6 +100,21 @@ export default async function handler(req, res) {
     if (body?.action === 'password_reset_complete') {
       try { return json(res, 200, await completePasswordReset(body.token, body.password)) }
       catch (err) { if (!err.status) console.error('Password recovery completion failed:', err); return json(res, err.status || 500, { error: err.status ? err.message : 'Unable to reset password.' }) }
+    }
+    if (['work_pass_submit_evidence','work_pass_review_evidence','work_pass_register_robot'].includes(body?.action)) {
+      const session=getSessionUser(req)
+      if(!session?.sub)return json(res,401,{error:'Sign in to manage Work Passes.'})
+      try {
+        const result=body.action==='work_pass_submit_evidence'
+          ? await submitWorkPassEvidence(session.sub,body)
+          : body.action==='work_pass_review_evidence'
+            ? await reviewWorkPassEvidence(session.sub,body)
+            : await registerWorkPassRobot(session.sub,body)
+        return json(res,200,result)
+      }catch(err){
+        if(!err.status)console.error('Work Pass update failed',err)
+        return json(res,err.status||500,{error:err.status?err.message:'Work Pass update failed.'})
+      }
     }
     if (body?.action === 'login') return handleLogin(body, res)
     if (body?.action === 'register') return handleRegister(body, res)
