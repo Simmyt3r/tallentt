@@ -33,7 +33,7 @@ try{
     page.on('pageerror',error=>pageErrors.push(error.message))
     let topRequests=0
     const user={id:'11111111-1111-4111-8111-111111111111',
-      username:'studio',fullName:'Studio',role:'talent',isAdmin:false}
+      username:'studio',fullName:'Studio Designer',avatarUrl:'/fixture-portrait.svg',role:'talent',isAdmin:false}
     const hat={id:'22222222-2222-4222-8222-222222222222',user_id:user.id,
       username:'studio',owner_full_name:'Studio',hat_title:'Verified event videography',
       hat_name:'Event video',role:'talent',category:'Film',active:true,
@@ -68,6 +68,10 @@ try{
           completedJobs:12,successfulHires:3,orbit:76,evidence:[{id:'evidence-1',image_url:'/fixture-evidence.svg'}],endorsements:[],robots:[]})
         if(action==='me'||!action)return send({user})
         return send({count:0,notifications:[],user})
+      }
+      if(url.pathname==='/api/users/studio'){
+        return send({user,portfolio:[],hats:{talent:[],client:[]},isVerified:false,
+          rating:0,ratedHatsCount:0,orbit:{score:76,factors:[],disclaimer:''},performance:null})
       }
       if(url.pathname==='/api/showroom'){
         if(url.searchParams.get('view')==='top12'){topRequests++;return send({
@@ -111,6 +115,24 @@ try{
     const hero=workPass.locator('.workpass-hero')
     assert.match(await hero.evaluate(el=>getComputedStyle(el).backgroundImage),/rgb\(10, 19, 230\)/)
     await page.screenshot({path:'test-results/work-pass-card-'+width+'.png',animations:'disabled'})
+
+    // Work Pass -> full image viewer. The photo must use an uncropped
+    // high-resolution source and must not close the underlying Work Pass.
+    await workPass.getByRole('button',{name:'View Studio Designer full profile photo'}).click()
+    const fullPhoto=page.getByRole('dialog',{name:'Studio Designer full profile photo'})
+    const fullImage=fullPhoto.getByRole('img',{name:'Studio Designer full profile photo'})
+    await fullImage.evaluate(img=>img.decode())
+    assert.equal(await fullImage.getAttribute('src'),'/fixture-portrait.svg')
+    assert.equal(await fullImage.evaluate(img=>getComputedStyle(img).objectFit),'contain')
+    await fullPhoto.getByRole('button',{name:'Zoom in profile photo'}).click()
+    await fullPhoto.getByText('150%').waitFor()
+    await fullPhoto.getByRole('button',{name:'Reset profile photo zoom'}).click()
+    await fullPhoto.getByText('100%').waitFor()
+    await page.screenshot({path:'test-results/work-pass-full-photo-'+width+'.png',animations:'disabled'})
+    await page.keyboard.press('Escape')
+    await fullPhoto.waitFor({state:'detached'})
+    assert.equal(await workPass.isVisible(),true,'Only the photo viewer should close on Escape')
+
     if(width===1280){
       const artDownloadPromise=page.waitForEvent('download',{timeout:30000})
       await workPass.getByRole('button',{name:'Flex My Work Pass'}).click()
@@ -142,6 +164,19 @@ try{
       execFileSync('ffmpeg',['-nostdin','-loglevel','error','-y','-ss','0.8','-i',file,
         '-frames:v','1','test-results/work-pass-sticker-frame.png'])
     }
+    // The normal profile page uses the same viewer, including its main avatar.
+    await page.goto('http://127.0.0.1:'+port+'/profile')
+    const profileAvatar=page.getByRole('button',{name:"View Studio Designer's full profile photo"})
+    await profileAvatar.waitFor()
+    await profileAvatar.click()
+    const publicPhoto=page.getByRole('dialog',{name:'Studio Designer full profile photo'})
+    await publicPhoto.getByRole('img',{name:'Studio Designer full profile photo'}).waitFor()
+    await publicPhoto.getByRole('button',{name:'Zoom in profile photo'}).click()
+    await publicPhoto.getByText('150%').waitFor()
+    await publicPhoto.getByRole('button',{name:'Close full profile photo'}).click()
+    await publicPhoto.waitFor({state:'detached'})
+    assert.equal(await profileAvatar.isVisible(),true,'The profile remains in place after viewing the photo')
+    await page.screenshot({path:'test-results/work-pass-profile-'+width+'.png',animations:'disabled'})
     assert.deepEqual(pageErrors,[],'no uncaught browser errors expected')
     await context.close()
   }
