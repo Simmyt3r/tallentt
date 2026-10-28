@@ -16,6 +16,7 @@ export default function ProfilePhotoViewer({src,name='Member',onClose}){
   const positionRef=useRef(origin())
   const touches=useRef(new Map())
   const gesture=useRef(null)
+  const suppressBackdropClick=useRef(false)
   const closeButton=useRef(null)
   const label=String(name||'Member')
   const fullImage=cldImage(src,{w:2048,h:2048,crop:'limit'})
@@ -58,6 +59,7 @@ export default function ProfilePhotoViewer({src,name='Member',onClose}){
     if(e.pointerType==='mouse'&&e.button!==0)return
     e.currentTarget.setPointerCapture?.(e.pointerId)
     touches.current.set(e.pointerId,{x:e.clientX,y:e.clientY})
+    suppressBackdropClick.current=false
     start()
   }
   function move(e){
@@ -65,6 +67,7 @@ export default function ProfilePhotoViewer({src,name='Member',onClose}){
     touches.current.set(e.pointerId,{x:e.clientX,y:e.clientY})
     const pts=[...touches.current.values()],g=gesture.current
     if(!g)return
+    if(pts.some(p=>Math.hypot(p.x-g.center.x,p.y-g.center.y)>8))suppressBackdropClick.current=true
     if(pts.length>=2&&g.kind==='pinch'){
       const center=mid(pts[0],pts[1])
       apply({scale:g.base.scale*dist(pts[0],pts[1])/g.gap,
@@ -97,7 +100,10 @@ export default function ProfilePhotoViewer({src,name='Member',onClose}){
         <button ref={closeButton} type="button" aria-label="Close full profile photo" onClick={onClose}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/20 bg-white/10 hover:bg-white/20"><X size={21}/></button>
       </div>
-      <div data-testid="profile-photo-viewport" onPointerDown={down} onPointerMove={move}
+      <div data-testid="profile-photo-viewport" onClick={e=>{
+          if(e.target===e.currentTarget&&!suppressBackdropClick.current)onClose?.()
+          suppressBackdropClick.current=false
+        }} onPointerDown={down} onPointerMove={move}
         onPointerUp={up} onPointerCancel={up}
         onDoubleClick={()=>positionRef.current.scale>1?reset():zoom(1)}
         onWheel={e=>{if(!failed){e.preventDefault();zoom(e.deltaY<0?.3:-.3)}}}
