@@ -23,7 +23,7 @@ before(async()=>{
     await pool.query('INSERT INTO users(id,username,full_name,email,password_hash,is_admin) VALUES($1,$2,$2,$3,\'hash\',$4)',
       [id,username,username+'@example.test',id===admin])
   }
-  await pool.query("INSERT INTO hats(id,user_id,hat_title,username,category) VALUES($1,$2,'Photography','gallery_creator','Photography')",
+  await pool.query("INSERT INTO hats(id,user_id,hat_name,hat_title,username,category) VALUES($1,$2,'Photography','Photography','gallery_creator','Photography')",
     [hatId,creator])
   await pool.query(`INSERT INTO hat_media(hat_id,url,public_id,type,screening_status)
     VALUES($1,$2,$3,'image','passed')`,[hatId,image.url,image.public_id])
