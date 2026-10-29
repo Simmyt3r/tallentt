@@ -1,0 +1,37 @@
+name: Showroom Full-Screen Experience
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  showroom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Owner-only likers and existing Showroom data tests
+        run: node --test tests/showroom-likers.test.mjs tests/showroom-gallery.test.mjs tests/showroom-owner-removal.test.mjs
+      - name: Serverless syntax and production bundle
+        run: npm run check:api && npm run build
+      - name: Install browser and media fixture tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          npx playwright install --with-deps chromium
+      - name: Mobile/desktop full-screen scrolling and likes viewer
+        run: npm run test:showroom:snap
+      - name: Upload responsive screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: showroom-fullscreen-artifacts
+          path: test-results/showroom-snap-*.png
+          if-no-files-found: ignore
