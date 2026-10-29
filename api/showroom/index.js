@@ -1,5 +1,6 @@
 import { query } from '../_lib/db.js'
 import { getGoldTop12 } from '../_lib/workPassTop12.js'
+import { getShowroomLikers } from '../_lib/showroomLikers.js'
 import { associateVouchCounts } from '../_lib/associates.js'
 import { galleryFeed, galleryPost, galleryMine, signGalleryUpload, publishGallery, galleryAction } from '../_lib/showroomGallery.js'
 import { getSessionUser } from '../_lib/auth.js'
@@ -65,6 +66,14 @@ export default async function handler(req, res) {
       return json(res, 200, await screenQueuedMedia())
     }
     const session = getSessionUser(req)
+    if (url.searchParams.get('action') === 'likers') {
+      if (!session?.sub) return json(res,401,{error:'Sign in to view likes on your posts.'})
+      return json(res,200,await getShowroomLikers(session.sub,{
+        postId:url.searchParams.get('post_id'),
+        kind:url.searchParams.get('kind'),
+        page:url.searchParams.get('page')||0,
+      }))
+    }
     if (url.searchParams.get('view') === 'top12') return json(res,200,await getGoldTop12(session?.sub))
     if (url.searchParams.get('action') === 'my_moderation') {
       if (!session?.sub) return json(res, 401, { error: 'Sign in to see your moderation status.' })
