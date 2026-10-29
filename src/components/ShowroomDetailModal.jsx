@@ -94,6 +94,7 @@ export default function ShowroomDetailModal({
   onClose,
   onSelect,
   onLike,
+  onShowLikes,
   onShare,
   onReport,
   onDelete,
@@ -283,6 +284,9 @@ export default function ShowroomDetailModal({
                     <Heart size={18} className={hat.liked_by_me ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} aria-hidden="true" />
                     <span>{hat.likes > 0 ? hat.likes : 'Like'}</span>
                   </button>
+                  {isOwn && onShowLikes && <button type="button" onClick={()=>onShowLikes(hat)}
+                    aria-label="See who liked your Showroom post"
+                    className={`${iconBtn} text-[#0A13E6]`}>Liked by</button>}
                   <button type="button" onClick={() => onShare(hat)} aria-label={`Share post by ${ownerName}`} className={iconBtn}>
                     <Share2 size={17} aria-hidden="true" />
                     <span>Share</span>
