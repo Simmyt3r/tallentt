@@ -94,14 +94,54 @@ img, video { max-width: 100%; }
   }
 }
 
-/* One feed post: roughly the space left under the headers (dynamic viewport
-   height, so mobile browser chrome is accounted for). Fixed on purpose — the
-   feed is windowed and relies on every post being the same height. Scrolling
-   itself is plain and continuous: there is deliberately no scroll-snap. */
+/* Showroom is one contained viewport under the global navigation.
+   Header and filters remain visible; only its full-screen cards scroll.
+   Every card plus its separator occupies exactly one snap step, matching
+   virtualization's scrollTop-based index. */
+.sr-showroom-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  isolation: isolate;
+}
+.sr-feed-viewport {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #ADB5E8 transparent;
+  background: #E8E7E6;
+}
+.sr-feed-list {
+  min-height: 100%;
+  overflow-anchor: none;
+}
 .sr-post {
-  height: calc(var(--app-vh) - var(--sr-app-top) - var(--sr-header-h) - var(--sr-app-bottom) - var(--sr-gap));
-  min-height: 380px;
-  margin-bottom: var(--sr-gap);
+  /* The JS resize observer supplies this from the live feed viewport,
+     so rotated screens and mobile browser chrome get an exact fit. */
+  height: calc(var(--sr-post-height, 540px) - 8px);
+  min-height: 0;
+  margin-bottom: 8px;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  box-shadow: 0 5px 18px -12px rgba(9,18,64,.5);
+}
+.sr-feed-loading {
+  min-height: 35px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #484F70;
+  background: #F7F3EB;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sr-feed-viewport { scroll-behavior: auto; }
 }
 
 /* Detail modal. Mobile: full screen. Tablet/desktop: large, centred. */
