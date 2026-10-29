@@ -12,6 +12,7 @@
 // growing another unrelated branch. Still well under Vercel Hobby's
 // 12-function cap (9 functions total after this one).
 import {publicTalentCard} from '../_lib/talentCard.js'
+import {publicEmploymentSummary} from '../_lib/employment.js'
 import { query } from '../_lib/db.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
 import { json, methodNotAllowed } from '../_lib/http.js'
@@ -118,6 +119,7 @@ export default async function handler(req, res) {
       FROM escrows WHERE talent_id=$1 OR client_id=$1`,[userRow.id])
     return json(res, 200, {
       user: toPublicProfileUser(userRow),
+      employment: await publicEmploymentSummary(userRow.id).catch(() => null),
       performance: performanceRows[0],
       // Orbit is supplemental: a scoring outage must never hide a public profile.
       orbit: await accountOrbit(userRow.id).catch(() => null),

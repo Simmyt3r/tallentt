@@ -74,6 +74,7 @@ export default function PublicProfile() {
         ratedHatsCount={profile?.ratedHatsCount}
         orbit={profile?.orbit}
         performance={profile?.performance}
+        employment={profile?.employment}
         onEditClick={() => setEditing(true)}
       />
     </>

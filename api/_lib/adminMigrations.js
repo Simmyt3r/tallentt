@@ -9,6 +9,12 @@ const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
   {
+    id: 'employment-2026-10',
+    title: 'Full-time agreements and salary confirmation',
+    description: 'Adds private employment terms, salary reports, confirmation history and inbox conversations. No fees or reputation changes.',
+    path: new URL('../../db/patch-employment-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'talent-card-2026-10',
     title: 'Talent Card preferences and featured portfolio',
     description: 'Adds main talent, work preferences and private salary expectations. Apply before deploying Talent Card editing.',

@@ -26,6 +26,7 @@ export default function Profile() {
         ratedHatsCount: res.ratedHatsCount || 0,
         orbit: res.orbit || null,
         performance: res.performance || null,
+        employment: res.employment || null,
       })
     } catch (err) {
       // Own profile should never genuinely 404 — degrade to an empty
@@ -72,6 +73,7 @@ export default function Profile() {
         ratedHatsCount={data.ratedHatsCount}
         orbit={data.orbit}
         performance={data.performance}
+        employment={data.employment}
         onEditClick={() => setEditing(true)}
       />
     </>

@@ -4,8 +4,13 @@ import { MessageCircle, PenSquare, Search, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { BookingThread } from './Messages.jsx'
 import { AssociateThread, NewAssociateChat } from './CommunityChats.jsx'
+import { EmploymentThread, NewEmployment } from './Employment.jsx'
+import {useAuth} from '../context/AuthContext.jsx'
 
 export default function Inbox() {
+  const {user}=useAuth()
+  const [employment,setEmployment]=useState([])
+  const [employmentAvailable,setEmploymentAvailable]=useState(false)
   const [params, setParams] = useSearchParams()
   const [deals, setDeals] = useState([]),
     [associates, setAssociates] = useState([]),
@@ -19,15 +24,22 @@ export default function Inbox() {
     initialized = useRef(false)
   const escrow = params.get('escrow'),
     thread = params.get('thread'),
+    employmentId = params.get('employment'),
+    hiring = params.has('hire'),
     compose = params.get('compose') === '1',
-    active = Boolean(escrow || thread || compose)
+    active = Boolean(escrow || thread || compose || employmentId || hiring)
   const refresh = useCallback(async () => {
     const results = await Promise.allSettled([
       api.getConversations(),
       api.getCommunityChats(),
+      api.getEmploymentChats(),
     ])
     if (!alive.current) return
     const [bento, community] = results
+    if(results[2].status==='fulfilled'){
+      setEmployment(results[2].value.threads||[])
+      setEmploymentAvailable(results[2].value.available===true)
+    }
     if (bento.status === 'fulfilled') {
       setDeals((old) => [
         ...bento.value.conversations,
@@ -69,7 +81,7 @@ export default function Inbox() {
     }
   }, [refresh])
   const open = (kind, id) =>
-    setParams(kind === 'bento' ? { escrow: id } : { thread: id })
+    setParams(kind === 'bento' ? { escrow: id } : kind === 'employment' ? {employment:id} : { thread: id })
   async function more() {
     setPaging(true)
     try {
@@ -103,6 +115,7 @@ export default function Inbox() {
     }
   }
   const items = [
+    ...employment.map(x=>({...x,kind:'employment',name:x.peer_name||x.peer_username})),
     ...deals.map((x) => ({
       ...x,
       kind: 'bento',
@@ -154,6 +167,7 @@ export default function Inbox() {
               <PenSquare size={19} />
             </button>
           </header>
+          {employmentAvailable&&['client','dual'].includes(user?.role)&&<button type="button" className="mx-4 mt-3 rounded-xl border border-blue-100 p-2 text-xs font-bold text-[#0A13E6]" onClick={()=>setParams({hire:''})}>Hire full-time</button>}
           <label className="mx-4 mt-5 flex items-center gap-2 rounded-full bg-[#F4F5F7] px-3">
             <Search size={17} className="text-black/40" />
             <input
@@ -165,7 +179,7 @@ export default function Inbox() {
             />
           </label>
           <div
-            className="flex gap-1 px-4 py-3"
+            className="flex flex-wrap gap-1 px-4 py-3"
             aria-label="Filter conversations"
           >
             {[
@@ -173,6 +187,7 @@ export default function Inbox() {
               ['unread', 'Unread'],
               ['bento', 'Bento'],
               ['associates', 'Associates'],
+              ['employment','Employment'],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -211,7 +226,7 @@ export default function Inbox() {
             )}
             {items.map((item) => {
               const selected =
-                item.kind === 'bento' ? escrow === item.id : thread === item.id
+                item.kind === 'bento' ? escrow === item.id : item.kind === 'employment' ? employmentId === item.id : thread === item.id
               return (
                 <li
                   key={item.kind + item.id}
@@ -259,7 +274,7 @@ export default function Inbox() {
                         <span className="min-w-0 truncate">
                           {item.kind === 'bento'
                             ? 'Bento · ' + item.hat_title
-                            : 'Associate'}
+                            : item.kind==='employment' ? 'Employment · '+item.hat_title : 'Associate'}
                         </span>
                         {item.last_at && (
                           <time className="ml-auto shrink-0">
@@ -301,7 +316,7 @@ export default function Inbox() {
         <div
           className={`${active ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-col [&>section]:flex-1`}
         >
-          {compose ? (
+          {hiring ? <NewEmployment key={params.get('hire')||'new-hire'} username={params.get('hire')||''} onBack={()=>setParams({})} onOpen={id=>{open('employment',id);refresh()}}/> : employmentId ? <EmploymentThread key={employmentId} id={employmentId} onBack={()=>{setParams({});refresh()}} onChange={refresh}/> : compose ? (
             <NewAssociateChat
               onBack={() => setParams({})}
               onOpen={(id) => {

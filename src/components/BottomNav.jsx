@@ -37,7 +37,7 @@ export default function BottomNav() {
   const loadCount = useCallback(async () => {
     if (!user?.id) return
     try {
-      const results = await Promise.allSettled([api.getConversations(), api.getCommunityChats()])
+      const results = await Promise.allSettled([api.getConversations(), api.getCommunityChats(), api.getEmploymentChats()])
       const threads = results.flatMap(result => result.status === 'fulfilled'
         ? result.value.conversations || result.value.threads || [] : [])
       if (results.some(result => result.status === 'fulfilled'))
