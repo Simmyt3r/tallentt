@@ -16,8 +16,8 @@ before(async()=>{
       VALUES($1,$2,$3,$4,'hash')`,[id,name,name.toUpperCase(),name+'@example.test'])
   }
   hatId=randomUUID()
-  await pool.query(`INSERT INTO hats(id,user_id,username,hat_title,category)
-    VALUES($1,$2,'postowner','Video editor','Video')`,[hatId,owner])
+  await pool.query(`INSERT INTO hats(id,user_id,username,hat_name,hat_title,category)
+    VALUES($1,$2,'postowner','Video editor','Video editor','Video')`,[hatId,owner])
   await pool.query('INSERT INTO hat_likes(hat_id,user_id) VALUES($1,$2)',[hatId,fan])
   showcaseId=randomUUID()
   await pool.query(`INSERT INTO showroom_gallery_posts
