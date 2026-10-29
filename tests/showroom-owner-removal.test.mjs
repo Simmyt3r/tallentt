@@ -19,7 +19,7 @@ before(async()=>{
     await pool.query("INSERT INTO users(id,username,full_name,email,password_hash) VALUES ($1,$2,$2,$3,'x')",
       [id,username,username+'@example.test'])
   }
-  await pool.query("INSERT INTO hats(id,user_id,hat_title,username,category) VALUES ($1,$2,'Singer','showowner','Music')",[hatId,ownerId])
+  await pool.query("INSERT INTO hats(id,user_id,hat_name,hat_title,username,category) VALUES ($1,$2,'Singer','Singer','showowner','Music')",[hatId,ownerId])
   signSession=(await import('../api/_lib/auth.js')).signSession
   handler=(await import('../api/showroom/index.js')).default
 })
