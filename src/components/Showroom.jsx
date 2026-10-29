@@ -4,12 +4,13 @@ import { Plus } from 'lucide-react'
 import DiscoverySearch from './DiscoverySearch.jsx'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { UUID_RE, getScroller, shareShowroomPost, showroomPath } from '../lib/showroom'
+import { UUID_RE, nextLap, shareShowroomPost, showroomPath } from '../lib/showroom'
 import { getPrimaryIdentity, identityFromHat, normalizeUsername } from '../lib/profile.js'
 import AddShowroomMedia from './AddShowroomMedia'
 import ShowroomDetailModal from './ShowroomDetailModal'
 import ShowroomPost from './ShowroomPost'
 import ShowroomReportDialog from './ShowroomReportDialog.jsx'
+import ShowroomLikersDialog from './ShowroomLikersDialog.jsx'
 import { shareSignedWorkPassVideo } from '../lib/workPassVideoShare.js'
 
 // How many posts are kept mounted above/below the ones on screen, and how far
@@ -19,22 +20,9 @@ const PRELOAD = 5
 
 const keyToId = (key) => key.slice(0, key.indexOf('~'))
 
-// Showroom — a continuous, endless discovery feed.
-//
-//  • Each post is a fixed-height card (see `.sr-post` in styles/index.css) that
-//    roughly fills the space under the app + Showroom headers. Scrolling is
-//    ordinary and continuous — no snapping.
-//  • The feed is endless: the first lap is the API's curated order, every lap
-//    after that is a fresh client-side shuffle (never opening with the post the
-//    previous lap ended on), appended well before the user reaches the end.
-//  • It never grows without bound in the DOM: because every post has the same
-//    height, only the few posts near the viewport are mounted and the rest are
-//    stood in for by padding of the exact same height, so scroll position is
-//    stable however far the user goes.
-//  • "View" opens the detail modal by pushing /showroom/:postId. The modal is
-//    derived from that URL, and the feed underneath is the same mounted
-//    component, so it keeps its scroll position and sequence. Back, refresh
-//    and shared links all work because the URL is the single source of truth.
+// Showroom — each card fills a dedicated scroll-snap viewport.
+// Paging continues until API results are exhausted, then a shuffled lap of
+// available posts continues discovery. Only nearby cards stay mounted.
 export default function Showroom() {
   const { user } = useAuth()
   const { postId } = useParams()
@@ -80,6 +68,7 @@ export default function Showroom() {
   const [muted, setMuted] = useState(false) // shared across posts; sound on by default
   const [showAdd, setShowAdd] = useState(false)
   const [reportHat, setReportHat] = useState(null)
+  const [likersHat, setLikersHat] = useState(null)
   const [toast, setToast] = useState('')
   const [pageVisible, setPageVisible] = useState(() => !document.hidden)
   const [activeKey, setActiveKey] = useState(null)
@@ -90,6 +79,8 @@ export default function Showroom() {
   const [step, setStep] = useState(0) // one post's height + gap, measured
 
   const listRef = useRef(null)
+  const scrollRegionRef = useRef(null)
+  const lastWheelAtRef = useRef(0)
   const headerRef = useRef(null)
   const searchRef = useRef(null)
   const hatMapRef = useRef(hatMap)
@@ -236,7 +227,7 @@ export default function Showroom() {
         setActiveKey(null)
       }
       if (lastResetRef.current !== null && lastResetRef.current !== resetKey) {
-        getScroller().scrollTo({ top: 0 })
+        scrollRegionRef.current?.scrollTo({ top: 0, behavior: 'instant' })
       }
     } else {
       const allowed = new Set(ids)
@@ -257,77 +248,90 @@ export default function Showroom() {
     if (vis.last + PRELOAD >= seq.length - 1) loadMore()
   }, [loading, loadingMore, nextCursor, galleryCursor, seq.length, vis.last, loadMore])
 
-  // ── windowing maths ───────────────────────────────────────────────────
+  // ── one viewport = one post; virtualization uses region.scrollTop ──────
   const measure = useCallback(() => {
-    const list = listRef.current
-    const first = list?.querySelector('[data-post-key]')
-    if (!first) return
-    const gap = parseFloat(getComputedStyle(first).marginBottom) || 0
-    const next = Math.round((first.offsetHeight + gap) * 100) / 100
-    if (!next || next === stepRef.current) return
-    const old = stepRef.current
-    if (old) {
-      // Post height changed (window resized / device rotated): remember which
-      // point of the sequence is at the top so the same content stays there.
-      const regionTop = headerRef.current?.getBoundingClientRect().bottom ?? 0
-      anchorRef.current = (regionTop - list.getBoundingClientRect().top) / old
-    }
-    stepRef.current = next
+    const region = scrollRegionRef.current
+    if(!region)return
+    const next = Math.round(region.clientHeight*100)/100
+    if(!next || next===stepRef.current)return
+    const old=stepRef.current
+    if(old)anchorRef.current=region.scrollTop/old
+    stepRef.current=next
+    region.style.setProperty('--sr-post-height',next+'px')
     setStep(next)
   }, [])
 
   const computeVis = useCallback(() => {
-    const list = listRef.current
-    const s = stepRef.current
-    if (!list || !s) return
-    const top = list.getBoundingClientRect().top
-    const regionTop = headerRef.current ? headerRef.current.getBoundingClientRect().bottom : 0
-    const max = Math.max(0, seqRef.current.length - 1)
-    const first = Math.min(max, Math.max(0, Math.floor((regionTop - top) / s)))
-    const last = Math.min(max, Math.max(first, Math.floor((window.innerHeight - top) / s)))
-    setVis((prev) => (prev.first === first && prev.last === last ? prev : { first, last }))
+    const region=scrollRegionRef.current
+    const s=stepRef.current
+    if(!region||!s)return
+    const max=Math.max(0,seqRef.current.length-1)
+    const first=Math.min(max,Math.max(0,Math.floor(region.scrollTop/s)))
+    const last=Math.min(max,Math.max(first,Math.floor((region.scrollTop+region.clientHeight-1)/s)))
+    setVis(prev=>prev.first===first&&prev.last===last?prev:{first,last})
   }, [])
 
-  useLayoutEffect(() => {
-    measure()
-  })
+  useLayoutEffect(()=>{measure()})
 
-  useLayoutEffect(() => {
-    const anchor = anchorRef.current
-    if (anchor != null && step) {
-      anchorRef.current = null
-      const regionTop = headerRef.current?.getBoundingClientRect().bottom ?? 0
-      const current = regionTop - listRef.current.getBoundingClientRect().top
-      getScroller().scrollBy(0, anchor * step - current)
+  useLayoutEffect(()=>{
+    const anchor=anchorRef.current
+    if(anchor!=null&&step&&scrollRegionRef.current){
+      anchorRef.current=null
+      scrollRegionRef.current.scrollTop=anchor*step
     }
     computeVis()
-  }, [step, seq.length, computeVis])
+  },[step,seq.length,computeVis])
 
-  useEffect(() => {
-    let raf = 0
-    const onScroll = () => {
-      if (raf) return
-      raf = requestAnimationFrame(() => {
-        raf = 0
-        computeVis()
-      })
+  useEffect(()=>{
+    const region=scrollRegionRef.current
+    if(!region)return undefined
+    let raf=0
+    const onScroll=()=>{
+      if(raf)return
+      raf=requestAnimationFrame(()=>{raf=0;computeVis()})
     }
-    const onResize = () => {
-      measure()
-      onScroll()
+    const onResize=()=>{measure();onScroll()}
+    // One wheel gesture advances exactly one post. CSS scroll-snap covers
+    // touch, trackpad momentum, keyboard and inertial scrolling.
+    const onWheel=e=>{
+      if(e.ctrlKey||!stepRef.current)return
+      e.preventDefault()
+      const now=Date.now()
+      if(now-lastWheelAtRef.current<470||Math.abs(e.deltaY)<1)return
+      lastWheelAtRef.current=now
+      const current=Math.round(region.scrollTop/stepRef.current)
+      const next=Math.max(0,Math.min(seqRef.current.length-1,current+Math.sign(e.deltaY)))
+      region.scrollTo({top:next*stepRef.current,behavior:'smooth'})
     }
-    // Capture, because <body> (not window) is what scrolls and scroll events
-    // don't bubble.
-    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
-    window.addEventListener('resize', onResize)
-    window.addEventListener('orientationchange', onResize)
-    return () => {
-      if (raf) cancelAnimationFrame(raf)
-      window.removeEventListener('scroll', onScroll, { capture: true })
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('orientationchange', onResize)
+    region.addEventListener('scroll',onScroll,{passive:true})
+    region.addEventListener('wheel',onWheel,{passive:false})
+    const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(onResize)
+    observer?.observe(region)
+    window.addEventListener('resize',onResize)
+    window.addEventListener('orientationchange',onResize)
+    return()=>{
+      if(raf)cancelAnimationFrame(raf)
+      region.removeEventListener('scroll',onScroll)
+      region.removeEventListener('wheel',onWheel)
+      observer?.disconnect()
+      window.removeEventListener('resize',onResize)
+      window.removeEventListener('orientationchange',onResize)
     }
-  }, [computeVis, measure])
+  },[computeVis,measure])
+
+  // Continue after the last server page without interrupting the current
+  // card. Every lap is shuffled, and cannot begin with the preceding post.
+  useEffect(()=>{
+    if(loading||loadingMore||nextCursor||galleryCursor||filteredRef.current.length<2)return
+    if(!seq.length||vis.last+PRELOAD<seq.length-1)return
+    setSeq(previous=>{
+      if(!previous.length||vis.last+PRELOAD<previous.length-1)return previous
+      const ids=filteredRef.current
+      const prior=previous.slice(-ids.length).map(item=>item.id)
+      return [...previous,...nextLap(ids,previous[previous.length-1].id,prior)
+        .map((id,index)=>({id,key:`${id}~${previous.length+index}` }))]
+    })
+  },[loading,loadingMore,nextCursor,galleryCursor,vis.last,seq.length,idsSig])
 
   const start = Math.max(0, vis.first - BUFFER)
   const end = Math.min(seq.length, vis.last + BUFFER + 1)
@@ -352,7 +356,7 @@ export default function Showroom() {
           const keys = [...intersectingRef.current]
           setActiveKey(keys.length ? keys[keys.length - 1] : null)
         },
-        { rootMargin: '-50% 0px -50% 0px' },
+        { root:scrollRegionRef.current, threshold:0.5 },
       )
       ioRef.current = io
     }
@@ -559,7 +563,6 @@ export default function Showroom() {
 
   // ── render ────────────────────────────────────────────────────────────
   const items = seq.slice(start, end)
-  const singlePost = filteredIds.length === 1 && !nextCursor
 
   let body
   if (loading) {
@@ -602,7 +605,7 @@ export default function Showroom() {
         <section
           ref={listRef}
           aria-label="Showroom posts"
-          className="mt-2 -mx-4 md:mx-0"
+          className="sr-feed-list"
           style={{
             paddingTop: start * step,
             paddingBottom: Math.max(0, seq.length - end) * step,
@@ -621,6 +624,7 @@ export default function Showroom() {
                 muted={muted}
                 onMutedChange={setMuted}
                 onLike={toggleLike}
+                onShowLikes={user?.id&&hat.user_id===user.id?setLikersHat:undefined}
                 onShare={handleShare}
                 onReport={user?.id && hat.user_id !== user.id ? setReportHat : undefined}
                 onDelete={user?.id && hat.user_id === user.id ? removeOwnPost : undefined}
@@ -630,20 +634,17 @@ export default function Showroom() {
             )
           })}
         </section>
-        {singlePost && (
-          <p className="text-black/40 text-[12px] font-medium text-center py-6">You’re all caught up.</p>
-        )}
       </>
     )
   }
 
   return (
-    <div className="relative -mt-5 md:-mt-7" style={{ minHeight: 'calc(var(--app-vh) - var(--sr-app-top))' }}>
+    <div className="sr-showroom-screen relative -mt-5 md:-mt-7" style={{height:'calc(var(--app-vh) - var(--sr-app-top) - var(--sr-app-bottom))'}}>
       <h1 className="sr-only">Showroom</h1>
       <div
         ref={headerRef}
         style={{ top: 'var(--sr-app-top)', height: 'var(--sr-header-h)' }}
-        className="sticky z-30 isolate -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 bg-[#F7F3EB]/95 backdrop-blur-md border-b border-black/10 flex items-center gap-3"
+        className="sticky z-30 isolate shrink-0 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 bg-[#F7F3EB]/95 backdrop-blur-md border-b border-black/10 flex items-center gap-3"
       >
         <h2 className="text-[18px] sm:text-[21px] font-black tracking-tight shrink-0">Showroom</h2>
         <DiscoverySearch ref={searchRef} id="showroom-search" value={search}
@@ -652,7 +653,7 @@ export default function Showroom() {
       </div>
 
       {view === 'top12' && <p role="status" className="mt-2 text-xs font-semibold text-amber-800">Top 12 is reserved for Gold and Diamond Work Passes, ranked by verified completed jobs and Orbit activity. No paid placements.</p>}
-      <div className="flex gap-2 overflow-x-auto py-2" aria-label="Showroom discovery views">
+      <div className="flex shrink-0 gap-2 overflow-x-auto py-2" aria-label="Showroom discovery views">
         {[
           ['for_you', 'For You'],
           ['top12', '🏆 Top 12 · Gold+'],
@@ -676,9 +677,20 @@ export default function Showroom() {
         </select>
       </div>
 
-      {body}
-      {loadingMore && <p className="py-4 text-center text-[12px] font-semibold text-black/40">Loading more posts…</p>}
-      {!loading && !nextCursor && !galleryCursor && listIds.length > 1 && <p className="py-4 text-center text-[12px] font-medium text-black/35">You’re all caught up.</p>}
+      <div ref={scrollRegionRef} className="sr-feed-viewport" role="region"
+        aria-label="Showroom full-screen posts" tabIndex={0}
+        onKeyDown={e=>{
+          if(['ArrowDown','ArrowUp','PageDown','PageUp'].includes(e.key) &&
+            !e.target.closest('input,select,textarea,button,[role="slider"]') && stepRef.current){
+            e.preventDefault()
+            const direction=e.key==='ArrowDown'||e.key==='PageDown'?1:-1
+            const index=Math.round(e.currentTarget.scrollTop/stepRef.current)
+            e.currentTarget.scrollTo({top:Math.max(0,Math.min(seqRef.current.length-1,index+direction))*stepRef.current,behavior:'smooth'})
+          }
+        }}>
+        {body}
+        {loadingMore && <p className="sr-feed-loading" role="status">Loading more posts…</p>}
+      </div>
 
       {/* Showroom-level "+": lives outside every post, sticks to the bottom
           corner of the content area while scrolling (clear of the sidebar and
@@ -701,6 +713,7 @@ export default function Showroom() {
         </div>
       )}
 
+      {likersHat&&<ShowroomLikersDialog key={likersHat.id} post={likersHat} onClose={()=>setLikersHat(null)}/>}
       <ShowroomReportDialog hat={reportHat} onClose={() => setReportHat(null)}
         onReported={(message) => { setReportHat(null); notify(message) }} />
 
@@ -729,6 +742,7 @@ export default function Showroom() {
           onClose={closeDetail}
           onSelect={selectRelated}
           onLike={toggleLike}
+          onShowLikes={user?.id&&activeHat?.user_id===user.id?setLikersHat:undefined}
           onShare={handleShare}
           onReport={user?.id && activeHat?.user_id !== user.id ? setReportHat : undefined}
           onDelete={user?.id && activeHat?.user_id === user.id ? removeOwnPost : undefined}
