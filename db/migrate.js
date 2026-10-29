@@ -13,7 +13,9 @@ async function main() {
     process.exit(1)
   }
 
-  const files = process.argv.includes('--work-pass')
+  const files = process.argv.includes('--messaging')
+    ? ['patch-community-chats-2026-10.sql', 'patch-messaging-2026-10.sql']
+    : process.argv.includes('--work-pass')
     ? ['patch-work-pass-2026-10.sql']
     : process.argv.includes('--vibes')
     ? ['patch-vibes-2026-10.sql']

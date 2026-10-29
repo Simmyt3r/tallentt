@@ -26,15 +26,18 @@ export async function communityChatsGet(userId,params){
   if(threadId){
     if(!validId(threadId))throw fail(400,'Invalid conversation.')
     const {rows:threads}=await query(`SELECT t.id,t.status,t.initiator_id,t.recipient_id,
-      u.username AS peer_username,u.full_name AS peer_name
+      u.username AS peer_username,u.full_name AS peer_name,u.avatar_url AS peer_avatar
       FROM community_threads t JOIN users u ON u.id=CASE
         WHEN t.initiator_id=$2 THEN t.recipient_id ELSE t.initiator_id END
       WHERE t.id=$1 AND (t.initiator_id=$2 OR t.recipient_id=$2)`,[threadId,userId])
     const thread=threads[0]
     if(!thread)throw fail(404,'Conversation not found.')
-    const {rows:messages}=await query(`SELECT id,sender_id,body,created_at
-      FROM community_messages WHERE thread_id=$1
-      ORDER BY created_at DESC,id DESC LIMIT 100`,[threadId])
+    const {rows:messages}=await query(`SELECT m.id,m.sender_id,m.body,m.created_at,m.read_at,m.reply_to_id,
+      reply.body AS reply_body,reply.sender_id AS reply_sender_id
+      FROM community_messages m LEFT JOIN community_messages reply
+        ON reply.id=m.reply_to_id AND reply.thread_id=m.thread_id
+      WHERE m.thread_id=$1
+      ORDER BY m.created_at DESC,m.id DESC LIMIT 100`,[threadId])
     return {thread,messages:messages.reverse()}
   }
   const {rows}=await query(`SELECT t.id,t.initiator_id,t.recipient_id,t.status,
@@ -43,7 +46,9 @@ export async function communityChatsGet(userId,params){
       (SELECT m.body FROM community_messages m WHERE m.thread_id=t.id
        ORDER BY m.created_at DESC,m.id DESC LIMIT 1) AS last_message,
       (SELECT m.created_at FROM community_messages m WHERE m.thread_id=t.id
-       ORDER BY m.created_at DESC,m.id DESC LIMIT 1) AS last_at
+       ORDER BY m.created_at DESC,m.id DESC LIMIT 1) AS last_at,
+      (SELECT COUNT(*)::int FROM community_messages m
+       WHERE m.thread_id=t.id AND m.sender_id<>$1 AND m.read_at IS NULL) AS unread_count
       FROM community_threads t
       JOIN users u ON u.id=CASE WHEN t.initiator_id=$1 THEN t.recipient_id ELSE t.initiator_id END
       WHERE t.initiator_id=$1 OR t.recipient_id=$1
@@ -52,9 +57,10 @@ export async function communityChatsGet(userId,params){
 }
 export async function communityChatsAction(userId,body){
   const action=body?.action
-  if(!['community_start','community_send','community_respond'].includes(action))
+  if(!['community_start','community_send','community_respond','community_read'].includes(action))
     throw fail(400,'Unknown community chat action.')
   if(action==='community_start'){
+    if(body.reply_to_id!=null)throw fail(400,'Open the conversation to reply to a message.')
     const recipientId=body.recipient_id
     const text=cleanBody(body.text)
     if(!validId(recipientId)||recipientId===userId)throw fail(400,'Select a different subscriber.')
@@ -113,7 +119,16 @@ export async function communityChatsAction(userId,body){
       AND (initiator_id=$2 OR recipient_id=$2) FOR UPDATE`,[threadId,userId])
     const thread=rows[0]
     if(!thread)throw fail(404,'Conversation not found.')
-    if(action==='community_respond'){
+    if(action==='community_read'){
+      if(!validId(body.through_id))throw fail(400,'Invalid message cursor.')
+      const {rows:boundary}=await client.query(`SELECT created_at,id FROM community_messages
+        WHERE id=$1 AND thread_id=$2`,[body.through_id,threadId])
+      if(!boundary.length)throw fail(400,'Message cursor does not belong to this conversation.')
+      await client.query(`UPDATE community_messages SET read_at=COALESCE(read_at,NOW())
+        WHERE thread_id=$1 AND sender_id<>$2 AND (created_at,id)<=
+          (SELECT created_at,id FROM community_messages WHERE id=$3 AND thread_id=$1)`,
+        [threadId,userId,body.through_id])
+    }else if(action==='community_respond'){
       const acceptingOrDeclining=['accepted','declined'].includes(body.decision)
       const blocking=body.decision==='blocked'
       if(!acceptingOrDeclining&&!blocking)
@@ -143,8 +158,14 @@ export async function communityChatsAction(userId,body){
       const {rows:rate}=await client.query(`SELECT COUNT(*)::int AS n FROM community_messages
         WHERE sender_id=$1 AND created_at>NOW()-INTERVAL '1 hour'`,[userId])
       if(rate[0].n>=60)throw fail(429,'Message rate limit reached.')
-      await client.query(`INSERT INTO community_messages(thread_id,sender_id,body)
-        VALUES($1,$2,$3)`,[threadId,userId,text])
+      if(body.reply_to_id!=null){
+        if(!validId(body.reply_to_id))throw fail(400,'Invalid reply message.')
+        const {rows:reply}=await client.query(`SELECT id FROM community_messages
+          WHERE id=$1 AND thread_id=$2`,[body.reply_to_id,threadId])
+        if(!reply.length)throw fail(400,'Reply message does not belong to this conversation.')
+      }
+      await client.query(`INSERT INTO community_messages(thread_id,sender_id,body,reply_to_id)
+        VALUES($1,$2,$3,$4)`,[threadId,userId,text,body.reply_to_id??null])
       await client.query('UPDATE community_threads SET updated_at=NOW() WHERE id=$1',[threadId])
       target=thread.initiator_id===userId?thread.recipient_id:thread.initiator_id
     }

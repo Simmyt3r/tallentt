@@ -214,12 +214,13 @@ export default function Messages({ embedded = false, searchText = '' }) {
   )
 }
 
-function BookingThread({ id, onBack }) {
+export function BookingThread({ id, onBack }) {
   const { user } = useAuth()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [syncError, setSyncError] = useState('')
   const [text, setText] = useState('')
+  const [reply, setReply] = useState(null)
   const [busy, setBusy] = useState(false)
   const [history, setHistory] = useState(false)
   const [paging, setPaging] = useState(false)
@@ -243,10 +244,11 @@ function BookingThread({ id, onBack }) {
       })
     }
     const lastId = next.messages.filter((message) => message.kind !== 'offer').at(-1)?.id
-    if (lastId && !document.hidden) {
+    if (lastId && atBottom && !document.hidden && next.messages.some(message => message.sender_id !== user.id && message.kind === 'message' && !message.read_at)) {
       await api.messageAction({ action: 'read_messages', escrow_id: id, through_id: lastId })
+      window.dispatchEvent(new Event('inbox:read'))
     }
-  }, [id])
+  }, [id, user.id])
 
   useEffect(() => {
     mounted.current = true
@@ -308,6 +310,7 @@ function BookingThread({ id, onBack }) {
       action: 'send_message',
       escrow_id: id,
       body: text,
+      reply_to_id: reply?.id || null,
     }
     const fingerprint = JSON.stringify(payload)
     if (retryPayload.current?.fingerprint !== fingerprint) {
@@ -317,6 +320,8 @@ function BookingThread({ id, onBack }) {
       await api.messageAction({ ...payload, client_token: retryPayload.current.token })
       retryPayload.current = null
       setText('')
+      setReply(null)
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     })
   }
 
@@ -458,9 +463,12 @@ function BookingThread({ id, onBack }) {
               }`}
             >
               {message.body && (
+                <>
+                {message.reply_body && <blockquote className="mb-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] border-l-2 border-current/30 pl-2 text-xs opacity-75"><span className="block font-semibold">{message.reply_sender_id === user.id ? 'You' : getPrimaryIdentity(thread.peer)}</span>{message.reply_body}</blockquote>}
                 <p className="text-[13px] leading-[1.45] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                   {message.body}
                 </p>
+                </>
               )}
               <time
                 dateTime={message.created_at}
@@ -473,6 +481,10 @@ function BookingThread({ id, onBack }) {
                   minute: '2-digit',
                 })}
               </time>
+              <div className="mt-1 flex items-center justify-between gap-3 text-[10px]">
+                {!closed && <button type="button" className="rounded px-1 py-1 underline underline-offset-2" aria-label={`Reply to ${message.body}`} onClick={() => { setReply(message); document.getElementById(`message-${id}`)?.focus() }}>Reply</button>}
+                {own && <span title={message.read_at ? new Date(message.read_at).toLocaleString() : undefined}>{message.read_at ? 'Seen' : 'Sent'}</span>}
+              </div>
             </article>
           )
         })}
@@ -488,6 +500,8 @@ function BookingThread({ id, onBack }) {
         {closed ? (
           <p className="text-[12px] text-center text-black/45">This deal is closed. The conversation is read-only.</p>
         ) : (
+          <>
+          {reply && <div className="mb-2 flex items-center gap-2 rounded-xl bg-blue-50 p-3 text-xs"><div className="min-w-0 flex-1"><strong>Replying to {reply.sender_id === user.id ? 'yourself' : getPrimaryIdentity(thread.peer)}</strong><p className="truncate">{reply.body}</p></div><button type="button" aria-label="Cancel reply" onClick={() => setReply(null)}>Cancel</button></div>}
           <form onSubmit={sendMessage} className="flex items-end gap-2">
             <label htmlFor={`message-${id}`} className="sr-only">Message</label>
             <textarea
@@ -498,6 +512,12 @@ function BookingThread({ id, onBack }) {
               value={text}
               disabled={busy}
               onChange={(event) => setText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                  event.preventDefault()
+                  event.currentTarget.form.requestSubmit()
+                }
+              }}
               placeholder="Type a message…"
               className="min-h-[44px] max-h-24 flex-1 resize-none rounded-[22px] border-[1.5px] border-black/15 bg-[#FCFBF8] px-4 py-3 text-[13px] outline-none focus:border-black/35"
             />
@@ -510,6 +530,7 @@ function BookingThread({ id, onBack }) {
               <Send size={16} />
             </button>
           </form>
+          </>
         )}
       </div>
 
