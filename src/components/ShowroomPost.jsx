@@ -42,6 +42,7 @@ function ShowroomPost({
   muted,
   onMutedChange,
   onLike,
+  onShowLikes,
   onShare,
   onReport,
   onDelete,
@@ -82,7 +83,7 @@ function ShowroomPost({
       data-template={template}
       style={{ borderTop: accent === 'transparent' ? undefined : `4px solid ${accent}` }}
       aria-label={`Showroom post by ${ownerName}`}
-      className={`sr-post flex flex-col overflow-hidden border-y md:border border-black/15 md:rounded-[20px] md:shadow-[0_6px_20px_-12px_rgba(0,0,0,0.25)] ${
+      className={`sr-post flex flex-col overflow-hidden rounded-[18px] border-2 border-[#1D255D]/35 shadow-[0_12px_30px_-18px_rgba(10,19,230,.38)] ${
         surface
       }`}
     >
@@ -103,7 +104,7 @@ function ShowroomPost({
           Tap to load {isVideo?'video':'photo'} · Data saver is on
         </button>}
         {isVideo && renderMedia && <button type="button" onClick={() => onView(hat.id)}
-          className="absolute inset-x-0 top-0 bottom-14 z-20 flex items-start justify-end p-3 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
+          className="absolute right-3 top-14 z-20 flex items-start justify-end focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           aria-label={`View details for ${ownerName}'s video`}>
           <span className="inline-flex min-h-10 items-center rounded-full border border-white/20 bg-black/75 px-3 text-[11px] font-bold text-white">
             View details
@@ -128,6 +129,11 @@ function ShowroomPost({
           <Heart size={18} className={hat.liked_by_me ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} aria-hidden="true" />
           <span>{hat.likes > 0 ? hat.likes : 'Like'}</span>
         </button>
+        {onShowLikes&&<button type="button" onClick={()=>onShowLikes(hat)}
+          aria-label={`See who liked your Showroom post`}
+          className={`${actionBtn} text-[#0A13E6] hover:bg-[#0A13E6]/10`}>
+          <span>Liked by</span>
+        </button>}
         <button
           type="button"
           onClick={() => onShare(hat)}
@@ -163,7 +169,7 @@ function ShowroomPost({
         </span>
       </div>
 
-      <div className={`shrink-0 px-3 sm:px-4 pt-1.5 min-w-0 ${
+      <div className={`shrink-0 border-t border-black/10 px-3 sm:px-4 pt-2 min-w-0 ${
           template === 'media-first' ? 'pb-2' : 'pb-3'
         } ${surface}`}>
         <UserIdentity
