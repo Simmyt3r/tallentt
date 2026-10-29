@@ -1,7 +1,7 @@
 # Three-Party Ownership, Investment, Equity and IP Policy — Draft
 
 ## Parties
-- **Engr. Mathias Akuma:** idea originator / proposed executive founder; states ₦100,000 expended (evidence outstanding).
+- **Engr. Mathias Akuma:** idea originator / proposed executive founder; s
 - **Dr. Butu Hemenseter:** prospective shareholder-investor; amount, price and timeline not discussed and no money paid.
 - **Silabs and Co Technologies Ltd:** proposed technology shareholder and service supplier; completed development and cash contributions require evidence.
 
