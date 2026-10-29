@@ -113,6 +113,7 @@ export function toPublicUser(row) {
     avatarUrl: row.avatar_url ?? null,
     bio: row.bio ?? null,
     profileStatement: row.profile_statement ?? null,
+    talentCard: row.talent_card ?? {},
     location: row.location ?? null,
     phone: row.phone ?? null,
     // Profile UX fields (db/patch-profile-ux.sql). headline/website are

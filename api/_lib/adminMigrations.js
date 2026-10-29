@@ -9,6 +9,12 @@ const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
   {
+    id: 'talent-card-2026-10',
+    title: 'Talent Card preferences and featured portfolio',
+    description: 'Adds main talent, work preferences and private salary expectations. Apply before deploying Talent Card editing.',
+    path: new URL('../../db/patch-talent-card-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'messaging-2026-10',
     title: 'Unified messaging replies and read receipts',
     description: 'Apply after General subscriber chats. Adds quoted replies and Associate read receipts before deploying the unified inbox.',

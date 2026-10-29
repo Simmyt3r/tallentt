@@ -42,8 +42,8 @@ test('high raw likes and views cannot alter Orbit Score',()=>{
 
 test('completed escrow evidence raises Orbit; repeat account views do not',async()=>{
   const baseline=await orbit.accountOrbit(talent)
-  const {rows}=await pool.query(`INSERT INTO escrows(hat_id,talent_id,client_id,amount,status)
-    VALUES($1,$2,$3,3000,'released') RETURNING id`,[hatId,talent,client])
+  const {rows}=await pool.query(`INSERT INTO escrows(hat_id,talent_id,client_id,amount,status,work_status)
+    VALUES($1,$2,$3,3000,'released','completed') RETURNING id`,[hatId,talent,client])
   dealId=rows[0].id
   const afterWork=await orbit.accountOrbit(talent)
   assert.ok(afterWork.score>baseline.score)

@@ -1051,3 +1051,8 @@ ALTER TABLE community_messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_community_messages_unread ON community_messages(thread_id,sender_id) WHERE read_at IS NULL;
 COMMIT;
 
+
+BEGIN;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS talent_card JSONB NOT NULL DEFAULT '{}'::jsonb
+  CHECK (jsonb_typeof(talent_card) = 'object');
+COMMIT;
