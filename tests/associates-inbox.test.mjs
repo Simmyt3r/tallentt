@@ -32,11 +32,12 @@ test('Associate endpoints use existing authenticated escrow handler rather than 
   assert.match(escrowHandler,/communityChatsAction\(session\.sub/)
 })
 
-test('one Inbox exposes two separate conversation components',()=>{
-  assert.match(inbox,/Bento Chat/)
-  assert.match(inbox,/Associates Chat/)
-  assert.match(inbox,/<Messages embedded/)
-  assert.match(inbox,/<CommunityChats embedded/)
+test('one Inbox combines conversations while retaining distinct thread handlers',()=>{
+  assert.match(inbox,/api.getConversations\(\)/)
+  assert.match(inbox,/api.getCommunityChats\(\)/)
+  assert.match(inbox,/<BookingThread/)
+  assert.match(inbox,/<AssociateThread/)
+  assert.doesNotMatch(inbox,/role="tablist"/)
   assert.doesNotMatch(inbox,/booking_messages/)
   assert.doesNotMatch(inbox,/community_messages/)
 })

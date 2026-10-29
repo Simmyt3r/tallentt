@@ -32,13 +32,16 @@ function BottomNavLink({ to, end, icon: Icon, label, badge = 0 }) {
 
 export default function BottomNav() {
   const { user } = useAuth()
-  const [unreadBento, setUnreadBento] = useState(0)
+  const [unreadMessages, setUnreadMessages] = useState(0)
 
   const loadCount = useCallback(async () => {
     if (!user?.id) return
     try {
-      const data = await api.getConversations()
-      setUnreadBento((data.conversations || []).reduce((sum,thread)=>sum+Number(thread.unread_count||0),0))
+      const results = await Promise.allSettled([api.getConversations(), api.getCommunityChats()])
+      const threads = results.flatMap(result => result.status === 'fulfilled'
+        ? result.value.conversations || result.value.threads || [] : [])
+      if (results.some(result => result.status === 'fulfilled'))
+        setUnreadMessages(threads.reduce((sum,thread)=>sum+Number(thread.unread_count||0),0))
     } catch (error) {
       console.error('inbox unread count failed:', error)
     }
@@ -49,9 +52,11 @@ export default function BottomNav() {
     const id = setInterval(loadCount, 60_000)
     const onLocalChange = () => loadCount()
     window.addEventListener('mydeals:changed', onLocalChange)
+    window.addEventListener('inbox:read', onLocalChange)
     return () => {
       clearInterval(id)
       window.removeEventListener('mydeals:changed', onLocalChange)
+      window.removeEventListener('inbox:read', onLocalChange)
     }
   }, [loadCount])
 
@@ -70,7 +75,7 @@ export default function BottomNav() {
       <BottomNavLink to="/showroom" icon={Store} label="Showroom" />
       <BottomNavLink to="/bento" icon={LayoutGrid} label="Bento" />
       <BottomNavLink to="/vibes" icon={MessageSquareHeart} label="Vibes" />
-      <BottomNavLink to="/inbox" icon={MessageCircle} label="Inbox" badge={unreadBento} />
+      <BottomNavLink to="/inbox" icon={MessageCircle} label="Inbox" badge={unreadMessages} />
       <BottomNavLink to="/profile" icon={UserRound} label="Profile" />
     </nav>
   )

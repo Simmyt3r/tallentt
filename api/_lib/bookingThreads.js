@@ -6,6 +6,7 @@ import { dispatchStoredNotifications } from './pushNotifications.js'
 export async function withBooking(userId, escrowId, operation) {
   requireBookingId(escrowId)
   const client = await getClient()
+  let result
   try {
     await client.query('BEGIN')
     const { rows } = await client.query(
@@ -16,21 +17,23 @@ export async function withBooking(userId, escrowId, operation) {
       [escrowId, userId],
     )
     if (!rows[0]) throw bookingError(404, 'Booking not found.')
-    const result = await operation(client, rows[0])
-    const pushNotifications = result?.__pushNotifications || []
+    result = await operation(client, rows[0])
     await client.query('COMMIT')
-    if (pushNotifications.length) await dispatchStoredNotifications(pushNotifications)
-    if (result && typeof result === 'object' && '__pushNotifications' in result) {
-      const { __pushNotifications, ...publicResult } = result
-      return publicResult
-    }
-    return result
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     throw err
   } finally {
     client.release()
   }
+  // Push configuration and delivery use the pool too. Release the transaction
+  // connection first so a single-connection pool cannot wait on itself.
+  const pushNotifications = result?.__pushNotifications || []
+  if (pushNotifications.length) await dispatchStoredNotifications(pushNotifications)
+  if (result && typeof result === 'object' && '__pushNotifications' in result) {
+    const { __pushNotifications, ...publicResult } = result
+    return publicResult
+  }
+  return result
 }
 
 export async function getConversations(userId, before) {
@@ -38,6 +41,9 @@ export async function getConversations(userId, before) {
   const { rows } = await query(
     `SELECT e.id, e.hat_id, e.amount, e.currency, e.pay_unit, e.agreed_at, e.request_kind, e.application_id,
             e.status, e.work_status, e.created_at, h.hat_title, h.price_type,
+            COALESCE(e.messages_updated_at,e.created_at) AS last_at,
+            (SELECT m.body FROM booking_messages m WHERE m.escrow_id=e.id AND m.kind='message'
+             ORDER BY m.id DESC LIMIT 1) AS last_message,
             u.username AS peer_username, u.avatar_url AS peer_avatar,
             u.full_name AS peer_full_name, u.role AS peer_role, u.company_suffix AS peer_company_suffix,
             (SELECT COUNT(*)::int FROM booking_messages m
@@ -108,9 +114,13 @@ export async function getThread(userId, escrowId, before, eventsBefore) {
   if (before && !/^[1-9]\d{0,18}$/.test(before)) throw bookingError(400, 'Invalid message cursor.')
   return withBooking(userId, escrowId, async (client, escrow) => {
     const { rows } = await client.query(
-      `SELECT id::text, sender_id, kind, body, amount, currency, pay_unit, offer_status, read_at, created_at, updated_at
-       FROM booking_messages WHERE escrow_id = $1 AND ($2::bigint IS NULL OR id < $2)
-       ORDER BY booking_messages.id DESC LIMIT 51`, [escrowId, before || null],
+      `SELECT m.id::text, m.sender_id, m.kind, m.body, m.amount, m.currency, m.pay_unit,
+              m.offer_status, m.read_at, m.created_at, m.updated_at,m.reply_to_id::text,
+              reply.body AS reply_body,reply.sender_id AS reply_sender_id
+       FROM booking_messages m LEFT JOIN booking_messages reply
+         ON reply.id=m.reply_to_id AND reply.escrow_id=m.escrow_id
+       WHERE m.escrow_id = $1 AND ($2::bigint IS NULL OR m.id < $2)
+       ORDER BY m.id DESC LIMIT 51`, [escrowId, before || null],
     )
     const { rows: offers } = await client.query(
       `SELECT id::text, sender_id, kind, body, amount, currency, pay_unit, offer_status, created_at, updated_at
@@ -203,6 +213,13 @@ export async function threadAction(userId, body) {
     if (body.action === 'send_message' || body.action === 'make_offer') {
       const isOffer = body.action === 'make_offer'
       const text = messageText(body.body, escrow, !isOffer)
+      if(body.reply_to_id!=null){
+        if(isOffer || typeof body.reply_to_id!=='string' || !/^[1-9]\d{0,18}$/.test(body.reply_to_id))
+          throw bookingError(400,'Invalid reply message.')
+        const {rows:reply}=await client.query(`SELECT id FROM booking_messages
+          WHERE id=$1 AND escrow_id=$2 AND kind='message'`,[body.reply_to_id,escrow.id])
+        if(!reply.length)throw bookingError(400,'Reply message does not belong to this conversation.')
+      }
       if (isOffer) {
         assertNegotiable(escrow)
         assertOfferWithinRange(escrow, body.amount)
@@ -223,14 +240,14 @@ export async function threadAction(userId, body) {
       )
       if (rate[0].count >= 20) throw bookingError(429, 'Too many messages. Please wait a minute.')
       const { rows } = await client.query(
-        `INSERT INTO booking_messages (escrow_id, sender_id, kind, body, amount, currency, pay_unit, offer_status, client_token, recipient_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id::text`,
+        `INSERT INTO booking_messages (escrow_id, sender_id, kind, body, amount, currency, pay_unit, offer_status, client_token, recipient_id, reply_to_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id::text`,
         [escrow.id, userId, isOffer ? 'offer' : 'message', text,
           isOffer ? body.amount : null,
           isOffer ? (escrow.currency || escrow.hat_currency || 'NGN') : null,
           isOffer ? (escrow.pay_unit || (escrow.rate_unit === 'custom' ? escrow.rate_unit_custom : escrow.rate_unit) || null) : null,
           isOffer ? 'pending' : null, body.client_token,
-          userId === escrow.client_id ? escrow.talent_id : escrow.client_id],
+          userId === escrow.client_id ? escrow.talent_id : escrow.client_id,body.reply_to_id??null],
       )
       const notification = await notifyThread(client, escrow, userId, isOffer ? 'New price offer' : 'New booking message', isOffer)
       await client.query(`UPDATE escrows SET messages_updated_at = NOW() WHERE id = $1`, [escrow.id])

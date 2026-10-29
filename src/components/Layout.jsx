@@ -8,7 +8,6 @@ import PageTour from './PageTour.jsx'
 import { useAuth } from '../context/AuthContext'
 import { cldImage } from '../lib/cloudinary'
 import NotificationsMenu from './NotificationsMenu.jsx'
-import InboxChooser from './InboxChooser.jsx'
 import WorkPassDrawer from './WorkPassDrawer.jsx'
 
 // Facebook-style quick actions without any role-based browsing switch.
@@ -39,7 +38,6 @@ export default function Layout({ children }) {
   },[location.pathname,navigationType,navigate])
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [inboxChooserOpen, setInboxChooserOpen] = useState(false)
   const [workPassOpen,setWorkPassOpen]=useState(false)
 
   useEffect(() => {
@@ -137,10 +135,10 @@ export default function Layout({ children }) {
                 className={`${QUICK_ACTION} hidden sm:flex`}>
                 <Plus size={21} aria-hidden="true" />
               </Link>
-              <button type="button" onClick={() => setInboxChooserOpen(true)}
-                aria-label="Open Inbox" title="Inbox: Bento Chat and Associates Chat" className={QUICK_ACTION}>
+              <Link to="/inbox"
+                aria-label="Open Inbox" title="Inbox" className={QUICK_ACTION}>
                 <MessageCircle size={20} aria-hidden="true" />
-              </button>
+              </Link>
               <NotificationsMenu className="flex"
                 buttonClassName={QUICK_ACTION} iconSize={19} />
             </nav>
@@ -163,8 +161,6 @@ export default function Layout({ children }) {
 
       {workPassOpen && user?.username && <WorkPassDrawer username={user.username} onClose={() => setWorkPassOpen(false)} />}
       <BottomNav />
-      <InboxChooser open={inboxChooserOpen} onClose={() => setInboxChooserOpen(false)}
-        preferred={location.pathname.startsWith('/bento') || location.pathname.startsWith('/deals') || location.pathname.startsWith('/messages') ? 'bento' : 'associates'} />
       <PageTour />
 
       <main

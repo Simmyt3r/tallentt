@@ -152,7 +152,7 @@ export default async function handler(req, res) {
 
     if(String(body.action||'').startsWith('associate_'))
       return json(res,200,await associatesAction(session.sub,body))
-    if(['community_start','community_send','community_respond'].includes(body.action))
+    if(['community_start','community_send','community_respond','community_read'].includes(body.action))
       return json(res,200,await communityChatsAction(session.sub,body))
     if (['start_call','accept_call','decline_call','end_call','call_signal'].includes(body.action))
       return json(res,200,await dealCallAction(session.sub,body))
