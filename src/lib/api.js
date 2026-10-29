@@ -191,6 +191,9 @@ export const api = {
   moderateGalleryPost: (post_id, decision) => request('/api/admin', {
     method:'POST',body:JSON.stringify({action:'review_gallery',post_id,decision}),
   }),
+  getShowroomLikers: (postId,kind,page=0) => request('/api/showroom?'+new URLSearchParams({
+    action:'likers',post_id:postId,kind,page:String(page),
+  }),{cache:'no-store'}),
   getShowroom: (options = {}) => {
     const params = new URLSearchParams()
     for (const key of ['view', 'category', 'search', 'cursor']) {
