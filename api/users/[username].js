@@ -11,6 +11,7 @@
 // public identity by username) and keeps api/auth's dispatch table from
 // growing another unrelated branch. Still well under Vercel Hobby's
 // 12-function cap (9 functions total after this one).
+import {publicTalentCard} from '../_lib/talentCard.js'
 import { query } from '../_lib/db.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
 import { json, methodNotAllowed } from '../_lib/http.js'
@@ -21,7 +22,7 @@ import { json, methodNotAllowed } from '../_lib/http.js'
 // session-gated ?action=me.
 const PUBLIC_USER_COLUMNS = `
   id, full_name, username, role, created_at, avatar_url, bio, (to_jsonb(users)->>'profile_statement') AS profile_statement, location, lga, country,
-  headline, skills, industry, company_suffix, website
+  headline, skills, industry, company_suffix, website, (to_jsonb(users)->'talent_card') AS talent_card
 `
 
 function toPublicProfileUser(row) {
@@ -39,6 +40,7 @@ function toPublicProfileUser(row) {
     country: row.country ?? null,
     headline: row.headline ?? null,
     skills: row.skills ?? [],
+    talentCard: publicTalentCard(row.talent_card),
     industry: row.industry ?? [],
     companySuffix: row.company_suffix ?? null,
     website: row.website ?? null,
@@ -62,12 +64,12 @@ export default async function handler(req, res) {
 
     // Active hats only — same visibility rule the rest of the app already
     // uses for listings (api/hats, api/showroom both filter active=true).
-    // Capped rather than unbounded: this powers a compact "Active Hats"
-    // summary, not a full listing (My Hats/Showroom already own that).
+    // Include every active Hat so a talent category is never lost behind
+    // the former 24-Hat summary limit.
     const { rows: hats } = await query(
       `SELECT id, hat_title, category, role, is_verified, rating, created_at
        FROM hats WHERE user_id = $1 AND active = true
-       ORDER BY created_at DESC LIMIT 24`,
+       ORDER BY created_at DESC`,
       [userRow.id],
     )
 
@@ -102,9 +104,9 @@ export default async function handler(req, res) {
         `SELECT m.id, m.hat_id, m.url, m.public_id, m.type, m.caption, m.created_at, h.hat_title
          FROM hat_media m JOIN hats h ON h.id = m.hat_id
          WHERE m.hat_id = ANY($1::uuid[]) AND m.type IN ('image', 'video')
-         ORDER BY m.created_at DESC
+         ORDER BY (m.id::text = ANY($2::text[])) DESC, m.created_at DESC, m.id
          LIMIT 60`,
-        [talentHatIds],
+        [talentHatIds, userRow.talent_card?.featuredMedia || []],
       )
       portfolio = media
     }

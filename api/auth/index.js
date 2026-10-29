@@ -6,6 +6,7 @@
 // (api/live/index.js). Folding these six into one, same dispatch-by-action
 // pattern as api/escrows/index.js and api/admin/index.js, drops the total
 // back down with real headroom instead of just barely re-fitting.
+import { normalizeTalentCard, validateTalentCardOwnership } from '../_lib/talentCard.js'
 import { query, getClient } from '../_lib/db.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
 import {getWorkPass,workPassKey,submitWorkPassEvidence,reviewWorkPassEvidence,registerWorkPassRobot,getDealWorkPassEvidence} from '../_lib/workPass.js'
@@ -162,7 +163,7 @@ async function handleMe(req, res) {
     const result = await query(
       `SELECT id, full_name, username, email, role, is_admin, country, lga,
               avatar_url, bio, (to_jsonb(users)->>'profile_statement') AS profile_statement, location, phone, nin_hash, nin_last4,
-              headline, skills, industry, company_suffix, website,
+              headline, skills, industry, company_suffix, website, (to_jsonb(users)->'talent_card') AS talent_card,
               bank_name, account_number, account_name, paystack_recipient_code,
               (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance
        FROM users WHERE id = $1`,
@@ -219,7 +220,7 @@ async function handleLogin(body, res) {
     const result = await query(
       `SELECT id, full_name, username, email, password_hash, role, is_admin, country, lga,
               avatar_url, bio, (to_jsonb(users)->>'profile_statement') AS profile_statement, location, phone, nin_hash, nin_last4,
-              headline, skills, industry, company_suffix, website,
+              headline, skills, industry, company_suffix, website, (to_jsonb(users)->'talent_card') AS talent_card,
               bank_name, account_number, account_name, paystack_recipient_code,
               (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance
        FROM users WHERE email = $1`,
@@ -607,6 +608,9 @@ async function handleProfileUpdate(req, res) {
   try {
     await client.query('BEGIN')
 
+    const talentCard = body.talentCard === undefined ? null : normalizeTalentCard(body.talentCard)
+    if (talentCard) await validateTalentCardOwnership(client, session.sub, talentCard)
+
     const result = await client.query(
       `UPDATE users SET
          full_name  = COALESCE($1, full_name),
@@ -635,11 +639,12 @@ async function handleProfileUpdate(req, res) {
                                 WHEN $19 = '' THEN NULL
                                 ELSE $19 END,
          website        = COALESCE($20, website),
-         profile_statement = COALESCE($22, profile_statement)
+         profile_statement = COALESCE($22, profile_statement),
+         talent_card = COALESCE($23::jsonb, talent_card)
        WHERE id = $21
        RETURNING id, full_name, username, email, role, is_admin, country, lga,
                  avatar_url, bio, (to_jsonb(users)->>'profile_statement') AS profile_statement, location, phone, nin_hash, nin_last4,
-                 headline, skills, industry, company_suffix, website,
+                 headline, skills, industry, company_suffix, website, (to_jsonb(users)->'talent_card') AS talent_card,
                  bank_name, account_number, account_name, paystack_recipient_code,
                  (SELECT balance FROM wallets WHERE wallets.user_id = users.id) as wallet_balance`,
       [
@@ -667,6 +672,7 @@ async function handleProfileUpdate(req, res) {
         cleanWebsite,
         session.sub,
         profileStatement != null ? profileStatement.trim() : null,
+        talentCard ? JSON.stringify(talentCard) : null,
       ],
     )
     const row = result.rows[0]
@@ -689,6 +695,7 @@ async function handleProfileUpdate(req, res) {
     if (err.code === '23505' && err.constraint?.includes('username')) {
       return json(res, 409, { error: 'That username is already taken.' })
     }
+    if (err.status === 400) return json(res, 400, { error: err.message })
     console.error('profile update error:', err)
     return json(res, 500, { error: 'Something went wrong updating your profile.' })
   } finally {

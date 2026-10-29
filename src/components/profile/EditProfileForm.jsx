@@ -7,6 +7,7 @@ import { compressImageFile } from '../../lib/media.js'
 import { cldImage } from '../../lib/cloudinary.js'
 import ProfilePhotoViewer from '../ProfilePhotoViewer.jsx'
 import { COMPANY_SUFFIXES, isBusinessIdentity } from '../../lib/profile.js'
+import TalentCardSettings from './TalentCardSettings.jsx'
 
 const MAX_BIO = 280
 const MAX_HEADLINE = 80
@@ -50,6 +51,7 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
 
   // Profile UX identity fields.
   const [headline, setHeadline] = useState(user?.headline || '')
+  const [talentCard, setTalentCard] = useState(user?.talentCard || {})
   const [skillsInput, setSkillsInput] = useState((user?.skills || []).join(', '))
   const [industryInput, setIndustryInput] = useState((user?.industry || []).join(', '))
   const [companySuffix, setCompanySuffix] = useState(user?.companySuffix || '')
@@ -200,6 +202,7 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
         accountNumber: accountNumber || undefined,
         headline: headline.trim(),
         website: website.trim(),
+        ...(!isBusiness ? {talentCard} : {}),
         ...(isBusiness
           ? { industry: industryInput.split(',').map((s) => s.trim()).filter(Boolean), companySuffix }
           : { skills: skillsInput.split(',').map((s) => s.trim()).filter(Boolean) }),
@@ -314,6 +317,8 @@ export default function EditProfileForm({ user, onCancel, onSaved }) {
           />
         </Field>
       </div>
+
+      {!isBusiness && <TalentCardSettings username={user.username} value={talentCard} onChange={setTalentCard} />}
 
       <Field label="Phone">
         <input className="tw-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+234…" />
