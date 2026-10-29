@@ -38,29 +38,12 @@ function MediaInner({
   const onMutedChangeRef = useRef(onMutedChange)
   onMutedChangeRef.current = onMutedChange
 
-  // Start / stop playback as `playing` flips. Autoplay honours the shared mute
-  // preference (default: sound on); if the browser refuses autoplay-with-sound
-  // we fall back to muted playback and flip the shared preference so every
-  // other post agrees — never stuck silent, never forcing `muted` in markup.
-  useEffect(() => {
-    const el = elRef.current
-    if (!el) return
-    if (!playing) {
-      el.pause()
-      return
-    }
-    if (!isVideo) return // audio is never auto-played
-    el.muted = mutedRef.current
-    const p = el.play()
-    p?.catch?.((err) => {
-      if (err?.name === 'AbortError') return // interrupted by a pause()/reload, not a block
-      if (!el.muted) {
-        el.muted = true
-        onMutedChangeRef.current?.(true)
-        el.play().catch(() => {})
-      }
-    })
-  }, [playing, isVideo])
+  // Manual playback only. The first video frame/poster may load, but
+  // neither scrolling to a post nor opening its detail may start playback.
+  // Scrolling away or opening a different post still pauses any user-played video.
+  useEffect(()=>{
+    if(!playing) elRef.current?.pause()
+  },[playing])
 
   // Mute preference changed elsewhere (e.g. on another post).
   useEffect(() => {
@@ -105,7 +88,6 @@ function MediaInner({
           aria-label={alt || 'Video'}
           className="absolute inset-0 w-full h-full object-contain"
           controls
-          loop
           playsInline
           preload="metadata"
           onLoadedMetadata={(e) => {
