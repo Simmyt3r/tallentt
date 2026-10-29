@@ -1,6 +1,7 @@
 // Path: src/components/profile/ProfileView.jsx
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import {useAuth} from '../../context/AuthContext.jsx'
 import { publicTalentCard } from '../../../api/_lib/talentCard.js'
 import { talentGroups, talentPortfolio, resolveTalent } from '../../lib/talentCard.js'
 import { api } from '../../lib/api.js'
@@ -107,8 +108,10 @@ export default function ProfileView({
   ratedHatsCount = 0,
   orbit = null,
   performance = null,
+  employment = null,
   onEditClick,
 }) {
+  const {user:viewer}=useAuth()
   const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab')==='associates'?'associates':'portfolio')
   const [social, setSocial] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -248,12 +251,15 @@ export default function ProfileView({
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-sm font-bold">Talents & work</h2><button type="button" onClick={shareTalent} className="text-xs font-semibold text-[#0A13E6]">Copy talent link</button></div>
         <div className="flex flex-wrap gap-2">{card.workModes.map(mode => <span key={mode} className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">Open to {mode}</span>)}</div>
         {card.availability !== 'not-specified' && <p className="text-sm">{{available:'Available now', busy:'Currently busy', 'not-looking':'Not looking for work'}[card.availability]} <span className="text-xs text-black/50">· Self-reported</span></p>}
+        {employment?.employed&&<p className="text-xs font-semibold text-green-700">Employed via ChombuTar · agreement accepted by both parties</p>}
+        {Number(employment?.confirmed_months)>0&&<p className="text-xs text-black/60">{employment.confirmed_months} salary periods confirmed received · amounts private</p>}
         {card.workModes.includes('Full-time') && <p className="text-xs text-black/60">Salary expectation: {card.salary.visibility === 'range' ? 'NGN ' + Number(card.salary.min).toLocaleString() + '–' + Number(card.salary.max).toLocaleString() + '/month' : card.salary.visibility === 'tier' ? card.salary.tier + ' level' : 'Private · ask me'}</p>}
         <div role="group" aria-label="Filter by talent" className="flex flex-wrap gap-2">
           {['', ...groups].map(name => <button type="button" key={name} aria-pressed={selectedTalent === name} onClick={() => selectTalent(name)} className={`rounded-full border px-3 py-2 text-xs font-semibold ${selectedTalent === name ? 'bg-[#0A13E6] text-white border-[#0A13E6]' : 'border-black/15'}`}>{name || 'All'}{name && name === card.mainTalent ? ' · Main' : ''}</button>)}
         </div>
         <p className="text-xs text-black/50">{selectedTalent ? 'Portfolio and Talent Hats for ' + selectedTalent : 'Featured portfolio · up to three selected works'}</p>
         {shareStatus && <p role="status" className="break-all text-xs text-blue-700">{shareStatus}</p>}
+        {!isOwner&&['client','dual'].includes(viewer?.role)&&card.workModes.includes('Full-time')&&<Link className="inline-block rounded-xl bg-[#0A13E6] px-4 py-2 text-xs font-bold text-white" to={'/inbox?hire='+encodeURIComponent(profileUser.username)}>Hire full-time</Link>}
       </section>}
 
       <SectionNav tabs={tabs} activeTab={selectedTab} onSelect={setActiveTab} />
