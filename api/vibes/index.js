@@ -303,7 +303,9 @@ async function getComments(userId,url) {
   if(parent&&!threaded)throw bad(503,'Apply the Vibes Threads migration in Admin to enable comment replies.')
   if(parent){
     const {rows:parents}=await query(`SELECT c.id FROM vibes_comments c JOIN vibes_posts p ON p.id=c.post_id
-      WHERE c.id=$1 AND c.post_id=$2 AND c.parent_id IS NULL AND c.deleted_at IS NULL
+      WHERE c.id=$1 AND c.post_id=$2 AND c.parent_id IS NULL
+        AND (c.deleted_at IS NULL OR EXISTS(
+          SELECT 1 FROM vibes_comments child WHERE child.parent_id=c.id AND child.deleted_at IS NULL))
         AND p.deleted_at IS NULL AND p.moderation_status='visible'`,[parent,post])
     if(!parents.length)throw bad(404,'Parent comment is unavailable.')
   }
