@@ -9,6 +9,7 @@ export default function ProfileHeader({
   user,
   isOwner,
   isVerified,
+  businessVerified=false,
   ratingSummary,
   hasTalentHats,
   hasClientHats,
@@ -63,7 +64,9 @@ export default function ProfileHeader({
           nameClassName="text-[17px] font-extrabold tracking-tight"
           usernameClassName="text-[13px] font-bold text-[#0A13E6] leading-tight"
           nameBadge={
-            isVerified ? (
+            businessVerified ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#E7ECFF] px-2 py-1 text-[10px] font-black text-[#0A13E6]" title="Business registration manually reviewed by ChombuTar; not a guarantee of future performance"><BadgeCheck size={14}/> Business verified</span>
+            ) : isVerified ? (
               <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#0A13E6]" title="Has a verified business name on file">
                 <BadgeCheck size={14} className="fill-[#0A13E6]/15" />
                 Verified
