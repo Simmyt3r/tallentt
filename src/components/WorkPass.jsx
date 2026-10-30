@@ -118,7 +118,7 @@ export default function WorkPass({username,onClose,compact=false}) {
             <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#151727]" style={{backgroundColor:accent}}><Crown size={12}/>{data.tier} Work Pass</span>
             <h2 className="mt-3 break-words text-[22px] font-black leading-[1.08] tracking-[-.05em] sm:text-[30px]">{nameOf(owner)}</h2>
             <p className="mt-1 break-all text-xs font-semibold text-[#D8E1FF]">@{owner?.username}</p>
-            <p className="mt-2 flex items-start gap-1.5 text-[11px] font-bold leading-snug text-white sm:text-[12px]"><BriefcaseBusiness size={13} className="mt-[1px] shrink-0"/>{roleOf(owner)}</p>
+            <p className="mt-2 flex items-start gap-1.5 text-[11px] font-bold leading-snug text-white sm:text-[12px]"><BriefcaseBusiness size={13} className="mt-[1px] shrink-0"/>{owner?.role==='dual'?'Talent & Client · One Work Pass':roleOf(owner)}</p>
             {!!owner?.headline && !!owner?.skills?.length && <p className="mt-1 line-clamp-2 text-[10px] text-white/80">{owner.skills.slice(0,3).join(' · ')}</p>}
           </div>
         </div>
