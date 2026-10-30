@@ -8,7 +8,7 @@ import {optOutPageToursForFixture} from './page-tour-fixture.mjs'
 
 const root=fileURLToPath(new URL('..',import.meta.url))
 const port=5196
-const vite=await createServer({root,server:{host:'127.0.0.1',port,strictPort:true}})
+const vite=await createServer({root,server:{host:'127.0.0.1',port,strictPort:true,proxy:{}}})
 let browser
 await mkdir('test-results',{recursive:true})
 const videoPath='test-results/showroom-manual-play.mp4'
