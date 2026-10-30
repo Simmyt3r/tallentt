@@ -4,6 +4,7 @@ import { withBooking, assertNoPendingOffer } from './bookingThreads.js'
 import { bookingError, assertExpectedAmount } from './bookingRules.js'
 import { creditWallet, debitWallet } from './wallet.js'
 import { notifyEscrowSecured } from './notifications.js'
+import { GIG_FEE_BPS, gigQuote } from '../../shared/monetization.js'
 
 function assertNegotiationSettled(escrow) {
   if ((escrow.price_type === 'range' || escrow.price_negotiable === true) && !escrow.agreed_at) {
@@ -40,6 +41,11 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
     assertNegotiationSettled(escrow)
     assertExpectedAmount(escrow, expectedAmount)
     await assertNoPendingOffer(client, escrow.id)
+    if(!Object.hasOwn(escrow,'gig_fee_bps')){
+      throw bookingError(503,'Apply the Monetization migration in Admin before funding new gigs.')
+    }
+    if(escrow.currency!=='NGN')throw bookingError(400,'Commission-based checkout supports NGN only.')
+    const quote=gigQuote(Number(escrow.amount))
 
     await debitWallet(client, {
       userId,
@@ -56,12 +62,13 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
            contacts_unlocked = true,
            funded_at = NOW(),
            checkout_locked_at = COALESCE(checkout_locked_at, NOW()),
-           checkout_reference = NULL
+           checkout_reference = NULL,
+           gig_fee_bps = $2
        WHERE id = $1
        RETURNING *`,
-      [escrow.id],
+      [escrow.id, GIG_FEE_BPS],
     )
-    return { escrow: rows[0] }
+    return { escrow: rows[0], checkout: quote }
   })
   await notifyEscrowSecured(escrowId)
   return result
