@@ -20,6 +20,6 @@ jobs:
       - name: Pricing arithmetic
         run: node --test tests/monetization-policy.test.mjs
       - name: SQL migration, wallet and refund tests
-        run: node --test tests/monetization-billing.test.mjs
+        run: node --test tests/monetization-billing.test.mjs tests/dual-role-billing.test.mjs
       - name: Verify server code and build
         run: npm run check:api && npm run build
