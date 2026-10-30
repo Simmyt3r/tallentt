@@ -52,7 +52,7 @@ export function salaryTrackingQuote(salary,method){
     :null
   if(fee===null)throw new RangeError('Salary escrow tracking requires an Admin-approved fixed monthly price.')
   return {currency:'NGN',salary:amount,method,trackingFee:fee,
-    note:'Tracking service only: ChombuTar does not transfer or independently verify offline salary payments.'}
+    note:'Tracking service only: ChombuTar does not transfer or verify offline salary payments.'}
 }
 export function businessVerificationQuote(){
   return {currency:'NGN',verificationFee:BUSINESS_VERIFICATION_FEE_NGN,
