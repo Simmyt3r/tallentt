@@ -129,7 +129,7 @@ function CommentThread({item,post,me,onCount,onRootRemoved,threaded}){
       {expanded&&<div aria-label="Thread replies" className="space-y-3 pb-2">
         {[...children].reverse().map(child=><CommentBubble key={child.id} item={child} postId={post.id}
           me={me} onDeleted={removeChild}
-          onReply={()=>{setDraft('@'+child.username+' ');setReplying(true)}}/>)}
+          onReply={!removed?()=>{setDraft('@'+child.username+' ');setReplying(true)}:null}/>)}
         {loading&&<p role="status" className="text-[11px] text-black/45">Loading thread…</p>}
         {cursor&&!loading&&<button type="button" onClick={()=>load(cursor)}
           className="min-h-9 rounded-full border border-black/15 px-3 text-[11px] font-semibold">Load older replies</button>}
