@@ -25,6 +25,9 @@ try{
     await optOutPageToursForFixture(context)
     await context.addInitScript(() => {
       Object.defineProperty(navigator,'share',{configurable:true,value:async()=>undefined})
+      Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
+        writeText:async value=>{window.__vibeCopied=value},
+      }})
     })
     const page=await context.newPage()
     page.setDefaultTimeout(15000)
@@ -96,6 +99,20 @@ try{
     await dialog.getByRole('button',{name:'Close Vibes likes'}).click()
     await dialog.waitFor({state:'detached'})
     await actions.getByRole('button',{name:'Share Vibe'}).click()
+    const share=page.getByRole('dialog',{name:'Share this Vibe'})
+    await share.waitFor()
+    for(const app of ['WhatsApp','Facebook','X (Twitter)','Telegram','LinkedIn','Email']){
+      const link=share.getByRole('link',{name:'Share on '+app})
+      await link.waitFor()
+      assert.ok((await link.getAttribute('href')).length>15,'Missing destination URL for '+app)
+    }
+    const permalink=await share.getByRole('textbox',{name:'Link to this Vibe'}).inputValue()
+    assert.ok(permalink.endsWith('/vibes?post='+postId))
+    await share.getByRole('button',{name:'Copy Vibe link'}).click()
+    await share.getByText('Link copied. You can paste it anywhere.').waitFor()
+    assert.equal(await page.evaluate(()=>window.__vibeCopied),permalink)
+    await share.getByRole('button',{name:/More apps · Device share/}).click()
+    await share.waitFor({state:'detached'})
     await article.locator('[aria-label="Vibe engagement counts"]').getByLabel('1 shares').waitFor()
     await actions.getByRole('button',{name:'Comment on Vibe'}).click()
     const thread=article.locator('[data-thread-id="'+rootId+'"]')
