@@ -18,7 +18,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Threaded replies, permission rules, paginated likers
-        run: node --test tests/vibes-threads.test.mjs tests/vibes.test.mjs tests/vibes-editor.test.mjs
+        run: node --test tests/vibes-sharing.test.mjs tests/vibes-threads.test.mjs tests/vibes.test.mjs tests/vibes-editor.test.mjs
       - name: Production build and server syntax
         run: npm run check:api && npm run build
       - name: Browser and comment hierarchy check
