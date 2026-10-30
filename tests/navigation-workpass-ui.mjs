@@ -31,7 +31,11 @@ try {
     await optOutPageToursForFixture(context)
     const page=await context.newPage()
     const pageErrors=[]
+    const networkErrors=[]
     page.on('pageerror',error=>pageErrors.push(error.message))
+    page.on('console',msg=>{if(msg.type()==='error')networkErrors.push('console: '+msg.text())})
+    page.on('requestfailed',req=>networkErrors.push('request: '+req.url()+' '+req.failure()?.errorText))
+    page.on('response',response=>{if(response.status()>=400)networkErrors.push('http '+response.status()+' '+response.url())})
     page.setDefaultTimeout(20000)
     await page.route('**/fixture-portrait.svg',route=>route.fulfill({
       status:200,contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="280" height="280"><rect width="280" height="280" fill="#0A13E6"/><circle cx="140" cy="135" r="76" fill="#F7F3EB"/></svg>',
@@ -56,7 +60,8 @@ try {
     try { await trigger.waitFor() } catch (err) {
       console.error('Navigation fixture diagnostic',JSON.stringify({
         url:page.url(),body:(await page.locator('body').innerText()).slice(0,3000),
-        errors:pageErrors,
+        html:(await page.locator('body').innerHTML()).slice(0,900),
+        errors:pageErrors,networkErrors,
       }))
       await page.screenshot({path:'test-results/navigation-work-pass-'+width+'.png',fullPage:true})
       throw err
