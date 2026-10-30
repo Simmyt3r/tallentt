@@ -9,7 +9,7 @@ export async function bookGigRelease(client,escrow,{stage,gross,previousGross=0}
   const rate=escrow.gig_fee_bps==null?0:Number(escrow.gig_fee_bps)
   const fee=gigReleaseFee(Number(escrow.amount),previousGross,gross,rate)
   const net=gross-fee
-  if(fee>0){
+  if(fee>0 && escrow.gig_fee_sealed!==true){
     await client.query(`INSERT INTO gig_fee_events
       (escrow_id,stage,gross_released,fee_amount,rate_bps)
       VALUES($1,$2,$3,$4,$5)`,[escrow.id,stage,gross,fee,rate])
