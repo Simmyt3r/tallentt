@@ -236,8 +236,11 @@ export async function employmentAction(userId,body){
             const note=text(body.note,1000,'Non-receipt explanation')
             await client.query("UPDATE employment_salary_periods SET status='disputed',note=$2,revision=revision+1 WHERE id=$1",[period.id,note])
             // Undo the tracking fee if the talent disputes full receipt.
-            const {rows:charges}=await client.query(`SELECT * FROM billing_charge_events
-              WHERE kind='salary_tracking' AND source_id=$1 AND status='charged' FOR UPDATE`,[period.id])
+            const {rows:feeStorage}=await client.query("SELECT to_regclass('billing_charge_events') AS registered")
+            const {rows:charges}=feeStorage[0]?.registered
+              ? await client.query(`SELECT * FROM billing_charge_events
+                  WHERE kind='salary_tracking' AND source_id=$1 AND status='charged' FOR UPDATE`,[period.id])
+              : {rows:[]}
             if(charges.length){
               await creditWallet(client,{userId:a.employer_id,amount:charges[0].amount,
                 type:'billing_refund',reference:'refund:'+charges[0].reference})
