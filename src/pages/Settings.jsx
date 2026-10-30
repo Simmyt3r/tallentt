@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react'
 import {Link,useNavigate} from 'react-router-dom'
-import {Bell,LockKeyhole,LogOut,Settings2,UserRound,Wallet,ShieldCheck,BookOpen} from 'lucide-react'
+import {Bell,LockKeyhole,LogOut,Settings2,UserRound,Wallet,ShieldCheck,BookOpen,Coins} from 'lucide-react'
 import {useAuth} from '../context/AuthContext.jsx'
 import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
@@ -132,6 +132,9 @@ export default function Settings(){
         </Link>
         <Link to="/wallet" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
           <Wallet size={16}/> Wallet
+        </Link>
+        <Link to="/billing" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
+          <Coins size={16}/> Membership & verification
         </Link>
       </div>
     </section>}
