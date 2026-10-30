@@ -25,7 +25,7 @@
 | D19 | Determine whether Silabs account already exists; identify who pays registration, merchant receipts and taxes | Silabs / finance | Undecided |
 | D20 | Set and approve Green Pro, Black Vaulted, Business and Enterprise monthly prices, entitlements, cancellation/refund rules and consumer disclosures before switching on paid-plan sales | Product + Legal + Finance | Plan names approved; prices and benefits undecided |
 | D21 | Establish CAC source-check process, acceptable business evidence, reviewer policy and appeal/refund terms for ₦3,000 manual business verification | Compliance + Operations | Fee approved; review policy pending |
-| D22 | Review ₦1,000 bank, ₦500 cash and 2% escrow salary-tracking service fees, non-receipt refunds, disclosure and accounting treatment | Finance + Legal | Rates approved; legal/accounting treatment pending |
+| D22 | Review fixed ₦1,000 bank and ₦500 cash monthly tracking fees from BOTH client and talent. Set an approved fixed amount for escrow tracking in Admin; preserve per-month fee snapshots, refunds, and two-sided Work Pass proof | Finance + Legal | Fixed model and two-party billing approved; escrow amount and legal/accounting treatment pending |
 
 ## Valuation limitations
 The Github repo can support a **replacement-effort estimate**; it does not prove actual work hours, which developers performed which tasks, or a company's fair-market value. The preliminary 860–1,700 hour range and the 1,200 × ₦5,000 = ₦6m base figure are **illustrative and unverified**. The discussed ₦4m–₦8m pre-money range is also only a negotiating hypothesis.
