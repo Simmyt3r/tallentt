@@ -211,6 +211,7 @@ export default function DealDetails() {
             <EscrowFundingCard
               amount={thread.amount}
               currency={thread.currency}
+              feeEnabled={thread.gig_fee_terms_available===true}
               walletBalance={user?.walletBalance || 0}
               busy={busy}
               returnTo={`/deals/${thread.id}?role=client`}
