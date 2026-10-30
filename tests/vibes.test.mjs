@@ -52,6 +52,7 @@ test('post, author identity and timeline pagination use owned server fields',asy
   assert.equal(data.body.posts[0].body,'Hello community!')
   assert.equal(data.body.posts[0].username,'creator')
   assert.equal(data.body.posts[0].likes,0)
+  assert.equal(data.body.posts[0].shares,0,'Legacy databases without share migration remain readable')
   assert.equal(data.body.posts[0].liked_by_me,false)
 })
 test('reactions, replies, owner deletion and safe reports are account scoped',async()=>{

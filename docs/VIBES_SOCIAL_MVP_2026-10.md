@@ -64,3 +64,13 @@ Activation rate (registered subscribers posting/replying), 7-day returning parti
 - Both features preserve the existing 40-comments-per-hour limit and the original post moderation rules. Nested replies do not alter Orbit Score.
 
 **Test coverage:** `tests/vibes-threads.test.mjs` covers migration repeatability, correct-post parent validation, maximum two-level thread depth, ownership, deleted parents, and liker visibility. `tests/vibes-hierarchy-ui.mjs` checks mobile and desktop navigation, nested replies, the liker profile list, and horizontal overflow. CI: `.github/workflows/vibes-conversations.yml`.
+
+## Engagement summary layout — October 30, 2026
+
+Each Vibe displays a compact two-row Facebook-style footer.
+
+* Upper row: tappable heart + real like count (opens the existing liker identities dialog), tappable comment count (opens the conversation), and a share count.
+* Lower row: Like, Comment, and Share controls with icons. The old separate “See who liked this Vibe” label is removed.
+* Counts use compact display (e.g. 100, 1k, 1.2k), without fabricating engagement.
+* Share actions are now tracked using the optional **vibes-shares-2026-10** Admin migration. A successful native-share action or link copy counts once per user per Vibe per UTC day, rather than counting cancelled share dialogs or repeated taps. Old databases display zero shares until this migration is installed.
+* The main Share button shares the post link. Branded video export stays inside the media gallery and downloading a video is not counted as a share.

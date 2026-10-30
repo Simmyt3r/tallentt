@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Heart, ImagePlus, MessageCircle, Send, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
+import { Heart, ThumbsUp, ImagePlus, MessageCircle, Send, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
 import EntryActions from '../components/EntryActions.jsx'
 import VibesMediaGallery from '../components/VibesMediaGallery.jsx'
 import VibesComments from '../components/VibesComments.jsx'
@@ -11,6 +11,7 @@ import { api, uploadVibePhoto } from '../lib/api.js'
 import { compressImageFile } from '../lib/media.js'
 import { cldImage } from '../lib/cloudinary.js'
 import { shareSignedWorkPassVideo } from '../lib/workPassVideoShare.js'
+import { formatEngagementCount } from '../lib/engagementCount.js'
 
 const MAX_PHOTOS = 10
 const MAX_POST_BYTES = 80 * 1024 * 1024
@@ -86,7 +87,9 @@ function VibeCard({post,me,onChange,onDeleted}) {
     } catch(err){setError(err.message||'Could not report this post.')}
   }
   async function share(media = null) {
-    const clip=media?.type==='video'?media:(post.media||[]).find(item=>item.type==='video')
+    // The main Share button shares the post link for every media type.
+    // Media-gallery branded video export remains a separate action.
+    const clip=media?.type==='video'?media:null
     if(clip?.url){
       if(exporting)return
       setExporting(true);setExportProgress(0);setError('')
@@ -100,8 +103,18 @@ function VibeCard({post,me,onChange,onDeleted}) {
     }
     const url=new URL('/vibes?post='+post.id,window.location.origin).toString()
     try {
-      if(navigator.share) await navigator.share({title:'Vibes on chombuTar',url})
-      else {await navigator.clipboard.writeText(url);setError('Link copied.')}
+      const method=typeof navigator.share==='function'?'native':'link'
+      if(method==='native')await navigator.share({title:'Vibes on ChombuTar',url})
+      else {
+        await navigator.clipboard.writeText(url)
+        setError('Link copied.')
+      }
+      // Recording is secondary: a successful native share/link copy still
+      // succeeds even if the optional share-counter migration is not installed.
+      try {
+        const data=await api.vibeAction({action:'share',post_id:post.id,method})
+        if(Number.isSafeInteger(data.shares))onChange(post.id,{shares:data.shares})
+      } catch { /* Do not block actual sharing if analytics is unavailable. */ }
     } catch(err){if(err.name!=='AbortError')setError('Unable to share this link.')}
   }
   return <article className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm" aria-label={`Vibe by ${post.full_name||post.username}`}>
@@ -117,28 +130,48 @@ function VibeCard({post,me,onChange,onDeleted}) {
     </header>
     {editingPost?<div className="mt-3 space-y-2"><textarea autoFocus rows={5} value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full resize-y rounded-xl border border-black/15 p-3 text-[13px]"/><div className="flex gap-2"><button type="button" disabled={busy||(!editBody.trim()&&!post.media?.length)} onClick={savePost} className="rounded-full bg-[#0A13E6] px-4 py-2 text-[12px] text-white">Save changes</button><button type="button" onClick={()=>setEditingPost(false)} className="text-[12px]">Cancel</button></div></div> : post.body&&<p className="mt-3 whitespace-pre-wrap break-words text-[14px] leading-relaxed">{post.body}{post.edited_at&&<span className="ml-1 text-[10px] text-black/40">(edited)</span>}</p>}
     <VibesMediaGallery media={post.media||[]} owner={post.full_name||post.username} onShareVideo={share} sharing={exporting}/>
-    <div className="mt-3 grid grid-cols-3 gap-1 border-t border-black/10 pt-2">
+    {/* Facebook-style engagement summary: real counts first, controls second.
+        Heart/count is the sole entry to the existing people-who-liked list. */}
+    <div aria-label="Vibe engagement counts"
+      className="mt-3 flex min-h-10 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-black/10 py-1.5 text-[12px] text-black/55">
+      <button type="button" onClick={()=>setShowLikers(true)}
+        aria-label={`View people who liked this Vibe (${post.likes||0} likes)`}
+        className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-1 font-semibold hover:text-[#0A13E6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0A13E6]">
+        <span className="grid h-5 w-5 place-items-center rounded-full bg-[#E12754] text-white">
+          <Heart size={12} fill="currentColor" aria-hidden="true"/>
+        </span>
+        <span>{formatEngagementCount(post.likes)}</span>
+      </button>
+      <div className="ml-auto flex items-center gap-3 text-[11px] sm:gap-4 sm:text-[12px]">
+        <button type="button" aria-expanded={showReplies}
+          aria-label={`View comments (${post.replies||0})`}
+          onClick={()=>setShowReplies(v=>!v)}
+          className="min-h-9 rounded-lg px-0.5 font-semibold hover:text-[#0A13E6] hover:underline">
+          {formatEngagementCount(post.replies)} comments
+        </button>
+        <span aria-label={`${post.shares||0} shares`} className="whitespace-nowrap font-semibold">
+          {formatEngagementCount(post.shares)} shares
+        </span>
+      </div>
+    </div>
+    <div aria-label="Vibe actions" className="grid grid-cols-3 gap-1 border-y border-black/10 py-1">
       <button type="button" onClick={like} disabled={busy} aria-pressed={post.liked_by_me}
         aria-label={post.liked_by_me?'Unlike Vibe':'Like Vibe'}
-        className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-[12px] font-semibold hover:bg-[#F7F3EB] ${post.liked_by_me?'text-[#0A13E6]':'text-black/55'}`}>
-        <Heart size={17} fill={post.liked_by_me?'currentColor':'none'}/>{post.likes||0}
+        className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold hover:bg-[#F7F3EB] ${post.liked_by_me?'text-[#0A13E6]':'text-black/55'}`}>
+        <ThumbsUp size={17} fill={post.liked_by_me?'currentColor':'none'} aria-hidden="true"/> Like
       </button>
-      <button type="button" aria-label={`Replies (${post.replies||0})`} aria-expanded={showReplies} onClick={()=>setShowReplies(!showReplies)}
-        className="flex min-h-11 items-center justify-center gap-2 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB]">
-        <MessageCircle size={17}/>{post.replies||0} <span className="hidden sm:inline">Replies</span>
+      <button type="button" aria-label="Comment on Vibe" aria-expanded={showReplies}
+        onClick={()=>setShowReplies(v=>!v)}
+        className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB]">
+        <MessageCircle size={17} aria-hidden="true"/> Comment
       </button>
       <button type="button" onClick={()=>share()} disabled={exporting}
-        className="flex min-h-11 items-center justify-center gap-2 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB] disabled:opacity-50">
-        <Share2 size={17}/> {exporting ? 'Branding '+exportProgress+'%' : (post.media||[]).some(m=>m.type==='video') ? 'Share branded clip' : 'Share'}
+        aria-label="Share Vibe"
+        className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB] disabled:opacity-50">
+        <Share2 size={17} aria-hidden="true"/> Share
       </button>
     </div>
     {error&&<p role="status" className="mt-2 text-[11px] text-black/60">{error}</p>}
-    <button type="button" onClick={()=>setShowLikers(true)}
-      aria-label="See who liked this Vibe"
-      className="mt-1 inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-[11px] font-bold text-[#0A13E6] hover:bg-[#EEF0FF] focus-visible:bg-[#EEF0FF]">
-      <Heart size={13} fill="currentColor" aria-hidden="true"/>
-      {Number(post.likes||0)===0?'See who liked this Vibe':`See who liked this Vibe · ${post.likes}`}
-    </button>
     {showReplies&&<VibesComments post={post} me={me} onDelta={onChange}/>}
     {showLikers&&<VibesLikersDialog post={post} onClose={()=>setShowLikers(false)}/>}
   </article>

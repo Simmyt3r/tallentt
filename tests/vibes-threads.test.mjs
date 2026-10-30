@@ -12,7 +12,7 @@ before(async()=>{
   db=await testDatabase();pool=db.pool;global.__tworldPool=pool
   process.env.JWT_SECRET='vibes-threads-test-secret'
   await pool.query(await readFile(new URL('../db/schema.sql',import.meta.url),'utf8'))
-  for(const patch of ['patch-vibes-2026-10.sql','patch-vibes-threads-2026-10.sql']){
+  for(const patch of ['patch-vibes-2026-10.sql','patch-vibes-threads-2026-10.sql','patch-vibes-shares-2026-10.sql']){
     const sql=await readFile(new URL('../db/'+patch,import.meta.url),'utf8')
     await pool.query(sql);await pool.query(sql)
   }
@@ -116,4 +116,21 @@ test('visible Vibe likers show only public identity fields, in paginated order',
   // Likes do not leak for deleted/held content.
   await request('POST','/api/vibes',{action:'delete',post_id:postIds.likes},'author')
   assert.equal((await request('GET','/api/vibes?likers='+postIds.likes,null,'second')).status,404)
+})
+
+test('share counts report completed share activity, not arbitrary clicks; hidden posts cannot be counted',async()=>{
+  const shared=await createPost('author','Share activity')
+  const first=await request('POST','/api/vibes',{action:'share',post_id:shared,method:'native'},'first')
+  assert.equal(first.status,200,JSON.stringify(first.body))
+  assert.equal(first.body.shares,1)
+  const repeated=await request('POST','/api/vibes',{action:'share',post_id:shared,method:'link'},'first')
+  assert.equal(repeated.body.shares,1,'Repeat sharing in the same UTC day must not inflate count')
+  const second=await request('POST','/api/vibes',{action:'share',post_id:shared,method:'link'},'second')
+  assert.equal(second.body.shares,2)
+  const feed=await request('GET','/api/vibes?post='+shared,null,'author')
+  assert.equal(feed.status,200)
+  assert.equal(feed.body.posts[0].shares,2)
+  assert.equal((await request('POST','/api/vibes',{action:'share',post_id:shared,method:'click'},'first')).status,400)
+  await request('POST','/api/vibes',{action:'delete',post_id:shared},'author')
+  assert.equal((await request('POST','/api/vibes',{action:'share',post_id:shared,method:'native'},'second')).status,404)
 })

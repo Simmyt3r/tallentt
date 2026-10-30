@@ -4,6 +4,7 @@ import {preview} from 'vite'
 import {fileURLToPath} from 'node:url'
 import {mkdir} from 'node:fs/promises'
 import {optOutPageToursForFixture} from './page-tour-fixture.mjs'
+import {formatEngagementCount} from '../src/lib/engagementCount.js'
 
 const root=fileURLToPath(new URL('..',import.meta.url)),port=5198
 const postId='22222222-2222-4222-8222-222222222222'
@@ -13,17 +14,24 @@ const self={id:'11111111-1111-4111-8111-111111111111',username:'studio',full_nam
 let server,browser
 try{
   await mkdir('test-results',{recursive:true})
+  assert.equal(formatEngagementCount(100),'100')
+  assert.equal(formatEngagementCount(1000),'1k')
+  assert.equal(formatEngagementCount(1250),'1.2k')
+  assert.equal(formatEngagementCount(1000000),'1m')
   server=await preview({root,preview:{host:'127.0.0.1',port,strictPort:true}})
   browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined})
   for(const width of [320,390,1280]){
     const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'})
     await optOutPageToursForFixture(context)
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator,'share',{configurable:true,value:async()=>undefined})
+    })
     const page=await context.newPage()
     page.setDefaultTimeout(15000)
     const errors=[]
     page.on('pageerror',error=>errors.push(error.message))
     const post={id:postId,author_id:'77777777-7777-4777-8777-777777777777',username:'creator',
-      full_name:'Creator Person',body:'Building community conversations',media:[],likes:1,replies:2,
+      full_name:'Creator Person',body:'Building community conversations',media:[],likes:1,replies:2,shares:0,
       liked_by_me:false,created_at:'2026-10-30T12:00:00Z'}
     let roots=[{id:rootId,post_id:postId,parent_id:null,author_id:'88888888-8888-4888-8888-888888888888',
       username:'friend',full_name:'Friend Person',body:'Original comment',child_count:1,
@@ -45,6 +53,7 @@ try{
           comments:url.searchParams.get('parent_id')===rootId?children:roots,threaded:true,nextCursor:null,
         })
         if(route.request().method()==='GET')return respond({posts:[post],nextCursor:null})
+        if(data.action==='share'){post.shares=1;return respond({shares:1})}
         if(data.action==='like'){post.likes=post.likes===1?2:1;post.liked_by_me=!post.liked_by_me
           return respond({likes:post.likes,liked:post.liked_by_me})}
         if(data.action==='reply'){
@@ -71,13 +80,24 @@ try{
       await page.screenshot({path:'test-results/vibes-thread-'+width+'.png',fullPage:true})
       throw err
     }
-    await article.getByRole('button',{name:'See who liked this Vibe'}).click()
+    const summary=article.getByRole('region',{name:'Vibe engagement counts'})
+    // The like count, comments, shares and lower actions have distinct roles.
+    const counts=article.locator('[aria-label="Vibe engagement counts"]')
+    await counts.getByRole('button',{name:/View people who liked this Vibe/}).waitFor()
+    await counts.getByRole('button',{name:'View comments (2)'}).waitFor()
+    assert.equal(await counts.getByLabel('0 shares').count(),1)
+    assert.equal(await article.getByRole('button',{name:'See who liked this Vibe'}).count(),0)
+    const actions=article.locator('[aria-label="Vibe actions"]')
+    assert.equal(await actions.getByRole('button').count(),3)
+    await counts.getByRole('button',{name:/View people who liked this Vibe/}).click()
     const dialog=page.getByRole('dialog',{name:'People who liked this Vibe'})
     await dialog.getByRole('link',{name:/Friend Person/}).waitFor()
     assert.equal(await dialog.locator('a[href="/profile/friend"]').count(),1)
     await dialog.getByRole('button',{name:'Close Vibes likes'}).click()
     await dialog.waitFor({state:'detached'})
-    await article.getByRole('button',{name:/Replies/}).click()
+    await actions.getByRole('button',{name:'Share Vibe'}).click()
+    await article.locator('[aria-label="Vibe engagement counts"]').getByLabel('1 shares').waitFor()
+    await actions.getByRole('button',{name:'Comment on Vibe'}).click()
     const thread=article.locator('[data-thread-id="'+rootId+'"]')
     await thread.getByText('Original comment').waitFor()
     assert.equal(await thread.getByText('Older nested reply').count(),0,'Nested replies should be expandable')
@@ -88,7 +108,7 @@ try{
     await composer.fill('A thoughtful second-level response')
     await thread.getByRole('button',{name:'Send threaded reply'}).click()
     await thread.getByText('A thoughtful second-level response').waitFor()
-    await article.getByRole('button',{name:/Replies \(3\)/}).waitFor()
+    await counts.getByRole('button',{name:'View comments (3)'}).waitFor()
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'Vibes comments should fit at '+width+'px')
     await page.screenshot({path:'test-results/vibes-thread-'+width+'.png',animations:'disabled'})
