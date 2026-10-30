@@ -2,6 +2,8 @@ import {createHash} from 'node:crypto'
 import {query,getClient} from './db.js'
 import {notifyUserWithQuery} from './notifications.js'
 import {dispatchStoredNotifications} from './pushNotifications.js'
+import {debitWallet,creditWallet} from './wallet.js'
+import {salaryTrackingQuote} from '../../shared/monetization.js'
 
 const fail=(status,message)=>Object.assign(new Error(message),{status})
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i
@@ -188,8 +190,35 @@ export async function employmentAction(userId,body){
             SET paid_on=EXCLUDED.paid_on,method=EXCLUDED.method,escrow_id=EXCLUDED.escrow_id,note=EXCLUDED.note,
               status='reported',revision=employment_salary_periods.revision+1,reported_at=NOW()
             RETURNING id,revision`,[a.id,month,due,paidOn,body.method,escrow,note])
-          periodId=rows[0].id;summary=`Employer reports ${month} salary paid. Talent confirmation needed.`
-          metadata={period_id:periodId,month,paid_on:paidOn,method:body.method,escrow_id:escrow,note,revision:rows[0].revision};break
+          periodId=rows[0].id
+          // Commission is charged for successful tracking services, not
+          // for the act of moving money outside ChombuTar. Fee disclosure
+          // must be acknowledged on the exact server-calculated amount.
+          const {rows:billingTable}=await client.query("SELECT to_regclass('billing_charge_events') AS registered")
+          let trackingFee=0
+          if(billingTable[0]?.registered){
+            const quote=salaryTrackingQuote(Number(a.terms.salary),body.method)
+            if(body.accept_tracking_fee!==true||Number(body.expected_tracking_fee)!==quote.trackingFee)
+              throw fail(409,'Review and accept the disclosed salary tracking fee before reporting payment.')
+            const {rows:existingFee}=await client.query(`SELECT id,status FROM billing_charge_events
+              WHERE kind='salary_tracking' AND source_id=$1 FOR UPDATE`,[periodId])
+            if(existingFee[0]?.status==='charged')throw fail(409,'This salary tracking fee is already paid.')
+            const reference=`salary:${periodId}:${rows[0].revision}`
+            await debitWallet(client,{userId:a.employer_id,amount:quote.trackingFee,
+              type:'billing_charge',reference})
+            if(existingFee.length){
+              await client.query(`UPDATE billing_charge_events SET amount=$2,reference=$3,
+                status='charged',refunded_at=NULL,created_at=NOW() WHERE id=$1`,
+                [existingFee[0].id,quote.trackingFee,reference])
+            }else{
+              await client.query(`INSERT INTO billing_charge_events(user_id,kind,source_id,amount,reference)
+                VALUES($1,'salary_tracking',$2,$3,$4)`,
+                [a.employer_id,periodId,quote.trackingFee,reference])
+            }
+            trackingFee=quote.trackingFee
+          }
+          summary=`Employer reports ${month} salary paid. Talent confirmation needed.`
+          metadata={period_id:periodId,month,paid_on:paidOn,method:body.method,escrow_id:escrow,note,revision:rows[0].revision,tracking_fee:trackingFee};break
         }
         case 'employment_confirm':case 'employment_dispute':{
           requireTalent()
@@ -206,6 +235,14 @@ export async function employmentAction(userId,body){
           }else{
             const note=text(body.note,1000,'Non-receipt explanation')
             await client.query("UPDATE employment_salary_periods SET status='disputed',note=$2,revision=revision+1 WHERE id=$1",[period.id,note])
+            // Undo the tracking fee if the talent disputes full receipt.
+            const {rows:charges}=await client.query(`SELECT * FROM billing_charge_events
+              WHERE kind='salary_tracking' AND source_id=$1 AND status='charged' FOR UPDATE`,[period.id])
+            if(charges.length){
+              await creditWallet(client,{userId:a.employer_id,amount:charges[0].amount,
+                type:'billing_refund',reference:'refund:'+charges[0].reference})
+              await client.query(`UPDATE billing_charge_events SET status='refunded',refunded_at=NOW() WHERE id=$1`,[charges[0].id])
+            }
             summary=`Talent reports ${period.month} salary not received in full.`;metadata={period_id:period.id,note,revision:period.revision+1}
           }
           break
