@@ -139,10 +139,22 @@ export async function adminPlanPrice(adminId,body){
     throw fail(400,'Enter a positive monthly price in whole naira.')
   const enabled=body.enabled===true
   await requireBilling()
-  const {rows}=await query(`UPDATE billing_plan_prices SET monthly_naira=$3,enabled=$4,updated_by=$5,
-    updated_at=NOW() WHERE audience=$1 AND plan_code=$2 RETURNING audience,plan_code,monthly_naira,enabled`,
-    [audience,code,amount,enabled,adminId])
-  return {plan:rows[0]}
+  const client=await getClient()
+  try{
+    await client.query('BEGIN')
+    const {rows:old}=await client.query(`SELECT monthly_naira,enabled FROM billing_plan_prices
+      WHERE audience=$1 AND plan_code=$2 FOR UPDATE`,[audience,code])
+    if(!old.length)throw fail(404,'Subscription plan not found.')
+    const {rows}=await client.query(`UPDATE billing_plan_prices SET monthly_naira=$3,enabled=$4,updated_by=$5,
+      updated_at=NOW() WHERE audience=$1 AND plan_code=$2 RETURNING audience,plan_code,monthly_naira,enabled`,
+      [audience,code,amount,enabled,adminId])
+    await client.query(`INSERT INTO admin_audit_logs(admin_id,action,target_type,metadata)
+      VALUES($1,'billing_plan_price','subscription',$2::jsonb)`,
+      [adminId,JSON.stringify({audience,code,previous:old[0],next:rows[0]})])
+    await client.query('COMMIT')
+    return {plan:rows[0]}
+  }catch(err){await client.query('ROLLBACK').catch(()=>{});throw err}
+  finally{client.release()}
 }
 export async function adminReviewBusiness(adminId,body){
   const requestId=requireUuid(body.request_id)
