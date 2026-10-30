@@ -5,6 +5,7 @@ import EntryActions from '../components/EntryActions.jsx'
 import VibesMediaGallery from '../components/VibesMediaGallery.jsx'
 import VibesComments from '../components/VibesComments.jsx'
 import VibesLikersDialog from '../components/VibesLikersDialog.jsx'
+import VibesShareDialog from '../components/VibesShareDialog.jsx'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api, uploadVibePhoto } from '../lib/api.js'
@@ -45,6 +46,7 @@ function Identity({user}) {
 function VibeCard({post,me,onChange,onDeleted}) {
   const [showReplies,setShowReplies]=useState(false)
   const [showLikers,setShowLikers]=useState(false)
+  const [showShare,setShowShare]=useState(false)
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   const [reported,setReported]=useState(false)
@@ -87,35 +89,27 @@ function VibeCard({post,me,onChange,onDeleted}) {
     } catch(err){setError(err.message||'Could not report this post.')}
   }
   async function share(media = null) {
-    // The main Share button shares the post link for every media type.
-    // Media-gallery branded video export remains a separate action.
-    const clip=media?.type==='video'?media:null
-    if(clip?.url){
-      if(exporting)return
-      setExporting(true);setExportProgress(0);setError('')
-      try {
-        const outcome=await shareSignedWorkPassVideo({url:clip.url,username:post.username,
-          onProgress:setExportProgress})
-        if(outcome==='downloaded')setError('Branded video saved. Share the downloaded file on WhatsApp or Instagram.')
-      }catch(err){setError(err.message||'Could not export a branded clip.')}
-      finally{setExporting(false)}
+    // Post sharing always opens the share sheet. Video sharing from the
+    // media gallery is a separate branded-video export workflow.
+    if(!media || media.type!=='video') {
+      setShowShare(true)
       return
     }
-    const url=new URL('/vibes?post='+post.id,window.location.origin).toString()
+    if(!media.url||exporting)return
+    setExporting(true);setExportProgress(0);setError('')
     try {
-      const method=typeof navigator.share==='function'?'native':'link'
-      if(method==='native')await navigator.share({title:'Vibes on ChombuTar',url})
-      else {
-        await navigator.clipboard.writeText(url)
-        setError('Link copied.')
-      }
-      // Recording is secondary: a successful native share/link copy still
-      // succeeds even if the optional share-counter migration is not installed.
-      try {
-        const data=await api.vibeAction({action:'share',post_id:post.id,method})
-        if(Number.isSafeInteger(data.shares))onChange(post.id,{shares:data.shares})
-      } catch { /* Do not block actual sharing if analytics is unavailable. */ }
-    } catch(err){if(err.name!=='AbortError')setError('Unable to share this link.')}
+      const outcome=await shareSignedWorkPassVideo({url:media.url,username:post.username,
+        onProgress:setExportProgress})
+      if(outcome==='downloaded')setError('Branded video saved. Share it from your downloads.')
+    }catch(err){setError(err.message||'Could not export a branded clip.')}
+    finally{setExporting(false)}
+  }
+  function recordShared({method}) {
+    // A copied link, completed system share, or social destination launch
+    // remains successful even if the share-counter migration is not installed.
+    api.vibeAction({action:'share',post_id:post.id,method})
+      .then(data=>{if(Number.isSafeInteger(data.shares))onChange(post.id,{shares:data.shares})})
+      .catch(()=>{})
   }
   return <article className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm" aria-label={`Vibe by ${post.full_name||post.username}`}>
     <header className="flex items-center justify-between gap-2">
@@ -174,6 +168,8 @@ function VibeCard({post,me,onChange,onDeleted}) {
     {error&&<p role="status" className="mt-2 text-[11px] text-black/60">{error}</p>}
     {showReplies&&<VibesComments post={post} me={me} onDelta={onChange}/>}
     {showLikers&&<VibesLikersDialog post={post} onClose={()=>setShowLikers(false)}/>}
+    {showShare&&<VibesShareDialog post={post} onClose={()=>setShowShare(false)} onShared={recordShared}/>}
+
   </article>
 }
 
