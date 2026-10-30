@@ -88,7 +88,7 @@ try{
     await composer.fill('A thoughtful second-level response')
     await thread.getByRole('button',{name:'Send threaded reply'}).click()
     await thread.getByText('A thoughtful second-level response').waitFor()
-    assert.equal(await article.getByRole('button',{name:/Replies \(3\)/}).count(),1)
+    await article.getByRole('button',{name:/Replies \(3\)/}).waitFor()
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'Vibes comments should fit at '+width+'px')
     await page.screenshot({path:'test-results/vibes-thread-'+width+'.png',animations:'disabled'})
