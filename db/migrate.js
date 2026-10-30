@@ -13,7 +13,9 @@ async function main() {
     process.exit(1)
   }
 
-  const files = process.argv.includes('--employment')
+  const files = process.argv.includes('--reputation')
+    ? ['patch-employment-2026-10.sql','patch-reputation-2026-10.sql']
+    : process.argv.includes('--employment')
     ? ['patch-employment-2026-10.sql']
     : process.argv.includes('--talent-card')
     ? ['patch-talent-card-2026-10.sql']

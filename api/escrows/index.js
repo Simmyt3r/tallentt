@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {employmentGet,employmentAction} from '../_lib/employment.js'
+import {reviewAction,reviewJobs} from '../_lib/reputation.js'
 // Path: api/escrows/index.js
 import { query, getClient } from '../_lib/db.js'
 import { getDealCall, dealCallAction } from '../_lib/dealCalls.js'
@@ -28,6 +29,7 @@ export default async function handler(req, res) {
       if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
       const url = new URL(req.url, `http://${req.headers.host}`)
+      if(url.searchParams.has('review_jobs'))return json(res,200,await reviewJobs(session.sub,url.searchParams.get('review_jobs')))
       if(url.searchParams.has('employment')||url.searchParams.has('employment_id'))
         return json(res,200,await employmentGet(session.sub,url.searchParams))
 
@@ -152,6 +154,7 @@ export default async function handler(req, res) {
 
     const body = await readBody(req)
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'A JSON object is required.' })
+    if(['review_submit','review_hide'].includes(body.action))return json(res,200,await reviewAction(session.sub,body))
     if(String(body.action||'').startsWith('employment_'))
       return json(res,200,await employmentAction(session.sub,body))
 
