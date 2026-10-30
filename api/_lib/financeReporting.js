@@ -13,7 +13,7 @@ export async function financeSummary(){
       (SELECT COUNT(*)::int FROM booking_disputes WHERE status='open') AS open_disputes,
       (SELECT COALESCE(SUM(amount::bigint),0)::text FROM wallet_transactions
         WHERE type='withdrawal' AND status='pending') AS pending_withdrawal_liability`),
-    query("SELECT to_regclass('live_support_transactions') AS live_support, to_regclass('gig_fee_events') AS gig_fees, to_regclass('billing_charge_events') AS billing_fees"),
+    query("SELECT to_regclass('live_support_transactions') AS live_support, to_regclass('gig_fee_events') AS gig_fees, to_regclass('billing_charge_events') AS billing_fees, to_regclass('gig_commission_adjustments') AS gig_adjustments"),
   ])
   const exists=Boolean(tables[0]?.live_support)
   let live=null
@@ -30,6 +30,11 @@ export async function financeSummary(){
     const {rows}=await query(`SELECT COALESCE(SUM(fee_amount::bigint),0)::text AS accrued_fees,
       COUNT(*)::int AS transactions FROM gig_fee_events`)
     gig=rows[0]
+    if(tables[0]?.gig_adjustments){
+      const {rows:adjustments}=await query(`SELECT COALESCE(SUM(commission_reversed::bigint),0)::text AS reversals FROM gig_commission_adjustments`)
+      gig={...gig,accrued_fees:(BigInt(gig.accrued_fees||0)-BigInt(adjustments[0]?.reversals||0)).toString(),
+        commission_reversals:adjustments[0]?.reversals||'0'}
+    }
   }
   if(tables[0]?.billing_fees){
     const {rows}=await query(`SELECT kind,
@@ -52,6 +57,7 @@ export async function financeSummary(){
       {id:'deal_fees',name:'Released gig commissions (5% on new deals)',source:'gig_fee_events',
         recorded:gig!==null,inflow:gig?.accrued_fees??null,transactions:gig?.transactions??null},
       billingStream('salary_tracking','Salary tracking charges (subject to confirmation)'),
+      billingStream('salary_tracking_talent','Talent-side salary tracking charges (subject to confirmation)'),
       billingStream('business_verification','Business verification review fees'),
       billingStream('subscription','Subscription collections (deferred-service accounting required)'),
       {id:'sponsorships',name:'Sponsorship and other income',source:'not reconciled in this release',
