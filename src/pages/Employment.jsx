@@ -83,7 +83,7 @@ function SalaryReport({period,agreement,today,onAction,busy,trackingPrices}){
   const [month,setMonth]=useState(period?.month||today.slice(0,7)),[method,setMethod]=useState('bank_transfer'),[paidOn,setPaidOn]=useState(today),[escrow,setEscrow]=useState(''),[note,setNote]=useState('')
   const [consent,setConsent]=useState(false)
   const salary=Number(agreement.terms?.salary||0)
-  const legacyQuote=salary>0?salaryTrackingQuote(salary,method):null
+  const legacyQuote=salary>0?(()=>{try{return salaryTrackingQuote(salary,method)}catch{return null}})():null
   const monthlyFee=trackingPrices?trackingPrices[method]??null:legacyQuote?.trackingFee??null
   const quote=monthlyFee==null?null:{trackingFee:monthlyFee}
   const fixed=Boolean(trackingPrices)
