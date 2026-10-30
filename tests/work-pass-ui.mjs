@@ -194,6 +194,14 @@ try{
     await publicPhoto.waitFor({state:'detached'})
     assert.equal(await profileAvatar.isVisible(),true,'The profile remains in place after viewing the photo')
     await page.screenshot({path:'test-results/work-pass-profile-'+width+'.png',animations:'disabled'})
+    // The dropdown's Edit profile action deep-links into the existing editor.
+    await page.getByRole('button',{name:'Open profile menu'}).click()
+    await page.getByRole('navigation',{name:'Profile and account'}).getByRole('link',{name:'Edit profile'}).click()
+    await page.getByRole('heading',{name:'Edit Profile'}).waitFor()
+    assert.equal(new URL(page.url()).searchParams.get('edit'),'1')
+    await page.getByRole('button',{name:'Open profile menu'}).click()
+    await page.getByRole('navigation',{name:'Profile and account'}).getByRole('link',{name:'My profile'}).click()
+    await profileAvatar.waitFor()
     // Editing a profile must keep its existing camera upload and add a
     // separate full-resolution preview rather than hijacking the edit action.
     await page.getByRole('button',{name:'Edit Profile'}).click()
