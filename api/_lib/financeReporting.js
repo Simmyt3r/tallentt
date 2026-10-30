@@ -13,7 +13,7 @@ export async function financeSummary(){
       (SELECT COUNT(*)::int FROM booking_disputes WHERE status='open') AS open_disputes,
       (SELECT COALESCE(SUM(amount::bigint),0)::text FROM wallet_transactions
         WHERE type='withdrawal' AND status='pending') AS pending_withdrawal_liability`),
-    query("SELECT to_regclass('live_support_transactions') AS live_support"),
+    query("SELECT to_regclass('live_support_transactions') AS live_support, to_regclass('gig_fee_events') AS gig_fees, to_regclass('billing_charge_events') AS billing_fees"),
   ])
   const exists=Boolean(tables[0]?.live_support)
   let live=null
@@ -25,21 +25,43 @@ export async function financeSummary(){
       FROM live_support_transactions WHERE status='success'`)
     live=rows[0]
   }
+  let gig=null,billing=null
+  if(tables[0]?.gig_fees){
+    const {rows}=await query(`SELECT COALESCE(SUM(fee_amount::bigint),0)::text AS accrued_fees,
+      COUNT(*)::int AS transactions FROM gig_fee_events`)
+    gig=rows[0]
+  }
+  if(tables[0]?.billing_fees){
+    const {rows}=await query(`SELECT kind,
+      COALESCE(SUM(amount::bigint),0)::text AS charged_fees,
+      COUNT(*)::int AS transactions FROM billing_charge_events
+      WHERE status='charged' GROUP BY kind`)
+    billing=rows
+  }
+  const billingStream=(kind,name)=>(()=>{
+    const row=billing?.find(item=>item.kind===kind)
+    return {id:kind,name,source:'billing_charge_events',recorded:billing!==null,
+      inflow:billing!==null?(row?.charged_fees||'0'):null,transactions:billing!==null?(row?.transactions||0):null}
+  })()
   return {
     currency:'NGN',
     liabilities:liability[0],
     income_streams:[
       {id:'live_support',name:'Live support platform fees',source:'live_support_transactions',
         recorded:exists,inflow:live?.accrued_fees??null,transactions:live?.transactions??null},
-      {id:'deal_fees',name:'Deal commissions',source:'no immutable fee accrual ledger yet',
-        recorded:false,inflow:null,transactions:null},
+      {id:'deal_fees',name:'Released gig commissions (5% on new deals)',source:'gig_fee_events',
+        recorded:gig!==null,inflow:gig?.accrued_fees??null,transactions:gig?.transactions??null},
+      billingStream('salary_tracking','Salary tracking charges (subject to confirmation)'),
+      billingStream('business_verification','Business verification review fees'),
+      billingStream('subscription','Subscription collections (deferred-service accounting required)'),
       {id:'sponsorships',name:'Sponsorship and other income',source:'not reconciled in this release',
         recorded:false,inflow:null,transactions:null},
     ],
-    recognized_revenue:live?.accrued_fees??null,
+    recognized_revenue: live!==null||gig!==null
+      ? (BigInt(live?.accrued_fees||0)+BigInt(gig?.accrued_fees||0)).toString() : null,
     recognized_revenue_partial:true,
     net_profit:null,
-    warning:'Recognized revenue covers verified Live support fees only. This is not net profit or withdrawable cash. No verified cost, tax, settlement or cash reconciliation ledger exists for all streams.',
+    warning:'Recognized revenue includes Live support and released-gig fees where recorded. Subscription collections are NOT counted as earned service revenue pending deferral policy. Salary and verification charges may be refundable or subject to recognition timing. No tax, settlement, processor-cost or net-profit reconciliation is implied.',
   }
 }
 export async function financeAudit({stream='live_support',cursor=null}={}){
