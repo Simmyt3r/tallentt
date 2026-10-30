@@ -290,6 +290,10 @@ export const api = {
   // Wallet — reuses the /api/escrows endpoint with a query param / action
   // field rather than a dedicated /api/wallet one (see api/escrows/index.js
   // and the 12-function-cap note next to getMyApplications below).
+  getBilling:()=>request('/api/escrows?billing=1',{cache:'no-store'}),
+  billingAction:(body)=>request('/api/escrows',{method:'POST',body:JSON.stringify(body)}),
+  getAdminBilling:()=>request('/api/admin?action=billing_admin',{cache:'no-store'}),
+  adminBillingAction:(body)=>request('/api/admin',{method:'POST',body:JSON.stringify(body)}),
   getWallet: () => request('/api/escrows?wallet=1'),
   topupWallet: (reference) =>
     request('/api/escrows', { method: 'POST', body: JSON.stringify({ action: 'topup', reference }) }),
