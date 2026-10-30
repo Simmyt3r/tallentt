@@ -22,7 +22,7 @@ function validPlan(a,code){
   return code
 }
 async function actor(client,userId){
-  const {rows}=await client.query('SELECT id,role,is_admin FROM users WHERE id=$1 FOR NO KEY UPDATE',[userId])
+  const {rows}=await client.query('SELECT id,role,is_admin,is_business_verified FROM users WHERE id=$1 FOR NO KEY UPDATE',[userId])
   if(!rows.length)throw fail(401,'Account not found.')
   return rows[0]
 }
