@@ -77,7 +77,7 @@ export async function refundTrackingSides(client,periodId){
   }
   return rows.length
 }
-export async function trackingPeriodsPaid(q,personId){
+export async function trackingPeriodsPaid(q=query,personId){
   const prices=await salaryTrackingPrices(q)
   if(!prices)return {talent:0,client:0}
   const {rows}=await q(`SELECT
