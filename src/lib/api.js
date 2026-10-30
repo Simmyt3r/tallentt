@@ -169,9 +169,12 @@ export const api = {
   getVibes: (before, post, search = '') => request(`/api/vibes?${new URLSearchParams({
     ...(before ? { before } : {}), ...(post ? { post } : {}),...(search ? {search} : {}),
   })}`),
-  getVibeReplies: (postId, before) => request(`/api/vibes?${new URLSearchParams({
-    comments: postId, ...(before ? { before } : {}),
-  })}`),
+  getVibeReplies: (postId, before, parentId=null) => request(`/api/vibes?${new URLSearchParams({
+    comments: postId, ...(before ? { before } : {}), ...(parentId ? {parent_id:parentId} : {}),
+  })}`,{cache:'no-store'}),
+  getVibeLikers: (postId,page=0) => request('/api/vibes?'+new URLSearchParams({
+    likers:postId,page:String(page),
+  }),{cache:'no-store'}),
   publishVibe: (text, media = []) => request('/api/vibes', {
     method: 'POST', body: JSON.stringify({ action: 'publish', text, media }),
   }),
