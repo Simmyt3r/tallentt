@@ -5,9 +5,10 @@ const money=n=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',ma
 export default function AdminBilling(){
   const [data,setData]=useState(null),[loading,setLoading]=useState(false),[busy,setBusy]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState('')
   const [drafts,setDrafts]=useState({})
+  const [feeDrafts,setFeeDrafts]=useState({})
   async function load(){
     setLoading(true);setError('')
-    try{const result=await api.getAdminBilling();setData(result);setDrafts(Object.fromEntries(result.prices.map(p=>[p.audience+':'+p.plan_code,{amount:String(p.monthly_naira||''),enabled:p.enabled}])))}
+    try{const result=await api.getAdminBilling();setData(result);setDrafts(Object.fromEntries(result.prices.map(p=>[p.audience+':'+p.plan_code,{amount:String(p.monthly_naira||''),enabled:p.enabled}])));setFeeDrafts(Object.fromEntries(Object.entries(result.trackingPrices||{}).map(([method,amount])=>[method,amount==null?'':String(amount)])))}
     catch(err){setError(err.message||'Could not load billing. Apply the Monetization migration first.')}finally{setLoading(false)}
   }
   useEffect(()=>{load()},[])
@@ -54,6 +55,23 @@ export default function AdminBilling(){
           <button type="submit" disabled={!!busy} className="min-h-10 rounded-full bg-[#0A13E6] px-4 text-xs font-bold text-white disabled:opacity-40">Save price</button>
         </form>
       })}</div>
+      <section className="space-y-3 border-t border-black/10 pt-4">
+        <h3 className="text-[14px] font-black">Monthly salary tracking fees · both parties pay</h3>
+        <p className="text-[11px] text-black/55">Set a fixed charge for EACH participant, per employment month. New months use the current amount; previous reported months retain their agreed charge. Changes are recorded in the Admin audit log. The escrow method stays disabled until you set its fixed amount.</p>
+        {Object.entries(data.trackingPrices||{}).map(([method,amount])=><form key={method}
+          onSubmit={e=>{e.preventDefault();if(confirm('Set the per-person monthly '+method.replace(/_/g,' ')+' fee to '+money(Number(feeDrafts[method]))+'?'))
+            update({action:'salary_tracking_price',method,fee_naira:Number(feeDrafts[method])})}}
+          className="flex flex-wrap items-end gap-2 rounded-xl border border-black/10 bg-white p-3">
+          <label className="flex-1 text-[12px] font-bold capitalize">{method.replace(/_/g,' ')} · fixed fee per person
+            <input type="number" min="1" max="2000000" step="1" required
+              className="mt-1 block w-full rounded-xl border border-black/15 p-2"
+              value={feeDrafts[method]??''} onChange={e=>setFeeDrafts(old=>({...old,[method]:e.target.value}))}/>
+          </label>
+          <button type="submit" disabled={!!busy} className="min-h-10 rounded-full bg-[#0A13E6] px-4 text-xs font-bold text-white disabled:opacity-40">Save monthly fee</button>
+          <p className="w-full text-[10px] text-black/50">Currently: {amount==null?'Not configured':money(amount)} per client and per talent</p>
+        </form>)}
+        {!data.trackingPrices&&<p className="text-xs text-amber-800">Apply the Dual-role Billing migration in Admin → Database Migrations first.</p>}
+      </section>
       <div className="space-y-3 border-t border-black/10 pt-4">
         <h3 className="flex items-center gap-2 text-[14px] font-black"><BadgeCheck size={17}/> Pending business verification ({data.requests.length})</h3>
         <p className="text-[11px] text-black/55">Review legal name and CAC registration independently. Approval grants the business-verified flag. Rejection automatically refunds the ₦3,000 wallet charge.</p>
