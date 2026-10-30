@@ -94,7 +94,8 @@ test('deleted parent retains a tombstone while its children remain readable',asy
   assert.equal(roots.body.comments[0].child_count,1)
   // The child still belongs to this root, but no *new* replies to deleted roots.
   const child=await request('GET','/api/vibes?comments='+postIds.one+'&parent_id='+postIds.root,null,'author')
-  assert.equal(child.status,404,'No new access through a deleted parent')
+  assert.equal(child.status,200,'Existing children must remain readable when parent is deleted')
+  assert.equal(child.body.comments[0].body,'Edited nested')
   assert.equal((await request('POST','/api/vibes',{
     action:'reply',post_id:postIds.one,parent_id:postIds.root,text:'After delete'},'second')).status,404)
 })
