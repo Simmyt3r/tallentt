@@ -132,6 +132,41 @@ try{
     assert.deepEqual(errors,[],'No uncaught browser errors on '+width+'px')
     await context.close()
   }
+  // Shared post links must survive the login boundary (including a fresh
+  // account without a session). The auth redirect may only target this Vibe.
+  const guest=await browser.newContext({viewport:{width:390,height:850},serviceWorkers:'block'})
+  await optOutPageToursForFixture(guest)
+  const guestPage=await guest.newPage()
+  guestPage.setDefaultTimeout(15000)
+  let signedIn=false
+  await guestPage.route('**/api/**',route=>{
+    const url=new URL(route.request().url())
+    const respond=(data)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)})
+    if(url.pathname==='/api/auth'){
+      if(route.request().method()==='POST'){
+        const data=route.request().postDataJSON()
+        if(data?.action==='login'){signedIn=true;return respond({user:self})}
+      }
+      return respond({user:signedIn?self:null})
+    }
+    if(url.pathname==='/api/vibes')return respond({posts:[{
+      id:postId,author_id:self.id,username:'creator',full_name:'Creator Person',
+      body:'Shared post destination',media:[],likes:0,replies:0,shares:0,
+      created_at:'2026-10-30T12:00:00Z',
+    }],nextCursor:null})
+    return respond({hats:[],items:[],notifications:[],count:0,threads:[]})
+  })
+  await guestPage.goto('http://127.0.0.1:'+port+'/vibes?post='+postId)
+  await guestPage.waitForURL(url=>url.pathname==='/auth')
+  const next=new URL(guestPage.url()).searchParams.get('next')
+  assert.equal(next,'/vibes?post='+postId)
+  await guestPage.getByLabel('Email',{exact:true}).fill('studio@example.test')
+  await guestPage.getByLabel('Password',{exact:true}).fill('password123')
+  await guestPage.getByRole('button',{name:'Login — Own Your Spotlight'}).click()
+  await guestPage.waitForURL(url=>url.pathname==='/vibes'&&url.searchParams.get('post')===postId)
+  await guestPage.getByRole('article',{name:'Vibe by Creator Person'}).waitFor()
+  await guest.close()
+
   console.log('Vibes hierarchy, inline reply, liker identities and responsive layout passed.')
 }finally{
   await browser?.close()
