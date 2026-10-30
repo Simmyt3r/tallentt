@@ -53,7 +53,14 @@ try {
     })
     await page.goto('http://127.0.0.1:'+port+'/profile')
     const trigger=page.getByRole('button',{name:'Open profile menu'})
-    await trigger.waitFor()
+    try { await trigger.waitFor() } catch (err) {
+      console.error('Navigation fixture diagnostic',JSON.stringify({
+        url:page.url(),body:(await page.locator('body').innerText()).slice(0,3000),
+        errors:pageErrors,
+      }))
+      await page.screenshot({path:'test-results/navigation-work-pass-'+width+'.png',fullPage:true})
+      throw err
+    }
     const workPassButton=page.getByRole('button',{name:'Open my Work Pass'})
     await workPassButton.waitFor()
     if(width===390){
