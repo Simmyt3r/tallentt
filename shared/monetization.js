@@ -51,7 +51,7 @@ export function salaryTrackingQuote(salary,method){
   if(amount===0)throw new RangeError('Enter a positive salary.')
   const fee=method==='bank_transfer'?SALARY_BANK_FEE_NGN
     :method==='cash'?SALARY_CASH_FEE_NGN
-    :method==='escrow'?percentageFee(amount,SALARY_ESCROW_FEE_BPS):null
+    :null
   if(fee===null)throw new RangeError('Invalid salary payment method.')
   return {currency:'NGN',salary:amount,method,trackingFee:fee,
     note:method==='escrow'?'Escrow salary-tracking rate; separate from any gig charges.':
