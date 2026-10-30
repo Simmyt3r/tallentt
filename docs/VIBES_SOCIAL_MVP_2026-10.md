@@ -74,3 +74,13 @@ Each Vibe displays a compact two-row Facebook-style footer.
 * Counts use compact display (e.g. 100, 1k, 1.2k), without fabricating engagement.
 * Share actions are now tracked using the optional **vibes-shares-2026-10** Admin migration. A successful native-share action or link copy counts once per user per Vibe per UTC day, rather than counting cancelled share dialogs or repeated taps. Old databases display zero shares until this migration is installed.
 * The main Share button shares the post link. Branded video export stays inside the media gallery and downloading a video is not counted as a share.
+
+## Share sheet, social destinations, and deep-link login — October 30, 2026
+
+The Vibes **Share** action now opens one mobile-responsive sheet instead of immediately launching an OS-specific dialog or silently copying to the clipboard. Destinations include WhatsApp, Facebook, X (Twitter), Telegram, LinkedIn and Email, plus **Copy Link** and **Device share** where the browser supports it. Every destination uses the canonical link `/vibes?post=<UUID>`. The main Share button always links to the Vibe; branded video export remains a separate media-gallery action.
+
+Users opening a Vibe permalink without an active session are brought to login/sign-up and then redirected back to the exact requested post. Only a validated, on-site Vibes UUID may be used as a post-login redirect, preventing external open redirects.
+
+A successful clipboard copy or completed native share records the existing share event. Clicking an external destination records an *outbound share intent*, not proof that WhatsApp, Facebook or another provider actually published it. The existing `vibes-shares-2026-10` migration is still required for counts, and daily per-person deduplication remains in force. Link sharing works even before that migration, but its counters remain zero until enabled. The sheet traps keyboard focus, supports Escape and outside-click dismissal, and provides a selectable permalink if automatic copying is blocked.
+
+Verification: `tests/vibes-sharing.test.mjs` exercises encoded destinations and safe redirects; `tests/vibes-hierarchy-ui.mjs` exercises the mobile and desktop share sheet, clipboard, native sharing, counters, and the signed-out recipient login flow.
