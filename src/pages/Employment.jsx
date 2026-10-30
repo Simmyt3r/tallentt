@@ -92,7 +92,7 @@ function SalaryReport({period,agreement,today,onAction,busy}){
         <Field label="Payment date"><input className="tw-input" type="date" required min={agreement.terms.start_on} max={today} value={paidOn} onChange={e=>setPaidOn(e.target.value)}/></Field></div>
       <Field label="Payment method"><select className="tw-input" value={method} onChange={e=>setMethod(e.target.value)}><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="escrow">Completed ChombuTar escrow</option></select></Field>
       {quote&&<div className="rounded-xl border border-[#0A13E6]/20 bg-white p-3 text-xs">
-        <p className="font-black text-[#0A13E6]">Salary tracking fee: {money(quote.trackingFee)}</p>
+        <p className="font-black text-[#0A13E6]">Salary tracking fee per report: ₦{quote.trackingFee.toLocaleString('en-NG')}</p>
         <p className="mt-1 text-black/60">{method==='bank_transfer'?'Flat ₦1,000 tracking fee':
           method==='cash'?'Flat ₦500 tracking fee':'2% of the monthly salary (in addition to any separate gig commission).'}</p>
         <p className="mt-1 text-black/60">The fee is debited from the employer’s ChombuTar wallet when the payment report is submitted. If the talent disputes full receipt, the tracking fee is refunded to the employer wallet.</p>
