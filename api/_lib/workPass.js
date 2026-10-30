@@ -65,7 +65,7 @@ export async function getWorkPass(username) {
   ])
   const claim={
     id:user.id,username:user.username,role:user.role,name:user.full_name,
-    tier,completedJobs,successfulHires,orbit,roleOrbit,paidTrackingMonths,
+    tier,roleTiers,completedJobs,successfulHires,orbit,roleOrbit,paidTrackingMonths,
     issuedAt:Math.floor(Date.now()/1000),expiresAt:Math.floor(Date.now()/1000)+7*86400,
   }
   const {token,keyId}=await signWorkPassClaim(claim)
