@@ -105,6 +105,7 @@ export default function ProfileView({
   portfolio = [],
   hats = { talent: [], client: [] },
   isVerified = false,
+  businessVerified = false,
   rating = 0,
   ratedHatsCount = 0,
   orbit = null,
@@ -178,6 +179,7 @@ export default function ProfileView({
         user={profileUser}
         isOwner={isOwner}
         isVerified={isVerified}
+        businessVerified={businessVerified}
         ratingSummary={ratedHatsCount ? { rating: rating.toFixed(1), count: ratedHatsCount } : null}
         hasTalentHats={hats.talent.length > 0}
         hasClientHats={hats.client.length > 0}
