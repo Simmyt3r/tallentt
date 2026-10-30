@@ -41,11 +41,12 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
     assertNegotiationSettled(escrow)
     assertExpectedAmount(escrow, expectedAmount)
     await assertNoPendingOffer(client, escrow.id)
-    if(!Object.hasOwn(escrow,'gig_fee_bps')){
-      throw bookingError(503,'Apply the Monetization migration in Admin before funding new gigs.')
-    }
-    if(escrow.currency!=='NGN')throw bookingError(400,'Commission-based checkout supports NGN only.')
-    const quote=gigQuote(Number(escrow.amount))
+    // The admin migration enables fees without changing legacy databases.
+    // Until it is installed, existing checkouts remain operational under
+    // their original zero-fee terms, rather than crashing at payment time.
+    const billingReady=Object.hasOwn(escrow,'gig_fee_bps')
+    if(billingReady&&escrow.currency!=='NGN')throw bookingError(400,'Commission-based checkout supports NGN only.')
+    const quote=billingReady?gigQuote(Number(escrow.amount)):null
 
     await debitWallet(client, {
       userId,
@@ -62,11 +63,11 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
            contacts_unlocked = true,
            funded_at = NOW(),
            checkout_locked_at = COALESCE(checkout_locked_at, NOW()),
-           checkout_reference = NULL,
-           gig_fee_bps = $2
+           checkout_reference = NULL
+           ${billingReady?', gig_fee_bps = $2':''}
        WHERE id = $1
        RETURNING *`,
-      [escrow.id, GIG_FEE_BPS],
+      billingReady?[escrow.id,GIG_FEE_BPS]:[escrow.id],
     )
     return { escrow: rows[0], checkout: quote }
   })
