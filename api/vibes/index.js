@@ -285,23 +285,77 @@ async function feed(userId,url) {
   return {posts:rows.slice(0,20),nextCursor:rows.length>20?rows[19].id:null}
 }
 
+async function threadsInstalled() {
+  const {rows}=await query(`SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='vibes_comments' AND column_name='parent_id'
+  ) AS installed`)
+  return rows[0]?.installed===true
+}
+
 async function getComments(userId,url) {
   const post=url.searchParams.get('comments')
   const before=url.searchParams.get('before')
-  if(!validId(post)||(before&&!validId(before))) throw bad(400,'Invalid comment cursor.')
-  const {rows}=await query(
-    `SELECT c.id,c.post_id,c.author_id,c.body,c.created_at,(to_jsonb(c)->>'edited_at') AS edited_at,u.username,u.full_name,u.avatar_url,
+  const parent=url.searchParams.get('parent_id')
+  if(!validId(post)||(before&&!validId(before))||(parent&&!validId(parent)))
+    throw bad(400,'Invalid comment cursor or parent.')
+  const threaded=await threadsInstalled()
+  if(parent&&!threaded)throw bad(503,'Apply the Vibes Threads migration in Admin to enable comment replies.')
+  if(parent){
+    const {rows:parents}=await query(`SELECT c.id FROM vibes_comments c JOIN vibes_posts p ON p.id=c.post_id
+      WHERE c.id=$1 AND c.post_id=$2 AND c.parent_id IS NULL AND c.deleted_at IS NULL
+        AND p.deleted_at IS NULL AND p.moderation_status='visible'`,[parent,post])
+    if(!parents.length)throw bad(404,'Parent comment is unavailable.')
+  }
+  if(!threaded) {
+    // Keep historical flat comments working until Admin applies the new SQL.
+    const {rows}=await query(`SELECT c.id,c.post_id,c.author_id,c.body,c.created_at,
+      (to_jsonb(c)->>'edited_at') AS edited_at,u.username,u.full_name,u.avatar_url,
       ${await onlinePresenceExpression('c.author_id')} AS is_online
-     FROM vibes_comments c JOIN users u ON u.id=c.author_id
-     JOIN vibes_posts p ON p.id=c.post_id
-     WHERE c.post_id=$1 AND c.deleted_at IS NULL
-       AND p.deleted_at IS NULL AND p.moderation_status='visible'
-       AND ($2::uuid IS NULL OR (c.created_at,c.id) <
-           (SELECT created_at,id FROM vibes_comments WHERE id=$2 AND post_id=$1))
-     ORDER BY c.created_at DESC,c.id DESC LIMIT 31`,
-    [post,before||null],
-  )
-  return {comments:rows.slice(0,30),nextCursor:rows.length>30?rows[29].id:null}
+      FROM vibes_comments c JOIN users u ON u.id=c.author_id
+      JOIN vibes_posts p ON p.id=c.post_id
+      WHERE c.post_id=$1 AND c.deleted_at IS NULL
+        AND p.deleted_at IS NULL AND p.moderation_status='visible'
+        AND ($2::uuid IS NULL OR (c.created_at,c.id) <
+             (SELECT created_at,id FROM vibes_comments WHERE id=$2 AND post_id=$1))
+      ORDER BY c.created_at DESC,c.id DESC LIMIT 31`,[post,before||null])
+    return {comments:rows.slice(0,30),nextCursor:rows.length>30?rows[29].id:null,threaded:false}
+  }
+  const {rows}=await query(`SELECT c.id,c.post_id,c.parent_id,c.author_id,
+      CASE WHEN c.deleted_at IS NULL THEN c.body ELSE '' END AS body,
+      c.deleted_at IS NOT NULL AS deleted,c.created_at,
+      (to_jsonb(c)->>'edited_at') AS edited_at,u.username,u.full_name,u.avatar_url,
+      ${await onlinePresenceExpression('c.author_id')} AS is_online,
+      (SELECT COUNT(*)::int FROM vibes_comments child
+        WHERE child.parent_id=c.id AND child.deleted_at IS NULL) AS child_count
+    FROM vibes_comments c JOIN users u ON u.id=c.author_id
+    JOIN vibes_posts p ON p.id=c.post_id
+    WHERE c.post_id=$1 AND c.parent_id IS NOT DISTINCT FROM $3::uuid
+      AND p.deleted_at IS NULL AND p.moderation_status='visible'
+      AND (c.deleted_at IS NULL OR ($3::uuid IS NULL AND EXISTS(
+        SELECT 1 FROM vibes_comments child WHERE child.parent_id=c.id AND child.deleted_at IS NULL)))
+      AND ($2::uuid IS NULL OR (c.created_at,c.id) <
+           (SELECT created_at,id FROM vibes_comments
+             WHERE id=$2 AND post_id=$1 AND parent_id IS NOT DISTINCT FROM $3::uuid))
+    ORDER BY c.created_at DESC,c.id DESC LIMIT 31`,[post,before||null,parent||null])
+  return {comments:rows.slice(0,30),nextCursor:rows.length>30?rows[29].id:null,threaded:true}
+}
+
+async function getVibeLikers(url) {
+  const post=url.searchParams.get('likers')
+  const page=Number(url.searchParams.get('page')||0)
+  if(!validId(post)||!Number.isSafeInteger(page)||page<0||page>100)
+    throw bad(400,'Invalid Vibes likes request.')
+  const {rows:posts}=await query(`SELECT id FROM vibes_posts
+    WHERE id=$1 AND deleted_at IS NULL AND moderation_status='visible'`,[post])
+  if(!posts.length)throw bad(404,'Vibe unavailable.')
+  const {rows}=await query(`SELECT u.username,u.full_name AS name,u.avatar_url AS "avatarUrl",
+      l.created_at AS "likedAt"
+    FROM vibes_likes l JOIN users u ON u.id=l.user_id
+    WHERE l.post_id=$1
+    ORDER BY l.created_at DESC,l.user_id DESC
+    LIMIT 26 OFFSET $2`,[post,page*25])
+  return {people:rows.slice(0,25),nextPage:rows.length>25?page+1:null}
 }
 
 async function toggleLike(userId,postId) {
@@ -355,13 +409,24 @@ async function comment(userId,postId,body) {
     [userId],
   )
   if(limit[0].n>=40) throw bad(429,'Reply limit reached. Try again later.')
-  const {rows}=await query(
+  const parentId=body.parent_id||null
+  if(parentId&&!validId(parentId))throw bad(400,'Invalid parent comment.')
+  const threaded=parentId?await threadsInstalled():false
+  if(parentId&&!threaded)throw bad(503,'Apply the Vibes Threads migration in Admin first.')
+  const {rows}=parentId?await query(
+    `INSERT INTO vibes_comments(post_id,author_id,body,parent_id)
+     SELECT p.id,$2,$3,c.id FROM vibes_posts p
+     JOIN vibes_comments c ON c.id=$4 AND c.post_id=p.id AND c.parent_id IS NULL
+       AND c.deleted_at IS NULL
+     WHERE p.id=$1 AND p.deleted_at IS NULL AND p.moderation_status='visible'
+     RETURNING id`,[postId,userId,text,parentId],
+  ):await query(
     `INSERT INTO vibes_comments(post_id,author_id,body)
      SELECT p.id,$2,$3 FROM vibes_posts p WHERE p.id=$1 AND p.deleted_at IS NULL
        AND p.moderation_status='visible'
      RETURNING id`,[postId,userId,text],
   )
-  if(!rows.length) throw bad(404,'Post unavailable.')
+  if(!rows.length) throw bad(404,parentId?'Parent comment unavailable.':'Post unavailable.')
   const {rows:owner}=await query('SELECT author_id FROM vibes_posts WHERE id=$1',[postId])
   if(owner[0]?.author_id!==userId) {
     // Replies only make the daily digest when sent by a verified talent or
@@ -385,7 +450,7 @@ async function comment(userId,postId,body) {
       body:'An Associate or verified talent commented on your post.',
       linkUrl:`/vibes?post=${postId}`,metadata:{post_id:postId}})
   }
-  return {id:rows[0].id}
+  return {id:rows[0].id,parent_id:parentId}
 }
 
 async function modify(userId,body) {
@@ -452,9 +517,11 @@ export default async function handler(req,res) {
       const url=new URL(req.url,`http://${req.headers.host}`)
       const statusId=url.searchParams.get('moderation_status')
       if(statusId)return json(res,200,await refreshHeldPost(session.sub,statusId))
-      return json(res,200,url.searchParams.has('comments')
-        ? await getComments(session.sub,url)
-        : await feed(session.sub,url))
+      return json(res,200,url.searchParams.has('likers')
+        ? await getVibeLikers(url)
+        : url.searchParams.has('comments')
+          ? await getComments(session.sub,url)
+          : await feed(session.sub,url))
     }
     if(req.method==='POST') {
       const body=await readBody(req)
