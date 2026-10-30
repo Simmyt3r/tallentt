@@ -15,7 +15,7 @@ before(async()=>{
   for(const [name,role] of [['employer','client'],['talent','talent'],['admin','dual']]){
     ids[name]=randomUUID()
     await pool.query(`INSERT INTO users(id,username,full_name,email,password_hash,role,is_admin)
-      VALUES($1,$2,$3,$4,'test',$5,$6)`,[ids[name],name,name+'@example.test',role,name==='admin'])
+      VALUES($1,$2,$3,$4,'test',$5,$6)`,[ids[name],name,name,name+'@example.test',role,name==='admin'])
     await pool.query('INSERT INTO wallets(user_id,balance) VALUES($1,30000)',[ids[name]])
   }
   services=await import('../api/_lib/salaryTrackingFees.js')
