@@ -16,6 +16,7 @@ export default function EscrowFundingCard({
   onFund,
   returnTo = '/deals?role=client&tab=active',
   blockedByNegotiation = false,
+  feeEnabled = true,
   negotiationUrl = null,
 }) {
   const dealAmount = Number(amount || 0)
@@ -77,7 +78,8 @@ export default function EscrowFundingCard({
         </div>
       </div>
 
-      {checkout&&<div aria-label="5% gig fee checkout breakdown" className="mt-3 rounded-xl border border-[#0A13E6]/20 bg-white p-3">
+      {!feeEnabled&&<p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-[11px] font-semibold text-amber-900">Gig fees are awaiting the Admin Monetization migration. Existing checkout terms remain in effect until it is applied.</p>}
+      {feeEnabled&&checkout&&<div aria-label="5% gig fee checkout breakdown" className="mt-3 rounded-xl border border-[#0A13E6]/20 bg-white p-3">
         <p className="text-[11px] font-black text-[#0A13E6]">Clear checkout breakdown · 5% gig fee</p>
         <dl className="mt-2 space-y-1.5 text-[11px]">
           <div className="flex justify-between gap-2"><dt>Agreed gig price</dt><dd>{money(checkout.gigAmount,currency)}</dd></div>
