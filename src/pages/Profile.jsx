@@ -6,7 +6,7 @@ import ProfileView from '../components/profile/ProfileView.jsx'
 import EditProfileForm from '../components/profile/EditProfileForm.jsx'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
 
-const EMPTY_DATA = { portfolio: [], hats: { talent: [], client: [] }, isVerified: false, rating: 0, ratedHatsCount: 0, orbit: null, performance:null }
+const EMPTY_DATA = { portfolio: [], hats: { talent: [], client: [] }, isVerified: false, businessVerified:false, rating: 0, ratedHatsCount: 0, orbit: null, performance:null }
 
 export default function Profile() {
   const { user } = useAuth()
@@ -22,6 +22,7 @@ export default function Profile() {
         portfolio: res.portfolio || [],
         hats: res.hats || { talent: [], client: [] },
         isVerified: !!res.isVerified,
+        businessVerified: res.user?.isBusinessVerified===true,
         rating: res.rating || 0,
         ratedHatsCount: res.ratedHatsCount || 0,
         orbit: res.orbit || null,
@@ -69,6 +70,7 @@ export default function Profile() {
         portfolio={data.portfolio}
         hats={data.hats}
         isVerified={data.isVerified}
+        businessVerified={data.businessVerified}
         rating={data.rating}
         ratedHatsCount={data.ratedHatsCount}
         orbit={data.orbit}
