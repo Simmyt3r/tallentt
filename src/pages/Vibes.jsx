@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Heart, ImagePlus, MessageCircle, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
+import { Heart, ImagePlus, MessageCircle, Send, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
 import EntryActions from '../components/EntryActions.jsx'
 import VibesMediaGallery from '../components/VibesMediaGallery.jsx'
 import VibesComments from '../components/VibesComments.jsx'
