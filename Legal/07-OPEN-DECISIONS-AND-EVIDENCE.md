@@ -15,7 +15,7 @@
 | D09 | Live hosting / TURN / video quota quotes, Cloudinary usage assumptions and budget alerts | Tech | Not quoted |
 | D10 | CAC, trademark, privacy, payment counsel, tax and marketing legal review quotations | Legal | Not quoted |
 | D11 | Agreed minimum beta cohort, media limits, moderation staffing and incident owner | Operations | Undecided |
-| D12 | Agreed commission (8/10% scenarios), paid collection flow and precise contractual charge bearer | Finance + Legal | Undecided |
+| D12 | Product owner approved a 5% gig commission borne by the talent on released milestone values; payment processor/escrow settlement, merchant-of-record, refunds, taxes and legal contract terms still require confirmation | Finance + Legal | Rate approved; legal and payment terms pending |
 | D13 | Company bank and payment processor entity, reserve mechanics and settlement responsibilities | Finance | Not confirmed |
 | D14 | Signed definitive agreements and board approvals before funding or shares issued | All three | Not started |
 | D15 | Silabs-owned Google Play Console; verify Silabs CAC/D-U-N-S, developer eligibility and existing/new account | Silabs | Ownership selected; verification pending |
@@ -23,6 +23,9 @@
 | D17 | Play Data safety, deletion links, microphone/camera/privacy and billing policy review | Silabs / counsel | Not verified |
 | D18 | Signed Silabs–ChombuTar Google Play publishing rights, scope, approvals and exit/official app-transfer protocol | Silabs / company / counsel | Draft required |
 | D19 | Determine whether Silabs account already exists; identify who pays registration, merchant receipts and taxes | Silabs / finance | Undecided |
+| D20 | Set and approve Green Pro, Black Vaulted, Business and Enterprise monthly prices, entitlements, cancellation/refund rules and consumer disclosures before switching on paid-plan sales | Product + Legal + Finance | Plan names approved; prices and benefits undecided |
+| D21 | Establish CAC source-check process, acceptable business evidence, reviewer policy and appeal/refund terms for ₦3,000 manual business verification | Compliance + Operations | Fee approved; review policy pending |
+| D22 | Review ₦1,000 bank, ₦500 cash and 2% escrow salary-tracking service fees, non-receipt refunds, disclosure and accounting treatment | Finance + Legal | Rates approved; legal/accounting treatment pending |
 
 ## Valuation limitations
 The Github repo can support a **replacement-effort estimate**; it does not prove actual work hours, which developers performed which tasks, or a company's fair-market value. The preliminary 860–1,700 hour range and the 1,200 × ₦5,000 = ₦6m base figure are **illustrative and unverified**. The discussed ₦4m–₦8m pre-money range is also only a negotiating hypothesis.
