@@ -131,7 +131,7 @@ export async function adminBillingStatus(){
   const {rows:queue}=await query(`SELECT b.id,b.user_id,b.legal_name,b.registration_number,b.status,b.requested_at,
       u.username,u.full_name FROM business_verification_requests b JOIN users u ON u.id=b.user_id
       WHERE b.status='pending' ORDER BY b.requested_at ASC LIMIT 75`)
-  return {prices,requests:queue}
+  return {prices,requests:queue,trackingPrices:await salaryTrackingPrices()}
 }
 
 export async function adminPlanPrice(adminId,body){
