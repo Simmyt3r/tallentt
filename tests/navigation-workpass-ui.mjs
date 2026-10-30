@@ -9,7 +9,7 @@ import { optOutPageToursForFixture } from './page-tour-fixture.mjs'
 
 const root=fileURLToPath(new URL('..',import.meta.url))
 const port=5197
-const vite=await createServer({root,server:{host:'127.0.0.1',port,strictPort:true}})
+const vite=await createServer({root,server:{host:'127.0.0.1',port,strictPort:true,proxy:{}}})
 let browser
 const user={id:'11111111-1111-4111-8111-111111111111',username:'studio',
   fullName:'Studio Designer',name:'Studio Designer',role:'dual',avatarUrl:'/fixture-portrait.svg',
