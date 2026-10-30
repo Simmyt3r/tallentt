@@ -1,7 +1,7 @@
 // Path: src/components/BottomNav.jsx
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Store, LayoutGrid, MessageSquareHeart, MessageCircle, UserRound } from 'lucide-react'
+import { Store, LayoutGrid, MessageSquareHeart, MessageCircle, IdCard } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
@@ -30,7 +30,7 @@ function BottomNavLink({ to, end, icon: Icon, label, badge = 0 }) {
   )
 }
 
-export default function BottomNav() {
+export default function BottomNav({ onOpenWorkPass, workPassOpen = false }) {
   const { user } = useAuth()
   const [unreadMessages, setUnreadMessages] = useState(0)
 
@@ -76,7 +76,12 @@ export default function BottomNav() {
       <BottomNavLink to="/bento" icon={LayoutGrid} label="Bento" />
       <BottomNavLink to="/vibes" icon={MessageSquareHeart} label="Vibes" />
       <BottomNavLink to="/inbox" icon={MessageCircle} label="Inbox" badge={unreadMessages} />
-      <BottomNavLink to="/profile" icon={UserRound} label="Profile" />
+      <button type="button" onClick={onOpenWorkPass} aria-label="Open my Work Pass"
+        aria-pressed={workPassOpen}
+        className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[9px] font-bold transition-colors sm:text-[10px] ${workPassOpen?'text-[#0A13E6]':'text-black/45 hover:text-[#0A13E6]'}`}>
+        <IdCard size={22} strokeWidth={2.1} aria-hidden="true"/>
+        <span>Work Pass</span>
+      </button>
     </nav>
   )
 }
