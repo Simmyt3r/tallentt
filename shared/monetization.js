@@ -52,7 +52,7 @@ export function salaryTrackingQuote(salary,method){
   const fee=method==='bank_transfer'?SALARY_BANK_FEE_NGN
     :method==='cash'?SALARY_CASH_FEE_NGN
     :null
-  if(fee===null)throw new RangeError('Invalid salary payment method.')
+  if(fee===null)throw new RangeError('Salary escrow tracking requires an Admin-approved fixed monthly price.')
   return {currency:'NGN',salary:amount,method,trackingFee:fee,
     note:method==='escrow'?'Escrow salary-tracking rate; separate from any gig charges.':
       'Tracking service only: ChombuTar does not transfer or verify offline salary payments.'}
