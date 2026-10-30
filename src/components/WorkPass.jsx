@@ -188,8 +188,7 @@ export default function WorkPass({username,onClose,compact=false}) {
     {data&&<div className="workpass-actions mt-3 flex flex-wrap gap-2" aria-label="Work Pass actions">
       <button type="button" onClick={share} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[11px] font-black text-white hover:bg-[#080fb8]"><Share2 size={15}/> Share profile</button>
       <button type="button" onClick={flex} disabled={exporting} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold text-[#17203C] disabled:opacity-60"><Download size={15}/>{exporting?'Creating story…':'Flex My Work Pass'}</button>
-      <Link to={'/profile/'+encodeURIComponent(owner?.username||username)} onClick={onClose} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold"><UserRound size={15}/> View profile</Link>
-      {isOwner&&<><Link to="/settings" onClick={onClose} className="inline-flex min-h-10 items-center rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold">Settings</Link><Link to="/wallet" onClick={onClose} className="inline-flex min-h-10 items-center rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold">Money</Link></>}
+      {!isOwner&&<Link to={'/profile/'+encodeURIComponent(owner?.username||username)} onClick={onClose} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold"><UserRound size={15}/> View profile</Link>}
       <button type="button" onClick={()=>window.print()} className="inline-flex min-h-10 items-center rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold">Print card</button>
     </div>}
     {notice&&<p role="status" className="mt-2 text-xs font-semibold text-[#0A13E6]">{notice}</p>}
