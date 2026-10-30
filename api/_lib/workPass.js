@@ -2,6 +2,7 @@
 // server-only ECDSA signatures. Never trust scores or evidence supplied by a client.
 import { query, getClient } from './db.js'
 import { accountOrbit } from './accountOrbit.js'
+import { trackingPeriodsPaid } from './salaryTrackingFees.js'
 import { signedHatMediaEnabled, verifyNewHatMedia, claimHatMediaPermits } from './hatMediaUpload.js'
 import { workPassTier, WORK_PASS_DISCLAIMER } from '../../shared/workPass.js'
 import { signingPublicKey, signWorkPassClaim } from './workPassSigning.js'
