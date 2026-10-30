@@ -1,4 +1,5 @@
 // Path: src/App.jsx
+import { Component } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import AuthPage from './pages/AuthPage.jsx'
@@ -32,6 +33,29 @@ import { decideLanding } from './lib/landing.js'
 
 function LegacyInboxRedirect({ tab }) { const { search } = useLocation(); const params = new URLSearchParams(search); params.set('tab', tab); return <Navigate to={'/inbox?' + params.toString()} replace /> }
 
+// Contain unexpected Vibes render exceptions rather than blanking the entire
+// app. This also gives older PWA clients a clear reload action on recovery.
+class VibesRenderBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { failed: false }
+  }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(error, info) {
+    console.error('Vibes render failed:', error, info?.componentStack)
+  }
+  render() {
+    if (!this.state.failed) return this.props.children
+    return <main role="alert" className="mx-auto my-10 max-w-[540px] rounded-2xl border border-[#CDD3FF] bg-white p-6 shadow-sm">
+      <h1 className="text-lg font-black text-[#12183E]">Vibes couldn't open</h1>
+      <p className="mt-2 text-sm text-black/65">There was a problem displaying Vibes. Your posts and comments are still stored. Refresh to load the latest version.</p>
+      <button type="button" onClick={() => window.location.reload()}
+        className="mt-4 min-h-11 rounded-full bg-[#0A13E6] px-6 text-sm font-bold text-white">
+        Reload Vibes
+      </button>
+    </main>
+  }
+}
 function FullPageSpinner() { return <div className="min-h-screen grid place-items-center text-gray-500">Loading…</div> }
 function ProtectedRoute({ children }) { const { user, loading } = useAuth(); if (loading) return <FullPageSpinner />; if (!user) return <Navigate to="/auth" replace />; return <Layout>{children}</Layout> }
 function PublicOnlyRoute({ children }) { const { user, loading } = useAuth(); if (loading) return <FullPageSpinner />; if (user) return <Navigate to="/" replace />; return children }
@@ -49,7 +73,7 @@ export default function App() {
     <Route path="/auth" element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />
     <Route path="/" element={<HomeRoute />} />
     <Route path="/bento" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
-    <Route path="/vibes" element={<ProtectedRoute><Vibes /></ProtectedRoute>} />
+    <Route path="/vibes" element={<ProtectedRoute><VibesRenderBoundary><Vibes /></VibesRenderBoundary></ProtectedRoute>} />
     <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
     <Route path="/messages" element={<LegacyInboxRedirect tab="bento" />} />
     <Route path="/chats" element={<LegacyInboxRedirect tab="associates" />} />
