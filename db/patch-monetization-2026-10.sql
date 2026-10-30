@@ -2,6 +2,7 @@
 -- Existing escrow agreements retain their original terms: NULL fee_bps
 -- means no newly introduced gig commission is charged retroactively.
 BEGIN;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_business_verified BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE escrows ADD COLUMN IF NOT EXISTS gig_fee_bps INTEGER
   CHECK (gig_fee_bps IS NULL OR gig_fee_bps BETWEEN 0 AND 10000);
 
