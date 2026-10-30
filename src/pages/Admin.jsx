@@ -24,6 +24,7 @@ import { api } from '../lib/api.js'
 import AdminDisputes from '../components/AdminDisputes.jsx'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import AdminMigrations from '../components/AdminMigrations.jsx'
+import AdminBilling from '../components/AdminBilling.jsx'
 import AdminWorkPassSigning from '../components/AdminWorkPassSigning.jsx'
 import AdminOrbitAndHatReview from '../components/AdminOrbitAndHatReview.jsx'
 import AdminUserErasure, {AdminUserMediaCleanup} from '../components/AdminUserErasure.jsx'
@@ -40,6 +41,7 @@ const SECTIONS = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'deals', label: 'Deals & Escrow', icon: Handshake },
   { id: 'finance', label: 'Finance', icon: Wallet },
+  { id: 'billing', label: 'Membership & Verification', icon: BadgeCheck },
   { id: 'disputes', label: 'Disputes', icon: Gavel },
   { id: 'hats', label: 'Hats', icon: Briefcase },
   { id: 'orbit', label: 'Orbit & Hat Review', icon: ShieldCheck },
@@ -282,6 +284,7 @@ export default function Admin() {
                 <UsersTable rows={filtered} adminId={dashboard?.admin?.id} onDeleted={load} />
               </>}
               {tab === 'deals' && <EscrowsTable rows={filtered} busy={busy} runAction={runAction} />}
+              {tab === 'billing' && <AdminBilling />}
               {tab === 'finance' && <>
                 <AdminFinanceLedger/>
                 <div className="border-t border-black/10 p-4">
