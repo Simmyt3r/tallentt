@@ -46,6 +46,7 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
     // their original zero-fee terms, rather than crashing at payment time.
     const billingReady=Object.hasOwn(escrow,'gig_fee_bps')
     if(billingReady&&escrow.currency!=='NGN')throw bookingError(400,'Commission-based checkout supports NGN only.')
+    const sealedBilling=billingReady&&Object.hasOwn(escrow,'gig_fee_sealed')
     const quote=billingReady?gigQuote(Number(escrow.amount)):null
 
     await debitWallet(client, {
@@ -65,10 +66,20 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
            checkout_locked_at = COALESCE(checkout_locked_at, NOW()),
            checkout_reference = NULL
            ${billingReady?', gig_fee_bps = $2':''}
+           ${sealedBilling?', gig_fee_sealed = TRUE':''}
        WHERE id = $1
        RETURNING *`,
       billingReady?[escrow.id,GIG_FEE_BPS]:[escrow.id],
     )
+    if(sealedBilling&&quote?.platformFee>0){
+      // At the moment the client funds and seals the agreed deal, the
+      // 5% seller-side commission is reserved and booked exactly once.
+      // Talent milestones still receive the agreed net; no later fee
+      // accrual is created for this already sealed deal.
+      await client.query(`INSERT INTO gig_fee_events
+        (escrow_id,stage,gross_released,fee_amount,rate_bps)
+        VALUES($1,'sealed',$2,$3,$4)`,[escrow.id,quote.gigAmount,quote.platformFee,GIG_FEE_BPS])
+    }
     return { escrow: rows[0], checkout: quote }
   })
   await notifyEscrowSecured(escrowId)
