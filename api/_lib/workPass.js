@@ -43,7 +43,11 @@ export async function getWorkPass(username) {
     client:{score:0,max:100,factors:[]},
   }
   const paidTrackingMonths=await trackingPeriodsPaid(query,user.id).catch(()=>({talent:0,client:0}))
-  const tier=workPassTier(user.role==='client'?successfulHires:completedJobs,orbit)
+  const scoreForTier=user.role==='client'?roleOrbit.client.score
+    :user.role==='talent'?roleOrbit.talent.score
+    :Math.max(roleOrbit.client.score,roleOrbit.talent.score)
+  const tier=workPassTier(user.role==='client'?successfulHires:
+    user.role==='talent'?completedJobs:Math.max(completedJobs,successfulHires),scoreForTier)
   const installed=Boolean(schema.rows[0]?.evidence)
   const [evidence, robots, endorsements]=await Promise.all([
     installed?query(`SELECT id,escrow_id,image_url,image_sha256,reviewed_at
