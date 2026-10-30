@@ -10,7 +10,7 @@ import { optOutPageToursForFixture } from './page-tour-fixture.mjs'
 
 const root=fileURLToPath(new URL('..',import.meta.url))
 const port=5187
-const vite=await createServer({root,server:{host:'127.0.0.1',port,strictPort:true}})
+const vite=await createServer({root,server:{host:'127.0.0.1',port,strictPort:true,proxy:{}}})
 let browser
 await mkdir('test-results',{recursive:true})
 const sourceFile='test-results/work-pass-source.mp4'
