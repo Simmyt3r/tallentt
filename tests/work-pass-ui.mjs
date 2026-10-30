@@ -95,10 +95,27 @@ try{
       'Top 12 must show only the eligible server item')
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'Top 12 must not overflow the viewport')
-    // Exercise the same Work Pass drawer users open from the navbar,
-    // including the real logo asset, profile identity, signed QR and the
-    // downloadable story artwork on desktop and mobile sizes.
-    await page.getByRole('button',{name:'Open my Work Pass and profile'}).click()
+    // The top avatar is now for account/profile actions only; mobile bottom
+    // tab (desktop sidebar footer) owns the Work Pass. Both share one drawer.
+    await page.getByRole('button',{name:'Open profile menu'}).click()
+    const accountMenu=page.getByRole('navigation',{name:'Profile and account'})
+    await accountMenu.getByRole('link',{name:'My profile'}).waitFor()
+    await accountMenu.getByRole('link',{name:'Edit profile'}).waitFor()
+    await accountMenu.getByRole('link',{name:'Membership & verification'}).waitFor()
+    await accountMenu.getByRole('link',{name:'Account settings'}).waitFor()
+    await accountMenu.getByRole('button',{name:'Sign out'}).waitFor()
+    assert.equal(await accountMenu.getByText('Work Pass').count(),0,
+      'Work Pass is not duplicated inside account menu')
+    await page.keyboard.press('Escape')
+    await accountMenu.waitFor({state:'detached'})
+    assert.equal(await page.getByRole('button',{name:'Open profile menu'}).getAttribute('aria-expanded'),'false')
+    const workPassAction=page.getByRole('button',{name:'Open my Work Pass'})
+    await workPassAction.waitFor()
+    if(width===390){
+      assert.equal(await page.getByRole('navigation',{name:'Primary'}).getByRole('button',{name:'Open my Work Pass'}).count(),1)
+      assert.equal(await page.getByRole('navigation',{name:'Primary'}).getByRole('link',{name:'Profile'}).count(),0)
+    }
+    await workPassAction.click()
     const workPass=page.getByRole('dialog',{name:'ChombuTar Work Pass'})
     await workPass.getByRole('heading',{name:'Studio Designer'}).waitFor()
     assert.equal(await workPass.getByText('Gold Work Pass',{exact:true}).count(),1)
