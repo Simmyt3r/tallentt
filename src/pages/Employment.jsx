@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react'
+import {salaryTrackingQuote} from '../../shared/monetization.js'
 import {Link} from 'react-router-dom'
 import {ArrowLeft,Send} from 'lucide-react'
 import {api} from '../lib/api.js'
@@ -80,13 +81,24 @@ export function NewEmployment({username='',onBack,onOpen}){
 
 function SalaryReport({period,agreement,today,onAction,busy}){
   const [month,setMonth]=useState(period?.month||today.slice(0,7)),[method,setMethod]=useState('bank_transfer'),[paidOn,setPaidOn]=useState(today),[escrow,setEscrow]=useState(''),[note,setNote]=useState('')
-  return <form onSubmit={e=>{e.preventDefault();onAction('employment_report',{month,method,paid_on:paidOn,escrow_id:method==='escrow'?escrow:undefined,note,...(period?{expected_revision:period.revision}:{})})}}>
+  const [consent,setConsent]=useState(false)
+  const salary=Number(agreement.terms?.salary||0)
+  const quote=salary>0?salaryTrackingQuote(salary,method):null
+  return <form onSubmit={e=>{e.preventDefault();onAction('employment_report',{month,method,paid_on:paidOn,escrow_id:method==='escrow'?escrow:undefined,note,accept_tracking_fee:consent,expected_tracking_fee:quote?.trackingFee,...(period?{expected_revision:period.revision}:{})})}}>
     <fieldset disabled={busy} className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
       <legend className="px-1 text-sm font-bold">{period?'Correct payment report':'Notify salary paid'}</legend>
       <p className="text-xs text-black/60">Report only when the full agreed monthly salary has been paid. This records your report; it does not transfer money.</p>
       <div className="grid grid-cols-2 gap-3"><Field label="Salary month"><input className="tw-input" type="month" required value={month} min={agreement.terms.start_on.slice(0,7)} max={today.slice(0,7)} disabled={Boolean(period)} onChange={e=>setMonth(e.target.value)}/></Field>
         <Field label="Payment date"><input className="tw-input" type="date" required min={agreement.terms.start_on} max={today} value={paidOn} onChange={e=>setPaidOn(e.target.value)}/></Field></div>
       <Field label="Payment method"><select className="tw-input" value={method} onChange={e=>setMethod(e.target.value)}><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="escrow">Completed ChombuTar escrow</option></select></Field>
+      {quote&&<div className="rounded-xl border border-[#0A13E6]/20 bg-white p-3 text-xs">
+        <p className="font-black text-[#0A13E6]">Salary tracking fee: {money(quote.trackingFee)}</p>
+        <p className="mt-1 text-black/60">{method==='bank_transfer'?'Flat ₦1,000 tracking fee':
+          method==='cash'?'Flat ₦500 tracking fee':'2% of the monthly salary (in addition to any separate gig commission).'}</p>
+        <p className="mt-1 text-black/60">The fee is debited from the employer’s ChombuTar wallet when the payment report is submitted. If the talent disputes full receipt, the tracking fee is refunded to the employer wallet.</p>
+        <p className="mt-1 text-black/60">ChombuTar does not initiate or independently confirm bank transfers or cash payments.</p>
+      </div>}
+      <label className="flex items-start gap-2 text-[11px] font-semibold"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} required className="mt-0.5"/> I agree to the salary tracking fee shown above.</label>
       {method==='escrow'&&<Field label="Completed escrow ID"><input className="tw-input" required value={escrow} onChange={e=>setEscrow(e.target.value)} placeholder="ID from the completed deal"/></Field>}
       <Field label="Payment note (optional, private)"><textarea className="tw-input" maxLength={1000} value={note} onChange={e=>setNote(e.target.value)}/></Field>
       <button className={button}>Notify talent — salary paid</button>
