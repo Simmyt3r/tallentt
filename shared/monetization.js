@@ -2,7 +2,6 @@
 // points; percentages are never computed using binary floating-point money.
 // A Work Pass tier is an earned reputation tier, NOT a paid subscription.
 export const GIG_FEE_BPS = 500
-export const SALARY_ESCROW_FEE_BPS = 200
 export const SALARY_BANK_FEE_NGN = 1000
 export const SALARY_CASH_FEE_NGN = 500
 export const BUSINESS_VERIFICATION_FEE_NGN = 3000
@@ -41,8 +40,7 @@ export function gigQuote(amount,rateBps=GIG_FEE_BPS){
 export function gigReleaseFee(totalGross,previouslyGrossReleased,releaseGross,rateBps=GIG_FEE_BPS){
   naira(totalGross);naira(previouslyGrossReleased);naira(releaseGross)
   if(previouslyGrossReleased+releaseGross>totalGross)throw new RangeError('Release exceeds escrow.')
-  // Cumulative rounding makes start + completion exactly equal the quote,
-  // while a partial refund only earns commission on the released portion.
+  // Cumulative rounding ensures milestones and refunds align with the quoted fee.
   return percentageFee(previouslyGrossReleased+releaseGross,rateBps)-
     percentageFee(previouslyGrossReleased,rateBps)
 }
