@@ -1,7 +1,7 @@
 // Path: src/components/Layout.jsx
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { Menu, Plus, MessageCircle, Radio } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
 import PageTour from './PageTour.jsx'
@@ -39,6 +39,8 @@ export default function Layout({ children }) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('chombutar_sidebar_collapsed') === '1')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [workPassOpen,setWorkPassOpen]=useState(false)
+  const openWorkPass=useCallback(()=>setWorkPassOpen(true),[])
+  const closeWorkPass=useCallback(()=>setWorkPassOpen(false),[])
 
   useEffect(() => {
     localStorage.setItem('chombutar_sidebar_collapsed', collapsed ? '1' : '0')
@@ -75,7 +77,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-[#F7F3EB] text-black antialiased">
-      <DesktopSidebar collapsed={collapsed} onOpenWorkPass={() => setWorkPassOpen(true)} />
+      <DesktopSidebar collapsed={collapsed} onOpenWorkPass={openWorkPass} />
       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       {/* One responsive header.
@@ -147,8 +149,8 @@ export default function Layout({ children }) {
         </div>
       </header>
 
-      {workPassOpen && user?.username && <WorkPassDrawer username={user.username} onClose={() => setWorkPassOpen(false)} />}
-      <BottomNav onOpenWorkPass={() => setWorkPassOpen(true)} workPassOpen={workPassOpen} />
+      {workPassOpen && user?.username && <WorkPassDrawer username={user.username} onClose={closeWorkPass} />}
+      <BottomNav onOpenWorkPass={openWorkPass} workPassOpen={workPassOpen} />
       <PageTour />
 
       <main
