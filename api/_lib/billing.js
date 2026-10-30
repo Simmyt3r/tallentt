@@ -99,7 +99,8 @@ export async function requestBusinessVerification(userId,body){
   try{
     await client.query('BEGIN')
     const user=await actor(client,userId)
-    if(!roleAllows(user,'client'))throw fail(403,'A Client or dual account is needed for business verification.')
+    // A verified business may provide services or hire. Account role is
+    // independent of official business registration.
     const reference='verification:'+token
     const {rows:previous}=await client.query(`SELECT id FROM billing_charge_events
       WHERE user_id=$1 AND reference=$2 AND kind='business_verification'`,[userId,reference])
