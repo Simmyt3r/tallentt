@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { gigQuote } from '../../shared/monetization.js'
 
 const money = (amount, currency = 'NGN') =>
   new Intl.NumberFormat('en-NG', {
@@ -18,6 +19,7 @@ export default function EscrowFundingCard({
   negotiationUrl = null,
 }) {
   const dealAmount = Number(amount || 0)
+  const checkout = Number.isSafeInteger(dealAmount) && dealAmount>0 ? gigQuote(dealAmount) : null
   const balance = Number(walletBalance || 0)
   const shortfall = Math.max(0, dealAmount - balance)
   const enough = balance >= dealAmount
@@ -75,6 +77,16 @@ export default function EscrowFundingCard({
         </div>
       </div>
 
+      {checkout&&<div aria-label="5% gig fee checkout breakdown" className="mt-3 rounded-xl border border-[#0A13E6]/20 bg-white p-3">
+        <p className="text-[11px] font-black text-[#0A13E6]">Clear checkout breakdown · 5% gig fee</p>
+        <dl className="mt-2 space-y-1.5 text-[11px]">
+          <div className="flex justify-between gap-2"><dt>Agreed gig price</dt><dd>{money(checkout.gigAmount,currency)}</dd></div>
+          <div className="flex justify-between gap-2"><dt>Client pays (no platform surcharge)</dt><dd className="font-black">{money(checkout.clientTotal,currency)}</dd></div>
+          <div className="flex justify-between gap-2"><dt>Platform commission (5%, deducted from talent)</dt><dd>{money(checkout.platformFee,currency)}</dd></div>
+          <div className="flex justify-between gap-2 border-t border-black/10 pt-1.5"><dt>Talent receives after completed milestones</dt><dd className="font-black">{money(checkout.talentNet,currency)}</dd></div>
+        </dl>
+        <p className="mt-2 text-[10px] leading-relaxed text-black/55">Commission is earned only as work payments are released. If a dispute results in a refund, the unreleased balance returns to the client wallet in full. Already released work and its associated commission are not automatically reversed.</p>
+      </div>}
       {!enough && (
         <p className="mt-2 text-[11px] font-bold text-amber-800">
           You need {money(shortfall, currency)} more to fund this escrow.
