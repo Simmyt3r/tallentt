@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api } from '../lib/api.js'
+import { safeVibeReturnPath } from '../lib/vibeSharing.js'
 import '../styles/auth.css'
 
 const CATEGORIES = [
@@ -42,6 +43,7 @@ const LEGAL = {
 export default function AuthPage() {
   const { login, register } = useAuth()
   const navigate = useNavigate()
+  const nextVibe=safeVibeReturnPath(new URLSearchParams(window.location.search).get('next'))
 
   const [recoveryToken, setRecoveryToken] = useState(() => new URLSearchParams(window.location.search).get('reset') || '')
   const [mode, setMode] = useState(() => new URLSearchParams(window.location.search).has('reset') ? 'reset' : 'login') // signup | login | forgot | reset
@@ -154,7 +156,7 @@ export default function AuthPage() {
         lga: category, // store category until dedicated column exists
       })
       setSuccess('Welcome! Claim your Bronze Work Pass.')
-      setTimeout(() => navigate('/profile', { replace: true }), 900)
+      setTimeout(() => navigate(nextVibe||'/profile', { replace: true }), 900)
     } catch (err) {
       setError(err.message || 'Could not create account.')
     } finally {
@@ -174,7 +176,7 @@ export default function AuthPage() {
     try {
       await login({ email: loginId.trim(), password: loginPass })
       setSuccess('Welcome back — you are signed in.')
-      setTimeout(() => navigate('/', { replace: true }), 700)
+      setTimeout(() => navigate(nextVibe||'/', { replace: true }), 700)
     } catch (err) {
       setError(err.message || 'Could not sign in.')
     } finally {
