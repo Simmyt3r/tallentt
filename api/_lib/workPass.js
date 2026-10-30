@@ -71,7 +71,7 @@ export async function getWorkPass(username) {
   const {token,keyId}=await signWorkPassClaim(claim)
   return {user:{username:user.username,name:user.full_name,role:user.role,avatarUrl:user.avatar_url,
       skills:user.skills||[],industry:user.industry||[],headline:user.headline},
-    tier,orbit,roleOrbit,paidTrackingMonths,completedJobs,successfulHires,rating:null,ratingCount:0,
+    tier,roleTiers,orbit,roleOrbit,paidTrackingMonths,completedJobs,successfulHires,rating:null,ratingCount:0,
     claim,token,keyId,
     signatureStatus:token?'signed':'not_configured',disclaimer:WORK_PASS_DISCLAIMER,
     evidence:evidence.rows,robots:robots.rows,endorsements:endorsements.rows,
