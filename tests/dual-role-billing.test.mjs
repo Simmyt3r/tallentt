@@ -3,7 +3,6 @@ import assert from 'node:assert/strict'
 import {randomUUID} from 'node:crypto'
 import {readFile} from 'node:fs/promises'
 import {testDatabase} from './database.mjs'
-import {calculateOrbitScore} from '../api/_lib/accountOrbit.js'
 let db,pool,services,ids={}
 const balance=async id=>Number((await pool.query('SELECT balance FROM wallets WHERE user_id=$1',[id])).rows[0].balance)
 before(async()=>{
@@ -87,7 +86,8 @@ test('Disputed salary reverses both tracking debits and removes Work Pass eligib
   const {rows}=await pool.query("SELECT COUNT(*)::int AS n FROM billing_charge_events WHERE status='refunded'")
   assert.equal(rows[0].n,2)
 })
-test('One account has distinct Talent/Client Orbit factors and no cross-role point transfers',()=>{
+test('One account has distinct Talent/Client Orbit factors and no cross-role point transfers',async()=>{
+  const {calculateOrbitScore}=await import('../api/_lib/accountOrbit.js')
   const base={completedProfileFields:5,verifiedIdentity:true,completedWork:5,
     successfulHires:0,activeDays:10,accountAgeDays:365}
   const result=calculateOrbitScore(base)
