@@ -2,6 +2,7 @@
 import { query, getClient } from '../_lib/db.js'
 import {pendingVibesVideos,reviewVibesVideo} from '../_lib/vibesReview.js'
 import {financeSummary,financeAudit,financeLiabilityAudit} from '../_lib/financeReporting.js'
+import { adminBillingStatus, adminPlanPrice, adminReviewBusiness } from '../_lib/billing.js'
 import {resolveLiveMediaAvailability} from '../_lib/liveMedia.js'
 import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
@@ -46,6 +47,7 @@ export default async function handler(req, res) {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
       if (params.get('action') === 'finance_liability_audit')
         return json(res,200,await financeLiabilityAudit({kind:params.get('kind')||'escrow',cursor:params.get('cursor')}))
+      if (params.get('action') === 'billing_admin') return json(res,200,await adminBillingStatus())
       if (params.get('action') === 'finance_summary') return json(res,200,await financeSummary())
       if (params.get('action') === 'finance_audit')
         return json(res,200,await financeAudit({stream:params.get('stream')||'live_support',cursor:params.get('cursor')}))
@@ -304,6 +306,8 @@ async function getDashboard() {
 }
 
 async function handleAdminAction(admin, body) {
+  if(body?.action==='billing_plan_price')return adminPlanPrice(admin.id,body)
+  if(body?.action==='billing_review_business')return adminReviewBusiness(admin.id,body)
   if (body?.action === 'vibes_video_decision') return reviewVibesVideo(admin.id,body)
   if (body?.action === 'erase_subscriber') return eraseSubscriber(admin.id,body)
   if (body?.action === 'retry_user_media_erasure') return processErasureMediaQueue({limit:8})
