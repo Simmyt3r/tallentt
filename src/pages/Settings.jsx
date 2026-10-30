@@ -127,7 +127,7 @@ export default function Settings(){
         </div>
       </div>
       <div className="flex flex-wrap gap-3">
-        <Link to="/profile" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
+        <Link to="/profile?edit=1" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
           <UserRound size={16}/> Edit profile
         </Link>
         <Link to="/wallet" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
