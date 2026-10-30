@@ -30,6 +30,7 @@ import StageRoom from './pages/Live/StageRoom.jsx'
 import StageCompetitions from './pages/Live/StageCompetitions.jsx'
 import StageCompetitionRoom from './pages/Live/StageCompetitionRoom.jsx'
 import { decideLanding } from './lib/landing.js'
+import { safeVibeReturnPath } from './lib/vibeSharing.js'
 
 function LegacyInboxRedirect({ tab }) { const { search } = useLocation(); const params = new URLSearchParams(search); params.set('tab', tab); return <Navigate to={'/inbox?' + params.toString()} replace /> }
 
@@ -57,8 +58,26 @@ class VibesRenderBoundary extends Component {
   }
 }
 function FullPageSpinner() { return <div className="min-h-screen grid place-items-center text-gray-500">Loading…</div> }
-function ProtectedRoute({ children }) { const { user, loading } = useAuth(); if (loading) return <FullPageSpinner />; if (!user) return <Navigate to="/auth" replace />; return <Layout>{children}</Layout> }
-function PublicOnlyRoute({ children }) { const { user, loading } = useAuth(); if (loading) return <FullPageSpinner />; if (user) return <Navigate to="/" replace />; return children }
+function ProtectedRoute({ children }) {
+  const { user,loading }=useAuth()
+  const location=useLocation()
+  if(loading)return <FullPageSpinner />
+  if(!user){
+    const next=safeVibeReturnPath(location.pathname+location.search)
+    return <Navigate to={next?'/auth?next='+encodeURIComponent(next):'/auth'} replace />
+  }
+  return <Layout>{children}</Layout>
+}
+function PublicOnlyRoute({ children }) {
+  const {user,loading}=useAuth()
+  const location=useLocation()
+  if(loading)return <FullPageSpinner />
+  if(user){
+    const next=safeVibeReturnPath(new URLSearchParams(location.search).get('next'))
+    return <Navigate to={next||'/'} replace />
+  }
+  return children
+}
 function AdminRoute({ children }) { const { user, loading } = useAuth(); if (loading) return <FullPageSpinner />; if (!user) return <Navigate to="/auth" replace />; if (!user.isAdmin) return <Navigate to="/" replace />; return <Layout>{children}</Layout> }
 // The homepage is always Showroom for every signed-in account.
 function HomeRoute() {
