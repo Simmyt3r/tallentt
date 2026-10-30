@@ -54,6 +54,15 @@ export async function collectTrackingSide(client,{periodId,side,payerId,fee}){
       (period_id,side,payer_id,amount,reference) VALUES($1,$2,$3,$4,$5)`,
       [periodId,side,payerId,fee,reference])
   }
+  const kind=side==='client'?'salary_tracking':'salary_tracking_talent'
+  const {rows:history}=await client.query(`SELECT id FROM billing_charge_events WHERE kind=$1 AND source_id=$2 FOR UPDATE`,[kind,periodId])
+  if(history.length){
+    await client.query(`UPDATE billing_charge_events SET user_id=$2,amount=$3,reference=$4,status='charged',
+      created_at=NOW(),refunded_at=NULL WHERE id=$1`,[history[0].id,payerId,fee,reference])
+  }else{
+    await client.query(`INSERT INTO billing_charge_events(user_id,kind,source_id,amount,reference)
+      VALUES($1,$2,$3,$4,$5)`,[payerId,kind,periodId,fee,reference])
+  }
   return {fee,reference}
 }
 export async function refundTrackingSides(client,periodId){
@@ -63,6 +72,8 @@ export async function refundTrackingSides(client,periodId){
     await creditWallet(client,{userId:row.payer_id,amount:row.amount,type:'billing_refund',reference:'refund:'+row.reference})
     await client.query(`UPDATE salary_tracking_contributions SET status='refunded',refunded_at=NOW()
       WHERE id=$1`,[row.id])
+    await client.query(`UPDATE billing_charge_events SET status='refunded',refunded_at=NOW()
+      WHERE reference=$1 AND status='charged'`,[row.reference])
   }
   return rows.length
 }
