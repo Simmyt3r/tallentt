@@ -4,6 +4,7 @@ import {notifyUserWithQuery} from './notifications.js'
 import {dispatchStoredNotifications} from './pushNotifications.js'
 import {debitWallet,creditWallet} from './wallet.js'
 import {salaryTrackingQuote} from '../../shared/monetization.js'
+import {salaryTrackingPrices,fixedSalaryQuote,collectTrackingSide,refundTrackingSides} from './salaryTrackingFees.js'
 
 const fail=(status,message)=>Object.assign(new Error(message),{status})
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i
@@ -59,11 +60,28 @@ export async function employmentGet(userId,params){
     JOIN users e ON e.id=a.employer_id JOIN users t ON t.id=a.talent_id WHERE a.id=$1 AND ${access}`,[agreementId,userId])
   if(!rows.length)throw fail(404,'Agreement not found.')
   const {rows:periods}=await query('SELECT *,due_on::text,paid_on::text,received_on::text FROM employment_salary_periods WHERE agreement_id=$1 ORDER BY month DESC',[agreementId])
+  const trackingPrices=await salaryTrackingPrices()
+  if(trackingPrices){
+    const {rows:paid}=await query(`SELECT period_id,side,status,amount
+      FROM salary_tracking_contributions
+      WHERE period_id=ANY($1::uuid[])`,[periods.map(p=>p.id)])
+    for(const period of periods){
+      const contributions=paid.filter(p=>p.period_id===period.id)
+      period.trackingFees={
+        clientPaid:contributions.some(p=>p.side==='client'&&p.status==='paid'),
+        talentPaid:contributions.some(p=>p.side==='talent'&&p.status==='paid'),
+        monthlyFee:contributions.find(p=>p.side==='client')?.amount??null,
+        workPassEligible:period.status==='confirmed'&&
+          contributions.some(p=>p.side==='client'&&p.status==='paid')&&
+          contributions.some(p=>p.side==='talent'&&p.status==='paid'),
+      }
+    }
+  }
   const {rows:messages}=await query(`SELECT m.*,r.body AS reply_body FROM employment_messages m
     LEFT JOIN employment_messages r ON r.id=m.reply_to_id AND r.agreement_id=m.agreement_id
     WHERE m.agreement_id=$1 ORDER BY m.created_at DESC,m.id DESC LIMIT 100`,[agreementId])
   const {rows:events}=await query('SELECT id,actor_id,action,metadata,created_at FROM employment_events WHERE agreement_id=$1 ORDER BY id DESC LIMIT 100',[agreementId])
-  return {agreement:rows[0],periods,messages:messages.reverse(),events,today:employmentToday()}
+  return {agreement:rows[0],periods,messages:messages.reverse(),events,today:employmentToday(),trackingPrices}
 }
 
 async function assertNotBlocked(client,a){
@@ -81,7 +99,7 @@ async function assertNotBlocked(client,a){
 }
 
 export async function employmentAction(userId,body){
-  const allowed=['employment_create','employment_revise','employment_send','employment_accept','employment_decline','employment_withdraw','employment_end','employment_report','employment_confirm','employment_dispute','employment_message','employment_read','employment_visibility']
+  const allowed=['employment_create','employment_revise','employment_send','employment_accept','employment_decline','employment_withdraw','employment_end','employment_report','employment_confirm','employment_dispute','employment_pay_tracking','employment_message','employment_read','employment_visibility']
   if(!allowed.includes(body.action))throw fail(400,'Unknown employment action.')
   if(!await ready())throw fail(503,'Employment is not available yet.')
   const command=body.action==='employment_read'?null:id(body.command_id),hash=fingerprint(body)
@@ -194,31 +212,60 @@ export async function employmentAction(userId,body){
           // Commission is charged for successful tracking services, not
           // for the act of moving money outside ChombuTar. Fee disclosure
           // must be acknowledged on the exact server-calculated amount.
-          const {rows:billingTable}=await client.query("SELECT to_regclass('billing_charge_events') AS registered")
+          const trackingPrices=await salaryTrackingPrices(client.query.bind(client))
           let trackingFee=0
-          if(billingTable[0]?.registered){
-            const quote=salaryTrackingQuote(Number(a.terms.salary),body.method)
-            if(body.accept_tracking_fee!==true||Number(body.expected_tracking_fee)!==quote.trackingFee)
-              throw fail(409,'Review and accept the disclosed salary tracking fee before reporting payment.')
-            const {rows:existingFee}=await client.query(`SELECT id,status FROM billing_charge_events
-              WHERE kind='salary_tracking' AND source_id=$1 FOR UPDATE`,[periodId])
-            if(existingFee[0]?.status==='charged')throw fail(409,'This salary tracking fee is already paid.')
-            const reference=`salary:${periodId}:${rows[0].revision}`
-            await debitWallet(client,{userId:a.employer_id,amount:quote.trackingFee,
-              type:'billing_charge',reference})
-            if(existingFee.length){
-              await client.query(`UPDATE billing_charge_events SET amount=$2,reference=$3,
+          if(trackingPrices){
+            const quote=fixedSalaryQuote(trackingPrices,body.method)
+            if(body.accept_tracking_fee!==true||Number(body.expected_tracking_fee)!==quote.eachParty)
+              throw fail(409,'Review and accept the monthly tracking fee for each participant.')
+            const paid=await collectTrackingSide(client,{
+              periodId,side:'client',payerId:a.employer_id,fee:quote.eachParty,
+            })
+            trackingFee=paid.fee
+          }else{
+            // Compatibility only until the new Admin migration is applied.
+            const {rows:billingTable}=await client.query("SELECT to_regclass('billing_charge_events') AS registered")
+            if(billingTable[0]?.registered){
+              const quote=salaryTrackingQuote(Number(a.terms.salary),body.method)
+              if(body.accept_tracking_fee!==true||Number(body.expected_tracking_fee)!==quote.trackingFee)
+                throw fail(409,'Review and accept the disclosed tracking fee before reporting.')
+              const {rows:existing}=await client.query(`SELECT id,status FROM billing_charge_events
+                WHERE kind='salary_tracking' AND source_id=$1 FOR UPDATE`,[periodId])
+              if(existing[0]?.status==='charged')throw fail(409,'Tracking fee already paid for this month.')
+              const reference=`salary:${periodId}:${rows[0].revision}`
+              await debitWallet(client,{userId:a.employer_id,amount:quote.trackingFee,type:'billing_charge',reference})
+              if(existing.length)await client.query(`UPDATE billing_charge_events SET amount=$2,reference=$3,
                 status='charged',refunded_at=NULL,created_at=NOW() WHERE id=$1`,
-                [existingFee[0].id,quote.trackingFee,reference])
-            }else{
-              await client.query(`INSERT INTO billing_charge_events(user_id,kind,source_id,amount,reference)
+                [existing[0].id,quote.trackingFee,reference])
+              else await client.query(`INSERT INTO billing_charge_events(user_id,kind,source_id,amount,reference)
                 VALUES($1,'salary_tracking',$2,$3,$4)`,
                 [a.employer_id,periodId,quote.trackingFee,reference])
+              trackingFee=quote.trackingFee
             }
-            trackingFee=quote.trackingFee
           }
           summary=`Employer reports ${month} salary paid. Talent confirmation needed.`
           metadata={period_id:periodId,month,paid_on:paidOn,method:body.method,escrow_id:escrow,note,revision:rows[0].revision,tracking_fee:trackingFee};break
+        }
+        case 'employment_pay_tracking':{
+          requireTalent()
+          const {rows:periods}=await client.query(`SELECT * FROM employment_salary_periods
+            WHERE id=$1 AND agreement_id=$2 FOR UPDATE`,[id(body.period_id),a.id])
+          const period=periods[0]
+          if(!period||period.status!=='confirmed')throw fail(409,'Confirm receipt of this salary month before paying for Work Pass evidence.')
+          const trackingPrices=await salaryTrackingPrices(client.query.bind(client))
+          if(!trackingPrices)throw fail(503,'Apply the Dual-role Billing migration in Admin.')
+          const {rows:clientContributions}=await client.query(`SELECT amount,status FROM salary_tracking_contributions
+            WHERE period_id=$1 AND side='client' FOR SHARE`,[period.id])
+          const clientFee=clientContributions[0]
+          if(!clientFee||clientFee.status!=='paid')throw fail(409,'Client must pay their monthly tracking fee first.')
+          if(body.accept_tracking_fee!==true||Number(body.expected_tracking_fee)!==clientFee.amount)
+            throw fail(409,'Review and accept your fixed monthly tracking fee.')
+          const receipt=await collectTrackingSide(client,{
+            periodId:period.id,side:'talent',payerId:a.talent_id,fee:clientFee.amount,
+          })
+          periodId=period.id
+          summary=`Talent paid the ${period.month} salary tracking fee. Two-sided proof may now appear on Work Pass.`
+          metadata={period_id:period.id,amount:receipt.fee,side:'talent'};break
         }
         case 'employment_confirm':case 'employment_dispute':{
           requireTalent()
@@ -235,16 +282,21 @@ export async function employmentAction(userId,body){
           }else{
             const note=text(body.note,1000,'Non-receipt explanation')
             await client.query("UPDATE employment_salary_periods SET status='disputed',note=$2,revision=revision+1 WHERE id=$1",[period.id,note])
-            // Undo the tracking fee if the talent disputes full receipt.
-            const {rows:feeStorage}=await client.query("SELECT to_regclass('billing_charge_events') AS registered")
-            const {rows:charges}=feeStorage[0]?.registered
-              ? await client.query(`SELECT * FROM billing_charge_events
-                  WHERE kind='salary_tracking' AND source_id=$1 AND status='charged' FOR UPDATE`,[period.id])
-              : {rows:[]}
-            if(charges.length){
-              await creditWallet(client,{userId:a.employer_id,amount:charges[0].amount,
-                type:'billing_refund',reference:'refund:'+charges[0].reference})
-              await client.query(`UPDATE billing_charge_events SET status='refunded',refunded_at=NOW() WHERE id=$1`,[charges[0].id])
+            // If either participant has paid, return both tracking fees
+            // before marking this period ineligible for Work Pass evidence.
+            const prices=await salaryTrackingPrices(client.query.bind(client))
+            if(prices)await refundTrackingSides(client,period.id)
+            else{
+              const {rows:feeStorage}=await client.query("SELECT to_regclass('billing_charge_events') AS registered")
+              const {rows:charges}=feeStorage[0]?.registered
+                ? await client.query(`SELECT * FROM billing_charge_events WHERE kind='salary_tracking'
+                    AND source_id=$1 AND status='charged' FOR UPDATE`,[period.id]):{rows:[]}
+              if(charges.length){
+                await creditWallet(client,{userId:a.employer_id,amount:charges[0].amount,
+                  type:'billing_refund',reference:'refund:'+charges[0].reference})
+                await client.query(`UPDATE billing_charge_events SET status='refunded',refunded_at=NOW()
+                  WHERE id=$1`,[charges[0].id])
+              }
             }
             summary=`Talent reports ${period.month} salary not received in full.`;metadata={period_id:period.id,note,revision:period.revision+1}
           }
