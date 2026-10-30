@@ -30,3 +30,21 @@ export function vibeShareDestinations(url,text) {
     {id:'email',label:'Email',href:`mailto:?subject=${encodeURIComponent('Vibe on ChombuTar')}&body=${encodeURIComponent(text+'\n\n'+url)}`},
   ]
 }
+
+const SAFE_BASE='https://chombutar.invalid'
+
+// Only Vibes links with a genuine UUID are accepted as post-login redirects.
+// An external URL, protocol-relative URL, path traversal or unrelated app
+// path can never become an open redirect through the login screen.
+export function safeVibeReturnPath(value) {
+  if(typeof value!=='string'||!value.startsWith('/vibes?')||value.startsWith('//')||value.length>220)return null
+  try{
+    const url=new URL(value,SAFE_BASE)
+    if(url.origin!==SAFE_BASE||url.pathname!=='/vibes')return null
+    const ids=url.searchParams.getAll('post')
+    if(ids.length!==1)return null
+    const id=ids[0]
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return null
+    return '/vibes?post='+encodeURIComponent(id)
+  }catch{return null}
+}
