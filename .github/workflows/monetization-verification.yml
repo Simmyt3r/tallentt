@@ -1,0 +1,25 @@
+name: ChombuTar Billing Verification
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  monetization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Pricing arithmetic
+        run: node --test tests/monetization-policy.test.mjs
+      - name: SQL migration, wallet and refund tests
+        run: node --test tests/monetization-billing.test.mjs
+      - name: Verify server code and build
+        run: npm run check:api && npm run build
