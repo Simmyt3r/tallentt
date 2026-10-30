@@ -24,7 +24,8 @@ import { json, methodNotAllowed } from '../_lib/http.js'
 // session-gated ?action=me.
 const PUBLIC_USER_COLUMNS = `
   id, full_name, username, role, created_at, avatar_url, bio, (to_jsonb(users)->>'profile_statement') AS profile_statement, location, lga, country,
-  headline, skills, industry, company_suffix, website, (to_jsonb(users)->'talent_card') AS talent_card
+  headline, skills, industry, company_suffix, website, (to_jsonb(users)->'talent_card') AS talent_card,
+  COALESCE((to_jsonb(users)->>'is_business_verified')::boolean,FALSE) AS is_business_verified
 `
 
 function toPublicProfileUser(row) {
@@ -46,6 +47,7 @@ function toPublicProfileUser(row) {
     industry: row.industry ?? [],
     companySuffix: row.company_suffix ?? null,
     website: row.website ?? null,
+    isBusinessVerified: row.is_business_verified === true,
   }
 }
 
