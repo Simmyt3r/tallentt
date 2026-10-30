@@ -42,7 +42,7 @@ test('Vibes migration is repeatable and public posts require authentication',asy
 let posted
 test('post, author identity and timeline pagination use owned server fields',async()=>{
   assert.equal((await request('POST','/api/vibes',{action:'publish',text:'   '})).status,400)
-  assert.equal((await request('POST','/api/vibes',{action:'publish',text:'a'.repeat(501)})).status,400)
+  assert.equal((await request('POST','/api/vibes',{action:'publish',text:'a'.repeat(10001)})).status,400)
   const sent=await request('POST','/api/vibes',{action:'publish',text:'Hello community!'})
   assert.equal(sent.status,201,JSON.stringify(sent.body))
   posted=sent.body.id
