@@ -50,7 +50,14 @@ export function calculateOrbitScore(metrics,weights=ORBIT_DEFAULTS){
     possible:weights[key],
   }))
   const score=factors.reduce((sum,item)=>sum+item.earned,0)
-  return {score:Math.min(100,score),max:100,factors,metrics,
+  const segmented=Object.fromEntries(['talent','client'].map(role=>{
+    const filtered=factors.filter(f=>f.key!==(role==='talent'?'successful_hires':'completed_work'))
+    const possible=filtered.reduce((n,f)=>n+f.possible,0)
+    const earned=filtered.reduce((n,f)=>n+f.earned,0)
+    return [role,{score:possible?Math.min(100,Math.round(earned/possible*100)):0,max:100,
+      factors:filtered}]
+  }))
+  return {score:Math.min(100,score),max:100,factors,metrics,byRole:segmented,
     disclaimer:'An activity-based indicator, not identity verification or a guarantee of reliability.'}
 }
 
