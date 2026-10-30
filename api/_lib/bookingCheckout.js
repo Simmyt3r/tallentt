@@ -45,7 +45,7 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
     // Until it is installed, existing checkouts remain operational under
     // their original zero-fee terms, rather than crashing at payment time.
     const billingReady=Object.hasOwn(escrow,'gig_fee_bps')
-    if(billingReady&&escrow.currency!=='NGN')throw bookingError(400,'Commission-based checkout supports NGN only.')
+    if(billingReady&&(escrow.currency||'NGN')!=='NGN')throw bookingError(400,'Commission-based checkout supports NGN only.')
     const sealedBilling=billingReady&&Object.hasOwn(escrow,'gig_fee_sealed')
     const quote=billingReady?gigQuote(Number(escrow.amount)):null
 
