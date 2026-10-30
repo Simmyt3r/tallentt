@@ -1,6 +1,7 @@
 import { getClient, query } from './db.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from './bookingRules.js'
 import { creditWallet } from './wallet.js'
+import { bookGigRelease } from './gigFees.js'
 import { dispatchStoredNotifications } from './pushNotifications.js'
 
 const titles = {
@@ -99,8 +100,18 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
     }
     if (settlement) {
       const remaining = requireAmount(Number(escrow.amount)) - Number(escrow.start_released_amount)
-      if (remaining > 0) await creditWallet(client, { userId: settlement === 'released' ? escrow.talent_id : escrow.client_id,
-        amount: remaining, type: settlement === 'released' ? 'escrow_release' : 'refund', escrowId })
+      if (remaining > 0) {
+        // A refund returns 100% of the *unreleased* amount. Previously
+        // released work/commission stays settled (and is auditable).
+        const creditAmount=settlement==='released'
+          ? (await bookGigRelease(client,escrow,{stage:'dispute_release',
+            gross:remaining,previousGross:Number(escrow.start_released_amount||0)})).net
+          : remaining
+        if(creditAmount>0)await creditWallet(client,{
+          userId:settlement==='released'?escrow.talent_id:escrow.client_id,
+          amount:creditAmount,type:settlement==='released'?'escrow_release':'refund',escrowId,
+        })
+      }
     }
     const { rows: updated } = await client.query(
       `UPDATE escrows SET work_status = $2, work_version = work_version + 1, status = COALESCE($3, status),
