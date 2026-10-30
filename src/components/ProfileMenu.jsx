@@ -70,12 +70,12 @@ export default function ProfileMenu() {
       aria-label="Open profile menu" title="Profile and account"
       aria-haspopup="true" aria-expanded={open} aria-controls="header-profile-menu"
       onClick={() => { setError(''); setOpen(value => !value) }}
-      className="flex h-9 min-w-9 items-center gap-0.5 rounded-full border-2 border-[#0A13E6] bg-[#0A13E6] text-[12px] font-black text-white outline-offset-2 transition hover:ring-2 hover:ring-[#0A13E6]/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0A13E6] md:h-10 md:min-w-10">
+      className="flex h-9 w-9 shrink-0 items-center gap-0.5 rounded-full border-2 border-[#0A13E6] bg-[#0A13E6] text-[12px] font-black text-white outline-offset-2 transition hover:ring-2 hover:ring-[#0A13E6]/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0A13E6] md:h-10 md:w-[54px]">
       <span className="flex h-[30px] w-[30px] items-center justify-center overflow-hidden rounded-full md:h-9 md:w-9">
         {user?.avatarUrl ? <img src={cldImage(user.avatarUrl, { w: 80, h: 80 })}
           alt="" className="h-full w-full object-cover" /> : initial}
       </span>
-      <ChevronDown size={11} className="mr-0.5 text-white/80" aria-hidden="true"/>
+      <ChevronDown size={11} className="mr-0.5 hidden text-white/80 md:block" aria-hidden="true"/>
     </button>
     {open && <nav id="header-profile-menu" aria-label="Profile and account"
       className="absolute right-0 top-[calc(100%+12px)] z-[80] w-[min(310px,calc(100vw-24px))] overflow-hidden rounded-[20px] border border-[#D9DFF9] bg-white shadow-[0_24px_65px_-22px_rgba(10,19,230,.5)]">
