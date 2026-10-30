@@ -107,6 +107,15 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
           ? (await bookGigRelease(client,escrow,{stage:'dispute_release',
             gross:remaining,previousGross:Number(escrow.start_released_amount||0)})).net
           : remaining
+        if(settlement==='refunded'&&escrow.gig_fee_sealed===true){
+          const {percentageFee}=await import('../../shared/monetization.js')
+          const rate=Number(escrow.gig_fee_bps||0)
+          const earned=percentageFee(Number(escrow.start_released_amount||0),rate)
+          const booked=percentageFee(Number(escrow.amount),rate)
+          await client.query(`INSERT INTO gig_commission_adjustments
+            (escrow_id,refunded_gross,commission_reversed) VALUES($1,$2,$3)`,
+            [escrow.id,remaining,booked-earned])
+        }
         if(creditAmount>0)await creditWallet(client,{
           userId:settlement==='released'?escrow.talent_id:escrow.client_id,
           amount:creditAmount,type:settlement==='released'?'escrow_release':'refund',escrowId,
