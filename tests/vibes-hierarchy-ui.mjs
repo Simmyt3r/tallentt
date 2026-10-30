@@ -1,0 +1,94 @@
+import assert from 'node:assert/strict'
+import {chromium} from 'playwright'
+import {preview} from 'vite'
+import {fileURLToPath} from 'node:url'
+import {mkdir} from 'node:fs/promises'
+import {optOutPageToursForFixture} from './page-tour-fixture.mjs'
+
+const root=fileURLToPath(new URL('..',import.meta.url)),port=5198
+const postId='22222222-2222-4222-8222-222222222222'
+const rootId='33333333-3333-4333-8333-333333333333'
+const childId='44444444-4444-4444-8444-444444444444'
+const self={id:'11111111-1111-4111-8111-111111111111',username:'studio',full_name:'Studio User',role:'dual'}
+let server,browser
+try{
+  await mkdir('test-results',{recursive:true})
+  server=await preview({root,preview:{host:'127.0.0.1',port,strictPort:true}})
+  browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined})
+  for(const width of [320,390,1280]){
+    const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'})
+    await optOutPageToursForFixture(context)
+    const page=await context.newPage()
+    page.setDefaultTimeout(15000)
+    const errors=[]
+    page.on('pageerror',error=>errors.push(error.message))
+    const post={id:postId,author_id:'77777777-7777-4777-8777-777777777777',username:'creator',
+      full_name:'Creator Person',body:'Building community conversations',media:[],likes:1,replies:2,
+      liked_by_me:false,created_at:'2026-10-30T12:00:00Z'}
+    let roots=[{id:rootId,post_id:postId,parent_id:null,author_id:'88888888-8888-4888-8888-888888888888',
+      username:'friend',full_name:'Friend Person',body:'Original comment',child_count:1,
+      created_at:'2026-10-30T12:01:00Z',deleted:false}]
+    let children=[{id:childId,post_id:postId,parent_id:rootId,author_id:'99999999-9999-4999-8999-999999999999',
+      username:'member',full_name:'Other Member',body:'Older nested reply',child_count:0,
+      created_at:'2026-10-30T12:02:00Z'}]
+    await page.route('**/api/**',route=>{
+      const url=new URL(route.request().url())
+      const data=route.request().method()==='POST'?route.request().postDataJSON():{}
+      const respond=(payload,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(payload)})
+      if(url.pathname==='/api/auth')return respond({user:self,unreadCount:0})
+      if(url.pathname==='/api/escrows')return respond({conversations:[],threads:[],counts:{}})
+      if(url.pathname==='/api/vibes'){
+        if(url.searchParams.has('likers'))return respond({people:[{
+          username:'friend',name:'Friend Person',avatarUrl:null,likedAt:'2026-10-30T12:03:00Z',
+        }],nextPage:null})
+        if(url.searchParams.has('comments'))return respond({
+          comments:url.searchParams.get('parent_id')===rootId?children:roots,threaded:true,nextCursor:null,
+        })
+        if(route.request().method()==='GET')return respond({posts:[post],nextCursor:null})
+        if(data.action==='like'){post.likes=post.likes===1?2:1;post.liked_by_me=!post.liked_by_me
+          return respond({likes:post.likes,liked:post.liked_by_me})}
+        if(data.action==='reply'){
+          const created={id:'55555555-5555-4555-8555-555555555555',
+            post_id:postId,parent_id:data.parent_id||null,author_id:self.id,
+            username:self.username,full_name:self.full_name,body:data.text,
+            created_at:'2026-10-30T12:05:00Z',child_count:0,deleted:false}
+          if(data.parent_id){children=[...children,created];roots[0].child_count++;post.replies++}
+          else{roots=[...roots,created];post.replies++}
+          return respond({id:created.id,parent_id:data.parent_id||null})
+        }
+        return respond({ok:true})
+      }
+      return respond({hats:[],items:[],notifications:[],count:0})
+    })
+    await page.goto('http://127.0.0.1:'+port+'/vibes')
+    const article=page.getByRole('article',{name:'Vibe by Creator Person'})
+    await article.waitFor()
+    await article.getByRole('button',{name:'See who liked this Vibe'}).click()
+    const dialog=page.getByRole('dialog',{name:'People who liked this Vibe'})
+    await dialog.getByRole('link',{name:/Friend Person/}).waitFor()
+    assert.equal(await dialog.locator('a[href="/profile/friend"]').count(),1)
+    await dialog.getByRole('button',{name:'Close Vibes likes'}).click()
+    await dialog.waitFor({state:'detached'})
+    await article.getByRole('button',{name:/Replies/}).click()
+    const thread=article.locator('[data-thread-id="'+rootId+'"]')
+    await thread.getByText('Original comment').waitFor()
+    assert.equal(await thread.getByText('Older nested reply').count(),0,'Nested replies should be expandable')
+    await thread.getByRole('button',{name:/View 1 reply/}).click()
+    await thread.getByText('Older nested reply').waitFor()
+    await thread.getByRole('button',{name:'Reply',exact:true}).first().click()
+    const composer=thread.getByRole('textbox',{name:'Reply to Friend Person'})
+    await composer.fill('A thoughtful second-level response')
+    await thread.getByRole('button',{name:'Send threaded reply'}).click()
+    await thread.getByText('A thoughtful second-level response').waitFor()
+    assert.equal(await article.getByRole('button',{name:/Replies \(3\)/}).count(),1)
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
+      'Vibes comments should fit at '+width+'px')
+    await page.screenshot({path:'test-results/vibes-thread-'+width+'.png',animations:'disabled'})
+    assert.deepEqual(errors,[],'No uncaught browser errors on '+width+'px')
+    await context.close()
+  }
+  console.log('Vibes hierarchy, inline reply, liker identities and responsive layout passed.')
+}finally{
+  await browser?.close()
+  if(server)await new Promise(resolve=>server.httpServer.close(resolve))
+}
