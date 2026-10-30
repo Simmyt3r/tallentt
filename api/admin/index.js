@@ -307,6 +307,7 @@ async function getDashboard() {
 }
 
 async function handleAdminAction(admin, body) {
+  if(body?.action==='salary_tracking_price')return adminSalaryPrice(admin.id,body)
   if(body?.action==='billing_plan_price')return adminPlanPrice(admin.id,body)
   if(body?.action==='billing_review_business')return adminReviewBusiness(admin.id,body)
   if (body?.action === 'vibes_video_decision') return reviewVibesVideo(admin.id,body)
