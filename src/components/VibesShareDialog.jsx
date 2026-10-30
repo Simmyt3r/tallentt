@@ -98,10 +98,12 @@ export default function VibesShareDialog({post,onClose,onShared}){
     finally{setBusy('')}
   }
   function openDestination(destination){
-    // External sites do not report whether the recipient eventually posts.
-    // We record the user-initiated outgoing share action, not delivery.
+    // Let the browser complete the anchor's native navigation before
+    // unmounting the portal; otherwise some mobile browsers cancel the
+    // destination when React removes the clicked link synchronously.
+    // External sites cannot tell us whether the recipient actually posts.
     successfulShare('link',destination.id)
-    onCloseRef.current()
+    window.setTimeout(()=>onCloseRef.current(),120)
   }
 
   return createPortal(
