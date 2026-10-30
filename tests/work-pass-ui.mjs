@@ -60,6 +60,8 @@ try{
     }))
     await page.route('**/api/**',route=>{
       const url=new URL(route.request().url())
+      // Leave source modules served under /api/_lib intact in Vite.
+      if(url.pathname.endsWith('.js'))return route.continue()
       const action=url.searchParams.get('action')
       const send=body=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)})
       if(url.pathname==='/api/auth'){
