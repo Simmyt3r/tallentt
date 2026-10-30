@@ -96,3 +96,20 @@ test('One account has distinct Talent/Client Orbit factors and no cross-role poi
   assert.ok(!result.byRole.talent.factors.some(f=>f.key==='successful_hires'))
   assert.ok(!result.byRole.client.factors.some(f=>f.key==='completed_work'))
 })
+
+test('sealing a new funded gig books exactly one 5% commission before work starts',async()=>{
+  const hat=randomUUID(),escrow=randomUUID()
+  await pool.query(`INSERT INTO hats(id,user_id,username,hat_name,hat_title,category)
+    VALUES($1,$2,'talent','Electrical repair','Electrical repair','Repairs')`,
+    [hat,ids.talent])
+  await pool.query(`INSERT INTO escrows(id,hat_id,client_id,talent_id,amount,contacts_unlocked)
+    VALUES($1,$2,$3,$4,10000,TRUE)`,[escrow,hat,ids.employer,ids.talent])
+  const {payBookingWithWallet}=await import('../api/_lib/bookingCheckout.js')
+  const response=await payBookingWithWallet(ids.employer,escrow,10000)
+  assert.equal(response.escrow.gig_fee_sealed,true)
+  assert.equal(response.checkout.platformFee,500)
+  const {rows:events}=await pool.query(`SELECT stage,fee_amount FROM gig_fee_events WHERE escrow_id=$1`,[escrow])
+  assert.deepEqual(events.map(({stage,fee_amount})=>({stage,fee_amount})),[{stage:'sealed',fee_amount:500}])
+  await assert.rejects(payBookingWithWallet(ids.employer,escrow,10000),e=>e.status===409)
+  assert.equal(await balance(ids.employer),20000)
+})
