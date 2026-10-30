@@ -274,6 +274,8 @@ export const api = {
   associateAction: (body) => request('/api/escrows',{method:'POST',body:JSON.stringify(body)}),
   getCommunityChats: () => request('/api/escrows?community=1',{cache:'no-store'}),
   getEmploymentChats: () => request('/api/escrows?employment=1',{cache:'no-store'}),
+  getReviewJobs: (id) => request('/api/escrows?review_jobs='+encodeURIComponent(id),{cache:'no-store'}),
+  reviewAction: (body) => request('/api/escrows',{method:'POST',body:JSON.stringify(body)}),
   getEmployment: (id) => request('/api/escrows?employment_id='+encodeURIComponent(id),{cache:'no-store'}),
   employmentAction: (body) => request('/api/escrows',{method:'POST',body:JSON.stringify(body)}),
   searchCommunityUsers: (q) => request('/api/escrows?community_users=1&q='+encodeURIComponent(q),{cache:'no-store'}),

@@ -13,6 +13,7 @@
 // 12-function cap (9 functions total after this one).
 import {publicTalentCard} from '../_lib/talentCard.js'
 import {publicEmploymentSummary} from '../_lib/employment.js'
+import {reputationSummary} from '../_lib/reputation.js'
 import { query } from '../_lib/db.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
 import { json, methodNotAllowed } from '../_lib/http.js'
@@ -120,6 +121,7 @@ export default async function handler(req, res) {
     return json(res, 200, {
       user: toPublicProfileUser(userRow),
       employment: await publicEmploymentSummary(userRow.id).catch(() => null),
+      reputation: await reputationSummary(userRow.id).catch(() => null),
       performance: performanceRows[0],
       // Orbit is supplemental: a scoring outage must never hide a public profile.
       orbit: await accountOrbit(userRow.id).catch(() => null),

@@ -8,6 +8,7 @@ import { api } from '../../lib/api.js'
 import AssociatesSection from './AssociatesSection.jsx'
 import { isBusinessIdentity } from '../../lib/profile.js'
 import ProfileHeader from './ProfileHeader.jsx'
+import ReputationCard from './ReputationCard.jsx'
 import WorkPass from '../WorkPass.jsx'
 import PortfolioSection from './PortfolioSection.jsx'
 import ActiveHatsSection from './ActiveHatsSection.jsx'
@@ -283,7 +284,7 @@ export default function ProfileView({
               : <p className="text-[12px] text-black/40 font-medium">No active Hats yet.</p>
           )}
           {id === selectedTab && id === 'associates' && <AssociatesSection data={social} isOwner={isOwner} onRefresh={refreshSocial} />}
-           {id === selectedTab && id === 'reviews' && <ReviewsSection rating={rating} ratedHatsCount={ratedHatsCount} />}
+           {id === selectedTab && id === 'reviews' && <ReputationCard username={profileUser.username} subjectId={profileUser.id} isOwner={isOwner}/>}
         </div>
       ))}
     </div>
