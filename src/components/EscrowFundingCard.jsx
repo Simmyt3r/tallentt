@@ -88,7 +88,7 @@ export default function EscrowFundingCard({
           <div className="flex justify-between gap-2"><dt>Platform commission (5%, deducted from talent)</dt><dd>{money(checkout.platformFee,currency)}</dd></div>
           <div className="flex justify-between gap-2 border-t border-black/10 pt-1.5"><dt>Talent receives after completed milestones</dt><dd className="font-black">{money(checkout.talentNet,currency)}</dd></div>
         </dl>
-        <p className="mt-2 text-[10px] leading-relaxed text-black/55">Commission is earned only as work payments are released. If a dispute results in a refund, the unreleased balance returns to the client wallet in full. Already released work and its associated commission are not automatically reversed.</p>
+        <p className="mt-2 text-[10px] leading-relaxed text-black/55">The 5% commission is booked when you fund and seal the deal, not charged monthly. If a dispute refunds unreleased escrow, the associated unearned commission is reversed. Previously completed milestones remain settled.</p>
       </div>}
       {!enough && (
         <p className="mt-2 text-[11px] font-bold text-amber-800">
