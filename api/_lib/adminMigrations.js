@@ -8,6 +8,7 @@ import { query, getClient } from './db.js'
 const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
+  {id:'monetization-2026-10',title:'Marketplace commissions, salary tracking & subscriptions',description:'Grandfathers earlier deals; adds 5% commission receipts, salary tracking charges, subscription price setup, and manual-review business verification. Apply before using billing.',path:new URL('../../db/patch-monetization-2026-10.sql',import.meta.url)},
   {id:'reputation-2026-10',title:'Lifetime reputation and completed-work reviews',description:'Apply after employment. Starts future-event scoring; no historical points are invented.',path:new URL('../../db/patch-reputation-2026-10.sql',import.meta.url)},
   {
     id: 'employment-2026-10',
