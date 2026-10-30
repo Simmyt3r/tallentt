@@ -1,17 +1,8 @@
 // Path: src/components/Sidebar.jsx
-import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, ShieldCheck, X } from 'lucide-react'
+import { NavLink } from 'react-router-dom'
+import { IdCard, ShieldCheck, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { NAV_PRIMARY, NAV_SECONDARY } from '../lib/nav'
-
-function fmtMoney(n) {
-  if (n == null) return '₦0'
-  try {
-    return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n)
-  } catch {
-    return `₦${Number(n).toLocaleString()}`
-  }
-}
 
 function SidebarLink({ to, icon: Icon, label, end, collapsed, onNavigate }) {
   return (
@@ -46,14 +37,7 @@ function SidebarLink({ to, icon: Icon, label, end, collapsed, onNavigate }) {
  * mobile drawer, so the two never drift out of sync.
  */
 function SidebarContent({ collapsed, onNavigate }) {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
-
-  async function handleLogout() {
-    await logout()
-    onNavigate?.()
-    navigate('/auth')
-  }
+  const { user } = useAuth()
 
   return (
     <>
@@ -93,39 +77,6 @@ function SidebarContent({ collapsed, onNavigate }) {
         </div>
       </nav>
 
-      <div className="border-t border-black/10 px-2.5 py-3 space-y-1">
-        <NavLink
-          to="/profile"
-          onClick={onNavigate}
-          title={collapsed ? 'Profile' : undefined}
-          className={({ isActive }) =>
-            `flex items-center gap-2.5 rounded-[12px] px-2 py-2 transition-colors ${
-              collapsed ? 'justify-center' : ''
-            } ${isActive ? 'bg-black/[0.06]' : 'hover:bg-black/[0.05]'}`
-          }
-        >
-          <span className="w-8 h-8 shrink-0 rounded-full bg-[#0A13E6] text-white grid place-items-center text-[12px] font-black">
-            {(user?.name || user?.fullName || 'U').slice(0, 1).toUpperCase()}
-          </span>
-          {!collapsed && (
-            <span className="min-w-0 flex-1 text-left">
-              <span className="block truncate text-[13px] font-bold text-black">{user?.name || user?.fullName || 'Profile'}</span>
-              <span className="block truncate text-[11px] font-semibold text-black/45">{fmtMoney(user?.walletBalance)}</span>
-            </span>
-          )}
-        </NavLink>
-        <button
-          type="button"
-          onClick={handleLogout}
-          title="Log out"
-          className={`flex w-full items-center gap-2.5 rounded-[12px] px-3 py-2.5 text-[13.5px] font-semibold text-black/55 transition-colors hover:bg-red-50 hover:text-red-600 ${
-            collapsed ? 'justify-left' : ''
-          }`}
-        >
-          <LogOut size={18} className="shrink-0" />
-          {!collapsed && <span>Log out</span>}
-        </button>
-      </div>
     </>
   )
 }
@@ -142,7 +93,7 @@ export function BrandMark({ className = '' }) {
   )
 }
 
-export function DesktopSidebar({ collapsed }) {
+export function DesktopSidebar({ collapsed, onOpenWorkPass }) {
   // Sits directly under the fixed header (h-16); the header's menu button
   // collapses/expands it.
   return (
@@ -153,6 +104,14 @@ export function DesktopSidebar({ collapsed }) {
       }`}
     >
       <SidebarContent collapsed={collapsed} />
+      <div className="shrink-0 border-t border-black/10 p-2.5">
+        <button type="button" onClick={onOpenWorkPass} title="Open my Work Pass"
+          aria-label="Open my Work Pass"
+          className={`flex min-h-11 w-full items-center gap-3 rounded-xl border border-[#D9DFFA] bg-[#E9ECFF] px-3 font-bold text-[#0A13E6] hover:bg-[#DDE3FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6] ${collapsed?'justify-center':''}`}>
+          <IdCard size={20} className="shrink-0" aria-hidden="true"/>
+          {!collapsed && <span className="text-[12px]">My Work Pass</span>}
+        </button>
+      </div>
     </aside>
   )
 }
