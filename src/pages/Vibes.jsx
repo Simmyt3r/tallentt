@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Heart, ImagePlus, MessageCircle, Send, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
+import { Heart, ImagePlus, MessageCircle, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
 import EntryActions from '../components/EntryActions.jsx'
 import VibesMediaGallery from '../components/VibesMediaGallery.jsx'
+import VibesComments from '../components/VibesComments.jsx'
+import VibesLikersDialog from '../components/VibesLikersDialog.jsx'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api, uploadVibePhoto } from '../lib/api.js'
@@ -38,98 +40,10 @@ function Identity({user}) {
   </Link>
 }
 
-function Replies({post,me,onDelta}) {
-  const [comments,setComments]=useState([])
-  const [editing,setEditing]=useState(null)
-  const [editText,setEditText]=useState('')
-  const [cursor,setCursor]=useState(null)
-  const [text,setText]=useState('')
-  const [busy,setBusy]=useState(false)
-  const [loading,setLoading]=useState(true)
-  const [error,setError]=useState('')
-  async function fetchPage(before) {
-    setLoading(true)
-    setError('')
-    try {
-      const data=await api.getVibeReplies(post.id,before)
-      setComments(current=> before
-        ? [...current,...(data.comments||[]).filter(row=>!current.some(c=>c.id===row.id))]
-        : data.comments||[])
-      setCursor(data.nextCursor || null)
-    } catch(err){setError(err.message||'Could not load replies.')}
-    finally {setLoading(false)}
-  }
-  useEffect(()=>{fetchPage(null)},[post.id])
-  async function submit(e) {
-    e.preventDefault()
-    if(!text.trim()||busy)return
-    setBusy(true);setError('')
-    try {
-      await api.vibeAction({action:'reply',post_id:post.id,text:text.trim()})
-      setText('')
-      onDelta(post.id,{replies:Number(post.replies||0)+1})
-      await fetchPage(null)
-    } catch(err){setError(err.message||'Could not post your reply.')}
-    finally {setBusy(false)}
-  }
-  async function remove(item) {
-    if(!window.confirm('Delete your reply?')) return
-    setError('')
-    try {
-      await api.vibeAction({action:'delete_reply',post_id:post.id,comment_id:item.id})
-      setComments(current=>current.filter(row=>row.id!==item.id))
-      onDelta(post.id,{replies:Math.max(0,Number(post.replies||0)-1)})
-    } catch(err){setError(err.message||'Could not delete this reply.')}
-  }
-  async function saveEdit(item){
-    if(!editText.trim()||busy)return
-    setBusy(true);setError('')
-    try{
-      await api.vibeAction({action:'edit_reply',post_id:post.id,comment_id:item.id,text:editText.trim()})
-      setComments(current=>current.map(row=>row.id===item.id?{...row,body:editText.trim(),edited_at:new Date().toISOString()}:row))
-      setEditing(null)
-    }catch(err){setError(err.message||'Could not edit reply.')}
-    finally{setBusy(false)}
-  }
-  return <section aria-label="Replies" className="mt-3 border-t border-black/10 pt-3">
-    {error&&<p role="alert" className="mt-2 text-[12px] text-red-700">{error}</p>}
-    {loading&&!comments.length&&<p role="status" className="py-3 text-[12px] text-black/40">Loading replies…</p>}
-    {!loading&&!comments.length&&<p className="py-3 text-[12px] text-black/40">Be the first to reply.</p>}
-    <div className="mt-3 space-y-3">
-      {[...comments].reverse().map(item=><div key={item.id} className="flex items-start gap-2">
-        <Avatar user={item} size={30}/>
-        <div className="flex-1 min-w-0 rounded-2xl bg-[#F7F3EB] px-3 py-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link to={`/profile/${encodeURIComponent(item.username)}`} className="text-[12px] font-black hover:underline">{item.full_name||item.username}</Link>
-              <span className="ml-1 text-[10px] font-medium text-black/45">{'^'+String(item.username||'').replace(/^[@^]+/,'')}</span>
-            <span className="text-[10px] text-black/40">{dateText(item.created_at)}</span>
-          </div>
-          {editing===item.id ? <div className="mt-2 space-y-2"><textarea autoFocus rows={3} value={editText} onChange={e=>setEditText(e.target.value)} className="w-full resize-y rounded-xl border border-black/15 p-2 text-[12px]"/><div className="flex gap-2"><button type="button" disabled={!editText.trim()||busy} onClick={()=>saveEdit(item)} className="rounded-full bg-[#0A13E6] px-3 py-2 text-[11px] text-white">Save</button><button type="button" onClick={()=>setEditing(null)} className="text-[11px]">Cancel</button></div></div> : <p className="mt-1 whitespace-pre-wrap break-words text-[12px]">{item.body}{item.edited_at&&<span className="ml-1 text-black/40">(edited)</span>}</p>}
-        </div>
-        {me.id===item.author_id&&<EntryActions label="reply"
-          onEdit={()=>{setEditing(item.id);setEditText(item.body)}}
-          onDelete={()=>remove(item)}/>}
-      </div>)}
-    </div>
-    {cursor&&<button type="button" disabled={loading} onClick={()=>fetchPage(cursor)}
-      className="mt-3 w-full h-10 rounded-xl border border-black/15 text-[12px] font-semibold">Load older replies</button>}
-    <form onSubmit={submit} className="flex items-start gap-2">
-      <Avatar user={me} size={32} />
-      <div className="flex-1 min-w-0 flex gap-2">
-        <label className="sr-only" htmlFor={`vibe-reply-${post.id}`}>Write a reply</label>
-        <textarea rows={2} id={`vibe-reply-${post.id}`} value={text} 
-          onChange={e=>setText(e.target.value)} placeholder="Say something…"
-          className="min-w-0 flex-1 min-h-12 resize-y rounded-xl border border-black/15 bg-[#F7F3EB] px-4 text-[12px] outline-none focus:border-[#0A13E6]" />
-        <button type="submit" disabled={!text.trim()||busy} aria-label="Send reply"
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0A13E6] text-white disabled:opacity-40">
-          <Send size={17}/></button>
-      </div>
-    </form>
-  </section>
-}
 
 function VibeCard({post,me,onChange,onDeleted}) {
   const [showReplies,setShowReplies]=useState(false)
+  const [showLikers,setShowLikers]=useState(false)
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   const [reported,setReported]=useState(false)
@@ -219,7 +133,14 @@ function VibeCard({post,me,onChange,onDeleted}) {
       </button>
     </div>
     {error&&<p role="status" className="mt-2 text-[11px] text-black/60">{error}</p>}
-    {showReplies&&<Replies post={post} me={me} onDelta={onChange}/>}
+    <button type="button" onClick={()=>setShowLikers(true)}
+      aria-label="See who liked this Vibe"
+      className="mt-1 inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-[11px] font-bold text-[#0A13E6] hover:bg-[#EEF0FF] focus-visible:bg-[#EEF0FF]">
+      <Heart size={13} fill="currentColor" aria-hidden="true"/>
+      {Number(post.likes||0)===0?'See who liked this Vibe':`See who liked this Vibe · ${post.likes}`}
+    </button>
+    {showReplies&&<VibesComments post={post} me={me} onDelta={onChange}/>}
+    {showLikers&&<VibesLikersDialog post={post} onClose={()=>setShowLikers(false)}/>}
   </article>
 }
 
