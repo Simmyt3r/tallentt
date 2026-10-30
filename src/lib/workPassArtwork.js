@@ -72,6 +72,9 @@ export async function renderWorkPassStory({pass,qr,avatarUrl}){
   ctx.font='700 30px system-ui,sans-serif';ctx.fillStyle='#fff'
   ctx.fillText(pass.token?'●  Digitally signed by ChombuTar':'●  Unsigned profile preview',150,843)
   ctx.font='700 24px system-ui,sans-serif';ctx.fillStyle='#DCE4FF';ctx.fillText('WORK  ·  TRUST  ·  GROW',140,991)
+  ctx.font='800 23px system-ui,sans-serif'
+  ctx.fillText('TALENT ORBIT '+String(pass.roleOrbit?.talent?.score??0)+'/100',140,1048)
+  ctx.fillText('CLIENT ORBIT '+String(pass.roleOrbit?.client?.score??0)+'/100',570,1048)
   // Metrics, labels and QR retain live platform data and true score units.
   round(ctx,58,1110,964,233,34,'#fff','#DCE0F0')
   const stats=[['ORBIT SCORE',String(Number(pass.orbit)||0)+'/100'],['COMPLETED JOBS',String(Number(pass.completedJobs)||0)],['SUCCESSFUL HIRES',String(Number(pass.successfulHires)||0)]]
