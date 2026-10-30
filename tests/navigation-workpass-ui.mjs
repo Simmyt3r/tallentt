@@ -2,14 +2,14 @@
 // Showroom Top 12 availability or live accounts.
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
-import { createServer } from 'vite'
+import { preview } from 'vite'
 import { fileURLToPath } from 'node:url'
 import { mkdir } from 'node:fs/promises'
 import { optOutPageToursForFixture } from './page-tour-fixture.mjs'
 
 const root=fileURLToPath(new URL('..',import.meta.url))
 const port=5197
-const vite=await createServer({root,server:{host:'127.0.0.1',port,strictPort:true,proxy:{}}})
+let vite
 let browser
 const user={id:'11111111-1111-4111-8111-111111111111',username:'studio',
   fullName:'Studio Designer',name:'Studio Designer',role:'dual',avatarUrl:'/fixture-portrait.svg',
@@ -23,11 +23,12 @@ const pass={user:{username:user.username,name:user.fullName,role:'dual',avatarUr
 const send=(route,data)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)})
 try {
   await mkdir('test-results',{recursive:true})
-  await vite.listen()
+  // Production preview avoids Vite's /api dev proxy intercepting shared source modules.
+  vite=await preview({root,preview:{host:'127.0.0.1',port,strictPort:true}})
   browser=await chromium.launch({headless:true,
     executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined})
   for(const width of [390,1280]){
-    const context=await browser.newContext({viewport:{width,height:850}})
+    const context=await browser.newContext({viewport:{width,height:850},serviceWorkers:'block'})
     await optOutPageToursForFixture(context)
     const page=await context.newPage()
     const pageErrors=[]
@@ -126,5 +127,5 @@ try {
   console.log('Navigation passed: mobile bottom Work Pass, desktop footer and top profile menu')
 }finally{
   await browser?.close()
-  await vite.close()
+  if(vite)await new Promise(resolve=>vite.httpServer.close(resolve))
 }
