@@ -8,6 +8,7 @@ import { query, getClient } from './db.js'
 const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
+  {id:'vibes-shares-2026-10',title:'Vibes share counters',description:'Apply after Hits & Vibes. Tracks completed native-share or copied-link actions once per person per post per day, so engagement counts are based on activity rather than estimates.',path:new URL('../../db/patch-vibes-shares-2026-10.sql',import.meta.url)},
   {id:'vibes-threads-2026-10',title:'Vibes threaded comments & liker lists',description:'Apply after Hits & Vibes social feed. Adds parent-child comment hierarchy and indexes without changing old comments. People who liked a visible Vibe can be viewed through the existing likes table.',path:new URL('../../db/patch-vibes-threads-2026-10.sql',import.meta.url)},
   {id:'dual-role-billing-2026-10',title:'Dual-sided monthly salary fees and seal-time commissions',description:'Apply AFTER Employment and Monetization migrations. Configures fixed fees for each method, client/talent monthly receipts, and commission/refund adjustments.',path:new URL('../../db/patch-dual-role-billing-2026-10.sql',import.meta.url)},
   {id:'monetization-2026-10',title:'Marketplace commissions, salary tracking & subscriptions',description:'Grandfathers earlier deals; adds 5% commission receipts, salary tracking charges, subscription price setup, and manual-review business verification. Apply before using billing.',path:new URL('../../db/patch-monetization-2026-10.sql',import.meta.url)},

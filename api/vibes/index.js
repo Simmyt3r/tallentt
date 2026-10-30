@@ -260,14 +260,21 @@ async function publish(userId, body) {
   } finally { client.release() }
 }
 
-const publicPostSql = async()=>`SELECT p.id,p.body,p.media,p.created_at,(to_jsonb(p)->>'edited_at') AS edited_at,p.author_id,
+const publicPostSql = async()=>{
+  const {rows:sharesTable}=await query("SELECT to_regclass('vibes_shares') AS relation")
+  const shareCount=sharesTable[0]?.relation
+    ? '(SELECT COUNT(*)::int FROM vibes_shares s WHERE s.post_id=p.id)'
+    : '0::int'
+  return `SELECT p.id,p.body,p.media,p.created_at,(to_jsonb(p)->>'edited_at') AS edited_at,p.author_id,
   u.username,u.full_name,u.avatar_url,u.role,
   ${await onlinePresenceExpression('p.author_id')} AS is_online,
   (SELECT COUNT(*)::int FROM vibes_likes l WHERE l.post_id=p.id) AS likes,
+  ${shareCount} AS shares,
   (SELECT COUNT(*)::int FROM vibes_comments c WHERE c.post_id=p.id AND c.deleted_at IS NULL) AS replies,
   EXISTS(SELECT 1 FROM vibes_likes l WHERE l.post_id=p.id AND l.user_id=$1) AS liked_by_me
   FROM vibes_posts p JOIN users u ON u.id=p.author_id
   WHERE p.deleted_at IS NULL AND p.moderation_status='visible'`
+}
 
 async function feed(userId,url) {
   const before=url.searchParams.get('before')
@@ -358,6 +365,28 @@ async function getVibeLikers(url) {
     ORDER BY l.created_at DESC,l.user_id DESC
     LIMIT 26 OFFSET $2`,[post,page*25])
   return {people:rows.slice(0,25),nextPage:rows.length>25?page+1:null}
+}
+
+// Count only a successful user-initiated native share or link copy.
+ // A successful action is recorded at most once per person/post/UTC day.
+async function recordShare(userId,postId,method) {
+  if(!validId(postId))throw bad(400,'Invalid Vibe.')
+  if(!['native','link'].includes(method))throw bad(400,'Invalid share method.')
+  const client=await getClient()
+  try {
+    await client.query('BEGIN')
+    const {rows:posts}=await client.query(`SELECT id FROM vibes_posts
+      WHERE id=$1 AND deleted_at IS NULL AND moderation_status='visible' FOR SHARE`,[postId])
+    if(!posts.length)throw bad(404,'Vibe unavailable.')
+    const {rows:installed}=await client.query("SELECT to_regclass('vibes_shares') AS relation")
+    if(!installed[0]?.relation)throw bad(503,'Apply the Vibes Shares migration in Admin to enable share counts.')
+    await client.query(`INSERT INTO vibes_shares(post_id,user_id,method)
+      VALUES($1,$2,$3) ON CONFLICT(post_id,user_id,shared_on) DO NOTHING`,[postId,userId,method])
+    const {rows:counts}=await client.query(`SELECT COUNT(*)::int AS shares FROM vibes_shares WHERE post_id=$1`,[postId])
+    await client.query('COMMIT')
+    return {shares:counts[0].shares}
+  }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error}
+  finally{client.release()}
 }
 
 async function toggleLike(userId,postId) {
@@ -459,6 +488,7 @@ async function modify(userId,body) {
   const postId=body.post_id
   if(!validId(postId)) throw bad(400,'Invalid post.')
   if(body.action==='like') return toggleLike(userId,postId)
+  if(body.action==='share') return recordShare(userId,postId,body.method)
   if(body.action==='reply') return comment(userId,postId,body)
   if(body.action==='edit_post'){
     if(typeof body.text!=='string'||body.text.trim().length>10000)
