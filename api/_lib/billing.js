@@ -1,4 +1,5 @@
 import { query, getClient } from './db.js'
+import {salaryTrackingPrices} from './salaryTrackingFees.js'
 import { debitWallet, creditWallet } from './wallet.js'
 import { BUSINESS_VERIFICATION_FEE_NGN, CLIENT_PLANS, TALENT_PLANS } from '../../shared/monetization.js'
 
