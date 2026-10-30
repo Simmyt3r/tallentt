@@ -186,10 +186,19 @@ export async function applyVerifiedLegacyBookingCharge({ escrowId, reference, tx
            payment_reference = $2,
            funded_at = NOW(),
            checkout_reference = NULL
+           ${Object.hasOwn(escrow,'gig_fee_sealed')?', gig_fee_bps = $3, gig_fee_sealed = TRUE':''}
        WHERE id = $1
        RETURNING *`,
-      [escrow.id, cleanReference],
+      Object.hasOwn(escrow,'gig_fee_sealed')?[escrow.id,cleanReference,GIG_FEE_BPS]:[escrow.id,cleanReference],
     )
+    if(Object.hasOwn(escrow,'gig_fee_sealed')){
+      const quote=gigQuote(Number(escrow.amount))
+      if(quote.platformFee>0)await client.query(`INSERT INTO gig_fee_events
+        (escrow_id,stage,gross_released,fee_amount,rate_bps)
+        VALUES($1,'sealed',$2,$3,$4)`,[
+          escrow.id,quote.gigAmount,quote.platformFee,GIG_FEE_BPS,
+        ])
+    }
     result = { escrow: secured[0], alreadyProcessed: false }
     await client.query('COMMIT')
   } catch (err) {
