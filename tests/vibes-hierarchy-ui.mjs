@@ -62,7 +62,15 @@ try{
     })
     await page.goto('http://127.0.0.1:'+port+'/vibes')
     const article=page.getByRole('article',{name:'Vibe by Creator Person'})
-    await article.waitFor()
+    try{await article.waitFor()}catch(err){
+      console.error('Vibes fixture diagnostic',JSON.stringify({
+        url:page.url(),
+        text:(await page.locator('body').innerText()).slice(0,3000),
+        errors,
+      }))
+      await page.screenshot({path:'test-results/vibes-thread-'+width+'.png',fullPage:true})
+      throw err
+    }
     await article.getByRole('button',{name:'See who liked this Vibe'}).click()
     const dialog=page.getByRole('dialog',{name:'People who liked this Vibe'})
     await dialog.getByRole('link',{name:/Friend Person/}).waitFor()
