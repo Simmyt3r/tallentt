@@ -19,6 +19,7 @@ import Inbox from './pages/Inbox.jsx'
 import Negotiations from './pages/Negotiations.jsx'
 import Notifications from './pages/Notifications.jsx'
 import Settings from './pages/Settings.jsx'
+import Billing from './pages/Billing.jsx'
 import MyDeals from './pages/MyDeals.jsx'
 import DealDetails from './pages/DealDetails.jsx'
 import VerifyWorkPass from './pages/VerifyWorkPass.jsx'
@@ -65,6 +66,7 @@ export default function App() {
     <Route path="/my-applications" element={<Navigate to="/deals?role=talent&tab=outgoing" replace />} />
     <Route path="/my-bookings" element={<Navigate to="/deals?role=client&tab=outgoing" replace />} />
     <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+    <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
     <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
     <Route path="/disputes" element={<ProtectedRoute><DisputeCenter /></ProtectedRoute>} />
     <Route path="/live" element={<ProtectedRoute><LiveHub /></ProtectedRoute>} />
