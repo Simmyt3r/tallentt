@@ -70,6 +70,7 @@ export default function PublicProfile() {
         portfolio={profile?.portfolio}
         hats={profile?.hats}
         isVerified={profile?.isVerified}
+        businessVerified={profile?.user?.isBusinessVerified===true}
         rating={profile?.rating}
         ratedHatsCount={profile?.ratedHatsCount}
         orbit={profile?.orbit}
