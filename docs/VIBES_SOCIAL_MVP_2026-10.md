@@ -52,3 +52,15 @@ SQL: `db/patch-vibes-2026-10.sql`. This creates `vibes_posts`, `vibes_likes`, `v
 ## Adoption metrics to watch
 
 Activation rate (registered subscribers posting/replying), 7-day returning participants, replies per active poster, image upload error rate and report resolution time. Keep Orbit Score separate from cheap-to-generate Vibes likes; otherwise users can artificially inflate marketplace reputation.
+
+## Threaded conversations and visible likes — October 30, 2026
+
+**New Admin migration:** `vibes-threads-2026-10`, available under **Admin → Database Migrations**. Apply it after `vibes-2026-10`. It adds `parent_id` to the existing `vibes_comments` table with a self-reference and indexes; existing comments stay top-level. No client or wallet data is modified.
+
+- Any signed-in user may comment directly on a visible post and reply under a specific top-level comment. Threads have two visible levels (comment + replies); replies to a reply are directed into its parent thread with an optional @mention.
+- The UI shows a separate parent comment, an indented reply branch, a reply count, and **View replies / Hide replies** controls. Root comments and each child's replies paginate independently (30 per page). Editing and deletion stay author-only. Deleting a root leaves a neutral tombstone if it has live children, so established discussion is not silently lost; new replies cannot target a deleted root.
+- Any signed-in user may open **See who liked this Vibe** to inspect up to 25 currently liked accounts at a time, including public names, usernames, and profile photographs with links to their public profiles. The API checks that the post is still publicly visible on every page, excludes emails and other private profile attributes, and rejects missing or removed posts.
+- A like count represents unique currently active likes. The names list is live and can change after a refresh or an unlike.
+- Both features preserve the existing 40-comments-per-hour limit and the original post moderation rules. Nested replies do not alter Orbit Score.
+
+**Test coverage:** `tests/vibes-threads.test.mjs` covers migration repeatability, correct-post parent validation, maximum two-level thread depth, ownership, deleted parents, and liker visibility. `tests/vibes-hierarchy-ui.mjs` checks mobile and desktop navigation, nested replies, the liker profile list, and horizontal overflow. CI: `.github/workflows/vibes-conversations.yml`.
