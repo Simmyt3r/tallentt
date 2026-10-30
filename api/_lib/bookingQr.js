@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypt
 import { getClient, query } from './db.js'
 import { bookingError, requireAmount, requireBookingId } from './bookingRules.js'
 import { creditWallet } from './wallet.js'
+import { bookGigRelease } from './gigFees.js'
 import { emitMyDealsEvent } from './myDeals.js'
 import { dispatchStoredNotifications } from './pushNotifications.js'
 
@@ -142,8 +143,11 @@ export async function redeemBookingQr(userId, escrowId, token) {
     }
     const amount = stage === 'start' ? startShare(escrow.amount)
       : Number(escrow.amount) - Number(escrow.start_released_amount)
-    if (amount > 0) await creditWallet(client, {
-      userId: escrow.talent_id, amount, type: stage === 'start' ? 'escrow_start' : 'escrow_release', escrowId,
+    const settlement = await bookGigRelease(client,escrow,{
+      stage,gross:amount,previousGross:Number(escrow.start_released_amount||0),
+    })
+    if (settlement.net > 0) await creditWallet(client, {
+      userId: escrow.talent_id, amount:settlement.net, type: stage === 'start' ? 'escrow_start' : 'escrow_release', escrowId,
     })
     const { rows: updated } = await client.query(
       stage === 'start'
@@ -167,8 +171,8 @@ export async function redeemBookingQr(userId, escrowId, token) {
          VALUES ($1, 'booking_checkpoint', $2, $3, $4, $5::jsonb)
          RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
         [recipient, stage === 'start' ? 'Work started' : 'Booking completed',
-          stage === 'start' ? '30% of the booking was released to the talent wallet.'
-            : 'The remaining escrow balance was released to the talent wallet.',
+          stage === 'start' ? 'Work started. The agreed 30% gross tranche was settled less the disclosed gig commission.'
+            : 'The remaining escrow tranche was settled less the disclosed gig commission.',
           `/deals/${escrowId}?role=${role}`, JSON.stringify({ escrow_id: escrowId, stage, event: 'qr_scanned' })],
       )
       if (notificationRows[0]) pushNotifications.push(notificationRows[0])
@@ -178,7 +182,7 @@ export async function redeemBookingQr(userId, escrowId, token) {
     participants = [escrow.client_id, escrow.talent_id]
     return { escrow: { id: updated[0].id, status: updated[0].status,
       work_status: updated[0].work_status, work_version: updated[0].work_version,
-      start_released_amount: updated[0].start_released_amount }, amount, alreadyProcessed: false }
+      start_released_amount: updated[0].start_released_amount }, amount:settlement.net, grossAmount:amount, platformFee:settlement.fee, alreadyProcessed: false }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     throw err
