@@ -52,8 +52,8 @@ test('Admin prices subscriptions and wallet debits only once per request ID',asy
 })
 test('₦3,000 business verification is manual and rejects refund in the same transaction',async()=>{
   await assert.rejects(billing.requestBusinessVerification(ids.talent,{
-    request_id:randomUUID(),legal_name:'Valid Venture Ltd',registration_number:'RC-123456',
-  }),e=>e.status===403)
+    request_id:randomUUID(),legal_name:'@invalid business',registration_number:'RC-123456',
+  }),e=>e.status===400)
   const request={request_id:randomUUID(),legal_name:'Valid Venture Ltd',registration_number:'RC-123456'}
   const b=await billing.requestBusinessVerification(ids.client,request)
   assert.equal(b.status,'pending')
