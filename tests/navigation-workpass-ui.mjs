@@ -42,6 +42,8 @@ try {
     }))
     await page.route('**/api/**',route=>{
       const url=new URL(route.request().url())
+      // Vite also serves real JS modules from api/_lib; never mock modules.
+      if(url.pathname.endsWith('.js'))return route.continue()
       if(url.pathname==='/api/auth'){
         if(url.searchParams.get('action')==='work_pass')return send(route,pass)
         return send(route,{user})
