@@ -1,5 +1,6 @@
 // Path: src/pages/Profile.jsx
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import ProfileView from '../components/profile/ProfileView.jsx'
@@ -10,7 +11,14 @@ const EMPTY_DATA = { portfolio: [], hats: { talent: [], client: [] }, isVerified
 
 export default function Profile() {
   const { user } = useAuth()
-  const [editing, setEditing] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const editing = searchParams.get('edit') === '1'
+  const setEditing = (value) => {
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set('edit', '1')
+    else next.delete('edit')
+    setSearchParams(next, { replace: true })
+  }
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(EMPTY_DATA)
 
