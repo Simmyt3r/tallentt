@@ -61,8 +61,9 @@ export default function EscrowFundingCard({
             {money(dealAmount, currency)} will be held securely
           </p>
           <p className="mt-1 max-w-[520px] text-[10.5px] leading-relaxed text-black/50">
-            The full agreed amount moves from your wallet into escrow. The talent receives nothing
-            until the Start QR is scanned.
+            The full agreed amount moves from your wallet into escrow. When the deal is sealed,
+            the disclosed 5% talent-side platform commission is booked once. The talent receives
+            their net payout when approved work milestones are scanned.
           </p>
         </div>
       </div>
