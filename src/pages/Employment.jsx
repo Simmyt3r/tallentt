@@ -79,11 +79,14 @@ export function NewEmployment({username='',onBack,onOpen}){
   </div></section>
 }
 
-function SalaryReport({period,agreement,today,onAction,busy}){
+function SalaryReport({period,agreement,today,onAction,busy,trackingPrices}){
   const [month,setMonth]=useState(period?.month||today.slice(0,7)),[method,setMethod]=useState('bank_transfer'),[paidOn,setPaidOn]=useState(today),[escrow,setEscrow]=useState(''),[note,setNote]=useState('')
   const [consent,setConsent]=useState(false)
   const salary=Number(agreement.terms?.salary||0)
-  const quote=salary>0?salaryTrackingQuote(salary,method):null
+  const legacyQuote=salary>0?salaryTrackingQuote(salary,method):null
+  const monthlyFee=trackingPrices?trackingPrices[method]??null:legacyQuote?.trackingFee??null
+  const quote=monthlyFee==null?null:{trackingFee:monthlyFee}
+  const fixed=Boolean(trackingPrices)
   return <form onSubmit={e=>{e.preventDefault();onAction('employment_report',{month,method,paid_on:paidOn,escrow_id:method==='escrow'?escrow:undefined,note,accept_tracking_fee:consent,expected_tracking_fee:quote?.trackingFee,...(period?{expected_revision:period.revision}:{})})}}>
     <fieldset disabled={busy} className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
       <legend className="px-1 text-sm font-bold">{period?'Correct payment report':'Notify salary paid'}</legend>
@@ -93,20 +96,21 @@ function SalaryReport({period,agreement,today,onAction,busy}){
       <Field label="Payment method"><select className="tw-input" value={method} onChange={e=>setMethod(e.target.value)}><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="escrow">Completed ChombuTar escrow</option></select></Field>
       {quote&&<div className="rounded-xl border border-[#0A13E6]/20 bg-white p-3 text-xs">
         <p className="font-black text-[#0A13E6]">Salary tracking fee per report: ₦{quote.trackingFee.toLocaleString('en-NG')}</p>
-        <p className="mt-1 text-black/60">{method==='bank_transfer'?'Flat ₦1,000 tracking fee':
-          method==='cash'?'Flat ₦500 tracking fee':'2% of the monthly salary (in addition to any separate gig commission).'}</p>
-        <p className="mt-1 text-black/60">The fee is debited from the employer’s ChombuTar wallet when the payment report is submitted. If the talent disputes full receipt, the tracking fee is refunded to the employer wallet.</p>
+        <p className="mt-1 text-black/60">{fixed?'Fixed fee per participant, per salary month.':'Legacy fee terms until the Dual-role Billing migration is applied.'}</p>
+        {fixed&&<p className="mt-1 font-bold text-[#0A13E6]">Client: ₦{monthlyFee.toLocaleString('en-NG')} · Talent: ₦{monthlyFee.toLocaleString('en-NG')}</p>}
+        <p className="mt-1 text-black/60">Your client-side monthly fee is collected on reporting. The talent pays their separate fee after confirming receipt. Neither payment alone creates Work Pass salary evidence. A disputed report refunds collected tracking fees.</p>
         <p className="mt-1 text-black/60">ChombuTar does not initiate or independently confirm bank transfers or cash payments.</p>
       </div>}
-      <label className="flex items-start gap-2 text-[11px] font-semibold"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} required className="mt-0.5"/> I agree to the salary tracking fee shown above.</label>
+      {!quote&&<p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-900">Admin must set a fixed monthly tracking fee for this payment method before you can submit a paid report.</p>}
+      <label className="flex items-start gap-2 text-[11px] font-semibold"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} required className="mt-0.5"/> I agree to the disclosed client-side monthly tracking fee.</label>
       {method==='escrow'&&<Field label="Completed escrow ID"><input className="tw-input" required value={escrow} onChange={e=>setEscrow(e.target.value)} placeholder="ID from the completed deal"/></Field>}
       <Field label="Payment note (optional, private)"><textarea className="tw-input" maxLength={1000} value={note} onChange={e=>setNote(e.target.value)}/></Field>
-      <button className={button}>Notify talent — salary paid</button>
+      <button className={button} disabled={busy||!quote||!consent}>Notify talent — salary paid</button>
     </fieldset>
   </form>
 }
 
-function SalaryPeriod({period,employer,agreement,today,onAction,busy}){
+function SalaryPeriod({period,employer,agreement,today,onAction,busy,trackingPrices}){
   const [mode,setMode]=useState(''),[note,setNote]=useState(''),[received,setReceived]=useState(today)
   const status={reported:'Awaiting talent confirmation',disputed:'Not received in full',confirmed:'Receipt confirmed'}[period.status]
   return <article className="space-y-3 rounded-2xl border border-black/10 p-4">
@@ -114,6 +118,17 @@ function SalaryPeriod({period,employer,agreement,today,onAction,busy}){
     <p className="text-xs text-black/60">Due {period.due_on} · Reported paid {period.paid_on} · {{bank_transfer:'Bank transfer',cash:'Cash',escrow:'ChombuTar escrow'}[period.method]}</p>
     {period.note&&<p className="whitespace-pre-wrap break-words text-xs">{period.note}</p>}
     {period.status==='confirmed'&&<p className="text-xs font-semibold text-green-700">Received {period.received_on} · {period.received_on<=period.due_on?'On time':'After due date'}</p>}
+    {period.trackingFees&&<div className="rounded-xl border border-[#0A13E6]/15 bg-[#F2F3FF] p-3 text-[11px]">
+      <strong>Monthly Work Pass tracking · both sides</strong>
+      <p className="mt-1">Client: {period.trackingFees.clientPaid?'Paid':'Unpaid'} · Talent: {period.trackingFees.talentPaid?'Paid':'Unpaid'}</p>
+      <p className="mt-1">{period.trackingFees.workPassEligible?'This salary month qualifies as confirmed two-sided Work Pass evidence.':'This month does not qualify as Work Pass salary evidence until confirmed and both fees are paid.'}</p>
+      {!employer&&period.status==='confirmed'&&period.trackingFees.clientPaid&&!period.trackingFees.talentPaid&&
+        <button type="button" disabled={busy} className={button+' mt-3'}
+          onClick={()=>{if(window.confirm('Pay ₦'+period.trackingFees.monthlyFee.toLocaleString('en-NG')+' from your wallet for your share of '+period.month+' salary tracking?'))
+            onAction('employment_pay_tracking',{period_id:period.id,accept_tracking_fee:true,expected_tracking_fee:period.trackingFees.monthlyFee})}}>
+          Pay my monthly tracking fee · ₦{period.trackingFees.monthlyFee?.toLocaleString('en-NG')}
+        </button>}
+    </div>}
     {!employer&&period.status==='reported'&&<>
       <p className="text-xs text-black/60">Check that you received the full salary before confirming. Bank transfers and cash are confirmed by you, not verified by a bank connection.</p>
       <div className="flex flex-wrap gap-2"><button className={button} disabled={busy} onClick={()=>setMode('confirm')}>Review receipt</button><button className={secondary} disabled={busy} onClick={()=>setMode('dispute')}>Not received in full</button></div>
@@ -123,7 +138,7 @@ function SalaryPeriod({period,employer,agreement,today,onAction,busy}){
         </fieldset>
       </form>}
     </>}
-    {employer&&period.status==='disputed'&&<SalaryReport key={period.revision} period={period} agreement={agreement} today={today} onAction={onAction} busy={busy}/>}
+    {employer&&period.status==='disputed'&&<SalaryReport key={period.revision} period={period} agreement={agreement} today={today} onAction={onAction} busy={busy} trackingPrices={trackingPrices}/>}
   </article>
 }
 
@@ -179,9 +194,9 @@ export function EmploymentThread({id,onBack,onChange}){
       <details className="text-xs"><summary className="cursor-pointer font-semibold">Agreement & payment history</summary><ol className="mt-3 space-y-3">{data.events.map(event=><li key={event.id} className="rounded-lg border p-3"><p className="font-semibold">{event.action.replace('employment_','').replaceAll('_',' ')} · {new Date(event.created_at).toLocaleString()}</p>{event.metadata?.terms&&<p className="mt-1">Version {event.metadata.version} · {event.metadata.terms.role} · {money(event.metadata.terms.salary)} · Starts {event.metadata.terms.start_on}</p>}{event.metadata?.note&&<p className="mt-1 whitespace-pre-wrap break-words">{event.metadata.note}</p>}</li>)}</ol></details>
     </div>}
     {tab==='salary'&&<div className="min-h-0 space-y-4 overflow-y-auto p-4"><p className="text-xs text-black/55">A payment report is not proof of receipt. Only the named talent can confirm full payment. No salary amount appears on public cards.</p>
-      {employer&&['active','ended'].includes(a.status)&&<SalaryReport agreement={a} today={data.today} onAction={action} busy={busy}/>}
+      {employer&&['active','ended'].includes(a.status)&&<SalaryReport agreement={a} today={data.today} onAction={action} busy={busy} trackingPrices={data.trackingPrices}/>}
       {!data.periods.length&&<p className="text-sm text-black/50">No salary reports yet.{!['active','ended'].includes(a.status)?' Both parties must accept the agreement first.':''}</p>}
-      {data.periods.map(period=><SalaryPeriod key={period.id+':'+period.revision} period={period} employer={employer} agreement={a} today={data.today} onAction={action} busy={busy}/>)}</div>}
+      {data.periods.map(period=><SalaryPeriod key={period.id+':'+period.revision} period={period} employer={employer} agreement={a} today={data.today} onAction={action} busy={busy} trackingPrices={data.trackingPrices}/>)}</div>}
     {tab==='chat'&&<div className="flex min-h-0 flex-1 flex-col">
       <div ref={scroll} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4" onScroll={e=>{bottom.current=e.currentTarget.scrollHeight-e.currentTarget.scrollTop-e.currentTarget.clientHeight<60;if(bottom.current)read()}}>
         {data.messages.map(m=>m.kind==='event'?<p key={m.id} className="rounded-xl bg-black/5 p-3 text-center text-xs text-black/60">{m.body}</p>:<div key={m.id} className={'flex '+(m.sender_id===user.id?'justify-end':'justify-start')}><div className={'max-w-[85%] rounded-2xl p-3 text-sm '+(m.sender_id===user.id?'bg-[#0A13E6] text-white':'bg-[#F4F5F7]')}>
