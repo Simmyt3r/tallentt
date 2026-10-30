@@ -3,7 +3,6 @@ import {
   House,
   LayoutGrid,
   MessageSquareHeart,
-  UserRound,
   PlusCircle,
   Briefcase,
   Handshake,
@@ -12,7 +11,6 @@ import {
   ArrowLeftRight,
   Scale,
   Radio,
-  Settings2,
 } from 'lucide-react'
 
 export const NAV_PRIMARY = [
@@ -30,10 +28,7 @@ export const NAV_SECONDARY = [
   { to: '/inbox', icon: MessageCircle, label: 'Inbox' },
   { to: '/wallet', icon: WalletIcon, label: 'Wallet' },
   { to: '/disputes', icon: Scale, label: 'Dispute Center' },
-  { to: '/settings', icon: Settings2, label: 'Settings' },
 ]
-
-export const PROFILE_ITEM = { to: '/profile', icon: UserRound, label: 'Profile' }
 
 const TITLES = [
   { test: (p) => p === '/', title: 'Showroom' },
