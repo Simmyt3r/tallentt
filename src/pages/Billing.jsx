@@ -83,7 +83,7 @@ export default function Billing(){
               <label className="text-[12px] font-bold">CAC registration number<input required maxLength={64}
                 className="mt-1 block w-full rounded-xl border border-black/20 p-3 text-sm font-medium"
                 value={registration} onChange={e=>setRegistration(e.target.value)}/></label>
-              <button type="submit" disabled={busy||!['client','dual'].includes(data.accountRole)}
+              <button type="submit" disabled={busy}
                 className="min-h-11 rounded-xl bg-[#0A13E6] px-5 text-xs font-black text-white disabled:opacity-40 sm:col-span-2">
                 {busy?'Processing…':'Request verification · '+money(data.verificationPrice)}
               </button>
