@@ -22,7 +22,7 @@ test('small gigs round consistently across milestone releases and partial refund
 test('salary tracking quotes distinguish bank, cash and escrow and never imply bank verification',()=>{
   assert.equal(salaryTrackingQuote(50000,'bank_transfer').trackingFee,1000)
   assert.equal(salaryTrackingQuote(50000,'cash').trackingFee,500)
-  assert.equal(salaryTrackingQuote(50000,'escrow').trackingFee,1000)
+  assert.throws(()=>salaryTrackingQuote(50000,'escrow'),/Admin-approved fixed monthly/)
   assert.match(salaryTrackingQuote(50000,'cash').note,/does not transfer or verify/i)
 })
 test('verification requires a review; no unapproved subscription price is invented',()=>{
