@@ -6,9 +6,9 @@ import { DesktopSidebar, MobileDrawer, BrandMark } from './Sidebar.jsx'
 import BottomNav from './BottomNav.jsx'
 import PageTour from './PageTour.jsx'
 import { useAuth } from '../context/AuthContext'
-import { cldImage } from '../lib/cloudinary'
 import NotificationsMenu from './NotificationsMenu.jsx'
 import WorkPassDrawer from './WorkPassDrawer.jsx'
+import ProfileMenu from './ProfileMenu.jsx'
 
 // Facebook-style quick actions without any role-based browsing switch.
 const MENU_BUTTON =
@@ -49,6 +49,7 @@ export default function Layout({ children }) {
   useEffect(() => {
     setDrawerOpen(false)
   }, [location.pathname])
+  useEffect(() => { setWorkPassOpen(false) }, [location.pathname])
 
   // Prevent background scroll while the drawer is open (mirrors the
   // existing .modal-open pattern used elsewhere in the app).
@@ -71,11 +72,10 @@ export default function Layout({ children }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [drawerOpen])
 
-  const initial = (user?.name || user?.fullName || 'U').slice(0, 1).toUpperCase()
 
   return (
     <div className="min-h-screen bg-[#F7F3EB] text-black antialiased">
-      <DesktopSidebar collapsed={collapsed} />
+      <DesktopSidebar collapsed={collapsed} onOpenWorkPass={() => setWorkPassOpen(true)} />
       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       {/* One responsive header.
@@ -142,25 +142,13 @@ export default function Layout({ children }) {
               <NotificationsMenu className="flex"
                 buttonClassName={QUICK_ACTION} iconSize={19} />
             </nav>
-            <button
-              type="button"
-              onClick={() => setWorkPassOpen(true)}
-              aria-label="Open my Work Pass and profile"
-              title="My Work Pass"
-              className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-amber-500 bg-[#0A13E6] text-[12px] font-black text-white md:h-10 md:w-10 md:text-[13px]"
-            >
-              {user?.avatarUrl ? (
-                <img src={cldImage(user.avatarUrl, { w: 80, h: 80 })} alt="" className="w-full h-full object-cover" />
-              ) : (
-                initial
-              )}
-            </button>
+            <ProfileMenu />
           </div>
         </div>
       </header>
 
       {workPassOpen && user?.username && <WorkPassDrawer username={user.username} onClose={() => setWorkPassOpen(false)} />}
-      <BottomNav />
+      <BottomNav onOpenWorkPass={() => setWorkPassOpen(true)} workPassOpen={workPassOpen} />
       <PageTour />
 
       <main
