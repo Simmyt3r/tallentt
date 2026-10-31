@@ -116,7 +116,7 @@ export default function LiveHub() {
       return
     }
     if(!readiness.broadcast_ready){
-      setError(LIVE_READINESS_HELP[readiness.reason] || 'Broadcast is unavailable. The Live media server must be reachable before video can be transmitted to viewers.')
+      setError(readiness.message||LIVE_READINESS_HELP[readiness.reason] || 'Broadcast unavailable. Enable Cloudinary Live or configure the media relay.')
       return
     }
     setError('')
