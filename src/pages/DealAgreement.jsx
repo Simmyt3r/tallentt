@@ -33,12 +33,12 @@ export default function DealAgreement(){
     ?createAgreementHtml(record.agreement,token,verifyUrl,qr):'',
     [record,token,verifyUrl,qr])
   function print(){
-    if(!frame?.contentWindow)return
+    if(!frame?.contentWindow||!ready)return
     frame.contentWindow.focus()
     frame.contentWindow.print()
   }
   function download(){
-    if(!html)return
+    if(!html||!ready)return
     const file=new Blob([html],{type:'text/html;charset=utf-8'})
     const href=URL.createObjectURL(file)
     const a=document.createElement('a')
@@ -47,6 +47,7 @@ export default function DealAgreement(){
     setTimeout(()=>URL.revokeObjectURL(href),1000)
   }
   const valid=record?.agreement?.status==='secured'&&Boolean(token)
+  const ready=Boolean(record)&&(!token||Boolean(qr))
   return <main className="mx-auto max-w-4xl space-y-4 pb-12">
     <header className="flex flex-wrap items-center gap-3 border-b border-black/10 pb-3">
       <Link to={`/deals/${dealId}`} aria-label="Back to Deal details"
@@ -67,9 +68,9 @@ export default function DealAgreement(){
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={()=>setRefresh(x=>x+1)}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-black/15 bg-white px-3 text-[12px] font-semibold"><RefreshCw size={15}/> Refresh</button>
-          <button type="button" onClick={download}
+          <button type="button" disabled={!ready} onClick={download}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-black/15 bg-white px-3 text-[12px] font-semibold"><Download size={15}/> Download (.html)</button>
-          <button type="button" onClick={print}
+          <button type="button" disabled={!ready} onClick={print}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#0A13E6] px-3 text-[12px] font-bold text-white"><Printer size={15}/> Print / Save as PDF</button>
         </div>
       </div>
