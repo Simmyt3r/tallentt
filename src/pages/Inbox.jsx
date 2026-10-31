@@ -39,10 +39,13 @@ export default function Inbox() {
     if (!alive.current) return
     const [bento, community] = results
     if(results[2].status==='fulfilled'){
-      setEmployment((results[2].value.threads||[]).filter(x=>!hidden.current.has('employment:'+x.id)))
+      setEmployment(results[2].value.threads||[])
     }
     if (bento.status === 'fulfilled') {
-      const visible=(bento.value.conversations||[]).filter(x=>!hidden.current.has('bento:'+x.id))
+      const visible=bento.value.conversations||[]
+      // New activity may legitimately revive a hidden conversation. Trust
+      // server visibility; local IDs only prevent stale paginated rows returning.
+      visible.forEach(x=>hidden.current.delete('bento:'+x.id))
       setDeals((old) => [
         ...visible,
         ...old.filter(item=>!hidden.current.has('bento:'+item.id)&&!visible.some(next=>next.id===item.id)),
@@ -53,7 +56,7 @@ export default function Inbox() {
       }
     }
     if (community.status === 'fulfilled')
-      setAssociates((community.value.threads||[]).filter(x=>!hidden.current.has('associates:'+x.id)))
+      setAssociates(community.value.threads||[])
     setError(
       results
         .filter((r) => r.status === 'rejected')
@@ -87,7 +90,7 @@ export default function Inbox() {
       const data = await api.getConversations(cursor)
       setDeals((old) => [
         ...old,
-        ...data.conversations.filter(item=>!hidden.current.has('bento:'+item.id)&&!old.some(x=>x.id===item.id)),
+        ...data.conversations.filter(item=>!old.some(x=>x.id===item.id)),
       ])
       setCursor(data.nextCursor)
     } catch (e) {
@@ -198,6 +201,7 @@ export default function Inbox() {
               </button>
             ))}
           </div>
+          <p className="px-4 pb-2 text-[10px] text-black/35">Press and hold or swipe a chat to manage it.</p>
           {error && (
             <div
               role="alert"
