@@ -15,7 +15,7 @@ test('one tap opens the latest real chat instead of a person conversation select
   assert.match(inbox,/item.threads\[0\]/)
   assert.match(inbox,/open\(latest.kind,latest.id\)/)
   assert.doesNotMatch(inbox,/selectedPerson\?\.threads/)
-  assert.match(inbox,/initialTab="chat"/)
+  assert.match(inbox,/initialTab=\{params.get\("view"\)/)
   assert.doesNotMatch(inbox,/>Hire full-time</)
   assert.doesNotMatch(inbox,/rounded-3xl border border-black\/10 bg-white shadow-sm/)
   assert.match(inbox,/Search conversations/)
