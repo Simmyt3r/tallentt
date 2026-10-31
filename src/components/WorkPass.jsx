@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BadgeCheck, BriefcaseBusiness, CircleHelp, Crown, Download, ExternalLink, Fingerprint, Image as ImageIcon, Orbit, ScanQrCode, Share2, ShieldCheck, Users, UserRound, X } from 'lucide-react'
+import { BadgeCheck, BriefcaseBusiness, CircleHelp, Crown, Download, ExternalLink, Fingerprint, Image as ImageIcon, Printer, ScanQrCode, Share2, ShieldCheck, Users, UserRound, X } from 'lucide-react'
 import QRCode from 'qrcode'
 import WorkPassRobots from './WorkPassRobots.jsx'
 import ProfilePhotoViewer from './ProfilePhotoViewer.jsx'
@@ -50,6 +50,7 @@ export default function WorkPass({username,onClose,compact=false}) {
   const [qr,setQr]=useState('')
   const [busy,setBusy]=useState(true)
   const [exporting,setExporting]=useState(false)
+  const [printing,setPrinting]=useState(false)
   const [photoOpen,setPhotoOpen]=useState(false)
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
@@ -70,6 +71,7 @@ export default function WorkPass({username,onClose,compact=false}) {
   const owner=data?.user
   const isOwner=!!(signedIn?.username && owner?.username && signedIn.username.toLowerCase()===owner.username.toLowerCase())
   const signed=!!(qr && data?.signatureStatus==='signed')
+  const canPrint=Boolean(isOwner && signed && data?.printEligibility?.canPrint===true)
   const accent=workPassAccent(data?.tier)
   const avatar=owner?.avatarUrl?cldImage(owner.avatarUrl,{w:500,h:500}):''
   async function share(){
@@ -94,7 +96,23 @@ export default function WorkPass({username,onClose,compact=false}) {
     }catch(err){setError(err.message||'Could not create your Work Pass graphic.')}
     finally{setExporting(false)}
   }
-  return <section className="w-full max-w-[710px] mx-auto" aria-label="Work Pass">
+  async function printCard(){
+    if(!canPrint || printing) return
+    setPrinting(true);setError('');setNotice('')
+    try{
+      // Re-check the ledger immediately before printing, since a salary
+      // dispute or refund can invalidate eligibility while this card is open.
+      const fresh=await api.getWorkPass(username)
+      if(fresh.printEligibility?.canPrint!==true || fresh.signatureStatus!=='signed'){
+        setData(fresh)
+        setNotice(fresh.printEligibility?.reason||'Print access is no longer available.')
+        return
+      }
+      window.print()
+    }catch(err){setError(err.message||'Could not confirm tracking-fee payments before printing.')}
+    finally{setPrinting(false)}
+  }
+  return <section className={`w-full max-w-[710px] mx-auto ${canPrint?'workpass-print-eligible':''}`} aria-label="Work Pass">
     {busy&&<div role="status" className="rounded-[26px] border border-[#DCE1F6] bg-white p-10 text-center text-[13px] font-medium text-[#505879]">Preparing your ChombuTar Work Pass…</div>}
     {error&&<p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}
     {data&&<div className="workpass-sheet overflow-hidden rounded-[26px] border-[1.5px] border-black/10 bg-white shadow-[0_20px_60px_-30px_rgba(10,19,230,.45)]">
@@ -123,45 +141,44 @@ export default function WorkPass({username,onClose,compact=false}) {
             {!!owner?.headline && !!owner?.skills?.length && <p className="mt-1 line-clamp-2 text-[10px] text-white/80">{owner.skills.slice(0,3).join(' · ')}</p>}
           </div>
         </div>
-        <div className="relative z-10 mt-9 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold sm:mt-11">
-          <span className="flex items-center gap-2"><span className={'h-2 w-2 rounded-full '+(signed?'bg-emerald-300':'bg-amber-300')}/>{signed?'Digitally signed by ChombuTar':'Unsigned profile preview'}</span>
-          <span className="text-white/75 tracking-widest">WORK · TRUST · GROW</span>
+        <div className="relative z-10 mt-6 flex items-end justify-between gap-4 text-[10px] font-bold sm:mt-8">
+          <div className="min-w-0 space-y-3 pb-1">
+            <span className="flex items-center gap-2"><span className={'h-2 w-2 shrink-0 rounded-full '+(signed?'bg-emerald-300':'bg-amber-300')}/>{signed?'Digitally signed by ChombuTar':'Unsigned profile preview'}</span>
+            <span className="block tracking-widest text-white/75">WORK · TRUST · GROW</span>
+          </div>
+          <div className="grid h-[94px] w-[94px] shrink-0 place-items-center rounded-xl border-2 border-white/45 bg-white p-1.5 shadow-lg sm:h-[118px] sm:w-[118px]">
+            {signed?<img src={qr} alt={'Signed Work Pass QR for '+nameOf(owner)} className="h-full w-full object-contain"/>:
+              <span className="flex flex-col items-center gap-1 text-center text-[9px] font-semibold text-[#66708F]"><ScanQrCode size={29}/>QR pending</span>}
+          </div>
         </div>
       </div>
       <div className="space-y-5 bg-gradient-to-b from-white to-[#FDFBF8] p-4 sm:p-6">
         <section aria-label="Separate talent and client Orbit scores" className="rounded-2xl border border-[#DCE0FF] bg-[#F1F3FF] p-3 sm:p-4">
-          <h3 className="text-[13px] font-black text-[#111837]">Your Work Pass · Two independent roles</h3>
-          <p className="mt-1 text-[10px] text-[#5D647B]">One identity and signed QR. Talent work and client hiring scores are calculated separately. Paid, confirmed salary months appear only when both participants pay tracking fees.</p>
+          <h3 className="text-[13px] font-black text-[#111837]">Your work reputation · Separate roles</h3>
+          <p className="mt-1 text-[10px] text-[#5D647B]">Talent Orbit reflects completed work; Client Orbit reflects successful hiring. The figures use a 0–9 display scale, and are separate views of your activity—not three competing scores. Salary months count only after both people pay tracking fees.</p>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-[#D6DCFC] bg-white p-3">
               <p className="text-[11px] font-black text-[#0A13E6]">Talent Orbit</p>
-              <p className="mt-1 text-2xl font-black text-[#111837]">{compact ? singleDigitOrbit(data.roleOrbit?.talent?.score) : data.roleOrbit?.talent?.score??0}{!compact&&<span className="text-xs text-[#6B738E]"> / 100</span>}</p>
+              <p className="mt-1 text-2xl font-black text-[#111837]">{singleDigitOrbit(data.roleOrbit?.talent?.score) ?? '—'}</p>
               <p className="mt-2 text-[10px] text-[#626B82]">{data.completedJobs||0} completed jobs · {data.paidTrackingMonths?.talent||0} paid-confirmed salary months</p>
             </div>
             <div className="rounded-xl border border-[#D6DCFC] bg-white p-3">
               <p className="text-[11px] font-black text-[#0A13E6]">Client Orbit</p>
-              <p className="mt-1 text-2xl font-black text-[#111837]">{compact ? singleDigitOrbit(data.roleOrbit?.client?.score) : data.roleOrbit?.client?.score??0}{!compact&&<span className="text-xs text-[#6B738E]"> / 100</span>}</p>
+              <p className="mt-1 text-2xl font-black text-[#111837]">{singleDigitOrbit(data.roleOrbit?.client?.score) ?? '—'}</p>
               <p className="mt-2 text-[10px] text-[#626B82]">{data.successfulHires||0} successful hires · {data.paidTrackingMonths?.client||0} paid-confirmed salary months</p>
             </div>
           </div>
         </section>
-        <div className="grid grid-cols-3 gap-2.5" aria-label="Work Pass statistics">
-          <Stat icon={Orbit} title="Orbit Score" value={compact ? singleDigitOrbit(data.orbit) : Number(data.orbit)||0} unit={compact ? '' : '/100'} detail="Activity score"/>
-          <Stat icon={BriefcaseBusiness} title="Completed Jobs" value={Number(data.completedJobs)||0} detail="Released deals"/>
-          <Stat icon={Users} title="Successful Hires" value={Number(data.successfulHires)||0} detail="Released deals"/>
+        <div className="grid grid-cols-2 gap-2.5" aria-label="Verified Work Pass activity">
+          <Stat icon={BriefcaseBusiness} title="Completed jobs" value={Number(data.completedJobs)||0} detail="Released deals"/>
+          <Stat icon={Users} title="Successful hires" value={Number(data.successfulHires)||0} detail="Released deals"/>
         </div>
-        <div className="flex items-center justify-between gap-3 rounded-[18px] border border-[#DDE1FD] bg-[#F1F3FF] p-3 sm:p-4">
-          <div className="flex min-w-0 gap-2.5">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-[#0A13E6]">{signed?<BadgeCheck size={20}/>:<CircleHelp size={20}/>}</span>
-            <div className="min-w-0">
-              <h3 className="text-[13px] font-black text-[#111837]">{signed?'Signed Work Pass':'Signature not activated'}</h3>
-              <p className="mt-1 text-[10px] leading-relaxed text-[#565F7D]">{signed?'Digitally signed by ChombuTar. Scan to verify this work record.':'The Admin team must activate Work Pass signing before a trusted QR is issued.'}</p>
-              {signed&&<Link to="/work-pass/verify" onClick={onClose} className="mt-2 inline-flex items-center gap-1 text-[10px] font-extrabold text-[#0A13E6] hover:underline"><ScanQrCode size={13}/> Verify signature</Link>}
-            </div>
-          </div>
-          <div className="grid h-[94px] w-[94px] shrink-0 place-items-center rounded-[14px] border border-[#D8DFF9] bg-white p-1.5 sm:h-[110px] sm:w-[110px]">
-            {signed?<img src={qr} alt={'Signed Work Pass QR for '+nameOf(owner)} className="h-full w-full object-contain"/>:
-              <div className="text-center text-[9px] font-medium text-[#777F9A]"><ScanQrCode size={26} className="mx-auto mb-1 opacity-50"/>QR pending</div>}
+        <div className="flex items-center gap-3 rounded-[18px] border border-[#DDE1FD] bg-[#F1F3FF] p-3 sm:p-4">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-[#0A13E6]">{signed?<BadgeCheck size={20}/>:<CircleHelp size={20}/>}</span>
+          <div className="min-w-0">
+            <h3 className="text-[13px] font-black text-[#111837]">{signed?'Signed Work Pass':'Signature not activated'}</h3>
+            <p className="mt-1 text-[10px] leading-relaxed text-[#565F7D]">{signed?'Scan the QR on the front of this card to verify its signature.':'The Admin team must activate signing before a trusted QR is issued.'}</p>
+            {signed&&<Link to="/work-pass/verify" onClick={onClose} className="mt-2 inline-flex items-center gap-1 text-[10px] font-extrabold text-[#0A13E6] hover:underline"><ScanQrCode size={13}/> Verify signature</Link>}
           </div>
         </div>
         <section aria-label="Completed work evidence">
@@ -190,8 +207,11 @@ export default function WorkPass({username,onClose,compact=false}) {
       <button type="button" onClick={share} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[11px] font-black text-white hover:bg-[#080fb8]"><Share2 size={15}/> Share profile</button>
       <button type="button" onClick={flex} disabled={exporting} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold text-[#17203C] disabled:opacity-60"><Download size={15}/>{exporting?'Creating story…':'Flex My Work Pass'}</button>
       {!isOwner&&<Link to={'/profile/'+encodeURIComponent(owner?.username||username)} onClick={onClose} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold"><UserRound size={15}/> View profile</Link>}
-      <button type="button" onClick={()=>window.print()} className="inline-flex min-h-10 items-center rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold">Print card</button>
+      {isOwner && <button type="button" onClick={printCard} disabled={!canPrint||printing}
+        title={canPrint?'Print your verified Work Pass':data.printEligibility?.reason||'Complete full-time salary tracking to unlock printing.'}
+        className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold disabled:cursor-not-allowed disabled:opacity-50"><Printer size={15}/>{printing?'Verifying…':'Print card'}</button>}
     </div>}
+    {data&&isOwner&&!canPrint&&<p role="status" className="mt-2 text-[11px] font-semibold text-[#626B82]">{data.printEligibility?.reason||'Printing requires signed Work Pass verification and all due, confirmed full-time salary months paid by both talent and client.'}</p>}
     {notice&&<p role="status" className="mt-2 text-xs font-semibold text-[#0A13E6]">{notice}</p>}
     {photoOpen&&owner?.avatarUrl&&<ProfilePhotoViewer src={owner.avatarUrl} name={nameOf(owner)} onClose={()=>setPhotoOpen(false)}/>}
   </section>
