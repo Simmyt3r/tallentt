@@ -67,7 +67,7 @@ export default async function handler(req, res) {
       try{return json(res,200,await workPassKey())}catch(err){return json(res,503,{error:'Work Pass signing key unavailable.'})}
     }
     if (action === 'work_pass') {
-      try {return json(res,200,await getWorkPass(url.searchParams.get('username')))}
+      try {return json(res,200,await getWorkPass(url.searchParams.get('username'),getSessionUser(req)?.sub||null))}
       catch(err){if(!err.status)console.error('Work Pass read failed',err)
         return json(res,err.status||500,{error:err.status?err.message:'Could not load Work Pass.'})}
     }
