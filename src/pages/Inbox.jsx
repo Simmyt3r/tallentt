@@ -80,7 +80,7 @@ export default function Inbox() {
     }
   }, [refresh])
   const open = (kind, id) =>
-    setParams(kind === 'bento' ? { escrow: id } : kind === 'employment' ? {employment:id} : { thread: id })
+    setParams(kind === 'bento' ? { escrow: id } : kind === 'employment' ? {employment:id,view:'chat'} : { thread: id })
   async function more() {
     setPaging(true)
     try {
@@ -250,7 +250,7 @@ export default function Inbox() {
               {chatLabel(entry)}
             </button>)}
           </nav>}
-          {hiring ? <NewEmployment key={params.get('hire')||'new-hire'} username={params.get('hire')||''} onBack={()=>setParams({})} onOpen={id=>{open('employment',id);refresh()}}/> : employmentId ? <EmploymentThread key={employmentId} id={employmentId} onBack={returnToList} onChange={refresh} initialTab="chat"/> : compose ? (
+          {hiring ? <NewEmployment key={params.get('hire')||'new-hire'} username={params.get('hire')||''} onBack={()=>setParams({})} onOpen={id=>{setParams({employment:id});refresh()}}/> : employmentId ? <EmploymentThread key={employmentId} id={employmentId} onBack={returnToList} onChange={refresh} initialTab={params.get("view")==="chat"?"chat":"agreement"}/> : compose ? (
             <NewAssociateChat
               onBack={() => setParams({})}
               onOpen={(id) => {
