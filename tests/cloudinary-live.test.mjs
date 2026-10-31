@@ -82,7 +82,7 @@ test('host secrets are gated, live status comes from Cloudinary and stage playba
  const hub=read('src/pages/Live/LiveHub.jsx')
  const room=read('src/pages/Live/StageRoom.jsx')
  const stage=read('api/_lib/stageCompetitions.js')
- assert.match(live,/stream\.talent_id!==userId/)
+ assert.match(live,/room\.talent_id!==userId/)
  assert.match(live,/getCloudinaryLive\(room\.cloudinary_stream_id\)/)
  assert.match(live,/refreshCloudinaryLive\(streamId\)/)
  assert.match(live,/cloudinary_checked_at < NOW\(\)-INTERVAL '15 seconds'/)
