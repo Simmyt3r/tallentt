@@ -36,7 +36,7 @@ function Skeletons() {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {[0, 1, 2, 3].map((n) => (
-        <div key={n} className="h-[190px] animate-pulse rounded-[20px] border border-black/10 bg-white p-4">
+        <div key={n} className="h-[190px] animate-pulse rounded-2xl bg-white p-4">
           <div className="h-12 w-12 rounded-[13px] bg-black/[0.06]" />
           <div className="mt-3 h-4 w-1/2 rounded bg-black/[0.08]" />
           <div className="mt-2 h-3 w-2/3 rounded bg-black/[0.05]" />
@@ -304,7 +304,7 @@ export default function MyDeals() {
             className="h-11 min-w-0 flex-1 bg-transparent text-[13px] outline-none"/>
         </div>}
       </header>
-      <nav aria-label="Deal role modes" className="mb-3 flex w-fit items-center gap-1 border-b border-black/10 pb-2">
+      <nav aria-label="Deal role modes" className="sticky top-[126px] md:top-[134px] z-10 mb-3 flex w-fit items-center gap-1 rounded-full bg-[#F7F3EB]/95 px-1 py-1 backdrop-blur-lg">
         {['talent','client'].map(value=><button type="button" key={value}
           aria-pressed={role===value} onClick={()=>setView(value,'incoming')}
           className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[12px] font-black ${role===value?'bg-[#0A13E6] text-white':'text-black/60 hover:bg-black/5'}`}>
@@ -418,6 +418,8 @@ export default function MyDeals() {
                     {isApplication&&expandedApplication===id&&<div className="space-y-3 border-t border-black/10 px-4 py-3" aria-label="Application details">
                       <p className="text-[12px] font-semibold">Application status: {niceStatus(item.status)}</p>
                       {item.message&&<p className="text-[12px] text-black/65">{item.message}</p>}
+                      {unresolvedRange&&item.negotiation_escrow_id&&<Link to={`/negotiations?escrow=${item.negotiation_escrow_id}`}
+                        className="inline-flex min-h-10 items-center rounded-full border border-black/10 px-4 text-[12px] font-semibold">Agree price</Link>}
                       {item.negotiation_escrow_id&&<Link to={`/deals/${item.negotiation_escrow_id}?role=${role}`}
                         className="inline-flex min-h-10 items-center rounded-full border border-black/10 px-4 text-[12px] font-semibold">View transaction</Link>}
                       {tab==='incoming'&&<>
