@@ -7,7 +7,7 @@ import ProfileView from '../components/profile/ProfileView.jsx'
 import EditProfileForm from '../components/profile/EditProfileForm.jsx'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
 
-const EMPTY_DATA = { portfolio: [], hats: { talent: [], client: [] }, isVerified: false, businessVerified:false, rating: 0, ratedHatsCount: 0, orbit: null, performance:null }
+const EMPTY_DATA = { portfolio: [], gallery: [], reputation: null, hats: { talent: [], client: [] }, isVerified: false, businessVerified:false, rating: 0, ratedHatsCount: 0, orbit: null, performance:null }
 
 export default function Profile() {
   const { user } = useAuth()
@@ -28,6 +28,8 @@ export default function Profile() {
       const res = await api.getUserProfile(username)
       setData({
         portfolio: res.portfolio || [],
+        gallery: res.gallery || [],
+        reputation: res.reputation || null,
         hats: res.hats || { talent: [], client: [] },
         isVerified: !!res.isVerified,
         businessVerified: res.user?.isBusinessVerified===true,
@@ -76,6 +78,8 @@ export default function Profile() {
         isOwner
         profileUser={user}
         portfolio={data.portfolio}
+        gallery={data.gallery}
+        reputation={data.reputation}
         hats={data.hats}
         isVerified={data.isVerified}
         businessVerified={data.businessVerified}
