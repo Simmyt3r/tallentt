@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 import { createServer } from 'vite'
+import react from '@vitejs/plugin-react'
 import { fileURLToPath } from 'node:url'
 import { mkdir, readFile } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
@@ -10,7 +11,10 @@ import { optOutPageToursForFixture } from './page-tour-fixture.mjs'
 
 const root=fileURLToPath(new URL('..',import.meta.url))
 const port=5187
-const vite=await createServer({root,server:{host:'127.0.0.1',port,strictPort:true,proxy:null}})
+// Do not load vite.config.js here: its /api proxy redirects imported /api/_lib
+// frontend modules to a local API server that does not exist in CI.
+const vite=await createServer({configFile:false,root,plugins:[react()],
+  server:{host:'127.0.0.1',port,strictPort:true,proxy:{}}})
 let browser
 await mkdir('test-results',{recursive:true})
 const sourceFile='test-results/work-pass-source.mp4'
