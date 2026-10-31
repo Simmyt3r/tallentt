@@ -49,7 +49,9 @@ export async function stageCompetition(userId,id) {
   const {rows:participants}=await query(`SELECT e.talent_id,e.stream_id,e.joined_at,
     u.username,u.full_name,u.avatar_url,u.role,u.company_suffix,
     s.title AS live_title,s.status AS stream_status,
-    s.media_status,s.stream_path,s.cloudinary_stream_id,s.cloudinary_hls_url,
+    s.media_status,s.stream_path,
+    to_jsonb(s)->>'cloudinary_stream_id' AS cloudinary_stream_id,
+    to_jsonb(s)->>'cloudinary_hls_url' AS cloudinary_hls_url,
     (SELECT COUNT(*)::int FROM stage_competition_votes v
       WHERE v.competition_id=e.competition_id AND v.talent_id=e.talent_id) AS votes
     FROM stage_competition_entrants e
