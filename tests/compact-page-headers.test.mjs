@@ -8,7 +8,6 @@ const primaryScreens = [
   'src/pages/Feed.jsx',
   'src/pages/Vibes.jsx',
   'src/pages/Negotiations.jsx',
-  'src/pages/Notifications.jsx',
   'src/pages/MyDeals.jsx',
   'src/pages/Wallet.jsx',
   'src/pages/DisputeCenter.jsx',
@@ -36,6 +35,12 @@ test('primary screens keep classic flexible page headers with title and search',
   assert.doesNotMatch(settings,/CompactPageHeader|DiscoverySearch/)
   assert.match(settings,/aria-label="Settings sections"/)
   assert.match(read('src/pages/Inbox.jsx'),/aria-label="Search conversations"/)
+  // Notifications intentionally keeps search and bulk actions beside its title.
+  const notifications=read('src/pages/Notifications.jsx')
+  assert.doesNotMatch(notifications,/CompactPageHeader/)
+  assert.match(notifications,/sticky top-14 md:top-16/)
+  assert.match(notifications,/<h1[^>]*>Notifications<\/h1>/)
+  assert.match(notifications,/aria-label="More notification actions"/)
 
   const header = read('src/components/CompactPageHeader.jsx')
   assert.match(header, /sticky top-14 md:top-16 z-10/)
