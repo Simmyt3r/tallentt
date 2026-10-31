@@ -56,7 +56,7 @@ export async function communityChatsGet(userId,params){
        WHERE m.thread_id=t.id AND m.sender_id<>$1 AND m.read_at IS NULL) AS unread_count
       FROM community_threads t
       JOIN users u ON u.id=CASE WHEN t.initiator_id=$1 THEN t.recipient_id ELSE t.initiator_id END
-      WHERE t.initiator_id=$1 OR t.recipient_id=$1
+      WHERE (t.initiator_id=$1 OR t.recipient_id=$1) ${hideFilter}
       ORDER BY t.updated_at DESC LIMIT 100`,[userId])
   return {threads:rows}
 }
