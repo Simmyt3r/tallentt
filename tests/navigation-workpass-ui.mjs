@@ -18,6 +18,7 @@ const pass={user:{username:user.username,name:user.fullName,role:'dual',avatarUr
   headline:'Designer and hiring manager',skills:[],industry:[]},
   tier:'Silver',orbit:70,roleOrbit:{talent:{score:60},client:{score:84}},
   completedJobs:5,successfulHires:9,paidTrackingMonths:{talent:3,client:5},
+  printEligibility:{canPrint:false,reason:'Tracking fees outstanding'},
   signatureStatus:'signed',token:'CTWP1.navigation-test-signed-work-pass',
   evidence:[],robots:[],endorsements:[]}
 const send=(route,data)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)})
@@ -112,6 +113,8 @@ try {
     await dialog.getByRole('heading',{name:'Studio Designer'}).waitFor()
     await dialog.getByText('Talent Orbit',{exact:true}).waitFor()
     await dialog.getByText('Client Orbit',{exact:true}).waitFor()
+    assert.equal(await dialog.getByRole('button',{name:'Print card'}).isDisabled(),true)
+    assert.equal(await dialog.locator('.workpass-hero img[alt^="Signed Work Pass QR"]').count(),1)
     assert.equal(await page.getByRole('navigation',{name:'Profile and account'}).count(),0)
     await page.screenshot({path:'test-results/navigation-work-pass-'+width+'.png',animations:'disabled'})
     await dialog.getByRole('button',{name:'Close Work Pass'}).click()
