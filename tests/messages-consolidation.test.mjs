@@ -43,7 +43,10 @@ test('server list queries include peer IDs, and the inbox never moves actual mes
     assert.match(source(path),/AS peer_id/)
   const inbox=source('src/pages/Inbox.jsx')
   assert.match(inbox,/consolidateInbox\(allThreads/)
-  assert.match(inbox,/\?person|person:item.id/)
+  assert.match(inbox,/const latest=item.threads\[0\]/)
+  assert.match(inbox,/open\(latest.kind,latest.id\)/)
+  assert.doesNotMatch(inbox,/selectedPerson\?\.threads/)
+  assert.match(inbox,/initialTab="chat"/)
   assert.doesNotMatch(inbox,/INSERT INTO (?:booking_messages|community_messages|employment_messages)/)
 })
 test('messages support permission-controlled forwarding while preserving read receipts',()=>{
