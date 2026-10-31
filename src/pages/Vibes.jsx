@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Heart, ThumbsUp, ImagePlus, MessageCircle, Send, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
 import EntryActions from '../components/EntryActions.jsx'
 import VibesMediaGallery from '../components/VibesMediaGallery.jsx'
-import VibesComments from '../components/VibesComments.jsx'
 import VibesLikersDialog from '../components/VibesLikersDialog.jsx'
 import VibesShareDialog from '../components/VibesShareDialog.jsx'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
@@ -16,6 +15,7 @@ import { formatEngagementCount } from '../lib/engagementCount.js'
 
 const MAX_PHOTOS = 10
 const MAX_POST_BYTES = 80 * 1024 * 1024
+const mediaMB = bytes => (bytes / (1024 * 1024)).toLocaleString('en-NG',{maximumFractionDigits:1})
 const dateText = value => {
   try { return new Date(value).toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) }
   catch { return '' }
@@ -43,8 +43,15 @@ function Identity({user}) {
 }
 
 
-function VibeCard({post,me,onChange,onDeleted}) {
-  const [showReplies,setShowReplies]=useState(false)
+export function VibeCard({post,me,onChange,onDeleted,commentsPage=false}) {
+  const navigate=useNavigate()
+  function openComments(){
+    if(commentsPage){
+      document.getElementById('vibe-reply-'+post.id)?.focus()
+      return
+    }
+    navigate('/vibes/'+encodeURIComponent(post.id)+'/comments')
+  }
   const [showLikers,setShowLikers]=useState(false)
   const [showShare,setShowShare]=useState(false)
   const [busy,setBusy]=useState(false)
@@ -137,9 +144,9 @@ function VibeCard({post,me,onChange,onDeleted}) {
         <span>{formatEngagementCount(post.likes)}</span>
       </button>
       <div className="ml-auto flex items-center gap-3 text-[11px] sm:gap-4 sm:text-[12px]">
-        <button type="button" aria-expanded={showReplies}
+        <button type="button"
           aria-label={`View comments (${post.replies||0})`}
-          onClick={()=>setShowReplies(v=>!v)}
+          onClick={openComments}
           className="min-h-9 rounded-lg px-0.5 font-semibold hover:text-[#0A13E6] hover:underline">
           {formatEngagementCount(post.replies)} comments
         </button>
@@ -154,8 +161,8 @@ function VibeCard({post,me,onChange,onDeleted}) {
         className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold hover:bg-[#F7F3EB] ${post.liked_by_me?'text-[#0A13E6]':'text-black/55'}`}>
         <ThumbsUp size={17} fill={post.liked_by_me?'currentColor':'none'} aria-hidden="true"/> Like
       </button>
-      <button type="button" aria-label="Comment on Vibe" aria-expanded={showReplies}
-        onClick={()=>setShowReplies(v=>!v)}
+      <button type="button" aria-label="Comment on Vibe"
+        onClick={openComments}
         className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB]">
         <MessageCircle size={17} aria-hidden="true"/> Comment
       </button>
@@ -166,7 +173,6 @@ function VibeCard({post,me,onChange,onDeleted}) {
       </button>
     </div>
     {error&&<p role="status" className="mt-2 text-[11px] text-black/60">{error}</p>}
-    {showReplies&&<VibesComments post={post} me={me} onDelta={onChange}/>}
     {showLikers&&<VibesLikersDialog post={post} onClose={()=>setShowLikers(false)}/>}
     {showShare&&<VibesShareDialog post={post} onClose={()=>setShowShare(false)} onShared={recordShared}/>}
 
@@ -229,8 +235,10 @@ export default function Vibes() {
     const files=[...e.target.files||[]]
     e.target.value=''
     if(!files.length)return
+    // The ten-attachment database quota still applies, but is no longer a
+    // visible counter in the composer. Explain it only when reached.
     if(photos.length+files.length>MAX_PHOTOS) {
-      setPostError('Choose up to ten files in a post. You can make another post for additional media.');return
+      setPostError('This post has reached its attachment limit. Publish it before adding more media.');return
     }
     const total=[...photos.map(item=>item.file),...files].reduce((sum,file)=>sum+file.size,0)
     if(total>MAX_POST_BYTES){
@@ -287,6 +295,7 @@ export default function Vibes() {
     finally{setPaging(false)}
   }
   const change=(id,patch)=>setPosts(current=>current.map(p=>p.id===id?{...p,...patch}:p))
+  const mediaBytes=photos.reduce((total,item)=>total+item.file.size,0)
   return <main className="mx-auto max-w-[660px] space-y-4 pb-10">
     <CompactPageHeader title="Hits & Vibes" searchValue={search} onSearchChange={setSearch}
       searchPlaceholder="Search Vibes…" searchLabel="Search Vibes posts and people"/>
@@ -318,11 +327,16 @@ export default function Vibes() {
         <div>
           <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
             aria-label="Choose Vibes photos" className="hidden" onChange={choosePhotos}/>
-          <button type="button" disabled={publishing||photos.length>=MAX_PHOTOS}
+          <button type="button" disabled={publishing||photos.length>=MAX_PHOTOS||mediaBytes>=MAX_POST_BYTES}
             onClick={()=>fileRef.current?.click()}
-            className="inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[12px] font-bold text-[#0A13E6] hover:bg-blue-50 disabled:opacity-40">
-            <ImagePlus size={19}/> Photo / video <span className="text-black/40">({photos.length}/{MAX_PHOTOS})</span>
+            className="inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[12px] font-bold text-[#0A13E6] hover:bg-blue-50 disabled:opacity-40"
+            title="Up to 80 MB total per post. Images up to 8 MB; videos up to 20 MB each.">
+            <ImagePlus size={19}/> Photo / video
           </button>
+          <span className="block pl-3 text-[10px] text-black/45"
+            aria-label={`Media storage: ${mediaMB(mediaBytes)} of 80 MB`}>
+            {photos.length>0?`${mediaMB(mediaBytes)} / 80 MB`:'80 MB max'}
+          </span>
         </div>
         <button type="submit" disabled={publishing||(!text.trim()&&!photos.length)}
           className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-6 text-[12px] font-black text-white disabled:opacity-40">
