@@ -143,9 +143,9 @@ function SalaryPeriod({period,employer,agreement,today,onAction,busy,trackingPri
   </article>
 }
 
-export function EmploymentThread({id,onBack,onChange}){
+export function EmploymentThread({id,onBack,onChange,initialTab='agreement'}){
   const {user}=useAuth(),command=useCommand()
-  const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[tab,setTab]=useState('agreement'),[editing,setEditing]=useState(false),[terms,setTerms]=useState(null),[publish,setPublish]=useState(false),[ending,setEnding]=useState(false),[endNote,setEndNote]=useState(''),[message,setMessage]=useState(''),[reply,setReply]=useState(null)
+  const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[tab,setTab]=useState(initialTab),[editing,setEditing]=useState(false),[terms,setTerms]=useState(null),[publish,setPublish]=useState(false),[ending,setEnding]=useState(false),[endNote,setEndNote]=useState(''),[message,setMessage]=useState(''),[reply,setReply]=useState(null)
   const alive=useRef(true),sequence=useRef(0),scroll=useRef(null),bottom=useRef(true)
   const load=useCallback(async()=>{
     const seq=++sequence.current
