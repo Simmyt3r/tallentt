@@ -41,7 +41,7 @@ export async function communityChatsGet(userId,params){
     return {thread,messages:messages.reverse()}
   }
   const {rows}=await query(`SELECT t.id,t.initiator_id,t.recipient_id,t.status,
-      t.created_at,t.updated_at,u.username AS peer_username,
+      t.created_at,t.updated_at,u.id AS peer_id,u.username AS peer_username,
       u.full_name AS peer_name,u.avatar_url AS peer_avatar,
       (SELECT m.body FROM community_messages m WHERE m.thread_id=t.id
        ORDER BY m.created_at DESC,m.id DESC LIMIT 1) AS last_message,
