@@ -45,13 +45,18 @@ export async function employmentGet(userId,params){
   if(!await ready())return params.has('employment_id')?Promise.reject(fail(503,'Employment is not available yet.')):{threads:[],available:false}
   const agreementId=params.get('employment_id')
   if(!agreementId){
+    const {rows:inboxHidden}=await query("SELECT to_regclass('inbox_hidden_threads') AS present")
+    const hideFilter=inboxHidden[0]?.present
+      ? ` AND NOT EXISTS (SELECT 1 FROM inbox_hidden_threads hidden
+          WHERE hidden.user_id=$1 AND hidden.kind='employment' AND hidden.thread_id=a.id
+          AND a.updated_at<=hidden.hidden_at)` : ''
     const {rows}=await query(`SELECT a.id,a.status,a.updated_at,a.created_at,a.terms->>'role' AS hat_title,
       u.id AS peer_id,u.full_name AS peer_name,u.username AS peer_username,u.avatar_url AS peer_avatar,
       (SELECT body FROM employment_messages WHERE agreement_id=a.id ORDER BY created_at DESC,id DESC LIMIT 1) AS last_message,
       a.updated_at AS last_at,
       (SELECT COUNT(*)::int FROM employment_messages WHERE agreement_id=a.id AND sender_id<>$1 AND read_at IS NULL) AS unread_count
       FROM employment_agreements a JOIN users u ON u.id=CASE WHEN a.employer_id=$1 THEN a.talent_id ELSE a.employer_id END
-      WHERE a.employer_id=$1 OR (a.talent_id=$1 AND a.status<>'draft' AND a.employer_accepted_at IS NOT NULL) ORDER BY a.updated_at DESC LIMIT 100`,[userId])
+      WHERE (a.employer_id=$1 OR (a.talent_id=$1 AND a.status<>'draft' AND a.employer_accepted_at IS NOT NULL)) ${hideFilter} ORDER BY a.updated_at DESC LIMIT 100`,[userId])
     return {threads:rows,available:true}
   }
   id(agreementId)
