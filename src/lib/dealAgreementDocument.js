@@ -3,7 +3,7 @@ const date=value=>value?new Date(value).toLocaleString('en-NG',{dateStyle:'mediu
 const money=(amount,currency='NGN')=>new Intl.NumberFormat('en-NG',{style:'currency',currency:currency||'NGN',maximumFractionDigits:0}).format(Number(amount||0))
 export function createAgreementHtml(row,token,verifyUrl,qrData){
   const esc=escapeHtml
-  const validPass=row.status==='secured'&&Boolean(token)
+  const validPass=row.status==='secured'&&row.work_status!=='disputed'&&Boolean(token)
   const status=String(row.status||'').replaceAll('_',' ')
   const css=`html{color:#19223c;font:14px/1.55 Arial,sans-serif;background:#fff}body{margin:0;padding:0}main{max-width:820px;margin:auto;padding:34px}header{border-bottom:3px solid #0a13e6;padding-bottom:16px;margin-bottom:22px}h1{margin:6px 0;font-size:26px}h2{font-size:16px;color:#121d38;margin:23px 0 8px}p{margin:7px 0}.muted{color:#566071}.small{font-size:11px}.banner{padding:13px 16px;margin:15px 0;background:#eef0ff;border-left:4px solid #0a13e6}.warn{background:#fff4e8;border-left-color:#b87508}.meta{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}.item{border-bottom:1px solid #ddd;padding:6px 0}.item strong{display:block}.verify{display:flex;gap:18px;align-items:center;margin-top:24px;border-top:1px solid #ddd;padding-top:20px}.qr{width:130px;height:130px;object-fit:contain}.foot{margin-top:26px;border-top:1px solid #ddd;padding-top:12px;color:#566071}@page{size:A4;margin:12mm}@media print{main{padding:0;max-width:none}.banner{print-color-adjust:exact;-webkit-print-color-adjust:exact}h2,.verify{break-inside:avoid}}`
   const block=(label,value)=>`<div class="item"><strong>${esc(label)}</strong>${esc(value)}</div>`
