@@ -1,175 +1,195 @@
 import {useEffect,useState} from 'react'
-import {Link,useNavigate} from 'react-router-dom'
-import {Bell,LockKeyhole,LogOut,Settings2,UserRound,Wallet,ShieldCheck,BookOpen,Coins} from 'lucide-react'
+import {useNavigate} from 'react-router-dom'
+import {Bell,BookOpen,Eye,EyeOff,HardDriveDownload,LockKeyhole,Settings2,ShieldCheck,SlidersHorizontal,Wallet} from 'lucide-react'
 import {useAuth} from '../context/AuthContext.jsx'
 import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
-import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import {api} from '../lib/api.js'
-import {useDataMode,setDataMode} from '../lib/dataMode.js'
-import {clearSavedVideos} from '../lib/offlineVideo.js'
+import {clearSavedVideos,getSavedVideoSummary} from '../lib/offlineVideo.js'
 import {restartPageTours} from '../lib/pageTour.js'
+import {useWalletBalanceVisible} from '../lib/walletBalancePreference.js'
 
+const SECTIONS=[
+  ['general','General',SlidersHorizontal],
+  ['notifications','Notifications',Bell],
+  ['privacy','Privacy',ShieldCheck],
+  ['security','Security',LockKeyhole],
+  ['wallet','Wallet',Wallet],
+]
+const inputClass='mt-1 min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-[13px] focus-visible:outline-2 focus-visible:outline-[#0A13E6]'
+const optionLabel='block text-[12px] font-bold'
+const checkboxClass='h-5 w-5 shrink-0 accent-[#0A13E6]'
+function SwitchRow({label,checked,onChange,disabled=false}){
+  return <label className="flex min-h-14 items-center justify-between gap-4 border-b border-black/10 py-3">
+    <span className="text-[13px] font-semibold">{label}</span>
+    <input type="checkbox" className={checkboxClass} checked={checked} disabled={disabled}
+      onChange={e=>onChange(e.target.checked)}/>
+  </label>
+}
 export default function Settings(){
-  const {user,logout}=useAuth()
-  const dataMode=useDataMode()
+  const {user}=useAuth()
   const navigate=useNavigate()
-  const [section,setSection]=useState('account')
+  const [section,setSection]=useState('general')
+  const [notice,setNotice]=useState(''),[error,setError]=useState('')
   const [resetBusy,setResetBusy]=useState(false)
-  const [notice,setNotice]=useState('')
-  const [error,setError]=useState('')
-  const [signingOut,setSigningOut]=useState(false)
-  const [presenceVisible,setPresenceVisible]=useState(true)
-  const [presenceBusy,setPresenceBusy]=useState(false)
-  const [associatePolicy,setAssociatePolicy]=useState('everyone')
-  const [privacyBusy,setPrivacyBusy]=useState(false)
-  const [privacyError,setPrivacyError]=useState('')
+  const [presenceVisible,setPresenceVisible]=useState(true),[presenceBusy,setPresenceBusy]=useState(false)
+  const [associatePolicy,setAssociatePolicy]=useState('everyone'),[associateBusy,setAssociateBusy]=useState(false)
+  const [associateAvailable,setAssociateAvailable]=useState(true)
+  const [content,setContent]=useState({installed:false,showroom_inquiries:'everyone',vibes_comments:'everyone'})
+  const [privacyBusy,setPrivacyBusy]=useState(''),[loadingPrivacy,setLoadingPrivacy]=useState(true)
+  const [balanceVisible,setBalanceVisible]=useWalletBalanceVisible(user?.id)
+  const [stored,setStored]=useState({count:0,bytes:0}),[storageBusy,setStorageBusy]=useState(false)
   useEffect(()=>{
     let active=true
-    api.getPresenceVisibility().then(value=>{if(active)setPresenceVisible(value.visible!==false)})
+    api.getPresenceVisibility().then(r=>{if(active)setPresenceVisible(r.visible!==false)})
       .catch(()=>{})
+    api.getAssociatePrivacy().then(r=>{if(active)setAssociatePolicy(r.privacy||'everyone')})
+      .catch(e=>{if(active){setAssociateAvailable(false);setError(e.message||'Associate preferences are unavailable.')}})
+    api.getContentPrivacy().then(r=>{if(active)setContent(r)})
+      .catch(e=>{if(active)setError(e.message||'Could not load content privacy settings.')})
+      .finally(()=>{if(active)setLoadingPrivacy(false)})
     return()=>{active=false}
   },[])
   useEffect(()=>{
     let active=true
-    api.getAssociatePrivacy().then(result=>{if(active)setAssociatePolicy(result.privacy||'everyone')})
-      .catch(err=>{if(active)setPrivacyError(err.message||'Associate privacy unavailable.')})
+    getSavedVideoSummary().then(result=>{if(active)setStored(result)}).catch(()=>{})
     return()=>{active=false}
   },[])
-  async function changeAssociatePolicy(policy){
-    setPrivacyBusy(true);setPrivacyError('')
-    try{const result=await api.associateAction({action:'associate_privacy',policy});setAssociatePolicy(result.privacy)}
-    catch(err){setPrivacyError(err.message||'Unable to save Associate privacy settings.')}
-    finally{setPrivacyBusy(false)}
-  }
-  async function changePresence(visible){
+  function showSection(value){setSection(value);setError('');setNotice('')}
+  async function setPresence(visible){
     setPresenceBusy(true);setError('')
     try{await api.setPresenceVisibility(visible);setPresenceVisible(visible)}
-    catch(e){setError(e.message||'Unable to save presence setting.')}
+    catch(e){setError(e.message||'Could not update your online status.')}
     finally{setPresenceBusy(false)}
   }
-  async function requestReset(){
-    if(resetBusy || !user?.email)return
+  async function setAssociate(value){
+    if(value==='nobody'&&!window.confirm('Stop receiving new Associate requests? Existing Associates will remain connected.'))return
+    setAssociateBusy(true);setError('')
+    try{const result=await api.associateAction({action:'associate_privacy',policy:value});setAssociatePolicy(result.privacy)}
+    catch(e){setError(e.message||'Could not update Associate request settings.')}
+    finally{setAssociateBusy(false)}
+  }
+  async function setContentPolicy(field,value){
+    if(value!=='everyone'&&!window.confirm(field==='showroom_inquiries'
+      ? 'This will limit new Showroom booking inquiries. Existing deals and conversations remain available. Continue?'
+      : 'This will limit new comments on your Vibes. Existing comments remain visible. Continue?'))return
+    setPrivacyBusy(field);setError('')
+    try{const result=await api.updateContentPrivacy(field,value);setContent(result)}
+    catch(e){setError(e.message||'Could not update privacy preference.')}
+    finally{setPrivacyBusy('')}
+  }
+  async function sendReset(){
+    if(resetBusy||!user?.email)return
     setResetBusy(true);setError('');setNotice('')
-    try {
-      await api.requestPasswordReset(user.email)
-      setNotice('If a recovery email can be delivered, it will be sent to your registered address. Check your inbox or spam folder.')
-    }catch(err){setError(err.message||'Could not request a password reset.')}
+    try{await api.requestPasswordReset(user.email)
+      setNotice('If an email can be delivered, a password reset link will be sent to your registered address.')}
+    catch(e){setError(e.message||'Could not request a reset link.')}
     finally{setResetBusy(false)}
   }
-  async function signOut(){
-    if(signingOut)return
-    setSigningOut(true);setError('')
-    try {await logout();navigate('/auth',{replace:true})}
-    catch(err){setError(err.message||'Could not sign out.')}
-    finally{setSigningOut(false)}
+  async function removeOffline(){
+    if(!stored.count||storageBusy)return
+    if(!window.confirm('Remove all '+stored.count+' offline Vibes videos saved on this device? You can save them again later.'))return
+    setStorageBusy(true);setError('');setNotice('')
+    try{await clearSavedVideos();setStored({count:0,bytes:0});setNotice('Offline Vibes videos cleared from this browser.')}
+    catch(e){setError(e.message||'Could not clear saved videos.')}
+    finally{setStorageBusy(false)}
   }
-  return <main className="mx-auto max-w-[820px] space-y-5 pb-10">
-    <CompactPageHeader title="Settings" icon={Settings2}/>
-    <nav aria-label="Settings sections" className="flex gap-2">
-      {[['account','Account',UserRound],['notifications','Notifications',Bell],['privacy','Privacy',ShieldCheck],['security','Security',LockKeyhole]].map(([id,label,Icon])=>
-        <button key={id} type="button" onClick={()=>setSection(id)} aria-pressed={section===id}
-          className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-[12px] font-bold ${section===id?'bg-[#0A13E6] text-white':'border border-black/10 bg-white text-black/70'}`}>
-          <Icon size={15}/>{label}
-        </button>)}
+  const storedMB=(stored.bytes/(1024*1024)).toLocaleString('en-NG',{maximumFractionDigits:1})
+  return <main className="mx-auto max-w-[820px] space-y-4 pb-12">
+    <header className="flex items-center gap-2 pt-2">
+      <Settings2 size={21} className="text-[#0A13E6]" aria-hidden="true"/>
+      <h1 className="text-[22px] font-black tracking-tight">Settings</h1>
+    </header>
+    <nav aria-label="Settings sections" className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+      {SECTIONS.map(([id,label,Icon])=><button type="button" key={id}
+        onClick={()=>showSection(id)} aria-pressed={section===id}
+        className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-2 text-[11px] font-bold transition sm:min-h-11 sm:flex-row sm:gap-2 sm:px-2 ${section===id?'bg-[#0A13E6] text-white':'border border-black/10 bg-white text-black/65 hover:bg-[#F1F1FF]'}`}>
+        <Icon size={16} aria-hidden="true" className="shrink-0"/><span className="break-words text-center">{label}</span>
+      </button>)}
     </nav>
-    {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-[12px] text-red-700">{error}</p>}
-    {notice&&<p role="status" className="rounded-xl bg-blue-50 p-4 text-[12px] text-blue-900">{notice}</p>}
-    {section==='account'&&<section className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
-      <h2 className="text-[15px] font-black">Account information</h2>
-      <dl className="divide-y divide-black/10">
-        <div className="flex items-center justify-between gap-3 py-3">
-          <dt className="text-[12px] text-black/50">Username</dt>
-          <dd className="truncate text-[12px] font-semibold">{user?.username||'Not set'}</dd>
-        </div>
-        <div className="flex items-center justify-between gap-3 py-3">
-          <dt className="text-[12px] text-black/50">Email</dt>
-          <dd className="truncate text-[12px] font-semibold">{user?.email||'Not set'}</dd>
-        </div>
-        <div className="flex items-center justify-between gap-3 py-3">
-          <dt className="text-[12px] text-black/50">Account type</dt>
-          <dd className="capitalize text-[12px] font-semibold">{user?.role||'Subscriber'}</dd>
-        </div>
-      </dl>
-      <label className="flex items-center justify-between gap-4 rounded-xl border border-black/10 bg-[#F7F3EB] p-3">
-        <span>
-          <span className="block text-[12px] font-bold">Text-only browsing (data saver)</span>
-          <span className="mt-1 block text-[11px] text-black/55">Skip Showroom and Vibes media until you tap to load a post. Your previously cached images remain available offline.</span>
-        </span>
-        <input type="checkbox" checked={dataMode==='text'}
-          onChange={e=>setDataMode(e.target.checked?'text':'normal')}
-          aria-label="Browse in text-only data saving mode" className="h-5 w-5 shrink-0 accent-[#0A13E6]"/>
-      </label>
-      <button type="button" onClick={()=>clearSavedVideos().then(()=>setNotice('Saved offline videos cleared.')).catch(()=>setError('Unable to clear offline videos.'))}
-        className="min-h-10 rounded-full border border-black/20 px-4 text-[12px] font-bold">
-        Clear saved offline videos
-      </button>
-      <label className="flex items-center justify-between gap-4 rounded-xl border border-black/10 bg-[#F7F3EB] p-3">
-        <span>
-          <span className="block text-[12px] font-bold">Show when I am online</span>
-          <span className="mt-1 block text-[11px] text-black/55">A green indicator appears only while you are active in ChombuTar. Turn this off to stay private.</span>
-        </span>
-        <input type="checkbox" checked={presenceVisible} disabled={presenceBusy}
-          onChange={e=>changePresence(e.target.checked)}
-          aria-label="Show my online status" className="h-5 w-5 shrink-0 accent-[#0A13E6]"/>
-      </label>
-      <div className="rounded-xl border border-black/10 bg-[#F7F3EB] p-3">
-        <div className="flex items-start gap-2.5">
-          <BookOpen size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-[#0A13E6]"/>
-          <div>
-            <h3 className="text-[12px] font-bold">Page introductions</h3>
-            <p className="mt-1 text-[11px] leading-relaxed text-black/55">Each main screen shows a short explanation the first time you visit it. The Don't show me again button disables them all on this device.</p>
-            <button type="button" disabled={!user?.id}
-              onClick={()=>{restartPageTours(user.id);navigate('/showroom')}}
-              className="mt-3 inline-flex min-h-10 items-center rounded-full border border-[#0A13E6]/30 bg-white px-4 text-[12px] font-bold text-[#0A13E6] disabled:opacity-50">
-              Restart page tour
-            </button>
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <Link to="/profile?edit=1" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
-          <UserRound size={16}/> Edit profile
-        </Link>
-        <Link to="/wallet" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
-          <Wallet size={16}/> Wallet
-        </Link>
-        <Link to="/billing" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/20 px-4 text-[12px] font-semibold">
-          <Coins size={16}/> Membership & verification
-        </Link>
-      </div>
-    </section>}
-    {section==='notifications'&&<div>
-      <p className="mb-3 text-[12px] text-black/60">Your notification inbox remains simple. Configure alerts here, including updates shown when your browser is closed.</p>
-      <PushNotificationSettings/>
-      <Link to="/notifications" className="text-[12px] font-bold text-[#0A13E6] underline">Open notifications inbox</Link>
-    </div>}
-    {section==='privacy'&&<section className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
-      <h2 className="text-[15px] font-black">Associate requests</h2>
-      <p className="text-[12px] text-black/60">Choose who may ask to become your professional Associate. Subscribers can still follow public Vibes without approval.</p>
-      {privacyError&&<p role="alert" className="text-[12px] text-red-700">{privacyError}</p>}
-      <label className="block text-[12px] font-semibold" htmlFor="associate-request-policy">Who may send an Associate request?</label>
-      <select id="associate-request-policy" value={associatePolicy} disabled={privacyBusy||Boolean(privacyError)}
-        onChange={e=>changeAssociatePolicy(e.target.value)}
-        className="min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-[13px]">
-        <option value="everyone">Everyone</option>
-        <option value="verified_talents">Verified talents only</option>
-        <option value="nobody">No one</option>
-      </select>
-    </section>}
-    {section==='security'&&<section className="space-y-4 rounded-2xl border border-black/10 bg-white p-5">
-      <div>
-        <h2 className="text-[15px] font-black">Password and access</h2>
-        <p className="mt-1 text-[12px] text-black/60">Request a secure, one-time password reset link sent to the email on your account.</p>
-        <button type="button" onClick={requestReset} disabled={resetBusy||!user?.email}
-          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-5 text-[12px] font-bold text-white disabled:opacity-40">
-          <LockKeyhole size={16}/> {resetBusy?'Sending…':'Email password reset link'}
+    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-[12px] text-red-700">{error}</p>}
+    {notice&&<p role="status" className="rounded-xl bg-blue-50 p-3 text-[12px] text-blue-900">{notice}</p>}
+    {section==='general'&&<section aria-label="General preferences" className="divide-y divide-black/10">
+      <div className="py-3">
+        <h2 className="text-[14px] font-black">Page introductions</h2>
+        <button type="button" disabled={!user?.id} onClick={()=>{restartPageTours(user.id);navigate('/showroom')}}
+          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-black/15 px-4 text-[12px] font-bold disabled:opacity-50">
+          <BookOpen size={16}/> Restart page tour
         </button>
       </div>
-      <div className="border-t border-black/10 pt-4">
-        <p className="text-[12px] text-black/55">Sign out of this device. Your Hats and completed deals remain on the platform.</p>
-        <button type="button" onClick={signOut} disabled={signingOut}
-          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-red-200 px-5 text-[12px] font-bold text-red-700">
-          <LogOut size={16}/> {signingOut?'Signing out…':'Sign out'}
+      <div className="py-3">
+        <h2 className="text-[14px] font-black">Storage &amp; downloads</h2>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-[12px] text-black/65">
+            <HardDriveDownload size={17}/> Offline Vibes videos
+            <span className="font-semibold">{stored.count} saved{stored.count>0?` · ~${storedMB} MB`:''}</span>
+          </div>
+          {stored.count>0&&<button type="button" disabled={storageBusy} onClick={removeOffline}
+            className="min-h-11 rounded-xl border border-red-200 px-4 text-[12px] font-bold text-red-700 disabled:opacity-50">
+            {storageBusy?'Clearing…':'Clear saved videos'}
+          </button>}
+        </div>
+      </div>
+    </section>}
+    {section==='notifications'&&<div aria-label="Notification preferences">
+      <PushNotificationSettings/>
+    </div>}
+    {section==='privacy'&&<section aria-label="Privacy preferences" className="space-y-5">
+      <div>
+        <h2 className="text-[14px] font-black">Presence</h2>
+        <SwitchRow label="Show when I am online" checked={presenceVisible} onChange={setPresence} disabled={presenceBusy}/>
+      </div>
+      <div>
+        <h2 className="text-[14px] font-black">Associates</h2>
+        <label htmlFor="associate-request-policy" className={optionLabel}>Who may send Associate requests?</label>
+        <select id="associate-request-policy" className={inputClass}
+          value={associatePolicy} disabled={!associateAvailable||associateBusy} onChange={e=>setAssociate(e.target.value)}>
+          <option value="everyone">Everyone</option>
+          <option value="verified_talents">Verified talents only</option>
+          <option value="nobody">No one</option>
+        </select>
+      </div>
+      <div>
+        <h2 className="text-[14px] font-black">Showroom</h2>
+        <label htmlFor="showroom-inquiry-policy" className={optionLabel}>Who may start new hiring inquiries with me?</label>
+        <select id="showroom-inquiry-policy" className={inputClass} value={content.showroom_inquiries}
+          disabled={loadingPrivacy||!content.installed||Boolean(privacyBusy)}
+          onChange={e=>setContentPolicy('showroom_inquiries',e.target.value)}>
+          <option value="everyone">Everyone</option>
+          <option value="verified_clients">Verified clients only</option>
+          <option value="nobody">Pause new inquiries</option>
+        </select>
+      </div>
+      <div>
+        <h2 className="text-[14px] font-black">Hits &amp; Vibes</h2>
+        <label htmlFor="vibes-comments-policy" className={optionLabel}>Who may comment on my Vibes?</label>
+        <select id="vibes-comments-policy" className={inputClass} value={content.vibes_comments}
+          disabled={loadingPrivacy||!content.installed||Boolean(privacyBusy)}
+          onChange={e=>setContentPolicy('vibes_comments',e.target.value)}>
+          <option value="everyone">Everyone</option>
+          <option value="associates">Accepted Associates only</option>
+          <option value="nobody">Only me</option>
+        </select>
+      </div>
+      {!loadingPrivacy&&!content.installed&&<p role="status" className="text-[11px] text-amber-800">
+        An administrator must apply the Subscriber Content Privacy migration to enable Showroom and Vibes restrictions.
+      </p>}
+    </section>}
+    {section==='security'&&<section aria-label="Security preferences" className="space-y-3">
+      <h2 className="text-[14px] font-black">Password and access</h2>
+      <button type="button" onClick={sendReset} disabled={resetBusy||!user?.email}
+        className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0A13E6] px-5 text-[12px] font-bold text-white disabled:opacity-45">
+        <LockKeyhole size={16}/> {resetBusy?'Sending…':'Email password reset link'}
+      </button>
+    </section>}
+    {section==='wallet'&&<section aria-label="Wallet preferences" className="divide-y divide-black/10">
+      <h2 className="pb-2 text-[14px] font-black">Balance display</h2>
+      <div className="flex min-h-14 items-center justify-between gap-4 border-b border-black/10 py-3">
+        <span className="text-[13px] font-semibold">Show wallet balances</span>
+        <button type="button" onClick={()=>setBalanceVisible(!balanceVisible)}
+          aria-label={balanceVisible?'Hide wallet balances':'Show wallet balances'}
+          aria-pressed={balanceVisible}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-black/15 hover:bg-[#F7F3EB]">
+          {balanceVisible?<Eye size={19}/>:<EyeOff size={19}/>}
         </button>
       </div>
     </section>}

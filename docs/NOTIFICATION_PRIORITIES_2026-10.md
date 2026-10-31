@@ -8,7 +8,7 @@ The subscriber-facing inbox has an **All** filter (the default) plus four server
 | Lane | Examples | Priority | Can mute |
 |---|---|---|---|
 | Bento | Booking/request, proposal, job accepted/rejected, checkpoint, dispute | High | No, for essential work alerts |
-| Wallet / Audio Money | Escrow, wallet top-up, release, withdrawal | High | No, for essential money alerts |
+| Wallet / Payments & Wallet | Escrow, wallet top-up, release, withdrawal | High | No, for essential money alerts |
 | Associates | Associate request and response, community networking chat | Normal | Yes |
 | Hits & Vibes | Showroom/Orbit/verification and eligible Hits & Vibes | Daily digest | Vibes digest or Off |
 

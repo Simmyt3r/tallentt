@@ -12,7 +12,7 @@ const OPTIONS = [
   ['deals', 'Bento Field', 'Hire requests, accept/decline, delivery and disputes. Required.', true],
   ['negotiations', 'Job offers', 'Proposals and agreements requiring action. Required.', true],
   ['messages', 'Bento Chat', 'Messages about booked work. Required.', true],
-  ['payments', 'Audio Money', 'Escrow, wallet and withdrawal transactions. Required.', true],
+  ['payments', 'Payments & Wallet', 'Escrow, wallet and withdrawal transactions. Required.', true],
   ['associates', 'Associates', 'Professional connection requests and responses. Optional.', false],
   ['live', 'Live sessions', 'Live-session updates. Optional.', false],
   ['marketing', 'Announcements', 'Optional platform announcements; no generic comeback reminders.', false],
@@ -97,8 +97,8 @@ export default function PushNotificationSettings() {
   const serverReady = config?.configured === true
 
   return (
-    <section className="mb-5 overflow-hidden rounded-[22px] border-[1.5px] border-black bg-white" aria-label="Push notification settings">
-      <div className="border-b border-black/10 px-4 py-4 sm:px-5">
+    <section className="mb-5" aria-label="Push notification settings">
+      <div className="border-b border-black/10 py-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] border border-[#0A13E6]/15 bg-[#EEF0FF] text-[#0A13E6]">
@@ -106,9 +106,6 @@ export default function PushNotificationSettings() {
             </span>
             <div>
               <h2 className="text-[15px] font-black">Push notifications</h2>
-              <p className="mt-1 max-w-xl text-[11.5px] leading-relaxed text-black/50">
-                Bento Field and Audio Money are always active in the app. You may mute Associates and other optional alerts. Browser push still requires permission on each device.
-              </p>
             </div>
           </div>
 
@@ -174,11 +171,10 @@ export default function PushNotificationSettings() {
       {config?.preferences && (
         <div className="divide-y divide-black/10">
           {OPTIONS.map(([key, label, description, required]) => (
-            <label key={key} className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
+            <label key={key} className="flex items-center gap-3 py-3.5">
               <span className="min-w-0 flex-1">
                 <span className="block text-[12px] font-black">{label}</span>
-                <span className="mt-0.5 block text-[10.5px] leading-relaxed text-black/45">{description}</span>
-                {required && <span className="mt-1 block text-[10px] font-bold text-[#0A13E6]">Always on</span>}
+                {required && <span className="mt-0.5 block text-[10px] font-bold text-[#0A13E6]">Always on</span>}
               </span>
               <input
                 type="checkbox"
@@ -189,9 +185,8 @@ export default function PushNotificationSettings() {
               />
             </label>
           ))}
-          <div className="space-y-2 px-4 py-4 sm:px-5">
+          <div className="space-y-2 py-4">
             <label htmlFor="vibes-mode" className="block text-[12px] font-black">Vibes & Hits</label>
-            <p className="text-[10.5px] text-black/55">No alerts for individual likes or views. Important activity is grouped into a daily digest.</p>
             <select id="vibes-mode" value={config.preferences.vibes_mode||'digest'}
               onChange={event=>changePreference('vibes_mode',event.target.value)}
               className="min-h-11 w-full rounded-xl border border-black/20 bg-white px-3 text-[12px] font-semibold">

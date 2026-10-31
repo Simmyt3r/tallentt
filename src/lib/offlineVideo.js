@@ -49,3 +49,16 @@ export async function saveVideo(url){
 export async function clearSavedVideos(){
   if('caches' in window)await caches.delete(CACHE)
 }
+
+export async function getSavedVideoSummary(){
+  if(typeof window==='undefined'||!('caches' in window))return {count:0,bytes:0}
+  const cache=await caches.open(CACHE)
+  const keys=await cache.keys()
+  let bytes=0
+  for(const request of keys){
+    const video=await cache.match(request)
+    const size=Number(video?.headers.get('content-length'))
+    if(Number.isFinite(size)&&size>0)bytes+=size
+  }
+  return {count:keys.length,bytes}
+}

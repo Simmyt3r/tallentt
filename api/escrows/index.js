@@ -7,6 +7,7 @@ import { query, getClient } from '../_lib/db.js'
 import { getDealCall, dealCallAction } from '../_lib/dealCalls.js'
 import {communityChatsGet,communityChatsAction} from '../_lib/communityChats.js'
 import {associatesGet,associatesAction} from '../_lib/associates.js'
+import {getContentPrivacy,updateContentPrivacy,assertShowroomInquiryAllowed} from '../_lib/contentPrivacy.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { billingOverview, buySubscription, requestBusinessVerification } from '../_lib/billing.js'
 import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
@@ -216,6 +217,7 @@ async function createBooking(userId, hatId, proposal = {}) {
     )
     let escrow = existing[0]
     if (!escrow) {
+      await assertShowroomInquiryAllowed(hat.user_id,userId,client.query.bind(client))
       const amount = Number(hat.price_type === 'range' ? hat.price_min : hat.rate)
       if (!Number.isInteger(amount) || amount <= 0) throw bookingError(400, 'This Hat has no price set yet.')
       const payUnit = hat.rate_unit === 'custom' ? hat.rate_unit_custom : hat.rate_unit

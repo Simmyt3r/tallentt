@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto'
 import {query,getClient} from './db.js'
+import {assertShowroomInquiryAllowed} from './contentPrivacy.js'
 import {notifyUserWithQuery} from './notifications.js'
 import {dispatchStoredNotifications} from './pushNotifications.js'
 import {debitWallet,creditWallet} from './wallet.js'
@@ -133,6 +134,7 @@ export async function employmentAction(userId,body){
       const {rows:hats}=await client.query("SELECT 1 FROM hats WHERE user_id=$1 AND category=$2 AND role='talent' AND active=TRUE LIMIT 1",[talentId,terms.talent])
       if(!hats.length)throw fail(400,'Choose one of this person’s active talents.')
       await assertNotBlocked(client,{employer_id:userId,talent_id:talentId})
+      await assertShowroomInquiryAllowed(talentId,userId,client.query.bind(client))
       const {rows:count}=await client.query("SELECT COUNT(*)::int AS n FROM employment_agreements WHERE employer_id=$1 AND created_at>NOW()-INTERVAL '24 hours'",[userId])
       if(count[0].n>=8)throw fail(429,'You have created several agreements today. Try again tomorrow.')
       const {rows}=await client.query('INSERT INTO employment_agreements(employer_id,talent_id,terms) VALUES($1,$2,$3::jsonb) RETURNING *',[userId,talentId,JSON.stringify(terms)])

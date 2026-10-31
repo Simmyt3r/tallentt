@@ -4,6 +4,7 @@ import { query, getClient } from '../_lib/db.js'
 import {onlinePresenceExpression} from '../_lib/onlinePresence.js'
 import {providerVerdict,unsafeVisionResult} from '../_lib/vibesModeration.js'
 import { getSessionUser } from '../_lib/auth.js'
+import {assertVibesCommentAllowed} from '../_lib/contentPrivacy.js'
 import { json, readBody, methodNotAllowed } from '../_lib/http.js'
 import { uploadCloudCredentials, cloudinaryUploadSignature } from '../_lib/hatMediaUpload.js'
 import { notifyUser } from '../_lib/notifications.js'
@@ -440,6 +441,9 @@ async function comment(userId,postId,body) {
     [userId],
   )
   if(limit[0].n>=40) throw bad(429,'Reply limit reached. Try again later.')
+  const {rows:postOwner}=await query("SELECT author_id FROM vibes_posts WHERE id=$1 AND deleted_at IS NULL AND moderation_status='visible'",[postId])
+  if(!postOwner.length)throw bad(404,'Post unavailable.')
+  await assertVibesCommentAllowed(postOwner[0].author_id,userId)
   const parentId=body.parent_id||null
   if(parentId&&!validId(parentId))throw bad(400,'Invalid parent comment.')
   const threaded=parentId?await threadsInstalled():false
