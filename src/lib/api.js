@@ -275,6 +275,8 @@ export const api = {
   }),
   getAssociates: (username) => request('/api/escrows?associates='+encodeURIComponent(username),{cache:'no-store'}),
   getAssociatePrivacy: () => request('/api/escrows?associate_privacy=1',{cache:'no-store'}),
+  getContentPrivacy:()=>request('/api/escrows?content_privacy=1',{cache:'no-store'}),
+  updateContentPrivacy:(field,value)=>request('/api/escrows',{method:'POST',body:JSON.stringify({action:'content_privacy',field,value})}),
   associateAction: (body) => request('/api/escrows',{method:'POST',body:JSON.stringify(body)}),
   getCommunityChats: () => request('/api/escrows?community=1',{cache:'no-store'}),
   getEmploymentChats: () => request('/api/escrows?employment=1',{cache:'no-store'}),
