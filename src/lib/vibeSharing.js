@@ -37,7 +37,12 @@ const SAFE_BASE='https://chombutar.invalid'
 // An external URL, protocol-relative URL, path traversal or unrelated app
 // path can never become an open redirect through the login screen.
 export function safeVibeReturnPath(value) {
-  if(typeof value!=='string'||!value.startsWith('/vibes?')||value.startsWith('//')||value.length>220)return null
+  if(typeof value!=='string'||!value.startsWith('/vibes')||value.startsWith('//')||value.length>220)return null
+  // New comment pages are first-class sign-in return destinations, but only
+  // for a valid canonical UUID and with no extra path, query or fragment.
+  const commentPath=value.match(/^\/vibes\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/comments$/i)
+  if(commentPath)return '/vibes/'+commentPath[1]+'/comments'
+  if(!value.startsWith('/vibes?'))return null
   try{
     const url=new URL(value,SAFE_BASE)
     if(url.origin!==SAFE_BASE||url.pathname!=='/vibes')return null
