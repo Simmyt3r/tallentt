@@ -26,7 +26,7 @@ export async function communityChatsGet(userId,params){
   if(threadId){
     if(!validId(threadId))throw fail(400,'Invalid conversation.')
     const {rows:threads}=await query(`SELECT t.id,t.status,t.initiator_id,t.recipient_id,
-      u.username AS peer_username,u.full_name AS peer_name,u.avatar_url AS peer_avatar
+      u.id AS peer_id,u.username AS peer_username,u.full_name AS peer_name,u.avatar_url AS peer_avatar
       FROM community_threads t JOIN users u ON u.id=CASE
         WHEN t.initiator_id=$2 THEN t.recipient_id ELSE t.initiator_id END
       WHERE t.id=$1 AND (t.initiator_id=$2 OR t.recipient_id=$2)`,[threadId,userId])

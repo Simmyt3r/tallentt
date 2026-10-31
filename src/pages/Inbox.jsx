@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { MessageCircle, PenSquare, Search, Trash2 } from 'lucide-react'
+import { MessageCircle, PenSquare, Search, Trash2, ArrowLeft } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { BookingThread } from './Messages.jsx'
 import { AssociateThread, NewAssociateChat } from './CommunityChats.jsx'
 import { EmploymentThread, NewEmployment } from './Employment.jsx'
 import {useAuth} from '../context/AuthContext.jsx'
+import {consolidateInbox,chatLabel} from '../lib/inboxConsolidation.js'
 
 export default function Inbox() {
   const {user}=useAuth()
@@ -25,9 +26,10 @@ export default function Inbox() {
   const escrow = params.get('escrow'),
     thread = params.get('thread'),
     employmentId = params.get('employment'),
+    personId = params.get('person'),
     hiring = params.has('hire'),
     compose = params.get('compose') === '1',
-    active = Boolean(escrow || thread || compose || employmentId || hiring)
+    active = Boolean(escrow || thread || compose || employmentId || hiring || personId)
   const refresh = useCallback(async () => {
     const results = await Promise.allSettled([
       api.getConversations(),
@@ -114,7 +116,7 @@ export default function Inbox() {
       setError(e.message)
     }
   }
-  const items = [
+  const allThreads = [
     ...employment.map(x=>({...x,kind:'employment',name:x.peer_name||x.peer_username})),
     ...deals.map((x) => ({
       ...x,
@@ -127,22 +129,15 @@ export default function Inbox() {
       name: x.peer_name || x.peer_username,
     })),
   ]
-    .filter(
-      (x) =>
-        (filter === 'all' ||
-          (filter === 'unread' && Number(x.unread_count) > 0) ||
-          filter === x.kind) &&
-        [x.name, x.peer_username, x.hat_title, x.last_message].some((v) =>
-          String(v || '')
-            .toLowerCase()
-            .includes(search.trim().toLowerCase()),
-        ),
-    )
-    .sort(
-      (a, b) =>
-        new Date(b.last_at || b.updated_at || b.created_at) -
-        new Date(a.last_at || a.updated_at || a.created_at),
-    )
+  // Single account identity in the list, regardless of how many independent
+  // work, employment and Associate threads exist with this person.
+  const everyone=consolidateInbox(allThreads)
+  const items=consolidateInbox(allThreads.filter(x=>
+    (filter==='all'||(filter==='unread'&&Number(x.unread_count)>0)||filter===x.kind)
+    &&[x.name,x.peer_username,x.hat_title,x.last_message].some(value=>
+      String(value||'').toLowerCase().includes(search.trim().toLowerCase()))
+  ))
+  const selectedPerson=everyone.find(item=>item.id===personId)
   return (
     <main className="mx-auto max-w-6xl py-3">
       <div className="grid h-[calc(100dvh-150px)] min-h-[420px] overflow-hidden rounded-3xl border border-black/10 bg-white shadow-sm md:grid-cols-[320px_minmax(0,1fr)] md:h-[calc(100dvh-130px)]">
@@ -225,16 +220,16 @@ export default function Inbox() {
               </li>
             )}
             {items.map((item) => {
-              const selected =
-                item.kind === 'bento' ? escrow === item.id : item.kind === 'employment' ? employmentId === item.id : thread === item.id
+              const selected = item.id===personId || item.threads.some(t=>
+                t.kind==='bento'?escrow===t.id:t.kind==='employment'?employmentId===t.id:thread===t.id)
               return (
                 <li
-                  key={item.kind + item.id}
+                  key={item.id}
                   className={`group relative rounded-2xl ${selected ? 'bg-blue-50' : 'hover:bg-black/[0.03]'}`}
                 >
                   <button
                     type="button"
-                    onClick={() => open(item.kind, item.id)}
+                    onClick={() => setParams({person:item.id})}
                     aria-current={selected ? 'page' : undefined}
                     className="flex w-full items-center gap-3 p-3 text-left"
                   >
@@ -272,9 +267,7 @@ export default function Inbox() {
                       </span>
                       <span className="mt-1 flex gap-2 text-[10px] text-black/40">
                         <span className="min-w-0 truncate">
-                          {item.kind === 'bento'
-                            ? 'Bento · ' + item.hat_title
-                            : item.kind==='employment' ? 'Employment · '+item.hat_title : 'Associate'}
+                          {item.channels.join(' · ')}{item.threads.length>1?' ('+item.threads.length+' chats)':''}
                         </span>
                         {item.last_at && (
                           <time className="ml-auto shrink-0">
@@ -287,12 +280,12 @@ export default function Inbox() {
                       </span>
                     </span>
                   </button>
-                  {item.kind === 'bento' && (
+                  {item.threads.length===1 && item.threads[0].kind === 'bento' && (
                     <button
                       type="button"
-                      aria-label={`Remove chat about ${item.hat_title}`}
+                      aria-label={`Remove chat about ${item.threads[0].hat_title}`}
                       title="Remove from inbox"
-                      onClick={() => remove(item)}
+                      onClick={() => remove(item.threads[0])}
                       className="absolute bottom-1 right-2 rounded-full bg-white p-1.5 text-black/40 opacity-100 md:opacity-0 focus:opacity-100 group-hover:opacity-100"
                     >
                       <Trash2 size={12} />
@@ -316,7 +309,31 @@ export default function Inbox() {
         <div
           className={`${active ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-col [&>section]:flex-1`}
         >
-          {hiring ? <NewEmployment key={params.get('hire')||'new-hire'} username={params.get('hire')||''} onBack={()=>setParams({})} onOpen={id=>{open('employment',id);refresh()}}/> : employmentId ? <EmploymentThread key={employmentId} id={employmentId} onBack={()=>{setParams({});refresh()}} onChange={refresh}/> : compose ? (
+          {personId ? <section aria-label="Conversations with one person" className="flex h-full min-h-0 flex-col bg-white">
+            <header className="flex items-center gap-3 border-b border-black/10 px-4 py-4">
+              <button type="button" onClick={()=>setParams({})} aria-label="Back to inbox"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-black/5"><ArrowLeft size={18}/></button>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-base font-black">{selectedPerson?.name||'Conversations'}</h2>
+                <p className="mt-1 text-xs text-black/50">One person · separate trusted conversation records</p>
+              </div>
+            </header>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
+              {(selectedPerson?.threads||[]).map(entry=><div key={entry.kind+entry.id}
+                className="flex items-center gap-2 rounded-2xl border border-black/10 p-3">
+                <button type="button" onClick={()=>open(entry.kind,entry.id)}
+                  className="min-w-0 flex-1 text-left">
+                  <strong className="block truncate text-sm">{chatLabel(entry)}</strong>
+                  <span className="mt-1 block truncate text-xs text-black/50">{entry.last_message||'Open conversation'}</span>
+                  <span className="mt-1 block text-[11px] text-[#0A13E6]">{Number(entry.unread_count)>0?entry.unread_count+' unread · ':''}Open chat</span>
+                </button>
+                {entry.kind==='bento'&&<button type="button" onClick={()=>remove(entry)}
+                  aria-label={'Hide '+chatLabel(entry)}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-red-50"><Trash2 size={15}/></button>}
+              </div>)}
+              {!selectedPerson&&<p className="text-sm text-black/50">This contact is no longer in your Inbox.</p>}
+            </div>
+          </section> : hiring ? <NewEmployment key={params.get('hire')||'new-hire'} username={params.get('hire')||''} onBack={()=>setParams({})} onOpen={id=>{open('employment',id);refresh()}}/> : employmentId ? <EmploymentThread key={employmentId} id={employmentId} onBack={()=>{setParams({});refresh()}} onChange={refresh}/> : compose ? (
             <NewAssociateChat
               onBack={() => setParams({})}
               onOpen={(id) => {

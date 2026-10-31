@@ -46,7 +46,7 @@ export async function employmentGet(userId,params){
   const agreementId=params.get('employment_id')
   if(!agreementId){
     const {rows}=await query(`SELECT a.id,a.status,a.updated_at,a.created_at,a.terms->>'role' AS hat_title,
-      u.full_name AS peer_name,u.username AS peer_username,u.avatar_url AS peer_avatar,
+      u.id AS peer_id,u.full_name AS peer_name,u.username AS peer_username,u.avatar_url AS peer_avatar,
       (SELECT body FROM employment_messages WHERE agreement_id=a.id ORDER BY created_at DESC,id DESC LIMIT 1) AS last_message,
       a.updated_at AS last_at,
       (SELECT COUNT(*)::int FROM employment_messages WHERE agreement_id=a.id AND sender_id<>$1 AND read_at IS NULL) AS unread_count

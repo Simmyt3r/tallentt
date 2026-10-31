@@ -44,7 +44,7 @@ export async function getConversations(userId, before) {
             COALESCE(e.messages_updated_at,e.created_at) AS last_at,
             (SELECT m.body FROM booking_messages m WHERE m.escrow_id=e.id AND m.kind='message'
              ORDER BY m.id DESC LIMIT 1) AS last_message,
-            u.username AS peer_username, u.avatar_url AS peer_avatar,
+            u.id AS peer_id, u.username AS peer_username, u.avatar_url AS peer_avatar,
             u.full_name AS peer_full_name, u.role AS peer_role, u.company_suffix AS peer_company_suffix,
             (SELECT COUNT(*)::int FROM booking_messages m
              WHERE m.escrow_id = e.id AND m.recipient_id = $1 AND m.kind = 'message' AND m.read_at IS NULL) AS unread_count
