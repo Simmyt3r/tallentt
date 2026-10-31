@@ -214,9 +214,11 @@ export default function ProfileView({
             <WorkPass username={profileUser.username} compact />
           )}
           {id === selectedTab && id === 'gallery' && (
-            <PortfolioSection title="Gallery" items={galleryItems} isOwner={isOwner}
-              emptyMessage="Add pictures or videos to your Hats or publish approved media in Showroom."
-              addLink="/showroom" addLabel="Open Showroom" />
+            galleryItems.length || isOwner
+              ? <PortfolioSection title="Gallery" items={galleryItems} isOwner={isOwner}
+                  emptyMessage="Add pictures or videos to your Hats or publish approved media in Showroom."
+                  addLink="/showroom" addLabel="Open Showroom" />
+              : <p className="text-[12px] text-black/50">No public pictures or videos yet.</p>
           )}
           {id === selectedTab && id === 'hats' && (
             hats.talent.length || hats.client.length || isBusiness
