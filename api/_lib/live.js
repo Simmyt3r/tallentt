@@ -547,8 +547,11 @@ export async function endStream(userId, body) {
   // status update alone would leave the video publicly accessible.
   const {rows:upstream}=await query('SELECT talent_id,cloudinary_stream_id,status FROM live_streams WHERE id=$1',[streamId])
   if(!upstream[0]||upstream[0].talent_id!==userId)throw liveError(404,'Live broadcast not found.')
-  if(upstream[0].cloudinary_stream_id&&upstream[0].status!=='ended')
-    await idleCloudinaryLive(upstream[0].cloudinary_stream_id)
+  if(upstream[0].cloudinary_stream_id&&upstream[0].status!=='ended'){
+    if(upstream[0].status==='starting')
+      await deleteCloudinaryLive(upstream[0].cloudinary_stream_id)
+    else await idleCloudinaryLive(upstream[0].cloudinary_stream_id)
+  }
   const client = await getClient()
   let stream
   try {
