@@ -12,7 +12,7 @@ import ReputationCard from './ReputationCard.jsx'
 import WorkPass from '../WorkPass.jsx'
 import PortfolioSection from './PortfolioSection.jsx'
 import ActiveHatsSection from './ActiveHatsSection.jsx'
-import ReviewsSection from './ReviewsSection.jsx'
+import ProfileScore from './ProfileScore.jsx'
 import ProfileCompletenessCard from './ProfileCompletenessCard.jsx'
 import ProfileSkeleton from './ProfileSkeleton.jsx'
 
@@ -103,6 +103,9 @@ export default function ProfileView({
   isOwner,
   profileUser,
   portfolio = [],
+  gallery = [],
+  reputation = null,
+  rankings = null,
   hats = { talent: [], client: [] },
   isVerified = false,
   businessVerified = false,
@@ -143,6 +146,9 @@ export default function ProfileView({
   const groups = talentGroups(hats.talent, card.mainTalent)
   const selectedTalent = resolveTalent(searchParams.get('talent'), groups)
   const shownPortfolio = talentPortfolio(portfolio, hats.talent, selectedTalent, card.featuredMedia)
+  // Approved Showroom media and public Hat photos/videos share the Gallery tab.
+  const galleryItems = [...gallery, ...portfolio].filter(item => item?.url && ['image','video'].includes(item.type))
+    .filter((item, index, items) => items.findIndex(other => other.url === item.url) === index)
   function selectTalent(name) {
     setShareStatus('')
     const next = new URLSearchParams(searchParams)
@@ -161,11 +167,13 @@ export default function ProfileView({
   const industryCount = profileUser.industry?.length || 0
 
   const tabs = [
-    !isBusiness && { id: 'portfolio', label: 'Portfolio' },
-    { id: 'hats', label: 'Hats' },
+    { id: 'portfolio', label: 'Portfolio' },
+    { id: 'work-pass', label: 'Work pass' },
     { id: 'associates', label: 'Associates' },
+    { id: 'gallery', label: 'Gallery' },
+    { id: 'hats', label: 'Hats' },
     { id: 'reviews', label: 'Reviews' },
-  ].filter(Boolean)
+  ]
   const selectedTab = tabs.some(({ id }) => id === activeTab) ? activeTab : tabs[0].id
 
   function showHats() {
@@ -180,39 +188,49 @@ export default function ProfileView({
         isOwner={isOwner}
         isVerified={isVerified}
         businessVerified={businessVerified}
-        ratingSummary={ratedHatsCount ? { rating: rating.toFixed(1), count: ratedHatsCount } : null}
         hasTalentHats={hats.talent.length > 0}
         hasClientHats={hats.client.length > 0}
         onEditClick={onEditClick}
         onShowHats={showHats}
         orbit={orbit}
-        networkCounts={social?.counts}
-        onShowAssociates={() => setActiveTab('associates')}
       />
 
-      {profileUser?.username && <div className="flex justify-center"><WorkPass username={profileUser.username} compact /></div>}
-      {orbit && <section aria-label="Orbit credibility indicators" className="space-y-3 rounded-2xl border border-black/10 bg-white p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-[15px] font-black">Orbit Score</h2>
-            <p className="mt-1 text-[11px] text-black/55">Evidence from completed work, successful hires, activity, time and verified profile details.</p>
-          </div>
-          <span className="text-[24px] font-black tabular-nums text-[#0A13E6]">{orbit.score}<span className="text-[12px] text-black/40">/100</span></span>
+      <SectionNav tabs={tabs} activeTab={selectedTab} onSelect={setActiveTab} />
+
+      {tabs.map(({ id }) => (
+        <div
+          key={id}
+          id={`profile-${id}-panel`}
+          role="tabpanel"
+          aria-labelledby={`profile-${id}-tab`}
+          tabIndex={id === selectedTab ? 0 : -1}
+          hidden={id !== selectedTab}
+        >
+          {id === selectedTab && id === 'portfolio' && (
+            shownPortfolio.length || isOwner ? <PortfolioSection key={selectedTalent || 'all'} items={shownPortfolio} isOwner={isOwner} />
+              : <p className="text-[12px] text-black/40 font-medium">No portfolio items yet.</p>
+          )}
+          {id === selectedTab && id === 'work-pass' && profileUser?.username && (
+            <WorkPass username={profileUser.username} compact />
+          )}
+          {id === selectedTab && id === 'gallery' && (
+            galleryItems.length || isOwner
+              ? <PortfolioSection title="Gallery" items={galleryItems} isOwner={isOwner}
+                  emptyMessage="Add pictures or videos to your Hats or publish approved media in Showroom."
+                  addLink="/showroom" addLabel="Open Showroom" />
+              : <p className="text-[12px] text-black/50">No public pictures or videos yet.</p>
+          )}
+          {id === selectedTab && id === 'hats' && (
+            hats.talent.length || hats.client.length || isBusiness
+              ? <ActiveHatsSection role={profileUser.role} talentHats={selectedTalent ? hats.talent.filter(h => h.category === selectedTalent) : hats.talent} clientHats={hats.client} />
+              : <p className="text-[12px] text-black/40 font-medium">No active Hats yet.</p>
+          )}
+          {id === selectedTab && id === 'associates' && <AssociatesSection data={social} isOwner={isOwner} onRefresh={refreshSocial} />}
+           {id === selectedTab && id === 'reviews' && <ReputationCard username={profileUser.username} subjectId={profileUser.id} isOwner={isOwner}/>}
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-black/10" role="progressbar"
-          aria-label="Orbit activity score" aria-valuemin={0} aria-valuemax={100} aria-valuenow={orbit.score}>
-          <div className="h-full rounded-full bg-[#0A13E6]" style={{width:`${orbit.score}%`}}/>
-        </div>
-        <details className="rounded-xl border border-black/10 px-3 py-2">
-          <summary className="cursor-pointer text-[12px] font-semibold">How this score is calculated</summary>
-          <dl className="mt-3 space-y-2">
-            {(orbit.factors||[]).map(factor=><div key={factor.key} className="flex justify-between gap-2 text-[11px]">
-              <dt>{factor.label}</dt><dd className="font-bold tabular-nums">{factor.earned}/{factor.possible}</dd>
-            </div>)}
-          </dl>
-          <p className="mt-3 text-[11px] text-black/55">{orbit.disclaimer}</p>
-        </details>
-      </section>}
+      ))}
+
+      <ProfileScore orbit={orbit} reputation={reputation} profileUser={profileUser} rankings={rankings}/>
       {performance&&<section aria-label="Platform performance" className="space-y-2 rounded-2xl border border-black/10 bg-white p-4">
         <h2 className="text-[15px] font-black">Performance records</h2>
         <div className="grid grid-cols-3 gap-2">
@@ -265,30 +283,6 @@ export default function ProfileView({
         {!isOwner&&['client','dual'].includes(viewer?.role)&&card.workModes.includes('Full-time')&&<Link className="inline-block rounded-xl bg-[#0A13E6] px-4 py-2 text-xs font-bold text-white" to={'/inbox?hire='+encodeURIComponent(profileUser.username)}>Hire full-time</Link>}
       </section>}
 
-      <SectionNav tabs={tabs} activeTab={selectedTab} onSelect={setActiveTab} />
-
-      {tabs.map(({ id }) => (
-        <div
-          key={id}
-          id={`profile-${id}-panel`}
-          role="tabpanel"
-          aria-labelledby={`profile-${id}-tab`}
-          tabIndex={id === selectedTab ? 0 : -1}
-          hidden={id !== selectedTab}
-        >
-          {id === selectedTab && id === 'portfolio' && (
-            shownPortfolio.length || isOwner ? <PortfolioSection key={selectedTalent || 'all'} items={shownPortfolio} isOwner={isOwner} />
-              : <p className="text-[12px] text-black/40 font-medium">No portfolio items yet.</p>
-          )}
-          {id === selectedTab && id === 'hats' && (
-            hats.talent.length || hats.client.length || isBusiness
-              ? <ActiveHatsSection role={profileUser.role} talentHats={selectedTalent ? hats.talent.filter(h => h.category === selectedTalent) : hats.talent} clientHats={hats.client} />
-              : <p className="text-[12px] text-black/40 font-medium">No active Hats yet.</p>
-          )}
-          {id === selectedTab && id === 'associates' && <AssociatesSection data={social} isOwner={isOwner} onRefresh={refreshSocial} />}
-           {id === selectedTab && id === 'reviews' && <ReputationCard username={profileUser.username} subjectId={profileUser.id} isOwner={isOwner}/>}
-        </div>
-      ))}
     </div>
   )
 }

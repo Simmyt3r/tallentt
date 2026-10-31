@@ -102,8 +102,9 @@ try{
     await page.getByRole('button',{name:'Open profile menu'}).click()
     const accountMenu=page.getByRole('navigation',{name:'Profile and account'})
     await accountMenu.getByRole('link',{name:'My profile'}).waitFor()
-    await accountMenu.getByRole('link',{name:'Edit profile'}).waitFor()
-    await accountMenu.getByRole('link',{name:'Membership & verification'}).waitFor()
+    assert.equal(await accountMenu.getByRole('link',{name:'Edit profile'}).count(),0)
+    await accountMenu.getByRole('link',{name:'My plans'}).waitFor()
+    await accountMenu.getByRole('link',{name:'Wallet'}).waitFor()
     await accountMenu.getByRole('link',{name:'Account settings'}).waitFor()
     await accountMenu.getByRole('button',{name:'Sign out'}).waitFor()
     assert.equal(await accountMenu.getByText('Work Pass').count(),0,

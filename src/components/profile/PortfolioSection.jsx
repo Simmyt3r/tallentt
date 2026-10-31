@@ -5,7 +5,7 @@ import { ImageIcon, Play } from 'lucide-react'
 import { cldImage, cldVideoPoster } from '../../lib/cloudinary'
 import PortfolioViewerModal from './PortfolioViewerModal.jsx'
 
-export default function PortfolioSection({ items, isOwner }) {
+export default function PortfolioSection({ items, isOwner, title = 'Portfolio', emptyMessage, addLink = '/create', addLabel = 'Add Portfolio' }) {
   const [activeIndex, setActiveIndex] = useState(null)
 
   // Visitors see nothing when there's genuinely no portfolio yet — no
@@ -16,7 +16,7 @@ export default function PortfolioSection({ items, isOwner }) {
   return (
     <section aria-labelledby="portfolio-heading" className="space-y-3">
       <h2 id="portfolio-heading" className="text-[15px] font-bold tracking-tight">
-        Portfolio
+        {title}
       </h2>
 
       {items?.length ? (
@@ -57,15 +57,15 @@ export default function PortfolioSection({ items, isOwner }) {
           <ImageIcon size={22} className="mx-auto text-black/30" />
           <p className="text-[13px] font-semibold">Show your work</p>
           <p className="text-[12px] text-black/50 max-w-[320px] mx-auto">
-            Add portfolio media to help clients understand what you can do.
+{emptyMessage || 'Add portfolio media to help clients understand what you can do.'}
           </p>
-          <Link to="/create" className="tw-btn-primary inline-flex h-9 px-4 text-[12px] mt-1">
-            Add Portfolio
+          <Link to={addLink} className="tw-btn-primary inline-flex h-9 px-4 text-[12px] mt-1">
+            {addLabel}
           </Link>
         </div>
       )}
 
-      {isOwner && items?.length > 0 && (
+      {isOwner && title === 'Portfolio' && items?.length > 0 && (
         <p className="text-[11px] text-black/40 font-medium">
           Portfolio media comes from your active Talent hats. Manage it from{' '}
           <Link to="/my-hats" className="underline underline-offset-2 hover:text-black">

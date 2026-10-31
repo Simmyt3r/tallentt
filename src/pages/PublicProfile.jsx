@@ -68,6 +68,8 @@ export default function PublicProfile() {
         isOwner={isOwnUsername}
         profileUser={profileUser}
         portfolio={profile?.portfolio}
+        gallery={profile?.gallery}
+        reputation={profile?.reputation}
         hats={profile?.hats}
         isVerified={profile?.isVerified}
         businessVerified={profile?.user?.isBusinessVerified===true}

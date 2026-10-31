@@ -42,9 +42,11 @@ test('one Inbox combines conversations while retaining distinct thread handlers'
   assert.doesNotMatch(inbox,/community_messages/)
 })
 
-test('bottom nav has precisely five destinations with one Inbox and no Associates icon',()=>{
+test('bottom nav has four destinations plus Work Pass and no duplicate Profile or Associates icon',()=>{
   const navs=[...nav.matchAll(/<BottomNavLink\s+to="([^"]+)"/g)].map(x=>x[1])
-  assert.deepEqual(navs,['/showroom','/bento','/vibes','/inbox','/profile'])
+  assert.deepEqual(navs,['/showroom','/bento','/vibes','/inbox'])
+  assert.match(nav,/aria-label="Open my Work Pass"/)
+  assert.doesNotMatch(nav,/to="\/profile"/)
 })
 
 test('legacy chat deep-links preserve original thread identifiers',()=>{

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { BadgeCheck, ChevronDown, LogOut, Settings2, SquarePen, UserRound } from 'lucide-react'
+import { BadgeCheck, ChevronDown, LogOut, Settings2, UserRound, Wallet } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { cldImage } from '../lib/cloudinary.js'
 
@@ -8,9 +8,9 @@ import { cldImage } from '../lib/cloudinary.js'
 // Work Pass intentionally lives in the persistent navigation, not this menu.
 const ITEMS = [
   { to: '/profile', label: 'My profile', icon: UserRound },
-  { to: '/profile?edit=1', label: 'Edit profile', icon: SquarePen },
-  { to: '/billing', label: 'Membership & verification', icon: BadgeCheck },
   { to: '/settings', label: 'Account settings', icon: Settings2 },
+  { to: '/billing', label: 'My plans', icon: BadgeCheck },
+  { to: '/wallet', label: 'Wallet', icon: Wallet },
 ]
 export default function ProfileMenu() {
   const { user, logout } = useAuth()

@@ -1,28 +1,28 @@
 // Path: src/components/profile/ProfileHeader.jsx
 import { useState } from 'react'
-import { BadgeCheck, Eye, Share2, Star } from 'lucide-react'
+import { BadgeCheck, Eye, Share2 } from 'lucide-react'
 import ProfilePhotoViewer from '../ProfilePhotoViewer.jsx'
 import UserIdentity from '../UserIdentity.jsx'
 import { getPrimaryIdentity, getProfilePath, isBusinessIdentity } from '../../lib/profile.js'
+import { singleDigitOrbit } from '../../lib/profileScore.js'
 
 export default function ProfileHeader({
   user,
   isOwner,
   isVerified,
   businessVerified=false,
-  ratingSummary,
   hasTalentHats,
   hasClientHats,
   onEditClick,
   onShowHats,
   orbit,
-  networkCounts,
-  onShowAssociates,
 }) {
   const [copied, setCopied] = useState(false)
   const [photoOpen, setPhotoOpen] = useState(false)
   const isBusiness = isBusinessIdentity(user.role)
   const identityLine = getPrimaryIdentity(user)
+  const mainTalent = user.talentCard?.mainTalent || user.talent_card?.mainTalent || ''
+  const orbitDigit = singleDigitOrbit(orbit?.score)
   const canonicalUrl = `${window.location.origin}${getProfilePath(user) || ''}`
 
   async function handleShare() {
@@ -74,16 +74,12 @@ export default function ProfileHeader({
             ) : null
           }
         >
-          {user.headline && <p className="text-[13px] font-semibold text-black/70 truncate mt-0.5">{user.headline}</p>}
+          {mainTalent && <p className="mt-1 break-words whitespace-normal text-[13px] font-bold leading-relaxed text-[#0A13E6]">Main talent: {mainTalent}</p>}
+          {user.headline && <p className="mt-0.5 break-words whitespace-normal text-[13px] font-semibold leading-relaxed text-black/70">{user.headline}</p>}
           {(user.location || user.lga) && (
             <p className="text-[12px] text-black/45 font-medium truncate">{user.location || [user.lga, user.country].filter(Boolean).join(', ')}</p>
           )}
-          {ratingSummary && (
-            <p className="flex items-center gap-1 text-[12px] font-semibold mt-1">
-              <Star size={12} className="text-amber-400 fill-amber-400" />
-              {ratingSummary.rating} <span className="text-black/40 font-medium">· {ratingSummary.count} rated {ratingSummary.count === 1 ? 'hat' : 'hats'}</span>
-            </p>
-          )}
+
         </UserIdentity>
         <button
           type="button"
@@ -100,19 +96,9 @@ export default function ProfileHeader({
         </button>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 text-[12px]">
-        {orbit && <span className="font-black text-[#0A13E6]">Orbit {orbit.score}/100</span>}
-        <button type="button" onClick={onShowAssociates} className="font-bold text-black/70 underline underline-offset-2">
-          {networkCounts?.associates ?? '—'} Associates
-        </button>
-        <button type="button" onClick={onShowAssociates} className="font-bold text-black/70 underline underline-offset-2">
-          {networkCounts?.subscribers ?? '—'} Subscribers
-        </button>
+      <div className="mt-4 flex items-center gap-3 text-[12px]">
+        {orbitDigit !== null && <span className="rounded-full bg-[#EEF0FF] px-3 py-1.5 font-black text-[#0A13E6]" aria-label={`Orbit score ${orbitDigit} on a single-digit scale`}>Orbit {orbitDigit}</span>}
       </div>
-      {(user.avatarUrl||user.avatar_url)&&<button type="button" onClick={()=>setPhotoOpen(true)}
-        className="mt-2 text-[11px] font-bold text-[#0A13E6] underline underline-offset-2">
-        View full profile picture
-      </button>}
       <div className="flex items-center gap-2 mt-4">
         {isOwner ? (
           <button type="button" onClick={onEditClick} className="tw-btn-primary h-9 px-4 text-[12px]">

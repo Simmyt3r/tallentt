@@ -108,11 +108,24 @@ export default async function handler(req, res) {
         `SELECT m.id, m.hat_id, m.url, m.public_id, m.type, m.caption, m.created_at, h.hat_title
          FROM hat_media m JOIN hats h ON h.id = m.hat_id
          WHERE m.hat_id = ANY($1::uuid[]) AND m.type IN ('image', 'video')
+           AND m.screening_status IN ('legacy','passed')
          ORDER BY (m.id::text = ANY($2::text[])) DESC, m.created_at DESC, m.id
          LIMIT 60`,
         [talentHatIds, userRow.talent_card?.featuredMedia || []],
       )
       portfolio = media
+    }
+
+    // Gallery is the public, moderated picture/video feed, separate from Hat portfolio.
+    // Its migration is optional; private/pending/held assets must not appear on profiles.
+    let gallery = []
+    const {rows:galleryStorage}=await query("SELECT to_regclass('showroom_gallery_posts') AS table_name")
+    if (galleryStorage[0]?.table_name) {
+      const {rows:galleryRows}=await query(`SELECT id,media_url AS url,media_type AS type,
+        caption,created_at FROM showroom_gallery_posts
+        WHERE author_id=$1 AND moderation_status='visible' AND deleted_at IS NULL
+        ORDER BY created_at DESC LIMIT 60`,[userRow.id])
+      gallery=galleryRows.map(item=>({...item,id:'gallery:'+item.id}))
     }
 
     const {rows:performanceRows}=await query(`SELECT
@@ -131,6 +144,7 @@ export default async function handler(req, res) {
       rating,
       ratedHatsCount: ratedHats.length,
       portfolio,
+      gallery,
       hats: {
         talent: hats.filter((h) => h.role === 'talent').map((h) => ({ id: h.id, hat_title: h.hat_title, category: h.category })),
         client: hats.filter((h) => h.role !== 'talent').map((h) => ({ id: h.id, hat_title: h.hat_title, category: h.category })),
