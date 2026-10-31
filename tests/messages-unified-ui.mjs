@@ -60,7 +60,13 @@ try{
             peer_name:'Alex User',peer_username:'alex'},messages})
         if(url.searchParams.has('community'))return respond({threads:[{
           ...normal,id:associate,status:'accepted',initiator_id:mine,recipient_id:peer,
+          last_at:'2026-10-30T12:00:10Z',
         }]})
+        if(url.searchParams.has('employment_id'))return respond({
+          agreement:{id:employment,employer_id:mine,talent_id:peer,status:'active',version:1,
+            employer_name:'Studio User',talent_name:'Alex User',terms:{role:'Designer',salary:70000,start_on:'2026-01-01',due_day:28}},
+          messages:[],periods:[],events:[],today:'2026-10-31',trackingPrices:null,
+        })
         if(url.searchParams.has('employment'))return respond({available:true,threads:[{
           ...normal,id:employment,hat_title:'Designer',last_message:'Salary confirmed',
         }]})
@@ -79,25 +85,45 @@ try{
       'Alex should appear once even with three chat types')
     await aside.getByText('3 chats').waitFor()
     await aside.getByRole('button',{name:/Alex User/}).click()
-    const contact=page.getByRole('region',{name:'Conversations with one person'})
-    await contact.getByRole('button',{name:/Associate chat/}).waitFor()
-    await contact.getByRole('button',{name:/^Bento ·/}).waitFor()
-    await contact.getByRole('button',{name:/Employment/}).waitFor()
-    assert.equal(await contact.getByRole('button',{name:/Open chat/}).count(),3)
+    // One tap opens the latest real chat directly. No intermediate
+    // "choose a conversation" page; separate chat histories stay switchable.
+    assert.match(new URL(page.url()).search,/(employment|thread|escrow)=/)
+    const channels=page.getByRole('navigation',{name:'Chats with this subscriber'})
+    try{await channels.getByRole('button',{name:/Associate chat/}).waitFor()}
+    catch(e){console.error('Inbox direct-open diagnostic',JSON.stringify({
+      url:page.url(),body:(await page.locator('body').innerText()).slice(0,2500),
+      buttons:await page.getByRole('button').allTextContents(),browserErrors
+    }));throw e}
+    await channels.getByRole('button',{name:/^Bento ·/}).waitFor()
+    await channels.getByRole('button',{name:/Employment/}).waitFor()
     await page.screenshot({path:'test-results/messages-consolidated-'+width+'.png',animations:'disabled'})
-    await contact.getByRole('button',{name:/Associate chat/}).click()
+    await channels.getByRole('button',{name:/Associate chat/}).click()
     const history=page.getByRole('region',{name:'Message history'})
     await history.getByText('Can you review my design?').waitFor()
     const inbound=history.getByRole('article').first()
-    await inbound.getByRole('button',{name:'Copy message'}).click()
+    assert.equal(await inbound.getByRole('button',{name:'Copy message'}).count(),0,
+      'ordinary messages should not show action buttons until a gesture')
+    // Long-press the message bubble, then choose Copy.
+    const bubble=inbound.locator('[tabindex="0"]')
+    const rect=await bubble.boundingBox()
+    await page.mouse.move(rect.x+Math.min(rect.width/2,80),rect.y+Math.min(rect.height/2,15))
+    await page.mouse.down()
+    await page.waitForTimeout(650)
+    await page.mouse.up()
+    await inbound.getByRole('menu',{name:'Message actions'}).waitFor()
+    await inbound.getByRole('menuitem',{name:'Copy message'}).click()
     assert.equal(await page.evaluate(()=>window.__copied),'Can you review my design?')
-    await inbound.getByRole('button',{name:'Translate message (coming soon)'}).click()
+    await bubble.click({button:'right'})
+    await inbound.getByRole('menuitem',{name:'Translate message (coming soon)'}).click()
     await inbound.getByText('Translations are coming soon.').waitFor()
-    await inbound.getByRole('button',{name:'Reply to Can you review my design?'}).click()
-    await page.getByText('Replying to').waitFor()
+    await bubble.click({button:'right'})
+    await inbound.getByRole('menuitem',{name:'Reply to Can you review my design?'}).click()
+    await page.getByRole('button',{name:'Cancel reply'}).waitFor()
+    assert.equal(await page.getByText('Replying to').count(),0)
     const own=history.getByRole('article').nth(1)
     await own.getByLabel('Read receipt: seen').waitFor()
-    await inbound.getByRole('button',{name:'Forward message'}).click()
+    await bubble.click({button:'right'})
+    await inbound.getByRole('menuitem',{name:'Forward message'}).click()
     const forward=page.getByRole('dialog',{name:'Forward message'})
     await forward.getByRole('radio').check()
     await forward.getByRole('button',{name:'Forward to selected chat'}).click()

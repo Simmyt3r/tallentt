@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { MessageCircle, PenSquare, Search, Trash2, ArrowLeft } from 'lucide-react'
+import { MessageCircle, PenSquare, Search } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { BookingThread } from './Messages.jsx'
 import { AssociateThread, NewAssociateChat } from './CommunityChats.jsx'
 import { EmploymentThread, NewEmployment } from './Employment.jsx'
-import {useAuth} from '../context/AuthContext.jsx'
+import InboxConversationRow from '../components/InboxConversationRow.jsx'
 import {consolidateInbox,chatLabel} from '../lib/inboxConsolidation.js'
 
 export default function Inbox() {
-  const {user}=useAuth()
   const [employment,setEmployment]=useState([])
-  const [employmentAvailable,setEmploymentAvailable]=useState(false)
   const [params, setParams] = useSearchParams()
   const [deals, setDeals] = useState([]),
     [associates, setAssociates] = useState([]),
@@ -20,9 +18,11 @@ export default function Inbox() {
     [filter, setFilter] = useState('all'),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(''),
-    [paging, setPaging] = useState(false)
+    [paging, setPaging] = useState(false),
+    [searchOpen,setSearchOpen] = useState(false)
   const alive = useRef(true),
-    initialized = useRef(false)
+    initialized = useRef(false),
+    hidden = useRef(new Set())
   const escrow = params.get('escrow'),
     thread = params.get('thread'),
     employmentId = params.get('employment'),
@@ -40,15 +40,15 @@ export default function Inbox() {
     const [bento, community] = results
     if(results[2].status==='fulfilled'){
       setEmployment(results[2].value.threads||[])
-      setEmploymentAvailable(results[2].value.available===true)
     }
     if (bento.status === 'fulfilled') {
+      const visible=bento.value.conversations||[]
+      // New activity may legitimately revive a hidden conversation. Trust
+      // server visibility; local IDs only prevent stale paginated rows returning.
+      visible.forEach(x=>hidden.current.delete('bento:'+x.id))
       setDeals((old) => [
-        ...bento.value.conversations,
-        ...old.filter(
-          (item) =>
-            !bento.value.conversations.some((next) => next.id === item.id),
-        ),
+        ...visible,
+        ...old.filter(item=>!hidden.current.has('bento:'+item.id)&&!visible.some(next=>next.id===item.id)),
       ])
       if (!initialized.current) {
         setCursor(bento.value.nextCursor)
@@ -56,7 +56,7 @@ export default function Inbox() {
       }
     }
     if (community.status === 'fulfilled')
-      setAssociates(community.value.threads || [])
+      setAssociates(community.value.threads||[])
     setError(
       results
         .filter((r) => r.status === 'rejected')
@@ -83,16 +83,14 @@ export default function Inbox() {
     }
   }, [refresh])
   const open = (kind, id) =>
-    setParams(kind === 'bento' ? { escrow: id } : kind === 'employment' ? {employment:id} : { thread: id })
+    setParams(kind === 'bento' ? { escrow: id } : kind === 'employment' ? {employment:id,view:'chat'} : { thread: id })
   async function more() {
     setPaging(true)
     try {
       const data = await api.getConversations(cursor)
       setDeals((old) => [
         ...old,
-        ...data.conversations.filter(
-          (item) => !old.some((x) => x.id === item.id),
-        ),
+        ...data.conversations.filter(item=>!old.some(x=>x.id===item.id)),
       ])
       setCursor(data.nextCursor)
     } catch (e) {
@@ -101,20 +99,23 @@ export default function Inbox() {
       setPaging(false)
     }
   }
-  async function remove(item) {
-    if (
-      !window.confirm(
-        'Remove this chat from your inbox? The deal and its records remain in My Deals.',
-      )
-    )
-      return
-    try {
-      await api.hideConversation(item.id)
-      setDeals((old) => old.filter((x) => x.id !== item.id))
-      if (escrow === item.id) setParams({})
-    } catch (e) {
-      setError(e.message)
-    }
+  async function remove(item){
+    const count=item.threads.length
+    const name=item.name||'this subscriber'
+    if(!window.confirm('Remove '+(count>1?'all '+count+' chats':'this chat')+' with '+name+' from your inbox? There is no Trash or Restore. Work and payment records remain intact.'))return
+    const attempts=await Promise.allSettled(item.threads.map(async entry=>{
+      if(entry.kind==='bento')await api.hideConversation(entry.id)
+      else await api.hideInboxThread(entry.kind,entry.id)
+      hidden.current.add(entry.kind+':'+entry.id)
+    }))
+    const failed=attempts.filter(x=>x.status==='rejected')
+    setDeals(old=>old.filter(x=>!hidden.current.has('bento:'+x.id)))
+    setAssociates(old=>old.filter(x=>!hidden.current.has('associates:'+x.id)))
+    setEmployment(old=>old.filter(x=>!hidden.current.has('employment:'+x.id)))
+    if(failed.length)setError(failed.map(x=>x.reason?.message||'Could not remove chat.').join(' · '))
+    else setError('')
+    if(item.threads.some(t=>t.id===escrow||t.id===thread||t.id===employmentId))setParams({})
+    window.dispatchEvent(new Event('inbox:read'))
   }
   const allThreads = [
     ...employment.map(x=>({...x,kind:'employment',name:x.peer_name||x.peer_username})),
@@ -137,18 +138,23 @@ export default function Inbox() {
     &&[x.name,x.peer_username,x.hat_title,x.last_message].some(value=>
       String(value||'').toLowerCase().includes(search.trim().toLowerCase()))
   ))
-  const selectedPerson=everyone.find(item=>item.id===personId)
-  const returnToPerson=(kind,id)=>{
-    const group=everyone.find(p=>p.threads.some(t=>t.kind===kind&&t.id===id))
-    setParams(group?{person:group.id}:{})
-    refresh()
-  }
+  const activePerson=everyone.find(person=>person.threads.some(t=>
+    t.kind==='bento'?t.id===escrow:t.kind==='employment'?t.id===employmentId:t.id===thread))
+  // Old ?person links stay valid; the user does not see a second chooser.
+  useEffect(()=>{
+    if(!personId||loading)return
+    const person=everyone.find(item=>item.id===personId)
+    const latest=person?.threads?.[0]
+    if(latest)open(latest.kind,latest.id)
+    else setParams({})
+  },[personId,loading,employment.length,deals.length,associates.length])
+  const returnToList=()=>{setParams({});refresh()}
   return (
-    <main className="mx-auto max-w-6xl py-3">
-      <div className="grid h-[calc(100dvh-150px)] min-h-[420px] overflow-hidden rounded-3xl border border-black/10 bg-white shadow-sm md:grid-cols-[320px_minmax(0,1fr)] md:h-[calc(100dvh-130px)]">
+    <main className="-mx-4 max-w-6xl md:mx-auto md:py-3">
+      <div className="grid h-[calc(100dvh-136px)] min-h-[420px] overflow-hidden bg-white md:grid-cols-[340px_minmax(0,1fr)] md:h-[calc(100dvh-130px)]">
         <aside
           aria-label="Conversations"
-          className={`${active ? 'hidden md:flex' : 'flex'} min-h-0 flex-col border-r border-black/10`}
+          className={`${active ? 'hidden md:flex' : 'flex'} min-h-0 flex-col md:border-r md:border-black/10`}
         >
           <header className="flex items-center justify-between px-5 pt-5">
             <div>
@@ -157,27 +163,22 @@ export default function Inbox() {
                 Your people. Your work. One inbox.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setParams({ compose: '1' })}
-              aria-label="New message"
-              title="New message"
-              className="grid h-10 w-10 place-items-center rounded-full bg-blue-50 text-[#0A13E6]"
-            >
-              <PenSquare size={19} />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button type="button" aria-label={searchOpen?'Close conversation search':'Search conversations'}
+                aria-expanded={searchOpen} onClick={()=>{setSearchOpen(open=>!open);setSearch('')}}
+                className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><Search size={19}/></button>
+              <button type="button" onClick={()=>setParams({compose:'1'})} aria-label="New message"
+                title="New message" className="grid h-10 w-10 place-items-center rounded-full bg-blue-50 text-[#0A13E6]">
+                <PenSquare size={19}/>
+              </button>
+            </div>
           </header>
-          {employmentAvailable&&['client','dual'].includes(user?.role)&&<button type="button" className="mx-4 mt-3 rounded-xl border border-blue-100 p-2 text-xs font-bold text-[#0A13E6]" onClick={()=>setParams({hire:''})}>Hire full-time</button>}
-          <label className="mx-4 mt-5 flex items-center gap-2 rounded-full bg-[#F4F5F7] px-3">
-            <Search size={17} className="text-black/40" />
-            <input
-              aria-label="Search conversations"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search messages and people"
-              className="min-w-0 flex-1 bg-transparent py-3 text-xs outline-none"
-            />
-          </label>
+          {searchOpen&&<label className="mx-4 mt-3 flex items-center gap-2 rounded-xl bg-[#F4F5F7] px-3">
+            <Search size={17} className="shrink-0 text-black/40"/>
+            <input autoFocus aria-label="Search messages and people" value={search}
+              onChange={e=>setSearch(e.target.value)} placeholder="Search messages and people"
+              className="min-w-0 flex-1 bg-transparent py-3 text-xs outline-none"/>
+          </label>}
           <div
             className="flex flex-wrap gap-1 px-4 py-3"
             aria-label="Filter conversations"
@@ -200,6 +201,7 @@ export default function Inbox() {
               </button>
             ))}
           </div>
+          <p className="px-4 pb-2 text-[10px] text-black/35">Press and hold or swipe a chat to manage it.</p>
           {error && (
             <div
               role="alert"
@@ -211,7 +213,7 @@ export default function Inbox() {
               </button>
             </div>
           )}
-          <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-3">
+          <ul className="min-h-0 flex-1 overflow-y-auto pb-3">
             {loading && (
               <li className="p-5 text-sm text-black/50">
                 Loading conversations…
@@ -224,81 +226,10 @@ export default function Inbox() {
                   : 'Your conversations will appear here. Start a chat with an Associate or book work from Bento.'}
               </li>
             )}
-            {items.map((item) => {
-              const selected = item.id===personId || item.threads.some(t=>
-                t.kind==='bento'?escrow===t.id:t.kind==='employment'?employmentId===t.id:thread===t.id)
-              return (
-                <li
-                  key={item.id}
-                  className={`group relative rounded-2xl ${selected ? 'bg-blue-50' : 'hover:bg-black/[0.03]'}`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setParams({person:item.id})}
-                    aria-current={selected ? 'page' : undefined}
-                    className="flex w-full items-center gap-3 p-3 text-left"
-                  >
-                    <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-[#EEEFFC] text-lg font-bold text-[#0A13E6]">
-                      {item.peer_avatar ? (
-                        <img
-                          src={item.peer_avatar}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        String(item.name || '?')
-                          .slice(0, 1)
-                          .toUpperCase()
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2">
-                        <strong className="flex-1 truncate text-sm">
-                          {item.name || 'Conversation'}
-                        </strong>
-                        {Number(item.unread_count) > 0 && (
-                          <span
-                            aria-label={`${item.unread_count} unread`}
-                            className="rounded-full bg-[#0A13E6] px-1.5 py-0.5 text-[10px] text-white"
-                          >
-                            {item.unread_count}
-                          </span>
-                        )}
-                      </span>
-                      <span
-                        className={`mt-0.5 block truncate text-xs ${Number(item.unread_count) > 0 ? 'font-semibold text-black/80' : 'text-black/45'}`}
-                      >
-                        {item.last_message || item.hat_title || 'Chat request'}
-                      </span>
-                      <span className="mt-1 flex gap-2 text-[10px] text-black/40">
-                        <span className="min-w-0 truncate">
-                          {item.channels.join(' · ')}{item.threads.length>1?' ('+item.threads.length+' chats)':''}
-                        </span>
-                        {item.last_at && (
-                          <time className="ml-auto shrink-0">
-                            {new Date(item.last_at).toLocaleDateString([], {
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </time>
-                        )}
-                      </span>
-                    </span>
-                  </button>
-                  {item.threads.length===1 && item.threads[0].kind === 'bento' && (
-                    <button
-                      type="button"
-                      aria-label={`Remove chat about ${item.threads[0].hat_title}`}
-                      title="Remove from inbox"
-                      onClick={() => remove(item.threads[0])}
-                      className="absolute bottom-1 right-2 rounded-full bg-white p-1.5 text-black/40 opacity-100 md:opacity-0 focus:opacity-100 group-hover:opacity-100"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                </li>
-              )
-            })}
+            {items.map(item=><InboxConversationRow key={item.id} item={item}
+              selected={item.threads.some(t=>t.kind==='bento'?escrow===t.id:t.kind==='employment'?employmentId===t.id:thread===t.id)}
+              onOpen={()=>{const latest=item.threads[0];if(latest)open(latest.kind,latest.id)}}
+              onRemove={remove}/>)}
           </ul>
           {cursor && (
             <button
@@ -314,31 +245,16 @@ export default function Inbox() {
         <div
           className={`${active ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-col [&>section]:flex-1`}
         >
-          {personId ? <section aria-label="Conversations with one person" className="flex h-full min-h-0 flex-col bg-white">
-            <header className="flex items-center gap-3 border-b border-black/10 px-4 py-4">
-              <button type="button" onClick={()=>setParams({})} aria-label="Back to inbox"
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-black/5"><ArrowLeft size={18}/></button>
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-base font-black">{selectedPerson?.name||'Conversations'}</h2>
-                <p className="mt-1 text-xs text-black/50">One person · separate trusted conversation records</p>
-              </div>
-            </header>
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
-              {(selectedPerson?.threads||[]).map(entry=><div key={entry.kind+entry.id}
-                className="flex items-center gap-2 rounded-2xl border border-black/10 p-3">
-                <button type="button" onClick={()=>open(entry.kind,entry.id)}
-                  className="min-w-0 flex-1 text-left">
-                  <strong className="block truncate text-sm">{chatLabel(entry)}</strong>
-                  <span className="mt-1 block truncate text-xs text-black/50">{entry.last_message||'Open conversation'}</span>
-                  <span className="mt-1 block text-[11px] text-[#0A13E6]">{Number(entry.unread_count)>0?entry.unread_count+' unread · ':''}Open chat</span>
-                </button>
-                {entry.kind==='bento'&&<button type="button" onClick={()=>remove(entry)}
-                  aria-label={'Hide '+chatLabel(entry)}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-red-50"><Trash2 size={15}/></button>}
-              </div>)}
-              {!selectedPerson&&<p className="text-sm text-black/50">This contact is no longer in your Inbox.</p>}
-            </div>
-          </section> : hiring ? <NewEmployment key={params.get('hire')||'new-hire'} username={params.get('hire')||''} onBack={()=>setParams({})} onOpen={id=>{open('employment',id);refresh()}}/> : employmentId ? <EmploymentThread key={employmentId} id={employmentId} onBack={()=>returnToPerson('employment',employmentId)} onChange={refresh}/> : compose ? (
+          {activePerson?.threads.length>1&&<nav aria-label="Chats with this subscriber"
+            className="flex shrink-0 gap-2 overflow-x-auto border-b border-black/10 bg-[#FAFAF8] px-3 py-2">
+            {activePerson.threads.map(entry=><button type="button" key={entry.kind+':'+entry.id}
+              onClick={()=>open(entry.kind,entry.id)}
+              aria-current={(entry.kind==='bento'&&entry.id===escrow)||(entry.kind==='employment'&&entry.id===employmentId)||(entry.kind==='associates'&&entry.id===thread)?'page':undefined}
+              className={`shrink-0 rounded-full px-3 py-2 text-[11px] font-bold ${(entry.kind==='bento'&&entry.id===escrow)||(entry.kind==='employment'&&entry.id===employmentId)||(entry.kind==='associates'&&entry.id===thread)?'bg-[#0A13E6] text-white':'bg-white text-black/60'}`}>
+              {chatLabel(entry)}
+            </button>)}
+          </nav>}
+          {hiring ? <NewEmployment key={params.get('hire')||'new-hire'} username={params.get('hire')||''} onBack={()=>setParams({})} onOpen={id=>{setParams({employment:id});refresh()}}/> : employmentId ? <EmploymentThread key={employmentId} id={employmentId} onBack={returnToList} onChange={refresh} initialTab={params.get("view")==="chat"?"chat":"agreement"}/> : compose ? (
             <NewAssociateChat
               onBack={() => setParams({})}
               onOpen={(id) => {
@@ -350,13 +266,13 @@ export default function Inbox() {
             <BookingThread
               key={'bento' + escrow}
               id={escrow}
-              onBack={() => returnToPerson('bento',escrow)}
+              onBack={returnToList}
             />
           ) : thread ? (
             <AssociateThread
               key={'associate' + thread}
               id={thread}
-              onBack={() => returnToPerson('associates',thread)}
+              onBack={returnToList}
               onChange={refresh}
             />
           ) : (

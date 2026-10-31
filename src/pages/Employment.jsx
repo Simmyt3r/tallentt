@@ -143,9 +143,9 @@ function SalaryPeriod({period,employer,agreement,today,onAction,busy,trackingPri
   </article>
 }
 
-export function EmploymentThread({id,onBack,onChange}){
+export function EmploymentThread({id,onBack,onChange,initialTab='agreement'}){
   const {user}=useAuth(),command=useCommand()
-  const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[tab,setTab]=useState('agreement'),[editing,setEditing]=useState(false),[terms,setTerms]=useState(null),[publish,setPublish]=useState(false),[ending,setEnding]=useState(false),[endNote,setEndNote]=useState(''),[message,setMessage]=useState(''),[reply,setReply]=useState(null)
+  const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[tab,setTab]=useState(initialTab),[editing,setEditing]=useState(false),[terms,setTerms]=useState(null),[publish,setPublish]=useState(false),[ending,setEnding]=useState(false),[endNote,setEndNote]=useState(''),[message,setMessage]=useState(''),[reply,setReply]=useState(null)
   const alive=useRef(true),sequence=useRef(0),scroll=useRef(null),bottom=useRef(true)
   const load=useCallback(async()=>{
     const seq=++sequence.current
@@ -201,13 +201,16 @@ export function EmploymentThread({id,onBack,onChange}){
     {tab==='chat'&&<div className="flex min-h-0 flex-1 flex-col">
       <div ref={scroll} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4" onScroll={e=>{bottom.current=e.currentTarget.scrollHeight-e.currentTarget.scrollTop-e.currentTarget.clientHeight<60;if(bottom.current)read()}}>
         {data.messages.map(m=>m.kind==='event'?<p key={m.id} className="rounded-xl bg-black/5 p-3 text-center text-xs text-black/60">{m.body}</p>:<div key={m.id} className={'flex '+(m.sender_id===user.id?'justify-end':'justify-start')}><div className={'max-w-[85%] rounded-2xl p-3 text-sm '+(m.sender_id===user.id?'bg-[#0A13E6] text-white':'bg-[#F4F5F7]')}>
-          {m.reply_body&&<blockquote className="mb-2 border-l-2 pl-2 text-xs opacity-70">{m.reply_body}</blockquote>}<p className="whitespace-pre-wrap break-words">{m.body}</p><time className="mt-2 block text-[10px] opacity-70">{new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</time>
           <MessageActions message={m} own={m.sender_id===user.id} canReply={['pending','active','ended'].includes(a.status)}
-            onReply={setReply}/>
+            onReply={setReply}>
+            {m.reply_body&&<blockquote className="mb-2 border-l-2 pl-2 text-xs opacity-70">{m.reply_body}</blockquote>}
+            <p className="whitespace-pre-wrap break-words">{m.body}</p>
+            <time className="mt-2 block text-[10px] opacity-70">{new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</time>
+          </MessageActions>
         </div></div>)}
         {!data.messages.length&&<p className="text-sm text-black/40">Send the invitation to start a private conversation.</p>}
       </div>
-      {['pending','active','ended'].includes(a.status)&&<form onSubmit={send} className="space-y-2 border-t p-3">{reply&&<div className="flex gap-2 rounded-lg bg-blue-50 p-2 text-xs"><span className="min-w-0 flex-1 truncate">Replying to: {reply.body}</span><button type="button" onClick={()=>setReply(null)}>Cancel reply</button></div>}<div className="flex gap-2"><textarea aria-label="Employment message" className="tw-input min-h-12 flex-1 resize-none" maxLength={2000} value={message} onChange={e=>setMessage(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();if(message.trim()&&!busy)send(e)}}}/><button className={button} disabled={busy||!message.trim()} aria-label="Send employment message"><Send size={18}/></button></div></form>}
+      {['pending','active','ended'].includes(a.status)&&<form onSubmit={send} className="space-y-2 border-t p-3">{reply&&<div className="flex gap-2 rounded-lg bg-blue-50 p-2 text-xs"><span className="min-w-0 flex-1 truncate">{reply.body}</span><button type="button" onClick={()=>setReply(null)}>Cancel reply</button></div>}<div className="flex gap-2"><textarea aria-label="Employment message" className="tw-input min-h-12 flex-1 resize-none" maxLength={2000} value={message} onChange={e=>setMessage(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();if(message.trim()&&!busy)send(e)}}}/><button className={button} disabled={busy||!message.trim()} aria-label="Send employment message"><Send size={18}/></button></div></form>}
     </div>}
   </section>
 }

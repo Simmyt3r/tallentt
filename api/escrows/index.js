@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {employmentGet,employmentAction} from '../_lib/employment.js'
+import {hideInboxThread} from '../_lib/inboxHidden.js'
 import {reviewAction,reviewJobs} from '../_lib/reputation.js'
 // Path: api/escrows/index.js
 import { query, getClient } from '../_lib/db.js'
@@ -172,6 +173,7 @@ export default async function handler(req, res) {
       return json(res, 200, await threadAction(session.sub, body))
     }
     if (body.action === 'hide_conversation') return json(res, 200, await hideConversation(session.sub, body.escrow_id))
+    if (body.action === 'inbox_hide_thread') return json(res, 200, await hideInboxThread(session.sub, body.kind, body.thread_id))
     if (body.action === 'respond_booking') {
       return json(res, 200, await respondBookingRequest(session.sub, body.escrow_id, body.status))
     }

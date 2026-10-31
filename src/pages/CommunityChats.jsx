@@ -161,6 +161,8 @@ export function AssociateThread({ id, onBack, onChange = () => {} }) {
               key={m.id}
               className={`w-fit max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${own ? 'ml-auto bg-[#0A13E6] text-white' : 'border border-black/5 bg-white'}`}
             >
+              <MessageActions message={m} own={own} canReply={accepted}
+                onReply={selected=>{setReply(selected);document.getElementById('associate-message')?.focus()}}>
               {m.reply_body && (
                 <blockquote className="mb-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] border-l-2 border-current/30 pl-2 text-xs opacity-75">
                   <strong className="block">
@@ -185,8 +187,7 @@ export function AssociateThread({ id, onBack, onChange = () => {} }) {
                   minute: '2-digit',
                 })}
               </time>
-              <MessageActions message={m} own={own} canReply={accepted}
-                onReply={selected=>{setReply(selected);document.getElementById('associate-message')?.focus()}}/>
+              </MessageActions>
             </article>
           )
         })}
@@ -222,12 +223,7 @@ export function AssociateThread({ id, onBack, onChange = () => {} }) {
           {reply && (
             <div className="mb-2 flex items-center gap-2 rounded-xl bg-blue-50 p-3 text-xs">
               <div className="min-w-0 flex-1">
-                <strong>
-                  Replying to{' '}
-                  {reply.sender_id === user?.id
-                    ? 'yourself'
-                    : thread.peer_name || thread.peer_username}
-                </strong>
+                <span className="sr-only">Reply preview</span>
                 <p className="truncate">{reply.body}</p>
               </div>
               <button

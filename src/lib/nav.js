@@ -7,7 +7,6 @@ import {
   Briefcase,
   Handshake,
   Wallet as WalletIcon,
-  MessageCircle,
   ArrowLeftRight,
   Scale,
   Radio,
@@ -25,7 +24,6 @@ export const NAV_PRIMARY = [
 
 export const NAV_SECONDARY = [
   { to: '/negotiations', icon: ArrowLeftRight, label: 'Negotiation Center' },
-  { to: '/inbox', icon: MessageCircle, label: 'Inbox' },
   { to: '/wallet', icon: WalletIcon, label: 'Wallet' },
   { to: '/disputes', icon: Scale, label: 'Dispute Center' },
 ]
