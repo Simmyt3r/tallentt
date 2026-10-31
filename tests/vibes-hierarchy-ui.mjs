@@ -129,6 +129,7 @@ try{
     await page.waitForURL(url=>url.pathname==='/vibes/'+postId+'/comments')
     const conversation=page.getByRole('main',{name:'Vibe conversation page'})
     await conversation.getByRole('heading',{name:'Comments'}).waitFor()
+    await conversation.getByRole('article',{name:'Vibe by Creator Person'}).waitFor()
     assert.equal(await conversation.getByRole('article',{name:'Vibe by Creator Person'}).count(),1,
       'full-page conversation keeps the original post visible')
     const thread=conversation.locator('[data-thread-id="'+rootId+'"]')
