@@ -100,7 +100,7 @@ export default function DealDetails() {
   if (!data?.thread) {
     return (
       <>
-        <CompactPageHeader title="Deal Details"/>
+        <h1 className="mb-4 text-[22px] font-black">Deals details</h1>
         <div className="mx-auto max-w-4xl">
           <div className="rounded-[20px] border border-red-200 bg-red-50 p-5">
             <p className="text-[13px] font-bold text-red-700">{error || 'Deal not found.'}</p>
