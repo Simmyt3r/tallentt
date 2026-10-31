@@ -1,7 +1,8 @@
 // Path: src/components/Sidebar.jsx
 import { NavLink } from 'react-router-dom'
-import { IdCard, ShieldCheck, X } from 'lucide-react'
+import { ShieldCheck, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import WorkPassNavIcon from './WorkPassNavIcon.jsx'
 import { NAV_PRIMARY, NAV_SECONDARY } from '../lib/nav'
 
 function SidebarLink({ to, icon: Icon, label, end, collapsed, onNavigate }) {
@@ -108,7 +109,7 @@ export function DesktopSidebar({ collapsed, onOpenWorkPass }) {
         <button type="button" onClick={onOpenWorkPass} title="Open my Work Pass"
           aria-label="Open my Work Pass"
           className={`flex min-h-11 w-full items-center gap-3 rounded-xl border border-[#D9DFFA] bg-[#E9ECFF] px-3 font-bold text-[#0A13E6] hover:bg-[#DDE3FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6] ${collapsed?'justify-center':''}`}>
-          <IdCard size={20} className="shrink-0" aria-hidden="true"/>
+          <WorkPassNavIcon size={23} className="shrink-0" />
           {!collapsed && <span className="text-[12px]">My Work Pass</span>}
         </button>
       </div>

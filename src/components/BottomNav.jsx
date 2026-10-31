@@ -1,8 +1,9 @@
 // Path: src/components/BottomNav.jsx
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Store, LayoutGrid, MessageSquareHeart, MessageCircle, IdCard } from 'lucide-react'
+import { Store, LayoutGrid, MessageSquareHeart, MessageCircle } from 'lucide-react'
 import { api } from '../lib/api.js'
+import WorkPassNavIcon from './WorkPassNavIcon.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 
@@ -79,7 +80,7 @@ export default function BottomNav({ onOpenWorkPass, workPassOpen = false }) {
       <button type="button" onClick={onOpenWorkPass} aria-label="Open my Work Pass"
         aria-pressed={workPassOpen}
         className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[9px] font-bold transition-colors sm:text-[10px] ${workPassOpen?'text-[#0A13E6]':'text-black/45 hover:text-[#0A13E6]'}`}>
-        <IdCard size={22} strokeWidth={2.1} aria-hidden="true"/>
+        <WorkPassNavIcon size={24} />
         <span>Work Pass</span>
       </button>
     </nav>

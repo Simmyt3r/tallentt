@@ -10,7 +10,7 @@ import { optOutPageToursForFixture } from './page-tour-fixture.mjs'
 
 const root=fileURLToPath(new URL('..',import.meta.url))
 const port=5187
-const vite=await createServer({root,server:{host:'127.0.0.1',port,strictPort:true,proxy:{}}})
+const vite=await createServer({root,server:{host:'127.0.0.1',port,strictPort:true,proxy:null}})
 let browser
 await mkdir('test-results',{recursive:true})
 const sourceFile='test-results/work-pass-source.mp4'
@@ -67,7 +67,8 @@ try{
       if(url.pathname==='/api/auth'){
         if(action==='work_pass')return send({token:qrPayload,signatureStatus:'signed',tier:'Gold',
           user:{username:'studio',name:'Studio Designer',role:'talent',headline:'Visual storyteller',avatarUrl:'/fixture-portrait.svg',skills:['Photography','Editing']},
-          completedJobs:12,successfulHires:3,orbit:76,evidence:[{id:'evidence-1',image_url:'/fixture-evidence.svg'}],endorsements:[],robots:[]})
+          completedJobs:12,successfulHires:3,orbit:76,
+          roleOrbit:{talent:{score:76},client:{score:31}},printEligibility:{canPrint:false,reason:'Tracking fees outstanding'},evidence:[{id:'evidence-1',image_url:'/fixture-evidence.svg'}],endorsements:[],robots:[]})
         if(action==='me'||!action)return send({user})
         return send({count:0,notifications:[],user})
       }
@@ -122,8 +123,13 @@ try{
     const workPass=page.getByRole('dialog',{name:'ChombuTar Work Pass'})
     await workPass.getByRole('heading',{name:'Studio Designer'}).waitFor()
     assert.equal(await workPass.getByText('Gold Work Pass',{exact:true}).count(),1)
-    assert.equal(await workPass.getByText(/76\s*\/100/).count(),1)
+    const roles=workPass.getByRole('region',{name:'Separate talent and client Orbit scores'})
+    assert.equal(await roles.getByText('7',{exact:true}).count(),1)
+    assert.equal(await roles.getByText('3',{exact:true}).count(),1)
+    assert.equal(await workPass.getByText('Orbit Score',{exact:true}).count(),0)
+    assert.equal(await workPass.getByRole('button',{name:'Print card'}).isDisabled(),true)
     assert.equal(await workPass.getByText('Signed Work Pass',{exact:true}).count(),1)
+    assert.equal(await workPass.locator('.workpass-hero img[alt^="Signed Work Pass QR"]').count(),1)
     const logo=workPass.locator('img[src="/logo.png"]')
     assert.equal(await logo.count(),1,'Use actual ChombuTar logo asset')
     await logo.evaluate(img=>img.decode())

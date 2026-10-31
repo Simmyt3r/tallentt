@@ -3,6 +3,7 @@
 import { query, getClient } from './db.js'
 import { accountOrbit } from './accountOrbit.js'
 import { trackingPeriodsPaid } from './salaryTrackingFees.js'
+import { workPassPrintEligibility } from './workPassPrint.js'
 import { signedHatMediaEnabled, verifyNewHatMedia, claimHatMediaPermits } from './hatMediaUpload.js'
 import { workPassTier, WORK_PASS_DISCLAIMER } from '../../shared/workPass.js'
 import { signingPublicKey, signWorkPassClaim } from './workPassSigning.js'
@@ -18,7 +19,7 @@ async function ensureSchema(){
   if(!rows[0]?.evidence||!rows[0]?.robots||!rows[0]?.endorsements)
     throw invalid(503,'Work Pass tables are not ready. Open Admin → Database Migrations and apply the Work Pass migration.')
 }
-export async function getWorkPass(username) {
+export async function getWorkPass(username, viewerId=null) {
   const clean=safeString(username,30).replace(/^[@^]/,'')
   if(!/^[a-z0-9._-]{3,30}$/i.test(clean))throw invalid(400,'Invalid profile username.')
   const {rows}=await query(
@@ -43,6 +44,11 @@ export async function getWorkPass(username) {
     client:{score:0,max:100,factors:[]},
   }
   const paidTrackingMonths=await trackingPeriodsPaid(query,user.id).catch(()=>({talent:0,client:0}))
+  // Printing is owner-only and checked from authoritative records. Never expose
+  // another subscriber's salary tracking or balance of unpaid periods.
+  const printEligibility=viewerId===user.id
+    ? await workPassPrintEligibility(user.id).catch(()=>({canPrint:false,reason:'Payment status could not be verified. Try again later.',dueMonths:0,paidMonths:0,outstandingMonths:0}))
+    : null
   const roleTiers={
     talent:workPassTier(completedJobs,roleOrbit.talent.score),
     client:workPassTier(successfulHires,roleOrbit.client.score),
@@ -72,6 +78,7 @@ export async function getWorkPass(username) {
   return {user:{username:user.username,name:user.full_name,role:user.role,avatarUrl:user.avatar_url,
       skills:user.skills||[],industry:user.industry||[],headline:user.headline},
     tier,roleTiers,orbit,roleOrbit,paidTrackingMonths,completedJobs,successfulHires,rating:null,ratingCount:0,
+    ...(viewerId===user.id?{printEligibility}:{}),
     claim,token,keyId,
     signatureStatus:token?'signed':'not_configured',disclaimer:WORK_PASS_DISCLAIMER,
     evidence:evidence.rows,robots:robots.rows,endorsements:endorsements.rows,
