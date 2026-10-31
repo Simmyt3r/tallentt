@@ -60,7 +60,13 @@ try{
             peer_name:'Alex User',peer_username:'alex'},messages})
         if(url.searchParams.has('community'))return respond({threads:[{
           ...normal,id:associate,status:'accepted',initiator_id:mine,recipient_id:peer,
+          last_at:'2026-10-30T12:00:10Z',
         }]})
+        if(url.searchParams.has('employment_id'))return respond({
+          agreement:{id:employment,employer_id:mine,talent_id:peer,status:'active',version:1,
+            employer_name:'Studio User',talent_name:'Alex User',terms:{role:'Designer',salary:70000,start_on:'2026-01-01',due_day:28}},
+          messages:[],periods:[],events:[],today:'2026-10-31',trackingPrices:null,
+        })
         if(url.searchParams.has('employment'))return respond({available:true,threads:[{
           ...normal,id:employment,hat_title:'Designer',last_message:'Salary confirmed',
         }]})
