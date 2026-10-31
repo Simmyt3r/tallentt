@@ -193,6 +193,10 @@ export async function getStream(streamId, viewerId) {
 // across every Vercel instance. Only the provider, not a subscriber, can
 // turn a Cloudinary room LIVE. A stopped stream is no longer publicly active.
 export async function refreshCloudinaryLive(streamId){
+  // Older databases may still run the MediaMTX-only schema.
+  const {rows:installed}=await query(`SELECT EXISTS(SELECT 1 FROM information_schema.columns
+    WHERE table_name='live_streams' AND column_name='cloudinary_stream_id') AS enabled`)
+  if(!installed[0]?.enabled)return
   const {rows}=await query(`UPDATE live_streams
     SET cloudinary_checked_at=NOW()
     WHERE id=$1 AND cloudinary_stream_id IS NOT NULL
