@@ -266,6 +266,7 @@ export const api = {
   notifyBookingQrReady: (id, stage) => request(`/api/escrows/${id}/notify-qr-ready`, { method: 'POST', body: JSON.stringify({ stage }) }),
   redeemBookingQr: (id, token) => request(`/api/escrows/${id}/redeem-qr`, { method: 'POST', body: JSON.stringify({ token }) }),
   hideConversation: (escrow_id) => request('/api/escrows', { method: 'POST', body: JSON.stringify({ action: 'hide_conversation', escrow_id }) }),
+  hideInboxThread: (kind, thread_id) => request('/api/escrows', {method:'POST',body:JSON.stringify({action:'inbox_hide_thread',kind,thread_id})}),
   getDealCall: (escrow_id,after=0) => request(`/api/escrows?${new URLSearchParams({
     deal_call:'1',escrow_id,after:String(after),
   })}`),
