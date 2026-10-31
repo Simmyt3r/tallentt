@@ -138,6 +138,11 @@ export default function Inbox() {
       String(value||'').toLowerCase().includes(search.trim().toLowerCase()))
   ))
   const selectedPerson=everyone.find(item=>item.id===personId)
+  const returnToPerson=(kind,id)=>{
+    const group=everyone.find(p=>p.threads.some(t=>t.kind===kind&&t.id===id))
+    setParams(group?{person:group.id}:{})
+    refresh()
+  }
   return (
     <main className="mx-auto max-w-6xl py-3">
       <div className="grid h-[calc(100dvh-150px)] min-h-[420px] overflow-hidden rounded-3xl border border-black/10 bg-white shadow-sm md:grid-cols-[320px_minmax(0,1fr)] md:h-[calc(100dvh-130px)]">
@@ -333,7 +338,7 @@ export default function Inbox() {
               </div>)}
               {!selectedPerson&&<p className="text-sm text-black/50">This contact is no longer in your Inbox.</p>}
             </div>
-          </section> : hiring ? <NewEmployment key={params.get('hire')||'new-hire'} username={params.get('hire')||''} onBack={()=>setParams({})} onOpen={id=>{open('employment',id);refresh()}}/> : employmentId ? <EmploymentThread key={employmentId} id={employmentId} onBack={()=>{setParams({});refresh()}} onChange={refresh}/> : compose ? (
+          </section> : hiring ? <NewEmployment key={params.get('hire')||'new-hire'} username={params.get('hire')||''} onBack={()=>setParams({})} onOpen={id=>{open('employment',id);refresh()}}/> : employmentId ? <EmploymentThread key={employmentId} id={employmentId} onBack={()=>returnToPerson('employment',employmentId)} onChange={refresh}/> : compose ? (
             <NewAssociateChat
               onBack={() => setParams({})}
               onOpen={(id) => {
@@ -345,19 +350,13 @@ export default function Inbox() {
             <BookingThread
               key={'bento' + escrow}
               id={escrow}
-              onBack={() => {
-                setParams({})
-                refresh()
-              }}
+              onBack={() => returnToPerson('bento',escrow)}
             />
           ) : thread ? (
             <AssociateThread
               key={'associate' + thread}
               id={thread}
-              onBack={() => {
-                setParams({})
-                refresh()
-              }}
+              onBack={() => returnToPerson('associates',thread)}
               onChange={refresh}
             />
           ) : (
