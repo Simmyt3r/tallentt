@@ -46,7 +46,7 @@ test('server list queries include peer IDs, and the inbox never moves actual mes
   assert.match(inbox,/const latest=item.threads\[0\]/)
   assert.match(inbox,/open\(latest.kind,latest.id\)/)
   assert.doesNotMatch(inbox,/selectedPerson\?\.threads/)
-  assert.match(inbox,/initialTab="chat"/)
+  assert.match(inbox,/initialTab=\{params.get\("view"\)/)
   assert.doesNotMatch(inbox,/INSERT INTO (?:booking_messages|community_messages|employment_messages)/)
 })
 test('messages support permission-controlled forwarding while preserving read receipts',()=>{
