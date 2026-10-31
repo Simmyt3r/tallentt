@@ -467,6 +467,11 @@ export default function StageRoom() {
 
       {isHost&&room.media_mode==='cloudinary'&&!['ended','failed'].includes(room.status)&&<CloudinaryBroadcastSetup
         id={id} status={room.status} onRefresh={()=>load().catch(err=>setError(err.message||'Could not check Live status.'))}/>}
+      {isHost&&room.media_mode==='cloudinary'&&room.status==='starting'&&<button type="button"
+        onClick={endLive} disabled={busy}
+        className="min-h-11 rounded-full border border-red-300 px-4 text-[12px] font-bold text-red-700 disabled:opacity-50">
+        Cancel broadcast setup
+      </button>}
       {isHost && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{[
         ['Today’s Live Earnings', money(room.earnings?.today_net_earnings)], ['Total Gifts', room.earnings?.total_gifts || 0], ['Gross Support', money(room.earnings?.gross_support)], ['Platform Fee', money(room.earnings?.platform_fee)]
       ].map(([label,value]) => <div key={label} className="rounded-[18px] border border-black/10 bg-white p-3"><p className="text-[10px] font-bold text-black/45">{label}</p><p className="text-[16px] font-bold mt-1">{value}</p></div>)}</div>}
