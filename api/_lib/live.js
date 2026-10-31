@@ -1,5 +1,5 @@
 // Path: api/_lib/live.js
-// ChombuTar Live: MediaMTX-backed livestreaming + real-wallet Talent Support.
+// ChombuTar Live: Cloudinary RTMP/HLS or MediaMTX WHIP/HLS, plus wallet Talent Support.
 
 import crypto from 'node:crypto'
 import { query, getClient } from './db.js'
@@ -262,6 +262,14 @@ export async function createStream(userId, body) {
     ) AS installed`)
     if(!installed[0]?.installed)
       throw liveError(503,'Apply the Cloudinary Live RTMP broadcasting migration in Admin before starting Live.')
+    const {rows:limits}=await query(`SELECT
+      COUNT(*) FILTER(WHERE status IN ('starting','live','reconnecting'))::int AS active,
+      COUNT(*) FILTER(WHERE created_at>NOW()-INTERVAL '1 day')::int AS today
+      FROM live_streams WHERE talent_id=$1 AND cloudinary_stream_id IS NOT NULL`,[userId])
+    if(Number(limits[0]?.active)>0)
+      throw liveError(409,'End your existing Cloudinary Live before creating another.')
+    if(Number(limits[0]?.today)>=6)
+      throw liveError(429,'Daily Cloudinary Live room limit reached. Try again tomorrow.')
     const upstream=await createCloudinaryLive(title)
     try{
       const {rows}=await query(`INSERT INTO live_streams
