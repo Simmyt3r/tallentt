@@ -1,13 +1,9 @@
 // Path: src/components/BottomNav.jsx
-import { useCallback, useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Store, LayoutGrid, MessageSquareHeart, MessageCircle } from 'lucide-react'
-import { api } from '../lib/api.js'
+import { Store, LayoutGrid, MessageSquareHeart } from 'lucide-react'
 import WorkPassNavIcon from './WorkPassNavIcon.jsx'
-import { useAuth } from '../context/AuthContext.jsx'
-import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 
-function BottomNavLink({ to, end, icon: Icon, label, badge = 0 }) {
+function BottomNavLink({ to, end, icon: Icon, label }) {
   return (
     <NavLink
       to={to}
@@ -20,11 +16,6 @@ function BottomNavLink({ to, end, icon: Icon, label, badge = 0 }) {
     >
       <span className="relative">
         <Icon size={20} />
-        {badge > 0 && (
-          <span className="absolute -top-2 -right-3 min-w-5 h-5 px-1 rounded-full bg-[#FF5A1F] text-white text-[9px] font-black grid place-items-center border border-black">
-            {badge > 99 ? '99+' : badge}
-          </span>
-        )}
       </span>
       <span>{label}</span>
     </NavLink>
@@ -32,40 +23,6 @@ function BottomNavLink({ to, end, icon: Icon, label, badge = 0 }) {
 }
 
 export default function BottomNav({ onOpenWorkPass, workPassOpen = false }) {
-  const { user } = useAuth()
-  const [unreadMessages, setUnreadMessages] = useState(0)
-
-  const loadCount = useCallback(async () => {
-    if (!user?.id) return
-    try {
-      const results = await Promise.allSettled([api.getConversations(), api.getCommunityChats(), api.getEmploymentChats()])
-      const threads = results.flatMap(result => result.status === 'fulfilled'
-        ? result.value.conversations || result.value.threads || [] : [])
-      if (results.some(result => result.status === 'fulfilled'))
-        setUnreadMessages(threads.reduce((sum,thread)=>sum+Number(thread.unread_count||0),0))
-    } catch (error) {
-      console.error('inbox unread count failed:', error)
-    }
-  }, [user?.id])
-
-  useEffect(() => {
-    loadCount()
-    const id = setInterval(loadCount, 60_000)
-    const onLocalChange = () => loadCount()
-    window.addEventListener('mydeals:changed', onLocalChange)
-    window.addEventListener('inbox:read', onLocalChange)
-    return () => {
-      clearInterval(id)
-      window.removeEventListener('mydeals:changed', onLocalChange)
-      window.removeEventListener('inbox:read', onLocalChange)
-    }
-  }, [loadCount])
-
-  useEffect(() => {
-    if (!user?.id) return undefined
-    const connection = connectMyDealsRealtime(user.id, { onChange: loadCount })
-    return () => connection.close()
-  }, [loadCount, user?.id])
 
   return (
     <nav
@@ -76,7 +33,6 @@ export default function BottomNav({ onOpenWorkPass, workPassOpen = false }) {
       <BottomNavLink to="/showroom" icon={Store} label="Showroom" />
       <BottomNavLink to="/bento" icon={LayoutGrid} label="Bento" />
       <BottomNavLink to="/vibes" icon={MessageSquareHeart} label="Vibes" />
-      <BottomNavLink to="/inbox" icon={MessageCircle} label="Inbox" badge={unreadMessages} />
       <button type="button" onClick={onOpenWorkPass} aria-label="Open my Work Pass"
         aria-pressed={workPassOpen}
         className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[9px] font-bold transition-colors sm:text-[10px] ${workPassOpen?'text-[#0A13E6]':'text-black/45 hover:text-[#0A13E6]'}`}>
