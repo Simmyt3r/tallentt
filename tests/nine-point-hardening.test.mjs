@@ -44,14 +44,15 @@ test('shared discovery input avoids native X and original cross-tab Back behavio
     'the global chat entry must expose Associates Chat, not only deal chat')
 })
 
-test('BentoCards display real account-level Orbit and notifications retain the original searchable field',()=>{
+test('BentoCards display real account-level Orbit and notifications retain the searchable notification records',()=>{
   const bento=read('src/components/BentoCard.jsx')
   const notifications=read('src/pages/Notifications.jsx')
   assert.match(bento,/useAccountOrbit\(hat\.username\)/)
   assert.match(bento,/Orbit \{accountOrbitScore/)
-  assert.doesNotMatch(notifications,/aria-label="Search notifications"/)
-  assert.match(notifications,/<CompactPageHeader title="Notifications" icon=\{Bell\} searchValue=\{search\} onSearchChange=\{setSearch\}/)
-  assert.match(notifications,/searchPlaceholder="Search notifications…"/)
+  assert.match(notifications,/aria-label="Search selected notification category"/)
+  assert.match(notifications,/placeholder="Search notifications…"/)
+  assert.match(notifications,/onChange=\{event=>setSearch\(event.target.value\)\}/)
+  assert.match(notifications,/aria-label="More notification actions"/)
 })
 
 test('admin keeps original liability and income summary layout while read-only liability API remains available',()=>{

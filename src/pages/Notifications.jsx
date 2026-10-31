@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, Send, WalletCards, XCircle, Trash2 } from 'lucide-react'
+import { ArrowRight, Bell, CheckCheck, CheckCircle2, Handshake, Info, MoreVertical, Search, Send, WalletCards, X, XCircle, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
-import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 
@@ -69,6 +68,9 @@ export default function Notifications() {
   const [notifications, setNotifications] = useState([])
   const [search, setSearch] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [searchOpen,setSearchOpen]=useState(false)
+  const [bulkMenuOpen,setBulkMenuOpen]=useState(false)
+  const bulkMenuRef=useRef(null)
   const [unreadCount, setUnreadCount] = useState(0)
   const [unreadByLane,setUnreadByLane] = useState({bento:0,money:0,associates:0,fame:0})
   const [nextCursor, setNextCursor] = useState(null)
@@ -82,6 +84,25 @@ export default function Notifications() {
     const timer = setTimeout(() => setSearchTerm(search.trim()), 250)
     return () => clearTimeout(timer)
   }, [search])
+  useEffect(()=>{
+    if(!bulkMenuOpen)return undefined
+    const outside=event=>{
+      if(!bulkMenuRef.current?.contains(event.target))setBulkMenuOpen(false)
+    }
+    const keydown=event=>{
+      if(event.key==='Escape'){
+        event.preventDefault()
+        setBulkMenuOpen(false)
+        bulkMenuRef.current?.querySelector('button[aria-label="More notification actions"]')?.focus()
+      }
+    }
+    document.addEventListener('pointerdown',outside)
+    document.addEventListener('keydown',keydown)
+    return()=>{
+      document.removeEventListener('pointerdown',outside)
+      document.removeEventListener('keydown',keydown)
+    }
+  },[bulkMenuOpen])
   const cancelHold = () => { if (holdTimer.current) clearTimeout(holdTimer.current); holdTimer.current = null }
   const startHold = (notification) => { cancelHold(); heldRef.current = false; holdTimer.current = setTimeout(() => { heldRef.current = true; setSelectedForDelete(notification) }, 550) }
 
@@ -204,7 +225,7 @@ export default function Notifications() {
   }
 
   async function clearInbox() {
-    if (!notifications.length || !window.confirm('Clear your entire notification inbox, including items outside this search? This cannot be undone.')) return
+    if (!window.confirm('Clear your entire notification inbox, including items outside this search? This cannot be undone.')) return
     try {
       await api.clearNotifications()
       setNotifications([])
@@ -226,23 +247,60 @@ export default function Notifications() {
 
   return (
     <main className="max-w-4xl mx-auto pb-8">
-      <CompactPageHeader title="Notifications" icon={Bell} searchValue={search} onSearchChange={setSearch}
-        searchPlaceholder="Search notifications…" searchLabel="Search selected notification category"/>
-      <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-        <button type="button" onClick={clearInbox} disabled={!notifications.length}
-          className="inline-flex h-9 items-center gap-2 rounded-full border border-red-200 bg-white px-3.5 text-[11px] font-black text-red-700 disabled:opacity-35">
-          <Trash2 size={14}/> Clear all
-        </button>
-        <button type="button" onClick={markAll} disabled={!unreadCount}
-          className="inline-flex h-9 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-3.5 text-[11px] font-black disabled:opacity-35">
-          <CheckCheck size={15}/> Mark all read
-        </button>
-      </div>
+      <header className="sticky top-14 md:top-16 z-20 -mx-4 md:-mx-6 lg:-mx-8 mb-3 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 md:px-6 lg:px-8 backdrop-blur-lg">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Bell size={22} aria-hidden="true" className="shrink-0"/>
+            <h1 className="min-w-0 text-[21px] font-black tracking-tight sm:text-[23px]">Notifications</h1>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <button type="button" aria-label={searchOpen?'Close notifications search':'Search notifications'}
+              aria-expanded={searchOpen} aria-controls="notification-search"
+              onClick={()=>{if(searchOpen)setSearch('');setSearchOpen(open=>!open)}}
+              className={`grid h-11 w-11 place-items-center rounded-full transition hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-[#0A13E6] ${searchOpen?'bg-[#EEF0FF] text-[#0A13E6]':'text-black/70'}`}>
+              {searchOpen?<X size={20}/>:<Search size={20}/>}
+            </button>
+            <div ref={bulkMenuRef} className="relative">
+              <button type="button" aria-label="More notification actions" aria-haspopup="menu"
+                aria-expanded={bulkMenuOpen} onClick={()=>setBulkMenuOpen(open=>!open)}
+                className="grid h-11 w-11 place-items-center rounded-full text-black/70 hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-[#0A13E6]">
+                <MoreVertical size={21}/>
+              </button>
+              {bulkMenuOpen&&<div role="menu" aria-label="Notification actions"
+                className="absolute right-0 top-full z-30 mt-2 w-48 overflow-hidden rounded-2xl border border-black/10 bg-white p-1.5 shadow-[0_15px_40px_rgba(0,0,0,.15)]">
+                <button type="button" role="menuitem" disabled={!unreadCount}
+                  onClick={()=>{setBulkMenuOpen(false);markAll()}}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[12px] font-semibold hover:bg-[#EEF0FF] disabled:opacity-40">
+                  <CheckCheck size={17}/> Mark all read
+                </button>
+                <button type="button" role="menuitem" disabled={loading}
+                  onClick={()=>{setBulkMenuOpen(false);clearInbox()}}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[12px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40">
+                  <Trash2 size={16}/> Clear all
+                </button>
+              </div>}
+            </div>
+          </div>
+        </div>
+        {searchOpen&&<div id="notification-search" className="mt-3 flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 focus-within:border-[#0A13E6]">
+          <Search size={17} className="shrink-0 text-black/45" aria-hidden="true"/>
+          <input autoFocus type="text" inputMode="search" value={search}
+            onChange={event=>setSearch(event.target.value)}
+            aria-label="Search selected notification category"
+            placeholder="Search notifications…"
+            className="h-11 min-w-0 flex-1 bg-transparent text-[13px] outline-none"/>
+          {search&&<button type="button" aria-label="Clear notification search"
+            onClick={()=>setSearch('')} className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-black/55 hover:bg-black/5">
+            <X size={16}/>
+          </button>}
+        </div>}
+      </header>
 
-      <nav role="tablist" aria-label="Notification categories" className="mb-3 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+      <nav role="tablist" aria-label="Notification categories"
+        className="mb-3 flex w-full min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain pb-2 whitespace-nowrap">
         {LANES.map(([id,label])=><button key={id} type="button" role="tab"
           aria-selected={currentLane===id} onClick={()=>setParams({lane:id})}
-          className={`flex min-h-11 items-center justify-center gap-1 rounded-xl border px-2 py-2 text-[11px] font-black
+          className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-[11px] font-black
             ${currentLane===id?'border-[#0A13E6] bg-[#EEF0FF] text-[#0A13E6]':'border-black/10 bg-white text-black/65'}`}>
           {label}
           {(id==='all'?unreadCount:Number(unreadByLane[id]||0))>0&&<span className={`inline-block h-2 w-2 shrink-0 rounded-full ${id==='bento'||id==='money'?'bg-red-600':'bg-blue-600'}`}
