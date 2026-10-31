@@ -83,6 +83,17 @@ try{
       await page.screenshot({path:'test-results/vibes-thread-'+width+'.png',fullPage:true})
       throw err
     }
+    // Size feedback is measured in MB, not in attachment slots.
+    assert.equal(await page.getByText('(0/10)').count(),0)
+    assert.equal(await page.getByText('80 MB max').count(),1)
+    const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64')
+    const upload=Buffer.concat([png,Buffer.alloc(1024*1024-png.length)])
+    await page.getByLabel('Choose Vibes photos').setInputFiles({
+      name:'tiny-photo.png',mimeType:'image/png',buffer:upload,
+    })
+    await page.getByLabel('Media storage: 1 of 80 MB').waitFor()
+    await page.getByRole('button',{name:'Remove photo'}).click()
+    await page.getByText('80 MB max').waitFor()
     const summary=article.getByRole('region',{name:'Vibe engagement counts'})
     // The like count, comments, shares and lower actions have distinct roles.
     const counts=article.locator('[aria-label="Vibe engagement counts"]')
