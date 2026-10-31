@@ -41,3 +41,15 @@ Derived from the uploaded **Chombotar – Associates & Chat Design**, which expl
 - A pinned Bento Chat job card with separate Pay, Deliver, Review and Dispute **actions** must reuse verified existing checkout/lifecycle routes after dedicated acceptance tests. The existing deal detail remains available.
 
 This implementation intentionally builds the core relationship and unified Inbox foundations first; those deferred items are NOT shipped.
+
+
+## October 31, 2026 — Contact consolidation and message actions
+
+- The unified Inbox now displays **one row per real user ID**, grouping Associate, Bento/escrow and Employment conversations under that person's name. Unread badges sum unread messages across the person's displayed threads, and the preview follows the most recent activity. Multiple people with the same full name remain separate because they have different user IDs.
+- Selecting a person opens a **conversation selector** that preserves each source thread, its permissions, pricing, work events, and employment privacy. The implementation does not merge escrow and HR messages into a networking database or delete existing messages. Existing `?escrow=`, `?thread=` and `?employment=` links still work.
+- The header Inbox chooser also deduplicates its recent contact preview.
+- A reusable message action row is shown for direct Associate, Bento deal, and Employment messages: **Reply** uses the existing verified `reply_to_id`; **Copy** uses the clipboard with a mobile fallback; **Forward** lets the sender explicitly choose an already accepted Associate thread. The existing authenticated `community_send` action enforces recipient membership, block/acceptance state, rate limits and length. Forwarded content is sent as an ordinary new message with a clearly visible 'Forwarded message' prefix; it never claims cryptographic message provenance and does not transfer original deal records.
+- **Read receipt** shows *Sent* with a single check until the other party's existing read endpoint writes `read_at`; it then shows *Seen* with a double check and timestamp. This reflects app reads, not proof the recipient understood the message.
+- **Translate** is a visible non-operational button displaying 'Translations are coming soon.' No external translation provider has been connected and no translated text is fabricated.
+- No database migration or stored-message rewrite is required for this UI refactor. Existing `messaging-2026-10` must already have been applied to support its quoted replies and read receipts.
+- Browser verification: `tests/messages-unified-ui.mjs` covers mobile and desktop contact grouping, reading status, copying, forwarding, reply selection and Translate placeholder. Unit/regression validation: `tests/messages-consolidation.test.mjs`. Workflow: `.github/workflows/messages-inbox.yml`.
