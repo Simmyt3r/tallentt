@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Send, Search } from 'lucide-react'
 import { api } from '../lib/api.js'
+import MessageActions from '../components/MessageActions.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 
 export function AssociateThread({ id, onBack, onChange = () => {} }) {
@@ -184,32 +185,8 @@ export function AssociateThread({ id, onBack, onChange = () => {} }) {
                   minute: '2-digit',
                 })}
               </time>
-              <div className="mt-1 flex items-center justify-between gap-4 text-[10px]">
-                {accepted && (
-                  <button
-                    type="button"
-                    className="py-1 underline underline-offset-2"
-                    aria-label={`Reply to ${m.body}`}
-                    onClick={() => {
-                      setReply(m)
-                      document.getElementById('associate-message')?.focus()
-                    }}
-                  >
-                    Reply
-                  </button>
-                )}
-                {own && (
-                  <span
-                    title={
-                      m.read_at
-                        ? new Date(m.read_at).toLocaleString()
-                        : undefined
-                    }
-                  >
-                    {m.read_at ? 'Seen' : 'Sent'}
-                  </span>
-                )}
-              </div>
+              <MessageActions message={m} own={own} canReply={accepted}
+                onReply={selected=>{setReply(selected);document.getElementById('associate-message')?.focus()}}/>
             </article>
           )
         })}

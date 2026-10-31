@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, RefreshCw, Send, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
+import MessageActions from '../components/MessageActions.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { workLabels } from '../components/BookingProgress.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
@@ -481,10 +482,8 @@ export function BookingThread({ id, onBack }) {
                   minute: '2-digit',
                 })}
               </time>
-              <div className="mt-1 flex items-center justify-between gap-3 text-[10px]">
-                {!closed && <button type="button" className="rounded px-1 py-1 underline underline-offset-2" aria-label={`Reply to ${message.body}`} onClick={() => { setReply(message); document.getElementById(`message-${id}`)?.focus() }}>Reply</button>}
-                {own && <span title={message.read_at ? new Date(message.read_at).toLocaleString() : undefined}>{message.read_at ? 'Seen' : 'Sent'}</span>}
-              </div>
+              <MessageActions message={message} own={own} canReply={!closed}
+                onReply={selected=>{setReply(selected);document.getElementById(`message-${id}`)?.focus()}}/>
             </article>
           )
         })}
