@@ -46,7 +46,7 @@ export default function DealAgreement(){
     document.body.appendChild(a);a.click();a.remove()
     setTimeout(()=>URL.revokeObjectURL(href),1000)
   }
-  const valid=record?.agreement?.status==='secured'&&Boolean(token)
+  const valid=record?.agreement?.status==='secured'&&record?.agreement?.work_status!=='disputed'&&Boolean(token)
   const ready=Boolean(record)&&(!token||Boolean(qr))
   return <main className="mx-auto max-w-4xl space-y-4 pb-12">
     <header className="flex flex-wrap items-center gap-3 border-b border-black/10 pb-3">
