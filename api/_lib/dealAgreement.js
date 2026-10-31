@@ -50,7 +50,7 @@ export async function getDealAgreement(userId,dealId,dbQuery=query){
     agreement:publicRow,
     verificationToken:signed,
     documentType:issued?'funded_agreement':'draft',
-    gatePassEligible:row.status==='secured',
+    gatePassEligible:row.status==='secured'&&row.work_status!=='disputed',
     verificationRequired:true,
   }
 }
@@ -66,7 +66,7 @@ export async function verifyAgreementToken(token,dbQuery=query){
     clientName:row.client_name,talentName:row.talent_name,
     amount:row.amount,currency:row.currency,payUnit:row.pay_unit,serviceArea:row.hat_lga,
     status:row.status,gatePassEligible:row.status==='secured',
-    message:row.status==='secured'
+    message:row.status==='secured'&&row.work_status!=='disputed'
       ? 'Funded deal verified. Physical access still requires venue approval and identity matching.'
       : 'This agreement has a valid signature but is not an active gate pass.'}
 }
