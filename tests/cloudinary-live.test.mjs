@@ -92,6 +92,8 @@ test('host secrets are gated, live status comes from Cloudinary and stage playba
  assert.match(hub,/created\.media_mode==='cloudinary'/)
  assert.match(hub,/Create RTMP Live room/)
  assert.match(room,/Copy stream key/)
+ assert.match(room,/Cancel broadcast setup/)
+ assert.match(live,/if\(upstream\[0\]\.status==='starting'\)/)
  assert.match(room,/api\.getCloudinaryPublisher\(id\)/)
  assert.match(stage,/cloudinary_hls_url/)
  assert.match(read('db/patch-cloudinary-live-2026-10.sql'),/cloudinary_stream_id/)
