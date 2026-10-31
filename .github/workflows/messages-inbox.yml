@@ -1,0 +1,34 @@
+name: Unified Messages and Inbox
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  messages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Identity consolidation and message permissions
+        run: node --test tests/messages-consolidation.test.mjs tests/bento-inbox.test.mjs
+      - name: Server syntax and production UI build
+        run: npm run check:api && npm run build
+      - name: Browser tests for mobile and desktop Inbox
+        run: |
+          npx playwright install --with-deps chromium
+          node tests/messages-unified-ui.mjs
+      - name: Capture message UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: messages-inbox-ui
+          path: test-results/messages-*.png
+          if-no-files-found: ignore
