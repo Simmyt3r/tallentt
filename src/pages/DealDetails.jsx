@@ -208,7 +208,7 @@ export default function DealDetails() {
             : <p className="text-[12px] text-black/60">{thread.status==='secured'?'A dispute is already open. Await authorized review.':closed?'This deal is already closed and cannot be cancelled again.':'Payment or checkout is in progress. Check the payment state before requesting cancellation.'}</p>}
       </section>}
 
-      </div>
+      {error&&detailSection!=='overview'&&<p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-[12px] font-bold text-red-700">{error}</p>}
 
       {detailSection==='overview'&&
       <section className="overflow-hidden rounded-[24px] border-[1.5px] border-black bg-[#F7F3EB]">
@@ -274,6 +274,10 @@ export default function DealDetails() {
                   <p className="mt-1 text-[12px] font-black">{money(remaining, thread.currency)}</p>
                 </div>
               </div>
+              <details className="mt-3 border-t border-black/10 pt-3 text-[12px]">
+                <summary className="cursor-pointer font-bold text-[#0A13E6]">How escrow works</summary>
+                <p className="mt-2 text-black/65">The agreed amount is secured before work starts. A verified Start QR releases the initial 30% payment; the remaining escrow is released after delivery approval and the Completion QR. Disputes pause settlement so the authorized process can release or refund funds still held. Platform commission is recorded when the deal is sealed.</p>
+              </details>
             </section>
           )}
 
