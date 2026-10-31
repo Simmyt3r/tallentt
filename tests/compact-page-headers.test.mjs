@@ -7,11 +7,9 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 const primaryScreens = [
   'src/pages/Feed.jsx',
   'src/pages/Vibes.jsx',
-  'src/pages/Inbox.jsx',
   'src/pages/Negotiations.jsx',
   'src/pages/Notifications.jsx',
   'src/pages/MyDeals.jsx',
-  'src/pages/Settings.jsx',
   'src/pages/Wallet.jsx',
   'src/pages/DisputeCenter.jsx',
   'src/pages/Admin.jsx',
@@ -31,6 +29,13 @@ test('primary screens keep classic flexible page headers with title and search',
   for (const path of primaryScreens) {
     assert.match(read(path), /CompactPageHeader/, `${path} should use CompactPageHeader`)
   }
+
+  // Inbox has its own contextual chat search, while Settings intentionally
+  // has no search control: neither should inherit global Showroom discovery.
+  const settings=read('src/pages/Settings.jsx')
+  assert.doesNotMatch(settings,/CompactPageHeader|DiscoverySearch/)
+  assert.match(settings,/aria-label="Settings sections"/)
+  assert.match(read('src/pages/Inbox.jsx'),/aria-label="Search conversations"/)
 
   const header = read('src/components/CompactPageHeader.jsx')
   assert.match(header, /sticky top-14 md:top-16 z-10/)
@@ -61,5 +66,5 @@ test('list searches remain connected to their own records', () => {
   assert.match(read('src/pages/Live/LiveHub.jsx'), /const visibleRooms = rooms\.filter/)
   assert.match(read('src/pages/Live/StageCompetitions.jsx'), /const visibleItems=items\.filter/)
   assert.match(read('src/pages/Wallet.jsx'), /Search wallet activity/)
-  assert.match(read('src/pages/Inbox.jsx'), /searchValue=\{terms\[tab\]\}/)
+  assert.match(read('src/pages/Inbox.jsx'), /aria-label="Search messages and people"/)
 })
