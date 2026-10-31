@@ -83,7 +83,11 @@ try{
     // "choose a conversation" page; separate chat histories stay switchable.
     assert.match(new URL(page.url()).search,/(employment|thread|escrow)=/)
     const channels=page.getByRole('navigation',{name:'Chats with this subscriber'})
-    await channels.getByRole('button',{name:/Associate chat/}).waitFor()
+    try{await channels.getByRole('button',{name:/Associate chat/}).waitFor()}
+    catch(e){console.error('Inbox direct-open diagnostic',JSON.stringify({
+      url:page.url(),body:(await page.locator('body').innerText()).slice(0,2500),
+      buttons:await page.getByRole('button').allTextContents(),browserErrors
+    }));throw e}
     await channels.getByRole('button',{name:/^Bento ·/}).waitFor()
     await channels.getByRole('button',{name:/Employment/}).waitFor()
     await page.screenshot({path:'test-results/messages-consolidated-'+width+'.png',animations:'disabled'})
