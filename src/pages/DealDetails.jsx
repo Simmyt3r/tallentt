@@ -161,6 +161,7 @@ export default function DealDetails() {
           </li>)}
         </ol>
         {!(data.messages||[]).length&&<p className="text-[12px] text-black/55">No messages recorded for this transaction.</p>}
+        {data.cancellation&&<p className="rounded-xl bg-amber-50 p-3 text-[12px] text-amber-900">Cancelled before funding: {data.cancellation.reason} · {new Date(data.cancellation.cancelled_at).toLocaleString()}</p>}
         {data.nextCursor&&<p className="text-[11px] text-black/55">Older messages are available in the dedicated deal conversation.</p>}
         <Link to={`/messages?escrow=${thread.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
           <MessageCircle size={16}/> Open deal chat
