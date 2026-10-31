@@ -83,6 +83,17 @@ try{
       await page.screenshot({path:'test-results/vibes-thread-'+width+'.png',fullPage:true})
       throw err
     }
+    // Size feedback is measured in MB, not in attachment slots.
+    assert.equal(await page.getByText('(0/10)').count(),0)
+    assert.equal(await page.getByText('80 MB max').count(),1)
+    const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64')
+    const upload=Buffer.concat([png,Buffer.alloc(1024*1024-png.length)])
+    await page.getByLabel('Choose Vibes photos').setInputFiles({
+      name:'tiny-photo.png',mimeType:'image/png',buffer:upload,
+    })
+    await page.getByLabel('Media storage: 1 of 80 MB').waitFor()
+    await page.getByRole('button',{name:'Remove photo'}).click()
+    await page.getByText('80 MB max').waitFor()
     const summary=article.getByRole('region',{name:'Vibe engagement counts'})
     // The like count, comments, shares and lower actions have distinct roles.
     const counts=article.locator('[aria-label="Vibe engagement counts"]')
@@ -115,7 +126,13 @@ try{
     await share.waitFor({state:'detached'})
     await article.locator('[aria-label="Vibe engagement counts"]').getByLabel('1 shares').waitFor()
     await actions.getByRole('button',{name:'Comment on Vibe'}).click()
-    const thread=article.locator('[data-thread-id="'+rootId+'"]')
+    await page.waitForURL(url=>url.pathname==='/vibes/'+postId+'/comments')
+    const conversation=page.getByRole('main',{name:'Vibe conversation page'})
+    await conversation.getByRole('heading',{name:'Comments'}).waitFor()
+    await conversation.getByRole('article',{name:'Vibe by Creator Person'}).waitFor()
+    assert.equal(await conversation.getByRole('article',{name:'Vibe by Creator Person'}).count(),1,
+      'full-page conversation keeps the original post visible')
+    const thread=conversation.locator('[data-thread-id="'+rootId+'"]')
     await thread.getByText('Original comment').waitFor()
     assert.equal(await thread.getByText('Older nested reply').count(),0,'Nested replies should be expandable')
     await thread.getByRole('button',{name:/View 1 reply/}).click()
@@ -125,7 +142,7 @@ try{
     await composer.fill('A thoughtful second-level response')
     await thread.getByRole('button',{name:'Send threaded reply'}).click()
     await thread.getByText('A thoughtful second-level response').waitFor()
-    await counts.getByRole('button',{name:'View comments (3)'}).waitFor()
+    await conversation.getByRole('button',{name:'View comments (3)'}).waitFor()
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'Vibes comments should fit at '+width+'px')
     await page.screenshot({path:'test-results/vibes-thread-'+width+'.png',animations:'disabled'})

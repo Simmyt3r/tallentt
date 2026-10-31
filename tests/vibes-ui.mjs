@@ -78,7 +78,11 @@ try {
     assert.equal(published,true)
     await page.getByRole('button',{name:'Like Vibe'}).click()
     await page.getByRole('button',{name:'Unlike Vibe'}).waitFor()
-    await page.getByRole('button',{name:/Replies/}).click()
+    // The reply composer is not embedded in the feed; comments have a
+    // dedicated route, and the same post remains visible above the discussion.
+    await page.getByRole('button',{name:'Comment on Vibe'}).click()
+    await page.waitForURL(url=>url.pathname==='/vibes/'+postId+'/comments')
+    await page.getByRole('heading',{name:'Comments'}).waitFor()
     await page.getByRole('textbox',{name:'Write a reply'}).fill('Hello!')
     await page.getByRole('button',{name:'Send reply'}).click()
     await page.getByText('Hello!').waitFor()
