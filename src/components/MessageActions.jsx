@@ -7,8 +7,21 @@ import ForwardMessageDialog from './ForwardMessageDialog.jsx'
 export default function MessageActions({message,own=false,canReply=true,onReply,showRead=true}){
   const [forward,setForward]=useState(false),[notice,setNotice]=useState('')
   async function copy(){
+    const content=String(message.body||'')
     try{
-      await navigator.clipboard.writeText(message.body||'')
+      if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(content)
+      else {
+        // Older mobile webviews may lack the async clipboard API.
+        const textarea=document.createElement('textarea')
+        textarea.value=content
+        textarea.style.position='fixed';textarea.style.left='-9999px'
+        document.body.appendChild(textarea)
+        textarea.select()
+        let copied=false
+        try{copied=document.execCommand('copy')}
+        finally{textarea.remove()}
+        if(!copied)throw new Error('Clipboard unavailable')
+      }
       setNotice('Copied')
     }catch{
       setNotice('Copy unavailable. Select the message text instead.')
