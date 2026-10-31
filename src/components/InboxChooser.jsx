@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BriefcaseBusiness, UsersRound, X } from 'lucide-react'
 import { api } from '../lib/api.js'
+import {consolidateInbox} from '../lib/inboxConsolidation.js'
 
 // A lightweight chooser before entering the one unified inbox.
 // It never mixes deal and networking threads, even in its recent previews.
@@ -27,6 +28,10 @@ export default function InboxChooser({ open, onClose, preferred = 'associates' }
     { lane: 'associates', title: 'Associates Chat', subtitle: 'Professional networks and collaboration', icon: UsersRound },
   ].sort((a,b)=>a.lane===preferred?-1:b.lane===preferred?1:0)
 
+  const people=consolidateInbox([
+    ...recent.bento.map(t=>({...t,kind:'bento',name:t.peer_full_name||t.peer_username})),
+    ...recent.associates.map(t=>({...t,kind:'associates',name:t.peer_name||t.peer_username})),
+  ]).slice(0,6)
   return <div role="presentation" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
     <section role="dialog" aria-modal="true" aria-labelledby="inbox-chooser-heading"
       className="w-full max-w-md rounded-t-3xl border border-black/10 bg-white p-5 shadow-2xl sm:rounded-3xl"
@@ -44,16 +49,14 @@ export default function InboxChooser({ open, onClose, preferred = 'associates' }
             <span><strong className="block text-[13px]">{title}</strong><span className="text-[11px] text-black/55">{subtitle}</span></span>
           </Link>)}
       </div>
-      {recent.bento.length + recent.associates.length > 0 && <div className="mt-4 border-t border-black/10 pt-3">
-        <p className="mb-2 text-[11px] font-black text-black/55">Recent conversations</p>
-        {[...recent.bento.map(item=>({id:item.id,label:item.hat_title||'Booked work',lane:'bento',query:'escrow'})),
-          ...recent.associates.map(item=>({id:item.id,label:'^'+item.peer_username,lane:'associates',query:'thread'}))]
-          .slice(0,6).map(item=><Link key={item.lane+item.id} onClick={onClose}
-            to={`/inbox?tab=${item.lane}&${item.query}=${encodeURIComponent(item.id)}`}
-            className="flex justify-between gap-3 rounded-xl px-2 py-2 text-[12px] hover:bg-black/5">
-            <span className="truncate font-semibold">{item.label}</span>
-            <span className="shrink-0 text-black/50">{item.lane==='bento'?'Bento Chat':'Associate Chat'}</span>
-          </Link>)}
+      {people.length>0&&<div className="mt-4 border-t border-black/10 pt-3">
+        <p className="mb-2 text-[11px] font-black text-black/55">Recent people</p>
+        {people.map(person=><Link key={person.id} onClick={onClose}
+          to={'/inbox?person='+encodeURIComponent(person.id)}
+          className="flex justify-between gap-3 rounded-xl px-2 py-2 text-[12px] hover:bg-black/5">
+          <span className="truncate font-semibold">{person.name||person.peer_username}</span>
+          <span className="shrink-0 text-black/50">{person.threads.length} {person.threads.length===1?'chat':'chats'}</span>
+        </Link>)}
       </div>}
     </section>
   </div>
