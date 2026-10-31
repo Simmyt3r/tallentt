@@ -31,6 +31,8 @@ export default function VerifyDealAgreement(){
         <div><dt className="font-semibold">Service</dt><dd>{result.hatTitle}</dd></div>
         <div><dt className="font-semibold">Client</dt><dd>{result.clientName}</dd></div>
         <div><dt className="font-semibold">Talent</dt><dd>{result.talentName}</dd></div>
+        <div><dt className="font-semibold">Recorded amount</dt><dd>{new Intl.NumberFormat("en-NG",{style:"currency",currency:result.currency||"NGN",maximumFractionDigits:0}).format(Number(result.amount||0))}{result.payUnit?` /${result.payUnit}`:""}</dd></div>
+        <div><dt className="font-semibold">Service area</dt><dd>{result.serviceArea||"Not specified"}</dd></div>
         <div><dt className="font-semibold">Current status</dt><dd className="capitalize">{String(result.status).replaceAll('_',' ')}</dd></div>
       </dl>
       <p className="border-t border-black/10 pt-3 text-[11px] text-black/60">Match the person presenting this pass with the named talent and confirm the venue has authorized access. A valid QR does not replace site security checks.</p>
