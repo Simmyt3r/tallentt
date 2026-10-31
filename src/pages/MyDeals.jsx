@@ -403,35 +403,32 @@ export default function MyDeals() {
                       )}
                     </div>
 
-                    <div className="flex flex-wrap justify-end gap-2 border-t border-black/10 px-4 py-3">
-                      {tab === 'incoming' && (
-                        <>
-                          <button type="button" disabled={busyId === id} onClick={() => respond(item, 'rejected')} className="h-9 rounded-full border-[1.5px] border-black px-4 text-[11px] font-black disabled:opacity-50">{busyId === id ? 'Rejecting…' : 'Reject'}</button>
-                          <button type="button" disabled={busyId === id || unresolvedRange} onClick={() => respond(item, 'accepted')} className="h-9 rounded-full border-[1.5px] border-black bg-[#0A13E6] px-4 text-[11px] font-black text-white disabled:opacity-50">
-                            <span className="inline-flex items-center gap-1.5"><Check size={14} />{busyId === id ? 'Accepting…' : unresolvedRange ? 'Agree price first' : 'Accept'}</span>
-                          </button>
-                        </>
-                      )}
-
-                      {tab === 'outgoing' && isApplication && (
-                        <button type="button" disabled={busyId === id} onClick={() => withdrawApplication(item)} className="h-9 rounded-full border border-black/20 px-4 text-[11px] font-black text-black/60 disabled:opacity-50">{busyId === id ? 'Withdrawing…' : 'Withdraw'}</button>
-                      )}
-
-                      {negotiable && (item.negotiation_escrow_id || item.id) && (
-                        <Link to={`/negotiations?escrow=${item.negotiation_escrow_id || item.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-black px-4 text-[11px] font-black">
-                          <Handshake size={14} />{item.agreed_at ? 'Agreement' : 'Negotiate'}
+                    <div className="flex flex-wrap justify-end gap-2 border-t border-black/5 px-4 py-3">
+                      {!isApplication
+                        ? <Link to={`/deals/${item.id}?role=${role}`}
+                          className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
+                          View details <ChevronRight size={15}/>
                         </Link>
-                      )}
-
-                      {!isApplication && (
-                        <>
-                          <Link to={`/messages?escrow=${item.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-black px-4 text-[11px] font-black"><MessageCircle size={14} />Deals Chat</Link>
-                          <Link to={`/deals/${item.id}?role=${role}`} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-black px-4 text-[11px] font-black text-white">
-                            {tab === 'history' ? 'View record' : 'Open deal'} <ChevronRight size={14} />
-                          </Link>
-                        </>
-                      )}
+                        : <button type="button" onClick={()=>setExpandedApplication(x=>x===id?null:id)}
+                          aria-expanded={expandedApplication===id}
+                          className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
+                          View application <ChevronRight size={15}/>
+                        </button>}
                     </div>
+                    {isApplication&&expandedApplication===id&&<div className="space-y-3 border-t border-black/10 px-4 py-3" aria-label="Application details">
+                      <p className="text-[12px] font-semibold">Application status: {niceStatus(item.status)}</p>
+                      {item.message&&<p className="text-[12px] text-black/65">{item.message}</p>}
+                      {item.negotiation_escrow_id&&<Link to={`/deals/${item.negotiation_escrow_id}?role=${role}`}
+                        className="inline-flex min-h-10 items-center rounded-full border border-black/10 px-4 text-[12px] font-semibold">View transaction</Link>}
+                      {tab==='incoming'&&<>
+                        <button type="button" disabled={busyId===id||unresolvedRange} onClick={()=>respond(item,'accepted')}
+                          className="min-h-10 rounded-full bg-[#0A13E6] px-4 text-[12px] font-semibold text-white disabled:opacity-50">Accept</button>
+                        <button type="button" disabled={busyId===id} onClick={()=>respond(item,'rejected')}
+                          className="min-h-10 rounded-full border border-black/10 px-4 text-[12px] font-semibold disabled:opacity-50">Reject</button>
+                      </>}
+                      {tab==='outgoing'&&<button type="button" disabled={busyId===id} onClick={()=>withdrawApplication(item)}
+                        className="min-h-10 rounded-full border border-black/10 px-4 text-[12px] font-semibold disabled:opacity-50">Withdraw application</button>}
+                    </div>}
                   </article>
                 )
               })}
