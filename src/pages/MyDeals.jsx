@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronRight, Clock, Handshake, History, MessageCircle, Undo2 } from 'lucide-react'
+import { ChevronRight, Clock, Handshake, History, LayoutGrid, List, Search, Undo2, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
@@ -63,6 +62,10 @@ export default function MyDeals() {
 
   const [items, setItems] = useState([])
   const [search,setSearch]=useState('')
+  const [searchOpen,setSearchOpen]=useState(false)
+  const [expandedApplication,setExpandedApplication]=useState(null)
+  const [viewMode,setViewMode]=useState(()=>{try{return localStorage.getItem('chombutar_deals_view')==='list'?'list':'grid'}catch{return 'grid'}})
+  useEffect(()=>{try{localStorage.setItem('chombutar_deals_view',viewMode)}catch{}},[viewMode])
   const [counts, setCounts] = useState({ incoming: 0, outgoing: 0, active: 0, history: 0 })
   const [nextCursor, setNextCursor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -278,23 +281,38 @@ export default function MyDeals() {
 
   return (
     <div className="mx-auto max-w-6xl pb-8">
-      <CompactPageHeader title="My Deals" icon={Handshake} searchValue={search} onSearchChange={setSearch}
-        searchPlaceholder="Search My Deals…" searchLabel="Search loaded deal records"
-        status={quietLoading ? <span className="text-[10px] font-bold text-black/35">Updating…</span> : null}/>
-      <div className="mb-3 inline-flex rounded-full border-[1.5px] border-black bg-white p-1">
-        {['talent', 'client'].map((value) => (
-          <button type="button" key={value} onClick={() => setView(value, 'incoming')}
-            className={`h-9 rounded-full px-4 text-[12px] font-black transition ${
-              role === value
-                ? value === 'talent' ? 'bg-[#0A13E6] text-white' : 'bg-black text-white'
-                : 'text-black/50'
-            }`}>
-            {value === 'talent' ? 'Talent Mode' : 'Client Mode'}
-          </button>
-        ))}
-      </div>
-
-      <section className="rounded-[22px] border-[1.5px] border-black bg-[#F7F3EB] p-4 sm:p-5" aria-label="My Deals">
+      <header className="sticky top-14 md:top-16 z-20 -mx-4 mb-3 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <h1 className="flex min-w-0 items-center gap-2 text-[21px] font-black sm:text-[23px]"><Handshake size={21} aria-hidden="true"/> My Deals</h1>
+          <div className="flex shrink-0 items-center gap-1">
+            {quietLoading&&<span className="hidden text-[10px] text-black/35 sm:block">Updating…</span>}
+            <button type="button" aria-label={searchOpen?'Close deals search':'Search deals'} aria-expanded={searchOpen}
+              aria-controls="my-deals-search" onClick={()=>{if(searchOpen)setSearch('');setSearchOpen(v=>!v)}}
+              className="grid h-11 w-11 place-items-center rounded-full hover:bg-black/5">{searchOpen?<X size={19}/>:<Search size={19}/>}</button>
+            <div role="group" aria-label="My Deals view" className="flex items-center gap-0.5">
+              <button type="button" aria-label="Grid view" aria-pressed={viewMode==='grid'}
+                onClick={()=>setViewMode('grid')} className={`grid h-11 w-10 place-items-center rounded-lg ${viewMode==='grid'?'bg-[#0A13E6] text-white':'hover:bg-black/5'}`}><LayoutGrid size={18}/></button>
+              <button type="button" aria-label="List view" aria-pressed={viewMode==='list'}
+                onClick={()=>setViewMode('list')} className={`grid h-11 w-10 place-items-center rounded-lg ${viewMode==='list'?'bg-[#0A13E6] text-white':'hover:bg-black/5'}`}><List size={19}/></button>
+            </div>
+          </div>
+        </div>
+        {searchOpen&&<div id="my-deals-search" className="mt-3 flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3">
+          <Search size={16} className="shrink-0 text-black/45"/>
+          <input autoFocus type="text" inputMode="search" value={search} onChange={e=>setSearch(e.target.value)}
+            aria-label="Search loaded deal records" placeholder="Search My Deals…"
+            className="h-11 min-w-0 flex-1 bg-transparent text-[13px] outline-none"/>
+        </div>}
+      </header>
+      <nav aria-label="Deal role modes" className="mb-3 flex w-fit items-center gap-1 border-b border-black/10 pb-2">
+        {['talent','client'].map(value=><button type="button" key={value}
+          aria-pressed={role===value} onClick={()=>setView(value,'incoming')}
+          className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[12px] font-black ${role===value?'bg-[#0A13E6] text-white':'text-black/60 hover:bg-black/5'}`}>
+          <span className={`grid h-7 w-7 place-items-center rounded-full ${role===value?'bg-white text-[#0A13E6]':'bg-black/10 text-black'}`}>{value==='talent'?'T':'C'}</span>
+          {value==='talent'?'Talent':'Client'}
+        </button>)}
+      </nav>
+      <section className="space-y-3" aria-label="My Deals">
         <div>
           <h2 className="text-[18px] font-black">{title}</h2>
           <p className="mt-0.5 text-[12px] font-medium text-black/50">{subtitle}</p>
@@ -330,14 +348,14 @@ export default function MyDeals() {
           {loading ? (
             <Skeletons />
           ) : visibleItems.length === 0 ? (
-            <div className="grid min-h-[260px] place-items-center rounded-[20px] border border-dashed border-black/20 bg-white px-6 text-center">
+            <div className="grid min-h-[240px] place-items-center px-6 text-center">
               <div>
                 {tab === 'history' ? <History size={30} className="mx-auto mb-3 text-black/25" /> : <Handshake size={30} className="mx-auto mb-3 text-black/25" />}
                 <p className="text-[13px] font-bold text-black/50">{empty}</p>
               </div>
             </div>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2">
+            <div aria-label={viewMode==='grid'?'Deals grid':'Deals list'} className={viewMode==='grid'?'grid gap-3 md:grid-cols-2':'flex flex-col divide-y divide-black/10'}>
               {visibleItems.map((item) => {
                 const isApplication = Boolean(item.application_id) && !item.id
                 const id = isApplication ? item.application_id : item.id
@@ -351,8 +369,9 @@ export default function MyDeals() {
                   : item.status === 'not_funded' ? item.request_state : item.status
 
                 return (
-                  <article key={`${isApplication ? 'app' : 'deal'}-${id}`} className="relative overflow-hidden rounded-[20px] border-[1.5px] border-black bg-white">
-                    <RoleCardBadge role={peer.role} className="absolute right-3 top-3 z-10" />
+                  <article key={`${isApplication ? 'app' : 'deal'}-${id}`}
+                    className={`relative min-w-0 overflow-hidden bg-white ${viewMode==='grid'?'rounded-2xl p-1 shadow-sm':'py-2'}`}>
+                    <RoleCardBadge role={peer.role} className="absolute right-3 top-3 z-0" />
                     <div className="p-4 pr-14">
                       <div className="flex gap-3">
                         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[13px] border border-black/10 bg-[#F5F3EF]">
