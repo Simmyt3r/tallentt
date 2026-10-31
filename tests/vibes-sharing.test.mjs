@@ -34,4 +34,10 @@ test('sign-in only returns to valid Vibes post and never to external destination
       assert.equal(safeVibeReturnPath(bad),null,bad)
   }
   assert.equal(safeVibeReturnPath(path+'#not-used'),path)
+  const comments='/vibes/'+id+'/comments'
+  assert.equal(safeVibeReturnPath(comments),comments)
+  for(const bad of [comments+'/delete',comments+'?next=https://evil.example',comments+'#escape',
+    '/vibes/not-a-uuid/comments','/vibes/../admin/comments']){
+    assert.equal(safeVibeReturnPath(bad),null,bad)
+  }
 })
