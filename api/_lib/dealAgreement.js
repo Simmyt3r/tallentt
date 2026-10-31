@@ -60,6 +60,7 @@ export async function verifyAgreementToken(token,dbQuery=query){
   // No email, phone, address or payment reference is exposed to a verifier.
   return {verified:true,dealId:row.id,hatTitle:row.hat_title,
     clientName:row.client_name,talentName:row.talent_name,
+    amount:row.amount,currency:row.currency,payUnit:row.pay_unit,serviceArea:row.hat_lga,
     status:row.status,gatePassEligible:row.status==='secured',
     message:row.status==='secured'
       ? 'Funded deal verified. Physical access still requires venue approval and identity matching.'
