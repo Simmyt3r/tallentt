@@ -16,7 +16,10 @@ export function createAgreementHtml(row,token,verifyUrl,qrData){
   <h2>Parties</h2><div class="meta">
   ${block('Client',row.client_name+' (@'+row.client_username+')')}
   ${block('Talent',row.talent_name+' (@'+row.talent_username+')')}
+  ${row.client_hat_title?block('Client account Hat (profile context)',row.client_hat_title):''}
+  ${row.talent_hat_title?block('Talent account Hat (profile context)',row.talent_hat_title):''}
   </div>
+  <p class="small muted">Account Hats are profile context; only the contracted service and recorded deal amount below define this transaction.</p>
   <h2>Service and consideration</h2><div class="meta">
   ${block('Hat / service',row.hat_title)}
   ${block('Talent category',row.category||row.hat_name||'As described in the Hat')}
