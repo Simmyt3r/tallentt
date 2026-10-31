@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { workPassPrintPolicy } from '../api/_lib/workPassPrint.js'
+global.__tworldPool ||= {query:()=>{throw Error('Unexpected database access in pure policy test')}}
+const { workPassPrintPolicy } = await import('../api/_lib/workPassPrint.js')
 
 const fullTime=(id='job-1',overrides={})=>({id,status:'active',start_on:'2026-09-01',due_day:25,ended_on:null,...overrides})
 const paid=(agreement_id,month,overrides={})=>({agreement_id,month,status:'confirmed',client_paid:true,talent_paid:true,...overrides})
