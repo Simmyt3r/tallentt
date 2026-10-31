@@ -183,9 +183,14 @@ export default function Settings(){
     </section>}
     {section==='wallet'&&<section aria-label="Wallet preferences" className="divide-y divide-black/10">
       <h2 className="pb-2 text-[14px] font-black">Balance display</h2>
-      <SwitchRow label="Show wallet balances" checked={balanceVisible} onChange={setBalanceVisible}/>
-      <div className="pt-3 text-[11px] text-black/55">
-        {balanceVisible?'Your wallet amounts will be visible on this device.':'Your wallet amounts will be hidden on this device.'}
+      <div className="flex min-h-14 items-center justify-between gap-4 border-b border-black/10 py-3">
+        <span className="text-[13px] font-semibold">Show wallet balances</span>
+        <button type="button" onClick={()=>setBalanceVisible(!balanceVisible)}
+          aria-label={balanceVisible?'Hide wallet balances':'Show wallet balances'}
+          aria-pressed={balanceVisible}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-black/15 hover:bg-[#F7F3EB]">
+          {balanceVisible?<Eye size={19}/>:<EyeOff size={19}/>}
+        </button>
       </div>
     </section>}
   </main>
