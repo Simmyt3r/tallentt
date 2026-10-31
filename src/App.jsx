@@ -24,6 +24,8 @@ import Settings from './pages/Settings.jsx'
 import Billing from './pages/Billing.jsx'
 import MyDeals from './pages/MyDeals.jsx'
 import DealDetails from './pages/DealDetails.jsx'
+import DealAgreement from './pages/DealAgreement.jsx'
+import VerifyDealAgreement from './pages/VerifyDealAgreement.jsx'
 import VerifyWorkPass from './pages/VerifyWorkPass.jsx'
 import DisputeCenter from './pages/DisputeCenter.jsx'
 import LiveHub from './pages/Live/LiveHub.jsx'
@@ -108,6 +110,8 @@ export default function App() {
     <Route path="/work-pass/verify" element={<ProtectedRoute><VerifyWorkPass /></ProtectedRoute>} />
     <Route path="/deals" element={<ProtectedRoute><MyDeals /></ProtectedRoute>} />
     <Route path="/deals/:dealId" element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
+    <Route path="/deals/:dealId/agreement" element={<ProtectedRoute><DealAgreement /></ProtectedRoute>} />
+    <Route path="/deals/verify-agreement" element={<VerifyDealAgreement />} />
     <Route path="/my-applications" element={<Navigate to="/deals?role=talent&tab=outgoing" replace />} />
     <Route path="/my-bookings" element={<Navigate to="/deals?role=client&tab=outgoing" replace />} />
     <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
