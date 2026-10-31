@@ -81,7 +81,7 @@ try{
     await aside.getByRole('button',{name:/Alex User/}).click()
     const contact=page.getByRole('region',{name:'Conversations with one person'})
     await contact.getByRole('button',{name:/Associate chat/}).waitFor()
-    await contact.getByRole('button',{name:/Bento/}).waitFor()
+    await contact.getByRole('button',{name:/^Bento ·/}).waitFor()
     await contact.getByRole('button',{name:/Employment/}).waitFor()
     assert.equal(await contact.getByRole('button',{name:/Open chat/}).count(),3)
     await page.screenshot({path:'test-results/messages-consolidated-'+width+'.png',animations:'disabled'})
