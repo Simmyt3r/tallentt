@@ -1,0 +1,49 @@
+name: Cloudinary Live Broadcast
+
+on:
+  pull_request:
+    paths:
+      - "api/_lib/cloudinaryLive.js"
+      - "api/_lib/liveTransport.js"
+      - "api/_lib/live.js"
+      - "api/_lib/liveMedia.js"
+      - "api/live/index.js"
+      - "src/pages/Live/**"
+      - "src/lib/api.js"
+      - "src/lib/liveBroadcast.js"
+      - "db/patch-cloudinary-live-2026-10.sql"
+      - "tests/cloudinary-live.test.mjs"
+      - "tests/live-media.test.mjs"
+      - "tests/live-playback-auth.test.mjs"
+      - ".github/workflows/cloudinary-live.yml"
+  push:
+    branches: [main]
+    paths:
+      - "api/_lib/cloudinaryLive.js"
+      - "api/_lib/liveTransport.js"
+      - "api/_lib/live.js"
+      - "api/_lib/liveMedia.js"
+      - "api/live/index.js"
+      - "src/pages/Live/**"
+      - "src/lib/api.js"
+      - "src/lib/liveBroadcast.js"
+      - "db/patch-cloudinary-live-2026-10.sql"
+      - "tests/cloudinary-live.test.mjs"
+      - "tests/live-media.test.mjs"
+      - "tests/live-playback-auth.test.mjs"
+      - ".github/workflows/cloudinary-live.yml"
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Verify Cloudinary provider and legacy Live auth
+        run: node --test tests/cloudinary-live.test.mjs tests/live-media.test.mjs tests/live-playback-auth.test.mjs
+      - name: Build ChombuTar web app
+        run: npm run build

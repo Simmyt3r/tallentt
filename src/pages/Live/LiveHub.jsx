@@ -17,6 +17,8 @@ const LIVE_READINESS_HELP = {
   unexpected_health_response: 'The media health URL returned an HTML page instead of a media service health response.',
   unreachable: 'Vercel cannot reach the media relay. Check its deployment, hostname, TLS and firewall.',
   preflight_failed: 'The app could not verify Live readiness. Check your connection, session and deployment status.',
+  cloudinary_unconfigured:'Configure Cloudinary API keys and enable Live Streaming.',
+  cloudinary_unavailable:'Cloudinary Live Streaming is unavailable. Check your account permissions and subscription.',
 }
 const CATEGORIES = ['Music', 'Dance', 'Comedy', 'Fashion', 'Acting', 'Modeling', 'Art & Design', 'Writing', 'Photography', 'Content Creation', 'Sports', 'Other']
 
@@ -105,8 +107,16 @@ export default function LiveHub() {
       readiness={broadcast_ready:false,reason:'preflight_failed'}
       setMediaReadiness(readiness)
     }
+    if(readiness.broadcast_ready&&readiness.mode==='cloudinary'){
+      setError('')
+      setConnectionStatus('ready')
+      handedOffRef.current=false
+      setMedia(null)
+      setCreating(true)
+      return
+    }
     if(!readiness.broadcast_ready){
-      setError(LIVE_READINESS_HELP[readiness.reason] || 'Broadcast is unavailable. The Live media server must be reachable before video can be transmitted to viewers.')
+      setError(readiness.message||LIVE_READINESS_HELP[readiness.reason] || 'Broadcast unavailable. Enable Cloudinary Live or configure the media relay.')
       return
     }
     setError('')
@@ -147,7 +157,7 @@ export default function LiveHub() {
 
   async function goLive(event) {
     event.preventDefault()
-    if (!media || starting) return
+    if ((!media && mediaReadiness?.mode!=='cloudinary') || starting) return
     setError('')
     setStarting(true)
     let streamId = null
@@ -156,24 +166,25 @@ export default function LiveHub() {
       setConnectionStatus('connecting')
       const created = await api.liveAction({ action: 'create_stream', title: form.title, category: form.category })
       streamId = created.stream.id
-      publisher = created.media_mode === 'fallback'
-        ? startFallbackBroadcast({ mediaStream: media, onConnectionState: setConnectionStatus })
-        : await startWhipBroadcast({
-            ingestUrl: created.ingest_url,
-            publishToken: created.publish_token,
-            mediaStream: media,
-            onConnectionState: setConnectionStatus,
-          })
-      setLivePublisher(streamId, publisher)
-      if (created.media_mode !== 'fallback') {
-        await api.liveAction({ action: 'mark_live', stream_id: streamId })
+      if(created.media_mode==='cloudinary'){
+        handedOffRef.current=true
+        navigate(`/live/stage/${streamId}`,{state:{isHost:true,mediaMode:'cloudinary'}})
+      }else{
+        publisher=await startWhipBroadcast({
+          ingestUrl:created.ingest_url,publishToken:created.publish_token,
+          mediaStream:media,onConnectionState:setConnectionStatus,
+        })
+        setLivePublisher(streamId,publisher)
+        await api.liveAction({action:'mark_live',stream_id:streamId})
+        handedOffRef.current=true
+        sessionStorage.setItem(`chombutar-live-publisher:${streamId}`,'mediamtx')
+        navigate(`/live/stage/${streamId}`,{state:{isHost:true,mediaMode:'mediamtx'}})
       }
-      handedOffRef.current = true
-      sessionStorage.setItem(`chombutar-live-publisher:${streamId}`, created.media_mode || 'mediamtx')
-      navigate(`/live/stage/${streamId}`, { state: { isHost: true, mediaMode: created.media_mode } })
     } catch (err) {
       if (streamId) {
-        api.liveAction({ action: 'publisher_state', stream_id: streamId, state: 'failed' }).catch(() => {})
+        if(mediaReadiness?.mode==='cloudinary')
+          api.liveAction({action:'end_stream',stream_id:streamId}).catch(()=>{})
+        else api.liveAction({action:'publisher_state',stream_id:streamId,state:'failed'}).catch(()=>{})
         await clearLivePublisher(streamId).catch(() => {})
       } else if (publisher) {
         await publisher.stop().catch(() => {})
@@ -195,6 +206,9 @@ export default function LiveHub() {
       <CompactPageHeader title="ChombuTar Live" icon={Radio} searchValue={search} onSearchChange={setSearch}
         searchPlaceholder="Search live rooms…" searchLabel="Search live rooms by title, category or host"/>
 
+      {mediaReadiness?.broadcast_ready&&mediaReadiness.mode==='cloudinary'&&<p role="status" className="rounded-xl bg-blue-50 p-3 text-[12px] text-blue-900">
+        Live uses Cloudinary RTMP. Create a room, then start broadcasting from OBS or an RTMP-capable phone app. Your broadcast is marked LIVE only after Cloudinary detects actual video.
+      </p>}
       {mediaReadiness?.broadcast_ready===false&&<div role="alert" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
         <p className="font-bold">Live Broadcast connection unavailable ({mediaReadiness.reason||'transport not ready'}).</p>
         <p>{LIVE_READINESS_HELP[mediaReadiness.reason] || 'Video publishing requires a running WHIP/MediaMTX relay and HLS playback endpoint.'}</p>
@@ -226,16 +240,22 @@ export default function LiveHub() {
       {creating && (
         <form onSubmit={goLive} className="bg-white border-[1.5px] border-black rounded-[24px] overflow-hidden">
           <div className="relative aspect-video bg-black">
-            <video ref={previewRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+            {mediaReadiness?.mode==='cloudinary'
+              ? <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-white">
+                  <Radio size={38}/><p className="text-sm font-bold">Cloudinary RTMP broadcasting</p>
+                  <p className="max-w-md text-xs text-white/75">Create the Live room here. Copy your private RTMP server and key into OBS or an RTMP-capable mobile broadcaster to transmit video to viewers.</p>
+                </div>
+              : <video ref={previewRef} autoPlay muted playsInline className="w-full h-full object-cover"/>}
             <div className="absolute top-3 left-3 rounded-full bg-black/65 text-white px-3 py-1.5 text-[10px] font-bold">{connectionLabel(connectionStatus)}</div>
             <button type="button" disabled={starting} onClick={closePreview} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/65 text-white grid place-items-center disabled:opacity-50"><X size={16} /></button>
           </div>
           <div className="p-4 grid sm:grid-cols-2 gap-3">
             <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Live title" maxLength={120} required className="h-11 rounded-xl border border-black/20 px-3 text-[13px] outline-none focus:border-black" />
             <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="h-11 rounded-xl border border-black/20 px-3 text-[13px] bg-white">{CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select>
-            <label className="text-[11px] font-bold text-black/55"><span className="flex items-center gap-1 mb-1"><Camera size={12} /> Camera</span><select disabled={starting} value={form.camera} onChange={(event) => switchDevices({ ...form, camera: event.target.value })} className="w-full h-10 rounded-xl border border-black/20 px-2 bg-white text-[12px] disabled:opacity-50"><option value="">Default camera</option>{devices.cameras.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || 'Camera'}</option>)}</select></label>
+            {mediaReadiness?.mode!=='cloudinary'&&<><label className="text-[11px] font-bold text-black/55"><span className="flex items-center gap-1 mb-1"><Camera size={12} /> Camera</span><select disabled={starting} value={form.camera} onChange={(event) => switchDevices({ ...form, camera: event.target.value })} className="w-full h-10 rounded-xl border border-black/20 px-2 bg-white text-[12px] disabled:opacity-50"><option value="">Default camera</option>{devices.cameras.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || 'Camera'}</option>)}</select></label>
             <label className="text-[11px] font-bold text-black/55"><span className="flex items-center gap-1 mb-1"><Mic size={12} /> Microphone</span><select disabled={starting} value={form.microphone} onChange={(event) => switchDevices({ ...form, microphone: event.target.value })} className="w-full h-10 rounded-xl border border-black/20 px-2 bg-white text-[12px] disabled:opacity-50"><option value="">Default microphone</option>{devices.microphones.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || 'Microphone'}</option>)}</select></label>
-            <button disabled={starting} className="sm:col-span-2 h-11 rounded-full bg-[#0A13E6] text-white text-[13px] font-bold flex items-center justify-center gap-2 disabled:opacity-60"><Wifi size={14} /> {starting ? 'Connecting to Live…' : 'Start Live'}</button>
+            </>}
+            <button disabled={starting} className="sm:col-span-2 h-11 rounded-full bg-[#0A13E6] text-white text-[13px] font-bold flex items-center justify-center gap-2 disabled:opacity-60"><Wifi size={14} /> {starting?'Creating Live room…':mediaReadiness?.mode==='cloudinary'?'Create RTMP Live room':'Start Live'}</button>
           </div>
         </form>
       )}

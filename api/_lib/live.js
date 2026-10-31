@@ -1,5 +1,5 @@
 // Path: api/_lib/live.js
-// ChombuTar Live: MediaMTX-backed livestreaming + real-wallet Talent Support.
+// ChombuTar Live: Cloudinary RTMP/HLS or MediaMTX WHIP/HLS, plus wallet Talent Support.
 
 import crypto from 'node:crypto'
 import { query, getClient } from './db.js'
@@ -7,6 +7,8 @@ import { creditWallet, debitWallet } from './wallet.js'
 import { notifyUser } from './notifications.js'
 import { buildLiveMediaEndpoints, getLiveMediaMode, publicLiveMediaEndpoints, resolveLiveMediaAvailability, streamPathForId } from './liveMedia.js'
 import { emitLiveEvent } from './liveRealtime.js'
+import {resolveBroadcastAvailability} from './liveTransport.js'
+import {createCloudinaryLive,getCloudinaryLive,idleCloudinaryLive,deleteCloudinaryLive} from './cloudinaryLive.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const ALLOWED_STATES = new Set(['scheduled', 'starting', 'live', 'reconnecting', 'ended', 'failed'])
@@ -53,11 +55,13 @@ function safeTokenMatch(token, expectedHex) {
 function publicStream(row) {
   if (!row) return null
   const { publish_token_hash: _publishTokenHash, ...safe } = row
-  const mediaMode = row.media_status === 'fallback' ? 'fallback' : getLiveMediaMode()
-  const endpoints = mediaMode === 'mediamtx' && row.stream_path
-    ? publicLiveMediaEndpoints(row.stream_path)
-    : { hlsUrl: null }
-  return { ...safe, media_mode: mediaMode, hls_url: endpoints.hlsUrl || null }
+  const mediaMode = row.cloudinary_stream_id ? 'cloudinary'
+    : row.media_status === 'fallback' ? 'fallback' : getLiveMediaMode()
+  const endpoints = mediaMode==='cloudinary'
+    ? {hlsUrl:row.cloudinary_hls_url}
+    : mediaMode==='mediamtx'&&row.stream_path
+      ?publicLiveMediaEndpoints(row.stream_path):{hlsUrl:null}
+  return {...safe,media_mode:mediaMode,hls_url:endpoints.hlsUrl||null}
 }
 
 async function activeGiftCatalogue(client = null) {
@@ -119,6 +123,7 @@ export async function listStreams({ viewerId, status }) {
 
 export async function getStream(streamId, viewerId) {
   streamId = requireUuid(streamId, 'stream_id')
+  await refreshCloudinaryLive(streamId)
   const { rows } = await query(
     `SELECT ls.*, u.username, u.full_name, u.avatar_url, u.role, u.company_suffix
      FROM live_streams ls JOIN users u ON u.id = ls.talent_id WHERE ls.id = $1`,
@@ -184,6 +189,55 @@ export async function getStream(streamId, viewerId) {
   }
 }
 
+// One Cloudinary poll per active room / 15 seconds, shared through Postgres
+// across every Vercel instance. Only the provider, not a subscriber, can
+// turn a Cloudinary room LIVE. A stopped stream is no longer publicly active.
+export async function refreshCloudinaryLive(streamId){
+  // Older databases may still run the MediaMTX-only schema.
+  const {rows:installed}=await query(`SELECT EXISTS(SELECT 1 FROM information_schema.columns
+    WHERE table_name='live_streams' AND column_name='cloudinary_stream_id') AS enabled`)
+  if(!installed[0]?.enabled)return
+  const {rows}=await query(`UPDATE live_streams
+    SET cloudinary_checked_at=NOW()
+    WHERE id=$1 AND cloudinary_stream_id IS NOT NULL
+      AND status IN ('starting','live','reconnecting')
+      AND (cloudinary_checked_at IS NULL OR cloudinary_checked_at < NOW()-INTERVAL '15 seconds')
+    RETURNING cloudinary_stream_id,status`,[streamId])
+  const stream=rows[0]
+  if(!stream)return
+  try{
+    const actual=await getCloudinaryLive(stream.cloudinary_stream_id)
+    const state=String(actual.status||'').toLowerCase()
+    const active=['active','live','running'].includes(state)
+    // Only allow active -> live and previously live -> ended, never mark
+    // an idle session live based on successful room creation.
+    const next=active?'live':stream.status==='live'?'ended':'starting'
+    const media=active?'connected':next==='ended'?'ended':'authorizing'
+    const updated=await query(`UPDATE live_streams SET status=$2,media_status=$3,
+      started_at=CASE WHEN $2='live' THEN COALESCE(started_at,NOW()) ELSE started_at END,
+      ended_at=CASE WHEN $2='ended' THEN COALESCE(ended_at,NOW()) ELSE ended_at END,
+      updated_at=NOW()
+      WHERE id=$1 AND cloudinary_stream_id=$4 AND status IN ('starting','live','reconnecting')
+      RETURNING id`,[streamId,next,media,stream.cloudinary_stream_id])
+    if(updated.rows.length)emitLiveEvent(streamId,'stream_status',{status:next,media_status:media})
+  }catch(error){
+    // Retain the last known state on transient provider failures.
+    console.error('Cloudinary Live status refresh failed:',error.message)
+  }
+}
+
+export async function getCloudinaryPublisherDetails(userId,streamId){
+  requireUuid(streamId,'stream_id')
+  const {rows}=await query('SELECT talent_id,cloudinary_stream_id,status FROM live_streams WHERE id=$1',[streamId])
+  const room=rows[0]
+  if(!room||room.talent_id!==userId)throw liveError(404,'Broadcast not found.')
+  if(!room.cloudinary_stream_id)throw liveError(400,'This broadcast uses browser publishing, not RTMP.')
+  if(['ended','failed'].includes(room.status))throw liveError(409,'This broadcast has ended.')
+  const live=await getCloudinaryLive(room.cloudinary_stream_id)
+  return {rtmp_url:live.rtmpUrl,stream_key:live.streamKey,
+    hls_url:live.hlsUrl,status:live.status}
+}
+
 export async function createStream(userId, body) {
   const title = cleanText(body.title, 120, 'Live title')
   const category = cleanText(body.category, 80, 'Talent category')
@@ -193,37 +247,54 @@ export async function createStream(userId, body) {
   if (!user) throw liveError(401, 'Unauthorized')
   if (!['talent', 'dual'].includes(user.role)) throw liveError(403, 'Only Talent accounts can go live.')
 
-  const availability = await resolveLiveMediaAvailability()
-  const streamId = crypto.randomUUID()
-  const streamPath = streamPathForId(streamId)
+  const availability=await resolveBroadcastAvailability()
+  if(!availability.ready){
+    throw liveError(503,availability.message||
+      'No working Live transport is available. Enable Cloudinary Live Streaming or configure a reachable WebRTC media relay.')
+  }
+  const streamId=crypto.randomUUID()
+  const streamPath=streamPathForId(streamId)
 
-  if (availability.mode === 'fallback') {
-    // A private camera preview is not a broadcast. Do not create a room
-    // labelled LIVE when no viewer can receive its video.
-    const reason = availability.reason === 'unreachable'
-      ? 'The Live media server is unreachable.'
-      : 'The Live media server is not fully configured.'
-    throw liveError(503,`${reason} Broadcasting requires a reachable WHIP/MediaMTX and HLS endpoint. Ask an administrator to check Live media configuration.`)
+  if(availability.mode==='cloudinary'){
+    const {rows:installed}=await query(`SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name='live_streams' AND column_name='cloudinary_stream_id'
+    ) AS installed`)
+    if(!installed[0]?.installed)
+      throw liveError(503,'Apply the Cloudinary Live RTMP broadcasting migration in Admin before starting Live.')
+    const {rows:limits}=await query(`SELECT
+      COUNT(*) FILTER(WHERE status IN ('starting','live','reconnecting'))::int AS active,
+      COUNT(*) FILTER(WHERE created_at>NOW()-INTERVAL '1 day')::int AS today
+      FROM live_streams WHERE talent_id=$1 AND cloudinary_stream_id IS NOT NULL`,[userId])
+    if(Number(limits[0]?.active)>0)
+      throw liveError(409,'End your existing Cloudinary Live before creating another.')
+    if(Number(limits[0]?.today)>=6)
+      throw liveError(429,'Daily Cloudinary Live room limit reached. Try again tomorrow.')
+    const upstream=await createCloudinaryLive(title)
+    try{
+      const {rows}=await query(`INSERT INTO live_streams
+        (id,talent_id,title,category,status,stream_path,cloudinary_stream_id,
+          cloudinary_hls_url,media_status,last_media_event_at,cloudinary_checked_at)
+        VALUES($1,$2,$3,$4,'starting',$5,$6,$7,'authorizing',NOW(),NOW())
+        RETURNING *`,
+        [streamId,userId,title,category,streamPath,upstream.id,upstream.hlsUrl])
+      return {stream:publicStream(rows[0]),media_mode:'cloudinary',
+        rtmp_url:upstream.rtmpUrl,stream_key:upstream.streamKey}
+    }catch(error){
+      await deleteCloudinaryLive(upstream.id).catch(err=>console.error('Cloudinary Live cleanup failed:',err.message))
+      throw error
+    }
   }
 
-  const publishToken = crypto.randomBytes(32).toString('base64url')
-  const tokenHash = hashPublishToken(publishToken).toString('hex')
-  const endpoints = buildLiveMediaEndpoints(streamPath)
-
-  const { rows } = await query(
-    `INSERT INTO live_streams
-       (id,talent_id,title,category,status,stream_path,publish_token_hash,media_status,last_media_event_at)
-     VALUES ($1,$2,$3,$4,'starting',$5,$6,'authorizing',NOW())
-     RETURNING *`,
-    [streamId, userId, title, category, streamPath, tokenHash],
-  )
-
-  return {
-    stream: publicStream(rows[0]),
-    media_mode: 'mediamtx',
-    ingest_url: endpoints.ingestUrl,
-    publish_token: publishToken,
-  }
+  const publishToken=crypto.randomBytes(32).toString('base64url')
+  const tokenHash=hashPublishToken(publishToken).toString('hex')
+  const endpoints=buildLiveMediaEndpoints(streamPath)
+  const {rows}=await query(`INSERT INTO live_streams
+    (id,talent_id,title,category,status,stream_path,publish_token_hash,media_status,last_media_event_at)
+    VALUES($1,$2,$3,$4,'starting',$5,$6,'authorizing',NOW()) RETURNING *`,
+    [streamId,userId,title,category,streamPath,tokenHash])
+  return {stream:publicStream(rows[0]),media_mode:'mediamtx',
+    ingest_url:endpoints.ingestUrl,publish_token:publishToken}
 }
 
 async function ownerStreamForUpdate(client, userId, streamId) {
@@ -243,6 +314,7 @@ export async function markStreamLive(userId, body) {
     stream = await ownerStreamForUpdate(client, userId, streamId)
     if (stream.status === 'ended') throw liveError(409, 'This Live has already ended.')
     if (stream.status === 'failed') throw liveError(409, 'This Live publish session has failed.')
+    if(stream.cloudinary_stream_id)throw liveError(409,'Cloudinary broadcasts become live only after the RTMP source connects.')
     const { rows } = await client.query(
       `UPDATE live_streams
        SET status='live', media_status='connected', started_at=COALESCE(started_at,NOW()),
@@ -273,6 +345,7 @@ export async function publisherState(userId, body) {
   try {
     await client.query('BEGIN')
     stream = await ownerStreamForUpdate(client, userId, streamId)
+    if(stream.cloudinary_stream_id)throw liveError(409,'Cloudinary broadcast state is verified directly with the provider.')
     if (stream.status === 'ended') {
       await client.query('COMMIT')
       return { stream: publicStream(stream) }
@@ -470,6 +543,15 @@ export async function sendSupport(userId, body) {
 
 export async function endStream(userId, body) {
   const streamId = requireUuid(body.stream_id, 'stream_id')
+  // Stop the actual Cloudinary source BEFORE hiding the room. A database
+  // status update alone would leave the video publicly accessible.
+  const {rows:upstream}=await query('SELECT talent_id,cloudinary_stream_id,status FROM live_streams WHERE id=$1',[streamId])
+  if(!upstream[0]||upstream[0].talent_id!==userId)throw liveError(404,'Live broadcast not found.')
+  if(upstream[0].cloudinary_stream_id&&upstream[0].status!=='ended'){
+    if(upstream[0].status==='starting')
+      await deleteCloudinaryLive(upstream[0].cloudinary_stream_id)
+    else await idleCloudinaryLive(upstream[0].cloudinary_stream_id)
+  }
   const client = await getClient()
   let stream
   try {

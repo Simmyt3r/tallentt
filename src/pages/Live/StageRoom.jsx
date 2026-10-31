@@ -203,6 +203,54 @@ function publisherLabel(state) {
   return state ? `Broadcast: ${state}` : 'Broadcast session unavailable'
 }
 
+function CloudinaryBroadcastSetup({id,status,onRefresh}){
+  const [info,setInfo]=useState(null)
+  const [loading,setLoading]=useState(false)
+  const [error,setError]=useState('')
+  const [reveal,setReveal]=useState(false)
+  const [copied,setCopied]=useState('')
+  async function revealSettings(){
+    setLoading(true);setError('')
+    try{setInfo(await api.getCloudinaryPublisher(id))}
+    catch(err){setError(err.message||'Could not load private broadcast settings.')}
+    finally{setLoading(false)}
+  }
+  async function copy(value,label){
+    try{await navigator.clipboard.writeText(value);setCopied(label)}
+    catch{setError('Copy unavailable. Select the value and copy it manually.')}
+  }
+  return <section aria-label="Cloudinary broadcasting settings" className="space-y-3 rounded-2xl border border-[#A6B0FF] bg-white p-4">
+    <h2 className="text-[15px] font-black">Broadcast via Cloudinary RTMP</h2>
+    <p className="text-[12px] text-black/65">Use OBS Studio on a computer or a mobile RTMP broadcaster. Open its Stream settings, choose Custom RTMP, paste the server and private stream key, then press Start Streaming in that app.</p>
+    {status!=='live'&&<p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-900">Waiting for real video input. Cloudinary may take up to a minute to publish the HLS stream.</p>}
+    {error&&<p role="alert" className="text-[12px] font-semibold text-red-700">{error}</p>}
+    {!info?<button type="button" onClick={revealSettings} disabled={loading}
+      className="min-h-11 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white disabled:opacity-50">
+      {loading?'Loading…':'View my RTMP broadcast settings'}
+    </button>:<div className="space-y-3">
+      <label className="block text-[12px] font-bold">RTMP server
+        <input readOnly value={info.rtmp_url} onFocus={e=>e.target.select()} className="mt-1 block w-full min-w-0 rounded-lg border border-black/15 p-3 text-[12px]"/>
+      </label>
+      <button type="button" onClick={()=>copy(info.rtmp_url,'server')} className="min-h-10 rounded-full border border-black/15 px-4 text-[12px] font-bold">
+        {copied==='server'?'Server copied':'Copy server address'}
+      </button>
+      <label className="block text-[12px] font-bold">Private stream key — do not share
+        <input readOnly type={reveal?'text':'password'} value={info.stream_key}
+          onFocus={e=>e.target.select()} autoComplete="off" spellCheck={false}
+          className="mt-1 block w-full min-w-0 rounded-lg border border-black/15 p-3 text-[12px]"/>
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={()=>setReveal(v=>!v)} className="min-h-10 rounded-full border border-black/15 px-4 text-[12px] font-bold">{reveal?'Hide key':'Reveal key'}</button>
+        <button type="button" onClick={()=>copy(info.stream_key,'key')} className="min-h-10 rounded-full border border-black/15 px-4 text-[12px] font-bold">{copied==='key'?'Key copied':'Copy stream key'}</button>
+      </div>
+    </div>}
+    <div className="flex flex-wrap items-center gap-3">
+      <button type="button" onClick={onRefresh} className="min-h-10 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">Check broadcast status</button>
+      <p className="text-[11px] text-black/55">After pressing Start Streaming in OBS, this page updates the status automatically. To end broadcasting, stop OBS and use End Live here.</p>
+    </div>
+  </section>
+}
+
 export default function StageRoom() {
   const { id } = useParams()
   const location = useLocation()
@@ -288,7 +336,7 @@ export default function StageRoom() {
   }, [id, load])
 
   useEffect(() => {
-    if (!isHost) return
+    if (!isHost || room?.media_mode==='cloudinary') return
     const publisher = getLivePublisher(id)
     if (!publisher) {
       if (room?.status !== 'ended') setPublisherConnection('disconnected')
@@ -301,7 +349,7 @@ export default function StageRoom() {
       lastPublisherStateRef.current = state
       api.liveAction({ action: 'publisher_state', stream_id: id, state }).then(() => load()).catch(() => {})
     })
-  }, [id, isHost, load, room?.status])
+  }, [id, isHost, load, room?.status, room?.media_mode])
 
   async function likeLive() {
     if (room.liked_by_me) return
@@ -401,13 +449,15 @@ export default function StageRoom() {
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={likeLive} disabled={room.liked_by_me || !isLive} className="h-10 px-4 rounded-full border-[1.5px] border-black text-[12px] font-bold flex items-center gap-1.5 disabled:opacity-50"><Heart size={14} className={room.liked_by_me ? 'fill-red-500 text-red-500' : ''} /> {room.likes || 0}</button>
           {!isHost && isLive && <button onClick={() => setSupportOpen(true)} className="h-10 px-4 rounded-full bg-[#0A13E6] text-white text-[12px] font-bold flex items-center gap-1.5"><GiftIcon size={14} /> Support Talent</button>}
-          {isHost && isLive && <>
+          {isHost && isLive && room.media_mode!=='cloudinary' && <>
             <button onClick={() => toggleTrack('audio')} className="h-10 px-3 rounded-full border border-black/20 text-[12px] font-bold">{localMedia.mic ? <Mic size={14} /> : <MicOff size={14} />}</button>
             <button onClick={() => toggleTrack('video')} className="h-10 px-3 rounded-full border border-black/20 text-[12px] font-bold">{localMedia.camera ? <Camera size={14} /> : <VideoOff size={14} />}</button>
             <button onClick={endLive} disabled={busy} className="h-10 px-4 rounded-full bg-red-600 text-white text-[12px] font-bold">End Live</button>
           </>}
         </div>
-        {isHost && <p className={`text-[11px] font-bold ${publisherConnection === 'failed' ? 'text-red-600' : 'text-black/50'}`}>{isFallback ? 'Serverless fallback • camera stays on this device' : publisherLabel(publisherConnection)}</p>}
+        {isHost && <p className={`text-[11px] font-bold ${publisherConnection === 'failed' ? 'text-red-600' : 'text-black/50'}`}>{room.media_mode==='cloudinary'
+          ? room.status==='live'?'Cloudinary RTMP broadcast connected':'Cloudinary is waiting for RTMP video'
+          : isFallback?'Serverless fallback • camera stays on this device':publisherLabel(publisherConnection)}</p>}
         {isFallback ? (
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold"><Wifi size={13} /><span className="rounded-full border border-black/15 px-3 py-1.5">Temporary preview mode</span><span className="text-[9px] text-black/35 ml-auto">{realtimeState === 'connected' ? 'Live updates connected' : 'Live updates via polling'}</span></div>
         ) : (
@@ -415,6 +465,13 @@ export default function StageRoom() {
         )}
       </div>
 
+      {isHost&&room.media_mode==='cloudinary'&&!['ended','failed'].includes(room.status)&&<CloudinaryBroadcastSetup
+        id={id} status={room.status} onRefresh={()=>load().catch(err=>setError(err.message||'Could not check Live status.'))}/>}
+      {isHost&&room.media_mode==='cloudinary'&&room.status==='starting'&&<button type="button"
+        onClick={endLive} disabled={busy}
+        className="min-h-11 rounded-full border border-red-300 px-4 text-[12px] font-bold text-red-700 disabled:opacity-50">
+        Cancel broadcast setup
+      </button>}
       {isHost && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{[
         ['Today’s Live Earnings', money(room.earnings?.today_net_earnings)], ['Total Gifts', room.earnings?.total_gifts || 0], ['Gross Support', money(room.earnings?.gross_support)], ['Platform Fee', money(room.earnings?.platform_fee)]
       ].map(([label,value]) => <div key={label} className="rounded-[18px] border border-black/10 bg-white p-3"><p className="text-[10px] font-bold text-black/45">{label}</p><p className="text-[16px] font-bold mt-1">{value}</p></div>)}</div>}

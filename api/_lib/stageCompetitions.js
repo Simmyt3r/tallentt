@@ -50,15 +50,17 @@ export async function stageCompetition(userId,id) {
     u.username,u.full_name,u.avatar_url,u.role,u.company_suffix,
     s.title AS live_title,s.status AS stream_status,
     s.media_status,s.stream_path,
+    to_jsonb(s)->>'cloudinary_stream_id' AS cloudinary_stream_id,
+    to_jsonb(s)->>'cloudinary_hls_url' AS cloudinary_hls_url,
     (SELECT COUNT(*)::int FROM stage_competition_votes v
       WHERE v.competition_id=e.competition_id AND v.talent_id=e.talent_id) AS votes
     FROM stage_competition_entrants e
     JOIN users u ON u.id=e.talent_id JOIN live_streams s ON s.id=e.stream_id
     WHERE e.competition_id=$1
     ORDER BY votes DESC,e.joined_at ASC`,[id])
-  const entrants=participants.map(({stream_path,...row})=>({
-    ...row,hls_url: row.stream_status==='live' && row.media_status==='connected'
-      ? publicLiveMediaEndpoints(stream_path).hlsUrl || null : null,
+  const entrants=participants.map(({stream_path,cloudinary_stream_id,cloudinary_hls_url,...row})=>({
+    ...row,hls_url:row.stream_status==='live'&&row.media_status==='connected'
+      ? (cloudinary_stream_id ? cloudinary_hls_url : publicLiveMediaEndpoints(stream_path).hlsUrl)||null : null,
   }))
   const {rows:voted}=userId?await query(`SELECT talent_id FROM stage_competition_votes
     WHERE competition_id=$1 AND voter_id=$2`,[id,userId]):{rows:[]}

@@ -1,7 +1,7 @@
 // Path: api/live/index.js
 import { getSessionUser } from '../_lib/auth.js'
 import { listStageCompetitions, ownCompetitionStreams, stageCompetition, createStageCompetition, stageCompetitionAction } from '../_lib/stageCompetitions.js'
-import {resolveLiveMediaAvailability} from '../_lib/liveMedia.js'
+import {resolveBroadcastAvailability} from '../_lib/liveTransport.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import {
   listStreams,
@@ -14,6 +14,7 @@ import {
   likeStream,
   sendSupport,
   endStream,
+  getCloudinaryPublisherDetails,
 } from '../_lib/live.js'
 
 const POST_ACTIONS = {
@@ -45,9 +46,12 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       if (url.searchParams.get('media_status') === '1') {
-        const availability=await resolveLiveMediaAvailability()
-        return json(res,200,{broadcast_ready:availability.mode==='mediamtx',reason:availability.reason||null})
+        const availability=await resolveBroadcastAvailability()
+        return json(res,200,{broadcast_ready:availability.ready,mode:availability.mode,
+          reason:availability.reason||null,message:availability.message||null})
       }
+      if(url.searchParams.has('cloudinary_publisher'))
+        return json(res,200,await getCloudinaryPublisherDetails(session.sub,url.searchParams.get('cloudinary_publisher')))
       if (url.searchParams.get('stage_competitions') === '1') return json(res,200,await listStageCompetitions())
       if (url.searchParams.get('stage_streams') === '1') return json(res,200,await ownCompetitionStreams(session.sub))
       if (url.searchParams.get('stage_competition')) return json(res,200,await stageCompetition(session.sub,url.searchParams.get('stage_competition')))
