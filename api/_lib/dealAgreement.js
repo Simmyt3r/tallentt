@@ -24,6 +24,10 @@ async function readRecord(dealId,dbQuery=query){
     e.amount,e.currency,e.pay_unit,e.agreed_at,e.created_at,e.funded_at,
     e.work_status,e.work_started_at,e.start_released_amount,
     h.hat_title,h.hat_name,h.category,h.hiring_duration,h.lga AS hat_lga,
+    (SELECT other.hat_title FROM hats other WHERE other.user_id=e.client_id
+      AND other.role IN ('client','dual') ORDER BY other.created_at DESC LIMIT 1) AS client_hat_title,
+    (SELECT other.hat_title FROM hats other WHERE other.user_id=e.talent_id
+      AND other.role IN ('talent','dual') ORDER BY other.created_at DESC LIMIT 1) AS talent_hat_title,
     client_user.username AS client_username,client_user.full_name AS client_name,
     client_user.role AS client_role,
     talent_user.username AS talent_username,talent_user.full_name AS talent_name,
