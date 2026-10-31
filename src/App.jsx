@@ -7,6 +7,7 @@ import Landing from './pages/Landing.jsx'
 import Layout from './components/Layout.jsx'
 import Feed from './pages/Feed.jsx'
 import Vibes from './pages/Vibes.jsx'
+import VibesConversation from './pages/VibesConversation.jsx'
 import HatPage from './pages/HatPage.jsx'
 import PublicProfile from './pages/PublicProfile.jsx'
 import ShowroomPage from './pages/ShowroomPage.jsx'
@@ -93,6 +94,7 @@ export default function App() {
     <Route path="/" element={<HomeRoute />} />
     <Route path="/bento" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
     <Route path="/vibes" element={<ProtectedRoute><VibesRenderBoundary><Vibes /></VibesRenderBoundary></ProtectedRoute>} />
+    <Route path="/vibes/:postId/comments" element={<ProtectedRoute><VibesRenderBoundary><VibesConversation /></VibesRenderBoundary></ProtectedRoute>} />
     <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
     <Route path="/messages" element={<LegacyInboxRedirect tab="bento" />} />
     <Route path="/chats" element={<LegacyInboxRedirect tab="associates" />} />
