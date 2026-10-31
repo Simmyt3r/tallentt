@@ -463,6 +463,8 @@ export function BookingThread({ id, onBack }) {
                   : 'bg-white text-black border border-black/[0.08]'
               }`}
             >
+              <MessageActions message={message} own={own} canReply={!closed}
+                onReply={selected=>{setReply(selected);document.getElementById(`message-${id}`)?.focus()}}>
               {message.body && (
                 <>
                 {message.reply_body && <blockquote className="mb-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] border-l-2 border-current/30 pl-2 text-xs opacity-75"><span className="block font-semibold">{message.reply_sender_id === user.id ? 'You' : getPrimaryIdentity(thread.peer)}</span>{message.reply_body}</blockquote>}
@@ -482,8 +484,7 @@ export function BookingThread({ id, onBack }) {
                   minute: '2-digit',
                 })}
               </time>
-              <MessageActions message={message} own={own} canReply={!closed}
-                onReply={selected=>{setReply(selected);document.getElementById(`message-${id}`)?.focus()}}/>
+              </MessageActions>
             </article>
           )
         })}
@@ -500,7 +501,7 @@ export function BookingThread({ id, onBack }) {
           <p className="text-[12px] text-center text-black/45">This deal is closed. The conversation is read-only.</p>
         ) : (
           <>
-          {reply && <div className="mb-2 flex items-center gap-2 rounded-xl bg-blue-50 p-3 text-xs"><div className="min-w-0 flex-1"><strong>Replying to {reply.sender_id === user.id ? 'yourself' : getPrimaryIdentity(thread.peer)}</strong><p className="truncate">{reply.body}</p></div><button type="button" aria-label="Cancel reply" onClick={() => setReply(null)}>Cancel</button></div>}
+          {reply && <div className="mb-2 flex items-center gap-2 rounded-xl bg-blue-50 p-3 text-xs"><div className="min-w-0 flex-1"><span className="sr-only">Reply preview</span><p className="truncate">{reply.body}</p></div><button type="button" aria-label="Cancel reply" onClick={() => setReply(null)}>Cancel</button></div>}
           <form onSubmit={sendMessage} className="flex items-end gap-2">
             <label htmlFor={`message-${id}`} className="sr-only">Message</label>
             <textarea
