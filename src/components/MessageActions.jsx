@@ -6,9 +6,16 @@ import ForwardMessageDialog from './ForwardMessageDialog.jsx'
 // or use Shift+F10 on the focused bubble for the actions menu. The keyboard
 // fallback is reachable even on devices without long-press support.
 export default function MessageActions({message,own=false,canReply=true,onReply,showRead=true,children}){
-  const [menu,setMenu]=useState(false),[forward,setForward]=useState(false),[notice,setNotice]=useState('')
+  const [menu,setMenu]=useState(false),[menuBelow,setMenuBelow]=useState(false),[forward,setForward]=useState(false),[notice,setNotice]=useState('')
   const root=useRef(null),timer=useRef(null),start=useRef(null)
   const clear=()=>{if(timer.current){clearTimeout(timer.current);timer.current=null}}
+  function showMenu(){
+    // Keep the actions inside the chat viewport rather than underneath
+    // the channel switcher/header when the selected message is near the top.
+    const top=root.current?.getBoundingClientRect()?.top ?? 0
+    setMenuBelow(top<330)
+    setMenu(true)
+  }
   useEffect(()=>{
     function dismiss(e){if(root.current && !root.current.contains(e.target))setMenu(false)}
     function key(e){if(e.key==='Escape')setMenu(false)}
@@ -20,7 +27,7 @@ export default function MessageActions({message,own=false,canReply=true,onReply,
     if(e.button!==0||e.target.closest('button,a,input,textarea'))return
     clear()
     start.current={x:e.clientX,y:e.clientY}
-    timer.current=setTimeout(()=>{setMenu(true);timer.current=null},550)
+    timer.current=setTimeout(()=>{showMenu();timer.current=null},550)
   }
   function pointerMove(e){
     if(!start.current)return
@@ -47,10 +54,10 @@ export default function MessageActions({message,own=false,canReply=true,onReply,
   }
   const readAt=message.read_at
   return <div ref={root} className="relative min-w-0"
-    onContextMenu={e=>{e.preventDefault();setMenu(true)}}
+    onContextMenu={e=>{e.preventDefault();showMenu()}}
     onPointerDown={pointerDown} onPointerMove={pointerMove}
     onPointerUp={pointerEnd} onPointerCancel={pointerEnd}
-    onKeyDown={e=>{if(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10')){e.preventDefault();setMenu(true)}}}>
+    onKeyDown={e=>{if(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10')){e.preventDefault();showMenu()}}}>
     <div tabIndex={0} aria-label="Message. Press and hold or use the context menu key for actions."
       className="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6] touch-pan-y">
       {children}
@@ -61,7 +68,7 @@ export default function MessageActions({message,own=false,canReply=true,onReply,
       {readAt?<CheckCheck size={12}/>:<Check size={12}/>} {readAt?'Seen':'Sent'}
     </span>}
     {menu&&<div role="menu" aria-label="Message actions"
-      className="absolute bottom-full left-1/2 z-30 mb-2 flex max-w-[min(92vw,340px)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-2xl border border-black/10 bg-white p-1.5 text-black shadow-xl">
+      className={`absolute left-1/2 z-30 flex max-w-[min(92vw,340px)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-2xl border border-black/10 bg-white p-1.5 text-black shadow-xl ${menuBelow ? "top-full mt-2" : "bottom-full mb-2"}`}>
       {canReply&&<button type="button" role="menuitem" onClick={()=>{onReply?.(message);setMenu(false)}}
         aria-label={'Reply to '+message.body} className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-[11px] font-semibold hover:bg-blue-50">
         <Reply size={14}/> Reply
