@@ -6,7 +6,6 @@ import AvailabilityBadge from './AvailabilityBadge'
 import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
 import RoleCardBadge from './RoleCardBadge'
-import {useDataMode} from '../lib/dataMode.js'
 
 // True when a clamped paragraph is actually cut off, so "More" only shows
 // when there is something more to read. Re-measured on resize because the
@@ -49,9 +48,6 @@ function ShowroomPost({
   onView,
   observe,
 }) {
-  const dataMode=useDataMode()
-  const [loadInSaver,setLoadInSaver]=useState(false)
-  const renderMedia=dataMode!=='text'||loadInSaver
   const rootRef = useRef(null)
   const captionRef = useRef(null)
   const media = hat.media?.[0]
@@ -92,18 +88,15 @@ function ShowroomPost({
           #{hat.top12_rank} · {hat.work_pass_tier} Work Pass
         </span>}
         {hat.is_entertainment && <span className="pointer-events-none absolute top-3 left-3 z-10 rounded-full bg-black/75 px-3 py-1.5 text-[10px] font-bold text-white">Showcase · no booking</span>}
-        {renderMedia ? <ShowroomMedia
+        <ShowroomMedia
           media={media}
           alt={caption || `${ownerName}'s Showroom ${isVideo ? 'video' : 'post'}`}
-          playing={playing && renderMedia}
+          playing={playing}
           muted={muted}
           onMutedChange={onMutedChange}
           onOpen={() => onView(hat.id)}
-        /> : <button type="button" onClick={()=>setLoadInSaver(true)}
-          className="absolute inset-0 grid place-items-center bg-[#111827] px-6 text-center text-[13px] font-bold text-white">
-          Tap to load {isVideo?'video':'photo'} · Data saver is on
-        </button>}
-        {isVideo && renderMedia && <button type="button" onClick={() => onView(hat.id)}
+        />
+        {isVideo && <button type="button" onClick={() => onView(hat.id)}
           className="absolute right-3 top-14 z-20 flex items-start justify-end focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           aria-label={`View details for ${ownerName}'s video`}>
           <span className="inline-flex min-h-10 items-center rounded-full border border-white/20 bg-black/75 px-3 text-[11px] font-bold text-white">
