@@ -96,6 +96,10 @@ export default function ProfileHeader({
         </button>
       </div>
 
+      {isOwner&&<div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-black/55" aria-label="Private account information">
+        <span>Email: <span className="font-semibold text-black/75">{user.email||'Not set'}</span></span>
+        <span>Account type: <span className="font-semibold capitalize text-black/75">{user.role||'Subscriber'}</span></span>
+      </div>}
       <div className="mt-4 flex items-center gap-3 text-[12px]">
         {orbitDigit !== null && <span className="rounded-full bg-[#EEF0FF] px-3 py-1.5 font-black text-[#0A13E6]" aria-label={`Orbit score ${orbitDigit} on a single-digit scale`}>Orbit {orbitDigit}</span>}
       </div>
