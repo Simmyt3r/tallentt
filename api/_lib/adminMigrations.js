@@ -8,6 +8,7 @@ import { query, getClient } from './db.js'
 const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
+  {id:'subscriber-content-privacy-2026-10',title:'Showroom & Vibes privacy controls',description:'Independent subscriber-level restrictions on new Showroom hiring inquiries and Vibes comments. Existing jobs, chats and comments remain intact.',path:new URL('../../db/patch-subscriber-content-privacy-2026-10.sql',import.meta.url)},
   {id:'inbox-hidden-threads-2026-10',title:'Inbox private conversation hiding',description:'Enables per-subscriber hide for Associate and employment conversations. Work, payment and chat records are preserved; new activity reopens a hidden conversation.',path:new URL('../../db/patch-inbox-hidden-threads-2026-10.sql',import.meta.url)},
   {id:'vibes-shares-2026-10',title:'Vibes share counters',description:'Apply after Hits & Vibes. Tracks completed native-share or copied-link actions once per person per post per day, so engagement counts are based on activity rather than estimates.',path:new URL('../../db/patch-vibes-shares-2026-10.sql',import.meta.url)},
   {id:'vibes-threads-2026-10',title:'Vibes threaded comments & liker lists',description:'Apply after Hits & Vibes social feed. Adds parent-child comment hierarchy and indexes without changing old comments. People who liked a visible Vibe can be viewed through the existing likes table.',path:new URL('../../db/patch-vibes-threads-2026-10.sql',import.meta.url)},
@@ -37,6 +38,8 @@ export const MIGRATION_CATALOG = Object.freeze([
     title: 'Associates and Subscribers',
     description: 'Mutual professional Associates, vouches, one-way subscribers, and request privacy.',
     path: new URL('../../db/patch-associates-2026-10.sql', import.meta.url),
+  },
+  {
     id: 'notification-priorities-2026-10',
     title: 'Notification priorities and daily digests',
     description: 'Protected Bento/Money alerts, Associate controls, and idempotent Fame digest delivery.',
