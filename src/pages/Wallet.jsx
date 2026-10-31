@@ -1,12 +1,13 @@
 // Path: src/pages/Wallet.jsx
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowDownToLine, ArrowUpFromLine, Landmark, Wallet as WalletIcon } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, Eye, EyeOff, Landmark, Wallet as WalletIcon } from 'lucide-react'
 import { api, payWithPaystack } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromRow } from '../lib/profile.js'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
+import {useWalletBalanceVisible} from '../lib/walletBalancePreference.js'
 
 // Co-located per the codebase's existing pattern (see MyBookings.jsx,
 // TalentProfile.jsx) rather than pulled into a shared helper.
@@ -48,6 +49,7 @@ export default function Wallet() {
   const requestedReturn = params.get('return') || ''
   const returnTo = requestedReturn.startsWith('/') && !requestedReturn.startsWith('//') ? requestedReturn : ''
   const [balance, setBalance] = useState(null)
+  const [balanceVisible,setBalanceVisible]=useWalletBalanceVisible(user?.id)
   const [transactions, setTransactions] = useState([])
   const [activitySearch, setActivitySearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -213,7 +215,16 @@ export default function Wallet() {
           <WalletIcon size={14} />
           <span className="text-[11px] font-bold tracking-widest uppercase">Balance</span>
         </div>
-        <p className="text-[32px] font-bold tracking-tight">{fmtMoney(balance)}</p>
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <p className="min-w-0 text-[32px] font-bold tracking-tight" aria-label={balanceVisible?'Wallet balance':'Wallet balance hidden'}>
+            {balanceVisible?fmtMoney(balance):'₦ ••••••'}
+          </p>
+          <button type="button" onClick={()=>setBalanceVisible(!balanceVisible)}
+            aria-label={balanceVisible?'Hide wallet balance':'Show wallet balance'} aria-pressed={balanceVisible}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-black/15 hover:bg-[#F7F3EB]">
+            {balanceVisible?<EyeOff size={19}/>:<Eye size={19}/>}
+          </button>
+        </div>
         <div className="flex gap-3">
           <button
             type="button"
@@ -268,7 +279,7 @@ export default function Wallet() {
                   className={`text-[13px] font-bold shrink-0 ${CREDIT_TYPES.has(t.type) ? 'text-green-700' : 'text-black'}`}
                 >
                   {CREDIT_TYPES.has(t.type) ? '+' : '-'}
-                  {fmtMoney(t.amount)}
+                  {balanceVisible?fmtMoney(t.amount):'••••'}
                 </span>
                 <span
                   className={`text-[10px] font-semibold px-2 py-1 rounded-full shrink-0 capitalize ${STATUS_STYLE[t.status] || STATUS_STYLE.success}`}
