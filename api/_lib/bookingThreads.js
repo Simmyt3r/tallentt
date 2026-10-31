@@ -133,6 +133,11 @@ export async function getThread(userId, escrowId, before, eventsBefore) {
        FROM users WHERE id = $1`,
       [userId === escrow.client_id ? escrow.talent_id : escrow.client_id, canShareContacts(escrow)],
     )
+    // Show an audited cancellation reason to either participant; no other deal can read it.
+    const {rows:cancellationSchema}=await client.query("SELECT to_regclass('deal_cancellation_records') AS relation")
+    const cancellation=cancellationSchema[0]?.relation
+      ? (await client.query("SELECT reason,cancelled_by,cancelled_at FROM deal_cancellation_records WHERE escrow_id=$1",[escrowId])).rows[0]||null
+      : null
     // Explicit fields keep provider references and other internal metadata private.
     return {
       thread: { id: escrow.id, hat_id: escrow.hat_id, hat_title: escrow.hat_title,
@@ -148,6 +153,7 @@ export async function getThread(userId, escrowId, before, eventsBefore) {
         contacts_unlocked: canShareContacts(escrow), price_negotiable: escrow.price_negotiable,
         checkout_locked_at: escrow.checkout_locked_at, card_checkout_started: Boolean(escrow.checkout_reference),
         peer: peers[0], pending_offer: offers[0] || null },
+      cancellation,
       messages: rows.slice(0, 50).reverse(), nextCursor: rows.length > 50 ? rows[49].id : null,
       ...(await lifecycleHistory(client, escrowId, eventsBefore)),
     }
