@@ -267,6 +267,9 @@ export const api = {
   redeemBookingQr: (id, token) => request(`/api/escrows/${id}/redeem-qr`, { method: 'POST', body: JSON.stringify({ token }) }),
   hideConversation: (escrow_id) => request('/api/escrows', { method: 'POST', body: JSON.stringify({ action: 'hide_conversation', escrow_id }) }),
   hideInboxThread: (kind, thread_id) => request('/api/escrows', {method:'POST',body:JSON.stringify({action:'inbox_hide_thread',kind,thread_id})}),
+  getDealAgreement:(id)=>request('/api/escrows?deal_agreement='+encodeURIComponent(id),{cache:'no-store'}),
+  verifyDealAgreement:(token)=>request('/api/escrows?verify_agreement='+encodeURIComponent(token),{cache:'no-store'}),
+  cancelUnfundedDeal:(deal_id,reason)=>request('/api/escrows',{method:'POST',body:JSON.stringify({action:'cancel_unfunded_deal',deal_id,reason})}),
   getDealCall: (escrow_id,after=0) => request(`/api/escrows?${new URLSearchParams({
     deal_call:'1',escrow_id,after:String(after),
   })}`),

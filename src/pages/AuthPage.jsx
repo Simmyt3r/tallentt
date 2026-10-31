@@ -24,7 +24,7 @@ const CATEGORIES = [
 const LEGAL = {
   terms: {
     title: 'Terms of Service',
-    body: 'ChombuTar provides a marketplace for talent to showcase skills and for clients to discover and book them. You must be 18+ or have guardian consent. You own your content. Escrow funds are released in full to talent on confirmed delivery — ChombuTar takes no platform fee in this phase.',
+    body: 'ChombuTar is a talent marketplace connecting clients and service providers. Only authorized account holders may use services. Gig deals have a disclosed 5% platform commission recorded when a deal is sealed. Funded booking payments are managed through staged escrow checkpoints; disputes may delay settlement, and refunds only cover eligible unreleased funds. Full-time employment salary-tracking fees are charged monthly to both parties under the published fee terms. Your services, venue access and obligations are governed by applicable booking rules and any legally enforceable terms you accept. This short summary is not a complete services contract.',
   },
   privacy: {
     title: 'Privacy Policy',
@@ -32,7 +32,7 @@ const LEGAL = {
   },
   vendor: {
     title: 'Vendor Affiliate Agreement',
-    body: 'As a talent or vendor affiliate you agree not to copy others’ products, not to spam, and to accurately represent your work. Affiliate earnings linked to your talent are paid 100% to you in this phase (no platform commission). Violations may result in suspension.',
+    body: 'Subscribers must accurately represent their qualifications and their media rights, avoid spam and impersonation, follow marketplace and publishing rules, and pay applicable disclosed transaction fees. Marketplace commissions are separate from any independently agreed affiliate reward. Violations can lead to moderation or suspension.',
   },
   cookie: {
     title: 'Cookie Policy',
@@ -140,7 +140,7 @@ export default function AuthPage() {
       return
     }
     if (!agreed) {
-      setError('You must agree to the Affiliate Marketing Terms and Vendor Affiliate Agreement.')
+      setError('Review and agree to ChombuTar’s Terms of Service and Vendor Agreement.')
       return
     }
 
@@ -364,15 +364,15 @@ export default function AuthPage() {
               <label className="v9-check">
                 <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
                 <span>
-                  I agree to{' '}
-                  <a href="#vendor" onClick={(e) => { e.preventDefault(); setLegalKey('vendor') }}>
-                    Affiliate Marketing Terms
+                  I have read and agree to{' '}
+                  <a href="#terms" onClick={(e) => { e.preventDefault(); setLegalKey('terms') }}>
+                    ChombuTar Terms of Service
                   </a>{' '}
                   and{' '}
                   <a href="#vendor" onClick={(e) => { e.preventDefault(); setLegalKey('vendor') }}>
-                    Vendor Affiliate Agreement
+                    Marketplace &amp; Vendor Agreement
                   </a>
-                  . I will not copy products or use spam.
+                  . I understand the disclosed fees and escrow rules.
                 </span>
               </label>
 

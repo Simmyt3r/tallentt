@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Handshake, MessageCircle, WalletCards } from 'lucide-react'
+import { ArrowLeft, FileText, MessageCircle, ShieldAlert, WalletCards } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -7,7 +7,6 @@ import BookingProgress from '../components/BookingProgress.jsx'
 import DealQrCheckpoint from '../components/DealQrCheckpoint.jsx'
 import EscrowFundingCard from '../components/EscrowFundingCard.jsx'
 import UserIdentity from '../components/UserIdentity.jsx'
-import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import WorkPassEvidence from '../components/WorkPassEvidence.jsx'
 
 function money(value, currency = 'NGN') {
@@ -35,6 +34,8 @@ export default function DealDetails() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [detailSection,setDetailSection]=useState('overview')
+  const [cancellationReason,setCancellationReason]=useState('')
   const requestSequence = useRef(0)
 
   const load = useCallback(async ({ quiet = false } = {}) => {
@@ -88,7 +89,7 @@ export default function DealDetails() {
   if (loading) {
     return (
       <>
-        <CompactPageHeader title="Deal Details"/>
+        <h1 className="mb-4 text-[22px] font-black">Deals details</h1>
         <div className="mx-auto max-w-4xl">
           <div className="h-72 animate-pulse rounded-[22px] border border-black/10 bg-white" />
         </div>
@@ -99,7 +100,7 @@ export default function DealDetails() {
   if (!data?.thread) {
     return (
       <>
-        <CompactPageHeader title="Deal Details"/>
+        <h1 className="mb-4 text-[22px] font-black">Deals details</h1>
         <div className="mx-auto max-w-4xl">
           <div className="rounded-[20px] border border-red-200 bg-red-50 p-5">
             <p className="text-[13px] font-bold text-red-700">{error || 'Deal not found.'}</p>
@@ -124,23 +125,93 @@ export default function DealDetails() {
 
   return (
     <div className="mx-auto max-w-4xl pb-8">
-      <CompactPageHeader title={thread.hat_title || 'Deal Details'}/>
+      <h1 className="mb-3 text-[22px] font-black">Deals details</h1>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Link to={backUrl} className="inline-flex h-10 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black">
           <ArrowLeft size={15} /> My Deals
         </Link>
-        <div className="flex flex-wrap gap-2">
-          {(thread.price_type === 'range' || thread.price_negotiable) && (
-            <Link to={`/negotiations?escrow=${thread.id}`} className="inline-flex h-10 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black">
-              <Handshake size={15} /> Negotiation
-            </Link>
-          )}
-          <Link to={`/messages?escrow=${thread.id}`} className="inline-flex h-10 items-center gap-2 rounded-full bg-black px-4 text-[11px] font-black text-white">
-            <MessageCircle size={15} /> Deals Chat
-          </Link>
-        </div>
       </div>
+      <nav aria-label="Deal transaction sections" className="mb-3 flex flex-nowrap items-center gap-2 overflow-x-auto pb-2 whitespace-nowrap">
+        {[['overview','Overview'],['agreement','Agreement'],['history','Chat & negotiation history'],['cancel','Cancel deal']].map(([id,label])=><button
+          key={id} type="button" aria-current={detailSection===id?'page':undefined}
+          onClick={()=>setDetailSection(id)}
+          className={`min-h-11 shrink-0 rounded-full px-4 text-[12px] font-bold ${detailSection===id?'bg-[#0A13E6] text-white':'bg-white text-black/65 hover:bg-black/5'}`}>
+          {label}
+        </button>)}
+      </nav>
+      {detailSection==='agreement'&&<section aria-label="Deal agreement" className="space-y-3 border-b border-black/10 bg-white p-5">
+        <h2 className="text-[17px] font-black">Agreement</h2>
+        <p className="text-[12px] text-black/60">View the platform-generated record for this transaction. Funded agreements carry a verifiable reference for printing or entry checks; draft records are not gate passes.</p>
+        <Link to={`/deals/${thread.id}/agreement`}
+          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
+          <FileText size={17}/> Open agreement
+        </Link>
+      </section>}
+      {detailSection==='history'&&<section aria-label="Deal-specific conversation history" className="space-y-3 bg-white p-5">
+        <h2 className="text-[17px] font-black">Chat &amp; negotiation history</h2>
+        <p className="text-[11px] text-black/55">Showing messages and price proposals for this transaction only.</p>
+        <ol className="divide-y divide-black/10">
+          {(data.messages||[]).map(message=><li key={message.id} className="space-y-1 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+              <span className="font-bold">{message.sender_id===user?.id?'You':thread.peer?.full_name||thread.peer?.username||'Other party'} · {message.kind==='offer'?'Price proposal':'Chat message'}</span>
+              <time className="text-black/45">{new Date(message.created_at).toLocaleString()}</time>
+            </div>
+            <p className="whitespace-pre-wrap break-words text-[12px]">{message.body||'—'}</p>
+            {message.kind==='offer'&&<p className="text-[11px] font-semibold text-[#0A13E6]">{money(message.amount,message.currency||thread.currency)} · {nice(message.offer_status)}</p>}
+          </li>)}
+        </ol>
+        {!(data.messages||[]).length&&<p className="text-[12px] text-black/55">No messages recorded for this transaction.</p>}
+        {data.cancellation&&<p className="rounded-xl bg-amber-50 p-3 text-[12px] text-amber-900">Cancelled before funding: {data.cancellation.reason} · {new Date(data.cancellation.cancelled_at).toLocaleString()}</p>}
+        {data.nextCursor&&<p className="text-[11px] text-black/55">Older messages are available in the dedicated deal conversation.</p>}
+        <Link to={`/messages?escrow=${thread.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
+          <MessageCircle size={16}/> Open deal chat
+        </Link>
+      </section>}
+      {detailSection==='cancel'&&<section aria-label="Cancel this deal" className="space-y-3 bg-white p-5">
+        <h2 className="text-[17px] font-black">Cancel deal</h2>
+        {thread.status==='not_funded' && !thread.checkout_locked_at && !thread.card_checkout_started
+          ? <form className="space-y-3" onSubmit={event=>{
+              event.preventDefault()
+              if(!window.confirm('Cancel this unfunded deal? Both parties will retain a permanent cancellation record.'))return
+              void run(()=>api.cancelUnfundedDeal(thread.id,cancellationReason))
+                .then(()=>setCancellationReason('')).catch(()=>{})
+            }}>
+              <p className="text-[12px] text-black/60">Either party can cancel before escrow funding. The other party is notified and the reason is retained with the deal history.</p>
+              <label className="block text-[12px] font-bold">Cancellation reason
+                <textarea required minLength={5} maxLength={500} rows={3} value={cancellationReason}
+                  onChange={event=>setCancellationReason(event.target.value)}
+                  className="mt-2 block w-full rounded-xl border border-black/15 p-3 text-[12px]" placeholder="Explain why this deal is being cancelled"/>
+              </label>
+              <button type="submit" disabled={busy||cancellationReason.trim().length<5}
+                className="min-h-11 rounded-full border border-red-300 px-5 text-[12px] font-bold text-red-700 disabled:opacity-40">
+                {busy?'Cancelling…':'Confirm cancellation'}
+              </button>
+            </form>
+          : thread.status==='secured'&&thread.work_status!=='disputed'
+            ? <form className="space-y-3" onSubmit={event=>{
+                event.preventDefault()
+                if(!window.confirm('Open a dispute for this funded deal? A review is needed before any escrow refund or release.'))return
+                void run(()=>api.bookingAction(thread.id,'open_dispute',{
+                  expected_version:thread.work_version,note:cancellationReason,client_token:crypto.randomUUID(),
+                })).then(()=>setCancellationReason('')).catch(()=>{})
+              }}>
+                <p className="text-[12px] text-black/60">This deal is funded. It cannot be cancelled unilaterally. Describe the problem to request ChombuTar dispute review; only unreleased escrow can be considered for a refund.</p>
+                <label className="block text-[12px] font-bold">Reason for requesting cancellation
+                  <textarea required minLength={5} maxLength={2000} value={cancellationReason} rows={3}
+                    onChange={event=>setCancellationReason(event.target.value)}
+                    className="mt-2 block w-full rounded-xl border border-black/15 p-3 text-[12px]"/>
+                </label>
+                <button type="submit" disabled={busy||cancellationReason.trim().length<5}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-amber-300 px-5 text-[12px] font-bold text-amber-800 disabled:opacity-40">
+                  <ShieldAlert size={16}/> Request cancellation / Open dispute
+                </button>
+              </form>
+            : <p className="text-[12px] text-black/60">{thread.status==='secured'?'A dispute is already open. Await authorized review.':closed?'This deal is already closed and cannot be cancelled again.':'Payment or checkout is in progress. Check the payment state before requesting cancellation.'}</p>}
+      </section>}
 
+      {error&&detailSection!=='overview'&&<p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-[12px] font-bold text-red-700">{error}</p>}
+
+      {detailSection==='overview'&&
       <section className="overflow-hidden rounded-[24px] border-[1.5px] border-black bg-[#F7F3EB]">
         <header className="border-b border-black/10 bg-white px-4 py-5 sm:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -204,6 +275,10 @@ export default function DealDetails() {
                   <p className="mt-1 text-[12px] font-black">{money(remaining, thread.currency)}</p>
                 </div>
               </div>
+              <details className="mt-3 border-t border-black/10 pt-3 text-[12px]">
+                <summary className="cursor-pointer font-bold text-[#0A13E6]">How escrow works</summary>
+                <p className="mt-2 text-black/65">The agreed amount is secured before work starts. A verified Start QR releases the initial 30% payment; the remaining escrow is released after delivery approval and the Completion QR. Disputes pause settlement so the authorized process can release or refund funds still held. Platform commission is recorded when the deal is sealed.</p>
+              </details>
             </section>
           )}
 
@@ -257,7 +332,7 @@ export default function DealDetails() {
             </section>
           )}
         </div>
-      </section>
+      </section>}
     </div>
   )
 }

@@ -25,8 +25,8 @@ test('mobile nav keeps exactly Showroom, Bento, Vibes, Inbox and Profile', () =>
 test('My Deals page is URL-driven, paginated, and includes permanent History', () => {
   const source = read('src/pages/MyDeals.jsx')
   for (const phrase of [
-    'Talent Mode',
-    'Client Mode',
+    'Talent',
+    'Client',
     'Incoming',
     'Outgoing',
     'Active',
@@ -70,7 +70,7 @@ test('deal workspace owns payment, QR, delivery, disputes and booking history', 
   assert.match(detail, /DealQrCheckpoint/)
   assert.match(detail, /BookingProgress/)
   assert.match(detail, /getDealDetail/)
-  assert.match(detail, /Deals Chat/)
+  assert.match(detail, /Open deal chat/)
   assert.match(detail, /Escrow/)
   assert.match(detail, /showHistory/)
 })
@@ -86,7 +86,7 @@ test('badges and notification history use lightweight paginated APIs', () => {
   assert.match(api, /getNotificationCount/)
   assert.match(api, /getMyDealsCount/)
   assert.match(bell, /getNotificationCount/)
-  assert.match(bottom, /getConversations/)
+  assert.match(read('src/components/Layout.jsx'), /Open Inbox/)
   assert.match(notifications, /Load older/)
   assert.match(server, /nextCursor/)
   assert.match(server, /LIMIT \$3/)

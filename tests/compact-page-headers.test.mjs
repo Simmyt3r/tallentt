@@ -8,13 +8,11 @@ const primaryScreens = [
   'src/pages/Feed.jsx',
   'src/pages/Vibes.jsx',
   'src/pages/Negotiations.jsx',
-  'src/pages/MyDeals.jsx',
   'src/pages/Wallet.jsx',
   'src/pages/DisputeCenter.jsx',
   'src/pages/Admin.jsx',
   'src/pages/Profile.jsx',
   'src/pages/PublicProfile.jsx',
-  'src/pages/DealDetails.jsx',
   'src/pages/TalentProfile.jsx',
   'src/pages/Live/LiveHub.jsx',
   'src/pages/Live/StageRoom.jsx',
@@ -31,6 +29,14 @@ test('primary screens keep classic flexible page headers with title and search',
 
   // Inbox has its own contextual chat search, while Settings intentionally
   // has no search control: neither should inherit global Showroom discovery.
+  // My Deals has a deliberately compact title-aligned search, while deal
+  // details must never expose global discovery search.
+  const deals=read('src/pages/MyDeals.jsx')
+  const details=read('src/pages/DealDetails.jsx')
+  assert.doesNotMatch(deals,/CompactPageHeader/)
+  assert.match(deals,/aria-label=\{searchOpen\?'Close deals search':'Search deals'\}/)
+  assert.doesNotMatch(details,/CompactPageHeader/)
+  assert.match(details,/>Deals details<\/h1>/)
   const settings=read('src/pages/Settings.jsx')
   assert.doesNotMatch(settings,/CompactPageHeader|DiscoverySearch/)
   assert.match(settings,/aria-label="Settings sections"/)

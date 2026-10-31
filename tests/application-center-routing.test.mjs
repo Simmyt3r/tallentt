@@ -14,8 +14,8 @@ test('My Hats no longer owns application review UI', async () => {
 
 test('My Deals owns incoming and outgoing applications and bookings', async () => {
   const source = await read('src/pages/MyDeals.jsx')
-  assert.match(source, /Talent Mode/)
-  assert.match(source, /Client Mode/)
+  assert.match(source, /value==='talent'\?'Talent':'Client'/)
+  assert.match(source, /Deal role modes/)
   assert.match(source, /\['incoming', 'Incoming'\]/)
   assert.match(source, /\['outgoing', 'Outgoing'\]/)
   assert.match(source, /respondToApplication\(item\.hat_id, item\.application_id, status\)/)
@@ -41,7 +41,7 @@ test('active booking management lives on the deal detail page while index stays 
   const index = await read('src/pages/MyDeals.jsx')
   const detail = await read('src/pages/DealDetails.jsx')
   const funding = await read('src/components/EscrowFundingCard.jsx')
-  assert.match(index, /\/messages\?escrow=/)
+  assert.doesNotMatch(index, /\/messages\?escrow=/)
   assert.match(index, /\/deals\/\$\{item\.id\}/)
   assert.doesNotMatch(index, /EscrowFundingCard/)
   assert.doesNotMatch(index, /DealQrCheckpoint/)
@@ -49,7 +49,7 @@ test('active booking management lives on the deal detail page while index stays 
   assert.match(detail, /fundEscrowWithWallet/)
   assert.match(detail, /\/negotiations\?escrow=/)
   assert.match(detail, /\/messages\?escrow=/)
-  assert.match(detail, /Deals Chat/)
+  assert.match(detail, /Open deal chat/)
   assert.match(detail, /EscrowFundingCard/)
   assert.match(detail, /DealQrCheckpoint/)
   assert.match(detail, /BookingProgress/)
