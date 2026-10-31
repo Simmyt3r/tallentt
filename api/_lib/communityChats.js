@@ -40,6 +40,11 @@ export async function communityChatsGet(userId,params){
       ORDER BY m.created_at DESC,m.id DESC LIMIT 100`,[threadId])
     return {thread,messages:messages.reverse()}
   }
+  const {rows:inboxHidden}=await query("SELECT to_regclass('inbox_hidden_threads') AS present")
+  const hideFilter=inboxHidden[0]?.present
+    ? ` AND NOT EXISTS (SELECT 1 FROM inbox_hidden_threads hidden
+       WHERE hidden.user_id=$1 AND hidden.kind='associates' AND hidden.thread_id=t.id
+       AND t.updated_at<=hidden.hidden_at)` : ''
   const {rows}=await query(`SELECT t.id,t.initiator_id,t.recipient_id,t.status,
       t.created_at,t.updated_at,u.id AS peer_id,u.username AS peer_username,
       u.full_name AS peer_name,u.avatar_url AS peer_avatar,
