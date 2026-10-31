@@ -108,6 +108,7 @@ export default async function handler(req, res) {
         `SELECT m.id, m.hat_id, m.url, m.public_id, m.type, m.caption, m.created_at, h.hat_title
          FROM hat_media m JOIN hats h ON h.id = m.hat_id
          WHERE m.hat_id = ANY($1::uuid[]) AND m.type IN ('image', 'video')
+           AND m.screening_status IN ('legacy','passed')
          ORDER BY (m.id::text = ANY($2::text[])) DESC, m.created_at DESC, m.id
          LIMIT 60`,
         [talentHatIds, userRow.talent_card?.featuredMedia || []],
