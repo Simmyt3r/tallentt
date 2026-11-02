@@ -15,11 +15,14 @@ test('My Deals replaces split application/booking navigation', () => {
   assert.match(app, /my-bookings".*deals\?role=client&tab=outgoing/)
 })
 
-test('mobile nav keeps exactly Showroom, Bento, Vibes, Inbox and Profile', () => {
+test('mobile nav exposes Add Hat and retains Showroom, Bento, Vibes and Work Pass', () => {
   const source = read('src/components/BottomNav.jsx')
   const items = [...source.matchAll(/<BottomNavLink to="([^"]+)"/g)].map(x=>x[1])
-  assert.deepEqual(items,['/showroom','/bento','/vibes','/inbox','/profile'])
-  assert.match(source, /badge=\{unreadBento\}/)
+  assert.deepEqual(items,['/showroom','/bento','/create','/vibes'])
+  assert.match(source, /to="\/create" icon=\{Plus\} label="Add Hat" create/)
+  assert.match(source, /aria-label="Open my Work Pass"/)
+  assert.doesNotMatch(source, /<BottomNavLink to="\/profile"/)
+  assert.doesNotMatch(source, /<BottomNavLink to="\/inbox"/)
 })
 
 test('My Deals page is URL-driven, paginated, and includes permanent History', () => {

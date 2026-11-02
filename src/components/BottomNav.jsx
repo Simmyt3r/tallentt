@@ -1,23 +1,23 @@
 // Path: src/components/BottomNav.jsx
 import { NavLink } from 'react-router-dom'
-import { Store, LayoutGrid, MessageSquareHeart } from 'lucide-react'
+import { Store, LayoutGrid, MessageSquareHeart, Plus } from 'lucide-react'
 import WorkPassNavIcon from './WorkPassNavIcon.jsx'
 
-function BottomNavLink({ to, end, icon: Icon, label }) {
+function BottomNavLink({ to, end, icon: Icon, label, create = false }) {
   return (
     <NavLink
       to={to}
       end={end}
       className={({ isActive }) =>
-        `relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full text-[9px] sm:text-[10px] min-w-0 font-bold transition-colors ${
-          isActive ? 'text-[#0A13E6]' : 'text-black/45'
+        `relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full text-[9px] sm:text-[10px] min-w-0 font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#0A13E6] ${
+          create || isActive ? 'text-[#0A13E6]' : 'text-black/45'
         }`
       }
     >
-      <span className="relative">
-        <Icon size={20} />
+      <span className={create ? 'grid h-8 w-8 place-items-center rounded-full bg-[#0A13E6] text-white' : 'relative'}>
+        <Icon size={20} aria-hidden="true" />
       </span>
-      <span>{label}</span>
+      <span className="whitespace-nowrap">{label}</span>
     </NavLink>
   )
 }
@@ -32,6 +32,7 @@ export default function BottomNav({ onOpenWorkPass, workPassOpen = false }) {
     >
       <BottomNavLink to="/showroom" icon={Store} label="Showroom" />
       <BottomNavLink to="/bento" icon={LayoutGrid} label="Bento" />
+      <BottomNavLink to="/create" icon={Plus} label="Add Hat" create />
       <BottomNavLink to="/vibes" icon={MessageSquareHeart} label="Vibes" />
       <button type="button" onClick={onOpenWorkPass} aria-label="Open my Work Pass"
         aria-pressed={workPassOpen}
