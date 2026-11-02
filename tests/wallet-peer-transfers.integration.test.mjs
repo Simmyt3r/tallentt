@@ -86,14 +86,13 @@ test('concurrent same-token retry cannot double spend',async()=>{
  assert.equal(await balance(bob),4500)
 })
 test('opposing concurrent transfers lock wallets in the same order and conserve value',async()=>{
- const amounts=[balance(alice),balance(bob),balance(charlie)]
+ const old=await Promise.all([balance(alice),balance(bob),balance(charlie)])
  const [a,b]=await Promise.all([
    transferWalletBalance(alice,{recipient_username:'Bob_B',amount:150,client_token:randomUUID()}),
    transferWalletBalance(bob,{recipient_username:'Alice_A',amount:120,client_token:randomUUID()}),
  ])
  assert.ok(a.transferId&&b.transferId)
  const afterBalances=await Promise.all([balance(alice),balance(bob),balance(charlie)])
- const old=await Promise.all(amounts)
  assert.equal(afterBalances.reduce((x,y)=>x+y,0),old.reduce((x,y)=>x+y,0))
 })
 test('refuse forged, invalid and fractional transfer amounts before transaction begins',async()=>{
