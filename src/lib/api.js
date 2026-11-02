@@ -304,6 +304,10 @@ export const api = {
   getAdminBilling:()=>request('/api/admin?action=billing_admin',{cache:'no-store'}),
   adminBillingAction:(body)=>request('/api/admin',{method:'POST',body:JSON.stringify(body)}),
   getWallet: () => request('/api/escrows?wallet=1'),
+  findWalletRecipient:(username)=>request('/api/escrows?wallet_recipient='+encodeURIComponent(username),{cache:'no-store'}),
+  sendWalletTransfer:(recipient_username,amount,client_token)=>request('/api/escrows',{
+    method:'POST',body:JSON.stringify({action:'wallet_peer_transfer',recipient_username,amount,client_token}),
+  }),
   topupWallet: (reference) =>
     request('/api/escrows', { method: 'POST', body: JSON.stringify({ action: 'topup', reference }) }),
   withdrawWallet: (amount) =>

@@ -167,9 +167,9 @@ export default function Inbox() {
               <button type="button" aria-label={searchOpen?'Close conversation search':'Search conversations'}
                 aria-expanded={searchOpen} onClick={()=>{setSearchOpen(open=>!open);setSearch('')}}
                 className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><Search size={19}/></button>
-              <button type="button" onClick={()=>setParams({compose:'1'})} aria-label="New message"
-                title="New message" className="grid h-10 w-10 place-items-center rounded-full bg-blue-50 text-[#0A13E6]">
-                <PenSquare size={19}/>
+              <button type="button" onClick={()=>setParams({compose:'1'})} aria-label="Browse contacts and start a message"
+                title="Find a subscriber" className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-blue-50 px-3 text-[11px] font-bold text-[#0A13E6]">
+                <PenSquare size={17}/><span>Contacts</span>
               </button>
             </div>
           </header>

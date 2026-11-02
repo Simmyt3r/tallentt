@@ -89,7 +89,7 @@ export default function DealDetails() {
   if (loading) {
     return (
       <>
-        <h1 className="mb-4 text-[22px] font-black">Deals details</h1>
+        <h1 className="mb-4 text-[22px] font-black">Deal Details</h1>
         <div className="mx-auto max-w-4xl">
           <div className="h-72 animate-pulse rounded-[22px] border border-black/10 bg-white" />
         </div>
@@ -100,7 +100,7 @@ export default function DealDetails() {
   if (!data?.thread) {
     return (
       <>
-        <h1 className="mb-4 text-[22px] font-black">Deals details</h1>
+        <h1 className="mb-4 text-[22px] font-black">Deal Details</h1>
         <div className="mx-auto max-w-4xl">
           <div className="rounded-[20px] border border-red-200 bg-red-50 p-5">
             <p className="text-[13px] font-bold text-red-700">{error || 'Deal not found.'}</p>
@@ -125,14 +125,14 @@ export default function DealDetails() {
 
   return (
     <div className="mx-auto max-w-4xl pb-8">
-      <h1 className="mb-3 text-[22px] font-black">Deals details</h1>
+      <h1 className="mb-3 text-[22px] font-black">Deal Details</h1>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Link to={backUrl} className="inline-flex h-10 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black">
           <ArrowLeft size={15} /> My Deals
         </Link>
       </div>
       <nav aria-label="Deal transaction sections" className="mb-3 flex flex-nowrap items-center gap-2 overflow-x-auto pb-2 whitespace-nowrap">
-        {[['overview','Overview'],['agreement','Agreement'],['history','Chat & negotiation history'],['cancel','Cancel deal']].map(([id,label])=><button
+        {[['overview','Overview'],['agreement','Agreement'],['history','Chat History'],['cancel','Cancel Deal']].map(([id,label])=><button
           key={id} type="button" aria-current={detailSection===id?'page':undefined}
           onClick={()=>setDetailSection(id)}
           className={`min-h-11 shrink-0 rounded-full px-4 text-[12px] font-bold ${detailSection===id?'bg-[#0A13E6] text-white':'bg-white text-black/65 hover:bg-black/5'}`}>
@@ -167,7 +167,7 @@ export default function DealDetails() {
           <MessageCircle size={16}/> Open deal chat
         </Link>
       </section>}
-      {detailSection==='cancel'&&<section aria-label="Cancel this deal" className="space-y-3 bg-white p-5">
+      {detailSection==='cancel'&&<section aria-label="Cancel Deal" className="space-y-3 bg-white p-5">
         <h2 className="text-[17px] font-black">Cancel deal</h2>
         {thread.status==='not_funded' && !thread.checkout_locked_at && !thread.card_checkout_started
           ? <form className="space-y-3" onSubmit={event=>{
@@ -276,7 +276,7 @@ export default function DealDetails() {
                 </div>
               </div>
               <details className="mt-3 border-t border-black/10 pt-3 text-[12px]">
-                <summary className="cursor-pointer font-bold text-[#0A13E6]">How escrow works</summary>
+                <summary className="cursor-pointer font-bold text-[#0A13E6]">How Escrow Works</summary>
                 <p className="mt-2 text-black/65">The agreed amount is secured before work starts. A verified Start QR releases the initial 30% payment; the remaining escrow is released after delivery approval and the Completion QR. Disputes pause settlement so the authorized process can release or refund funds still held. Platform commission is recorded when the deal is sealed.</p>
               </details>
             </section>

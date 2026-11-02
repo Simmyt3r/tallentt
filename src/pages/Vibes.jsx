@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Heart, ThumbsUp, ImagePlus, MessageCircle, Send, Trash2, Flag, Share2, X, RefreshCw } from 'lucide-react'
 import EntryActions from '../components/EntryActions.jsx'
@@ -13,6 +13,17 @@ import { cldImage } from '../lib/cloudinary.js'
 import { shareSignedWorkPassVideo } from '../lib/workPassVideoShare.js'
 import { formatEngagementCount } from '../lib/engagementCount.js'
 
+// Retain the actual loaded feed, pagination and anchor before opening comments.
+// This is intentionally in-memory and disappears when the tab reloads/logs out.
+let feedReturnSnapshot=null
+export function updateVibeReturnSnapshot(postId,patch){
+  if(!feedReturnSnapshot)return
+  feedReturnSnapshot.posts=feedReturnSnapshot.posts.map(item=>item.id===postId?{...item,...patch}:item)
+}
+export function discardVibeReturnSnapshot(postId){
+  if(!feedReturnSnapshot)return
+  feedReturnSnapshot.posts=feedReturnSnapshot.posts.filter(item=>item.id!==postId)
+}
 const MAX_PHOTOS = 10
 const MAX_POST_BYTES = 80 * 1024 * 1024
 const mediaMB = bytes => (bytes / (1024 * 1024)).toLocaleString('en-NG',{maximumFractionDigits:1})
@@ -43,13 +54,14 @@ function Identity({user}) {
 }
 
 
-export function VibeCard({post,me,onChange,onDeleted,commentsPage=false}) {
+export function VibeCard({post,me,onChange,onDeleted,onOpenComments,commentsPage=false}) {
   const navigate=useNavigate()
   function openComments(){
     if(commentsPage){
       document.getElementById('vibe-reply-'+post.id)?.focus()
       return
     }
+    if(onOpenComments){onOpenComments(post.id);return}
     navigate('/vibes/'+encodeURIComponent(post.id)+'/comments')
   }
   const [showLikers,setShowLikers]=useState(false)
@@ -181,17 +193,19 @@ export function VibeCard({post,me,onChange,onDeleted,commentsPage=false}) {
 
 export default function Vibes() {
   const {user}=useAuth()
+  const navigate=useNavigate()
+  const [returnSnapshot]=useState(()=>{const saved=feedReturnSnapshot;feedReturnSnapshot=null;return saved?.userId===user?.id?saved:null})
   const [params]=useSearchParams()
   const specific=params.get('post')||null
-  const [posts,setPosts]=useState([])
-  const [cursor,setCursor]=useState(null)
-  const [loading,setLoading]=useState(true)
+  const [posts,setPosts]=useState(()=>returnSnapshot?.posts||[])
+  const [cursor,setCursor]=useState(()=>returnSnapshot?.cursor||null)
+  const [loading,setLoading]=useState(!returnSnapshot)
   const [paging,setPaging]=useState(false)
   const [error,setError]=useState('')
   const [text,setText]=useState('')
   const [photos,setPhotos]=useState([])
-  const [search,setSearch]=useState('')
-  const [serverSearch,setServerSearch]=useState('')
+  const [search,setSearch]=useState(()=>returnSnapshot?.search||'')
+  const [serverSearch,setServerSearch]=useState(()=>returnSnapshot?.serverSearch||'')
   const photosRef=useRef([])
   const fileRef=useRef(null)
   const [publishing,setPublishing]=useState(false)
@@ -200,6 +214,24 @@ export default function Vibes() {
   const [reviewingPost,setReviewingPost]=useState(null)
 
   useEffect(()=>{const id=setTimeout(()=>setServerSearch(search.trim()),250);return()=>clearTimeout(id)},[search])
+  useLayoutEffect(()=>{
+    if(!returnSnapshot||specific)return undefined
+    let raf=0
+    raf=requestAnimationFrame(()=>{
+      const anchor=document.getElementById('vibe-feed-'+returnSnapshot.anchorId)
+      if(anchor){
+        const relative=anchor.getBoundingClientRect().top-returnSnapshot.anchorOffset
+        window.scrollTo({top:Math.max(0,window.scrollY+relative),behavior:'instant'})
+      }else window.scrollTo({top:returnSnapshot.scrollY,behavior:'instant'})
+    })
+    return()=>cancelAnimationFrame(raf)
+  },[returnSnapshot,specific])
+  function openFeedComments(postId){
+    const anchor=document.getElementById('vibe-feed-'+postId)
+    feedReturnSnapshot={userId:user?.id,posts,cursor,search,serverSearch,scrollY:window.scrollY,
+      anchorId:postId,anchorOffset:anchor?.getBoundingClientRect()?.top??0}
+    navigate('/vibes/'+encodeURIComponent(postId)+'/comments',{state:{fromVibesFeed:true}})
+  }
   useEffect(()=>{
     if(!reviewingPost)return undefined
     let cancelled=false
@@ -222,6 +254,9 @@ export default function Vibes() {
   useEffect(()=>{photosRef.current=photos},[photos])
   useEffect(()=>()=>photosRef.current.forEach(item=>URL.revokeObjectURL(item.preview)),[])
   useEffect(()=>{
+    if(returnSnapshot&&!specific&&feedTick===0&&serverSearch===returnSnapshot.serverSearch){
+      return undefined
+    }
     let cancelled=false
     setLoading(true);setError('')
     api.getVibes(null,specific,serverSearch).then(data=>{
@@ -355,8 +390,10 @@ export default function Vibes() {
       <p className="mt-3 text-[14px] font-black">Nothing here yet</p>
       <p className="mt-1 text-[12px] text-black/50">Start the conversation with your first Vibe.</p>
     </div>}
-    {posts.map(post=><VibeCard key={post.id} post={post} me={user}
-      onChange={change} onDeleted={id=>setPosts(current=>current.filter(p=>p.id!==id))}/>)}
+    {posts.map(post=><div key={post.id} id={'vibe-feed-'+post.id}>
+      <VibeCard post={post} me={user} onOpenComments={openFeedComments}
+        onChange={change} onDeleted={id=>setPosts(current=>current.filter(p=>p.id!==id))}/>
+    </div>)}}
     {cursor&&!specific&&<button type="button" disabled={paging} onClick={older}
       className="w-full min-h-11 rounded-xl border border-black/20 bg-white text-[12px] font-bold disabled:opacity-50">
       {paging?'Loading…':'Load more Vibes'}

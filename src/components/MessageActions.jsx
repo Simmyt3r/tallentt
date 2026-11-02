@@ -1,12 +1,13 @@
 import {useEffect,useRef,useState} from 'react'
 import {Check,CheckCheck,Copy,CornerUpRight,Languages,Reply} from 'lucide-react'
 import ForwardMessageDialog from './ForwardMessageDialog.jsx'
+import TranslateMessageDialog from './TranslateMessageDialog.jsx'
 
 // Normal message bubbles are clean: long-press (touch or mouse), right-click,
 // or use Shift+F10 on the focused bubble for the actions menu. The keyboard
 // fallback is reachable even on devices without long-press support.
 export default function MessageActions({message,own=false,canReply=true,onReply,showRead=true,children}){
-  const [menu,setMenu]=useState(false),[menuBelow,setMenuBelow]=useState(false),[forward,setForward]=useState(false),[notice,setNotice]=useState('')
+  const [menu,setMenu]=useState(false),[menuBelow,setMenuBelow]=useState(false),[forward,setForward]=useState(false),[translate,setTranslate]=useState(false),[notice,setNotice]=useState('')
   const root=useRef(null),timer=useRef(null),start=useRef(null)
   const clear=()=>{if(timer.current){clearTimeout(timer.current);timer.current=null}}
   function showMenu(){
@@ -78,12 +79,13 @@ export default function MessageActions({message,own=false,canReply=true,onReply,
       <button type="button" role="menuitem" onClick={()=>{setForward(true);setMenu(false)}} aria-label="Forward message"
         className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-[11px] font-semibold hover:bg-blue-50">
         <CornerUpRight size={14}/> Forward</button>
-      <button type="button" role="menuitem" aria-label="Translate message (coming soon)"
-        onClick={()=>{setNotice('Translations are coming soon.');setMenu(false)}}
+      <button type="button" role="menuitem" aria-label="Translate message"
+        onClick={()=>{setTranslate(true);setMenu(false)}}
         className="flex items-center gap-1 rounded-xl px-2.5 py-2 text-[11px] font-semibold hover:bg-blue-50">
         <Languages size={14}/> Translate</button>
     </div>}
     {notice&&<p role="status" className="mt-1 text-[10px] font-semibold">{notice}</p>}
     {forward&&<ForwardMessageDialog body={message.body} onClose={()=>setForward(false)}/>}
+    {translate&&<TranslateMessageDialog body={message.body} onClose={()=>setTranslate(false)}/>}
   </div>
 }

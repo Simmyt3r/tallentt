@@ -51,8 +51,10 @@ test('server list queries include peer IDs, and the inbox never moves actual mes
 })
 test('messages support permission-controlled forwarding while preserving read receipts',()=>{
   const actions=source('src/components/MessageActions.jsx')
-  for(const token of ['Copy message','Forward message','Translate message (coming soon)','Read receipt: seen','Read receipt: sent'])
+  for(const token of ['Copy message','Forward message','Translate message','Read receipt: seen','Read receipt: sent'])
     assert.ok(actions.includes(token),token)
+  const translation=source('src/components/TranslateMessageDialog.jsx')
+  assert.match(translation,/window.confirm/)
   const forward=source('src/components/ForwardMessageDialog.jsx')
   assert.match(forward,/filter\(t=>t.status==='accepted'\)/)
   assert.match(forward,/action:'community_send'/)
