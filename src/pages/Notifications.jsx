@@ -248,12 +248,24 @@ export default function Notifications() {
   return (
     <main className="max-w-4xl mx-auto pb-8">
       <header className="sticky top-14 md:top-16 z-20 -mx-4 md:-mx-6 lg:-mx-8 mb-3 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 md:px-6 lg:px-8 backdrop-blur-lg">
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Bell size={22} aria-hidden="true" className="shrink-0"/>
             <h1 className="min-w-0 text-[21px] font-black tracking-tight sm:text-[23px]">Notifications</h1>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
+          {searchOpen&&<div id="notification-search" className="order-3 flex min-w-[11rem] flex-[1_1_12rem] items-center gap-2 rounded-full border border-black/20 bg-white px-3 sm:order-none">
+            <Search size={17} className="shrink-0 text-black/45" aria-hidden="true"/>
+            <input autoFocus type="text" inputMode="search" value={search}
+              onChange={event=>setSearch(event.target.value)}
+              aria-label="Search selected notification category"
+              placeholder="Search notifications…"
+              className="h-9 min-w-0 flex-1 bg-transparent text-[13px] outline-none"/>
+            {search&&<button type="button" aria-label="Clear notification search"
+              onClick={()=>setSearch('')} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-black/55 hover:bg-black/5">
+              <X size={16}/>
+            </button>}
+          </div>}
+          <div className="ml-auto flex shrink-0 items-center gap-1">
             <button type="button" aria-label={searchOpen?'Close notifications search':'Search notifications'}
               aria-expanded={searchOpen} aria-controls="notification-search"
               onClick={()=>{if(searchOpen)setSearch('');setSearchOpen(open=>!open)}}
@@ -282,18 +294,6 @@ export default function Notifications() {
             </div>
           </div>
         </div>
-        {searchOpen&&<div id="notification-search" className="mt-3 flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 focus-within:border-[#0A13E6]">
-          <Search size={17} className="shrink-0 text-black/45" aria-hidden="true"/>
-          <input autoFocus type="text" inputMode="search" value={search}
-            onChange={event=>setSearch(event.target.value)}
-            aria-label="Search selected notification category"
-            placeholder="Search notifications…"
-            className="h-11 min-w-0 flex-1 bg-transparent text-[13px] outline-none"/>
-          {search&&<button type="button" aria-label="Clear notification search"
-            onClick={()=>setSearch('')} className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-black/55 hover:bg-black/5">
-            <X size={16}/>
-          </button>}
-        </div>}
       </header>
 
       <nav role="tablist" aria-label="Notification categories"
