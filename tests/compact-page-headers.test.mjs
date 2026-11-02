@@ -53,6 +53,15 @@ test('primary screens keep classic flexible page headers with title and search',
   assert.match(notifications,/<h1[^>]*>Notifications<\/h1>/)
   assert.match(notifications,/aria-label="More notification actions"/)
 
+  // The owner's profile and editing screens have a title only; public profiles
+  // may retain their global search without affecting other discovery pages.
+  const ownProfile = read('src/pages/Profile.jsx')
+  const linkedProfile = read('src/pages/PublicProfile.jsx')
+  assert.match(ownProfile, /title="My Profile" showSearch=\{false\}/)
+  assert.match(ownProfile, /title="Edit Profile" showSearch=\{false\}/)
+  assert.match(linkedProfile, /title=\{isOwnUsername \? 'My Profile' : 'Profile'\} showSearch=\{!isOwnUsername\}/)
+  assert.match(linkedProfile, /title="Edit Profile" showSearch=\{false\}/)
+
   const header = read('src/components/CompactPageHeader.jsx')
   assert.match(header, /sticky top-14 md:top-16 z-10/)
   assert.match(header, /flex w-full flex-wrap items-center justify-between gap-3/)
@@ -60,6 +69,8 @@ test('primary screens keep classic flexible page headers with title and search',
   assert.match(header, /min-w-\[11rem\] max-w-\[340px\] flex-\[1_1_14rem\]/)
   assert.doesNotMatch(header, /h-\[52px\]/)
   assert.match(header, /<h1[^>]*>\{title\}<\/h1>/)
+  assert.match(header, /showSearch = true/)
+  assert.match(header, /\{showSearch && <div/)
   assert.match(header, /<DiscoverySearch/)
 
   // Preserve the original global top bar, desktop sidebar, and mobile tabs.
