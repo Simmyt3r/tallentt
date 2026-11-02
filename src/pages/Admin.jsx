@@ -222,7 +222,7 @@ export default function Admin() {
               id="admin-section-picker"
               value={tab}
               onChange={(event) => setTab(event.target.value)}
-              className="h-12 w-full rounded-xl border-[1.5px] border-black bg-white px-3 text-[14px] font-semibold text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6]"
+              className="ct-filter-select h-12 w-full max-w-none text-[14px]"
             >
               {SECTIONS.map((item) => <option key={item.id} value={item.id}>
                 {item.label}{item.id === 'disputes' && Number(metrics.open_disputes) > 0 ? ` (${metrics.open_disputes} open)` : ''}
