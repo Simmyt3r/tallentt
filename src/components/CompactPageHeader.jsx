@@ -16,6 +16,7 @@ export default function CompactPageHeader({
   onSearchSubmit,
   icon: Icon,
   status,
+  showSearch = true,
   className = '',
 }) {
   const navigate = useNavigate()
@@ -42,7 +43,7 @@ export default function CompactPageHeader({
           <h1 className="min-w-0 text-[21px] sm:text-[23px] font-black tracking-tight">{title}</h1>
           {status}
         </div>
-        <div className="ml-auto min-w-[11rem] max-w-[340px] flex-[1_1_14rem]">
+        {showSearch && <div className="ml-auto min-w-[11rem] max-w-[340px] flex-[1_1_14rem]">
           <DiscoverySearch
             value={value}
             onChange={change}
@@ -51,7 +52,7 @@ export default function CompactPageHeader({
             label={searchLabel || `Search ${title}`}
             className="w-full"
           />
-        </div>
+        </div>}
       </div>
     </header>
   )
