@@ -297,11 +297,10 @@ export default function Notifications() {
       </header>
 
       <nav role="tablist" aria-label="Notification categories"
-        className="mb-3 flex w-full min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain pb-2 whitespace-nowrap">
+        className="ct-filter-tabs mb-3 w-full flex-nowrap overscroll-x-contain pb-2 whitespace-nowrap">
         {LANES.map(([id,label])=><button key={id} type="button" role="tab"
           aria-selected={currentLane===id} onClick={()=>setParams({lane:id})}
-          className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-[11px] font-black
-            ${currentLane===id?'border-[#0A13E6] bg-[#EEF0FF] text-[#0A13E6]':'border-black/10 bg-white text-black/65'}`}>
+          className="ct-filter-tab min-h-11 text-[11px]">
           {label}
           {(id==='all'?unreadCount:Number(unreadByLane[id]||0))>0&&<span className={`inline-block h-2 w-2 shrink-0 rounded-full ${id==='bento'||id==='money'?'bg-red-600':'bg-blue-600'}`}
             aria-label={`${id==='all'?unreadCount:unreadByLane[id]} unread ${label} notifications`}/>}
