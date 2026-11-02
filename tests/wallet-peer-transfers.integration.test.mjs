@@ -4,7 +4,9 @@ import {readFileSync} from 'node:fs'
 import {randomUUID} from 'node:crypto'
 import pg from 'pg'
 
-if(!process.env.DATABASE_URL)throw new Error('This test requires a disposable PostgreSQL DATABASE_URL.')
+if(!process.env.DATABASE_URL){
+  test('PostgreSQL wallet transfer integration requires a disposable test database',{skip:'Set DATABASE_URL to run this integration suite'},()=>{})
+}else{
 // pg Pool must exist before importing wallet modules. The app's production
 // db adapter intentionally uses a shared pool for serverless instances.
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,max:10,ssl:false})
@@ -101,3 +103,5 @@ test('refuse forged, invalid and fractional transfer amounts before transaction 
  }
  await assert.rejects(transferWalletBalance(alice,{recipient_username:'Bob_B',amount:1,client_token:'bad-token'}),{status:400})
 })
+
+}
