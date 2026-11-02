@@ -44,6 +44,10 @@ export default async function handler(req, res) {
       if(url.searchParams.has('employment')||url.searchParams.has('employment_id'))
         return json(res,200,await employmentGet(session.sub,url.searchParams))
 
+      // Settings reads these even when General is selected. Return the
+      // authenticated subscriber's policies, including safe migration defaults.
+      if(url.searchParams.get('content_privacy')==='1')
+        return json(res,200,await getContentPrivacy(session.sub))
       if(url.searchParams.has('associates')||url.searchParams.has('associate_privacy'))
         return json(res,200,await associatesGet(session.sub,url.searchParams))
       if(url.searchParams.has('community')||url.searchParams.has('community_thread')||
@@ -173,6 +177,10 @@ export default async function handler(req, res) {
     if(String(body.action||'').startsWith('employment_'))
       return json(res,200,await employmentAction(session.sub,body))
 
+    // Save only allowlisted content privacy fields for the signed-in user.
+    // updateContentPrivacy validates both the field and its permitted values.
+    if(body.action==='content_privacy')
+      return json(res,200,await updateContentPrivacy(session.sub,body.field,body.value))
     if(String(body.action||'').startsWith('associate_'))
       return json(res,200,await associatesAction(session.sub,body))
     if(['community_start','community_send','community_respond','community_read'].includes(body.action))
