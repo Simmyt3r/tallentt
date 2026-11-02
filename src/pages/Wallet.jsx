@@ -1,13 +1,14 @@
 // Path: src/pages/Wallet.jsx
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowDownToLine, ArrowUpFromLine, Eye, EyeOff, Landmark, Wallet as WalletIcon } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Eye, EyeOff, Landmark, Wallet as WalletIcon } from 'lucide-react'
 import { api, payWithPaystack } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromRow } from '../lib/profile.js'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import {useWalletBalanceVisible} from '../lib/walletBalancePreference.js'
+import WalletTransferDialog from '../components/WalletTransferDialog.jsx'
 
 // Co-located per the codebase's existing pattern (see MyBookings.jsx,
 // TalentProfile.jsx) rather than pulled into a shared helper.
@@ -27,6 +28,8 @@ const TYPE_LABEL = {
   escrow_release: 'Booking earnings',
   withdrawal: 'Withdrawal',
   refund: 'Withdrawal refund',
+  wallet_transfer_sent:'Transfer sent',
+  wallet_transfer_received:'Transfer received',
 }
 
 const STATUS_STYLE = {
@@ -38,7 +41,7 @@ const STATUS_STYLE = {
 // Direction is implied by `type`, mirroring api/_lib/wallet.js — topup,
 // escrow_start, escrow_release, and refund credit the wallet; escrow_fund and
 // withdrawal debit it.
-const CREDIT_TYPES = new Set(['topup', 'escrow_start', 'escrow_release', 'refund'])
+const CREDIT_TYPES = new Set(['topup', 'escrow_start', 'escrow_release', 'refund','wallet_transfer_received'])
 
 export default function Wallet() {
   const { user, refreshUser } = useAuth()
@@ -56,6 +59,7 @@ export default function Wallet() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [topupOpen, setTopupOpen] = useState(initialTopup > 0)
+  const [transferOpen,setTransferOpen]=useState(false)
   const [topupInput, setTopupInput] = useState(initialTopup > 0 ? String(initialTopup) : '')
   const [pendingReference, setPendingReference] = useState(
     () => user?.id ? sessionStorage.getItem(`chombutar_pending_topup:${user.id}`) || '' : '',
@@ -225,7 +229,7 @@ export default function Wallet() {
             {balanceVisible?<EyeOff size={19}/>:<Eye size={19}/>}
           </button>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <button
             type="button"
             onClick={openTopup}
@@ -241,6 +245,10 @@ export default function Wallet() {
             className="flex-1 h-11 rounded-full bg-white text-black text-[13px] font-semibold border-[1.5px] border-black flex items-center justify-center gap-1.5 hover:bg-black hover:text-white transition disabled:opacity-50"
           >
             <ArrowUpFromLine size={14} /> Withdraw
+          </button>
+          <button type="button" onClick={()=>setTransferOpen(true)} disabled={busy}
+            className="flex-1 min-w-[90px] h-11 rounded-full bg-white text-black text-[13px] font-semibold border-[1.5px] border-black flex items-center justify-center gap-1.5 disabled:opacity-50">
+            <ArrowLeftRight size={14}/> Transfer
           </button>
         </div>
         {!user.payoutReady && (
@@ -292,6 +300,11 @@ export default function Wallet() {
         )}
       </div>
 
+      {transferOpen&&<WalletTransferDialog balance={balance} onClose={()=>setTransferOpen(false)} onComplete={async(result)=>{
+        setTransferOpen(false)
+        await reload()
+        alert(result.alreadyProcessed?'This transfer was already processed.':'Transfer completed successfully.')
+      }}/>}
       {topupOpen && (
         <div
           className="fixed inset-0 z-[100] bg-black/45 flex items-center justify-center p-5"
