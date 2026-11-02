@@ -50,13 +50,13 @@ export default function AdminOrbitAndHatReview(){
       <h2 className="text-[17px] font-black">Orbit Score & Hat data review</h2>
       <p className="text-[12px] text-black/60">Review self-declared Hat information and configure a transparent activity score. This is not identity certification.</p>
     </header>
-    <nav className="flex flex-wrap gap-2" aria-label="Governance views">
-      <button type="button" onClick={()=>setTab('reviews')}
-        className={`min-h-10 rounded-full px-4 text-[12px] font-bold ${tab==='reviews'?'bg-[#0A13E6] text-white':'bg-white border border-black/15'}`}>
+    <nav className="flex flex-wrap items-center gap-3" aria-label="Governance views">
+      <button type="button" onClick={()=>setTab('reviews')} aria-pressed={tab==='reviews'}
+        className="ct-filter-tab">
         New Hat data ({pending.length})
       </button>
-      <button type="button" onClick={()=>setTab('weights')}
-        className={`min-h-10 rounded-full px-4 text-[12px] font-bold ${tab==='weights'?'bg-[#0A13E6] text-white':'bg-white border border-black/15'}`}>
+      <button type="button" onClick={()=>setTab('weights')} aria-pressed={tab==='weights'}
+        className="ct-filter-tab">
         <SlidersHorizontal className="mr-1 inline-block" size={15}/> Orbit configuration
       </button>
       <button type="button" onClick={refresh} disabled={loading||!!busy}
