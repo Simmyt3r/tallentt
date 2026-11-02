@@ -15,6 +15,7 @@ import { billingOverview, buySubscription, requestBusinessVerification } from '.
 import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
 import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTransfer } from '../_lib/paystack.js'
 import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from '../_lib/wallet.js'
+import {findWalletRecipient,transferWalletBalance} from '../_lib/walletPeerTransfers.js'
 import { applyVerifiedLegacyBookingCharge } from '../_lib/bookingCheckout.js'
 import { notifyWithdrawalFailed, notifyWithdrawalStarted } from '../_lib/notifications.js'
 import { getConversations, getNegotiations, getThread, threadAction, hideConversation } from '../_lib/bookingThreads.js'
@@ -102,21 +103,22 @@ export default async function handler(req, res) {
         return json(res, 200, await getMyDeals(session.sub))
       }
 
+      if(url.searchParams.has('wallet_recipient'))return json(res,200,{recipient:await findWalletRecipient(session.sub,url.searchParams.get('wallet_recipient'))})
       if (url.searchParams.get('wallet') === '1') {
         const balance = await getWalletBalance(session.sub)
-        const { rows: transactions } = await query(
-          `SELECT wt.id, wt.type, wt.amount, wt.balance_after, wt.status, wt.reference, wt.escrow_id, wt.created_at,
-                  -- The other side of a booking payment (display only): the talent when the
-                  -- viewer is the client, the client when the viewer is the talent.
-                  cp.username as counterparty_username, cp.full_name as counterparty_full_name,
-                  cp.role as counterparty_role, cp.company_suffix as counterparty_company_suffix,
-                  cp.avatar_url as counterparty_avatar
-           FROM wallet_transactions wt
-           LEFT JOIN escrows e ON e.id = wt.escrow_id
-           LEFT JOIN users cp ON cp.id = CASE WHEN e.client_id = wt.user_id THEN e.talent_id ELSE e.client_id END
-           WHERE wt.user_id = $1 ORDER BY wt.created_at DESC LIMIT 100`,
-          [session.sub],
-        )
+        const {rows:schema}=await query("SELECT to_regclass('wallet_transfer_requests') AS transfer_table")
+        const peerEnabled=Boolean(schema[0]?.transfer_table)
+        const {rows:transactions}=await query(`SELECT wt.id,wt.type,wt.amount,wt.balance_after,wt.status,wt.reference,wt.escrow_id,wt.created_at,
+             cp.username AS counterparty_username,cp.full_name AS counterparty_full_name,
+             cp.role AS counterparty_role,cp.company_suffix AS counterparty_company_suffix,
+             cp.avatar_url AS counterparty_avatar
+          FROM wallet_transactions wt
+          LEFT JOIN escrows e ON e.id=wt.escrow_id
+          ${peerEnabled ? "LEFT JOIN wallet_transfer_requests tr ON tr.id=wt.transfer_id" : ""}
+          LEFT JOIN users cp ON cp.id=${peerEnabled
+            ? "CASE WHEN tr.id IS NOT NULL THEN CASE WHEN tr.sender_id=wt.user_id THEN tr.recipient_id ELSE tr.sender_id END WHEN e.client_id=wt.user_id THEN e.talent_id ELSE e.client_id END"
+            : "CASE WHEN e.client_id=wt.user_id THEN e.talent_id ELSE e.client_id END"}
+          WHERE wt.user_id=$1 ORDER BY wt.created_at DESC LIMIT 100`,[session.sub])
         return json(res, 200, { wallet: { balance, transactions } })
       }
 
@@ -190,6 +192,7 @@ export default async function handler(req, res) {
     // fund/release split in api/escrows/[id]/[action].js, kept in this
     // file rather than a dedicated /api/wallet endpoint for the same
     // function-cap reason as the webhook above.
+    if (body.action === 'wallet_peer_transfer') return json(res,200,await transferWalletBalance(session.sub,body))
     if (body.action === 'topup') return handleTopup(res, session, body)
     if (body.action === 'withdraw') return handleWithdraw(res, session, body)
     if (body.action) return json(res, 400, { error: 'Unknown booking action.' })
