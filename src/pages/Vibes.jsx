@@ -186,7 +186,7 @@ export function VibeCard({post,me,onChange,onDeleted,onOpenComments,commentsPage
 export default function Vibes() {
   const {user}=useAuth()
   const navigate=useNavigate()
-  const [returnSnapshot]=useState(()=>{const saved=feedReturnSnapshot;feedReturnSnapshot=null;return saved})
+  const [returnSnapshot]=useState(()=>{const saved=feedReturnSnapshot;feedReturnSnapshot=null;return saved?.userId===user?.id?saved:null})
   const [params]=useSearchParams()
   const specific=params.get('post')||null
   const [posts,setPosts]=useState(()=>returnSnapshot?.posts||[])
@@ -220,7 +220,7 @@ export default function Vibes() {
   },[returnSnapshot,specific])
   function openFeedComments(postId){
     const anchor=document.getElementById('vibe-feed-'+postId)
-    feedReturnSnapshot={posts,cursor,search,serverSearch,scrollY:window.scrollY,
+    feedReturnSnapshot={userId:user?.id,posts,cursor,search,serverSearch,scrollY:window.scrollY,
       anchorId:postId,anchorOffset:anchor?.getBoundingClientRect()?.top??0}
     navigate('/vibes/'+encodeURIComponent(postId)+'/comments',{state:{fromVibesFeed:true}})
   }
