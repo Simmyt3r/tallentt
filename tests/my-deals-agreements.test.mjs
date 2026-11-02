@@ -12,7 +12,14 @@ const route=read('api/escrows/index.js')
 
 test('My Deals has title-aligned search and independently accessible sticky T/C roles',()=>{
   assert.match(overview,/<h1[^>]*>.*?My Deals<\/h1>/)
-  assert.match(overview,/aria-label=\{searchOpen\?'Close deals search':'Search deals'\}/)
+  // Mirrors Showroom: search stays visible next to the title at every width.
+  assert.match(overview,/<header className="sticky top-14 md:top-16[^"]*flex min-h-\[70px\] items-center/)
+  assert.match(overview,/<DiscoverySearch id="my-deals-search" value=\{search\} onChange=\{setSearch\}/)
+  assert.match(overview,/max-w-\[min\(52vw,340px\)\]/)
+  assert.doesNotMatch(overview,/searchOpen|Close deals search/)
+  assert.match(overview,/aria-label="My Deals view"/)
+  assert.match(overview,/\{title\}<\/h2>/)
+  assert.match(overview,/aria-label="Deal role modes"/)
   assert.match(overview,/aria-label="Deal role modes"/)
   assert.match(overview,/sticky top-\[126px\] md:top-\[134px\]/)
   assert.match(overview,/value==='talent'\?'T':'C'/)
