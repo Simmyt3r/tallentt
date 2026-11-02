@@ -212,8 +212,8 @@ export default function DealDetails() {
       {error&&detailSection!=='overview'&&<p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-[12px] font-bold text-red-700">{error}</p>}
 
       {detailSection==='overview'&&
-      <section className="overflow-hidden rounded-[24px] border-[1.5px] border-black bg-[#F7F3EB]">
-        <header className="border-b border-black/10 bg-white px-4 py-5 sm:px-6">
+      <section className="space-y-4" aria-label="Selected deal details">
+        <header className="border-b border-black/10 py-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="mt-1">
@@ -234,43 +234,43 @@ export default function DealDetails() {
         </header>
 
         {error && (
-          <div role="alert" className="m-4 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700 sm:mx-6">
+          <div role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700">
             {error}
           </div>
         )}
 
-        <div className="grid gap-4 p-4 sm:p-6">
-          <section className="grid gap-3 sm:grid-cols-3" aria-label="Deal overview">
-            <div className="rounded-[16px] border border-black/10 bg-white p-4">
+        <div className="grid gap-5">
+          <section className="grid grid-cols-3 gap-2 py-1 sm:gap-4" aria-label="Deal overview">
+            <div className="min-w-0 px-1 py-3 sm:px-2">
               <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Agreed amount</p>
               <p className="mt-1 text-[17px] font-black">{money(thread.amount, thread.currency)}{thread.pay_unit ? ` /${thread.pay_unit}` : ''}</p>
             </div>
-            <div className="rounded-[16px] border border-black/10 bg-white p-4">
+            <div className="min-w-0 px-1 py-3 sm:px-2">
               <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Work status</p>
               <p className="mt-1 text-[14px] font-black">{nice(thread.work_status || thread.status)}</p>
             </div>
-            <div className="rounded-[16px] border border-black/10 bg-white p-4">
+            <div className="min-w-0 px-1 py-3 sm:px-2">
               <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Your side</p>
               <p className="mt-1 text-[14px] font-black">{thread.is_client ? 'Client' : 'Talent'}</p>
             </div>
           </section>
 
           {thread.status === 'secured' && (
-            <section className="rounded-[18px] border border-black/10 bg-white p-4" aria-label="Escrow summary">
+            <section className="border-t border-black/10 pt-4" aria-label="Escrow summary">
               <div className="flex items-center gap-2">
                 <WalletCards size={17} />
                 <h2 className="text-[14px] font-black">Escrow</h2>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-[12px] bg-[#F7F3EB] px-2 py-3">
+                <div className="min-w-0 px-1 py-3 sm:px-2">
                   <p className="text-[9px] font-black uppercase text-black/35">Total</p>
                   <p className="mt-1 text-[12px] font-black">{money(thread.amount, thread.currency)}</p>
                 </div>
-                <div className="rounded-[12px] bg-[#F7F3EB] px-2 py-3">
+                <div className="min-w-0 px-1 py-3 sm:px-2">
                   <p className="text-[9px] font-black uppercase text-black/35">Released</p>
                   <p className="mt-1 text-[12px] font-black">{money(released, thread.currency)}</p>
                 </div>
-                <div className="rounded-[12px] bg-[#F7F3EB] px-2 py-3">
+                <div className="min-w-0 px-1 py-3 sm:px-2">
                   <p className="text-[9px] font-black uppercase text-black/35">Held</p>
                   <p className="mt-1 text-[12px] font-black">{money(remaining, thread.currency)}</p>
                 </div>
@@ -325,7 +325,7 @@ export default function DealDetails() {
           <WorkPassEvidence thread={thread} />
 
           {thread.contacts_unlocked && (thread.peer?.email || thread.peer?.phone) && (
-            <section className="rounded-[16px] border border-black/10 bg-white p-4" aria-label="Unlocked contact">
+            <section className="border-t border-black/10 pt-4" aria-label="Unlocked contact">
               <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Unlocked contact</p>
               {thread.peer?.email && <p className="mt-1 break-all text-[12px] font-semibold">{thread.peer.email}</p>}
               {thread.peer?.phone && <p className="mt-1 text-[12px] font-semibold">{thread.peer.phone}</p>}
