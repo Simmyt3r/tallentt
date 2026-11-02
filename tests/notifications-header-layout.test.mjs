@@ -35,9 +35,9 @@ test('three-dot menu has mark all read and irreversible clear all, with escape a
 
 test('five notification lanes stay on a single horizontally scrollable row, with unread indicators',()=>{
   assert.match(page,/role="tablist" aria-label="Notification categories"/)
-  assert.match(page,/flex w-full min-w-0 flex-nowrap items-center gap-2 overflow-x-auto/)
+  assert.match(page,/ct-filter-tabs mb-3 w-full flex-nowrap overscroll-x-contain/)
   assert.match(page,/whitespace-nowrap/)
-  assert.match(page,/min-h-11 shrink-0 items-center/)
+  assert.match(page,/className="ct-filter-tab min-h-11 text-\[11px\]"/)
   assert.match(page,/aria-selected=\{currentLane===id\}/)
   assert.match(page,/setParams\(\{lane:id\}\)/)
   assert.match(page,/unreadByLane\[id\]/)

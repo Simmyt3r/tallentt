@@ -222,7 +222,7 @@ export default function Admin() {
               id="admin-section-picker"
               value={tab}
               onChange={(event) => setTab(event.target.value)}
-              className="h-12 w-full rounded-xl border-[1.5px] border-black bg-white px-3 text-[14px] font-semibold text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A13E6]"
+              className="ct-filter-select h-12 w-full max-w-none text-[14px]"
             >
               {SECTIONS.map((item) => <option key={item.id} value={item.id}>
                 {item.label}{item.id === 'disputes' && Number(metrics.open_disputes) > 0 ? ` (${metrics.open_disputes} open)` : ''}
@@ -245,11 +245,7 @@ export default function Admin() {
                   type="button"
                   onClick={() => setTab(item.id)}
                   aria-current={active ? 'page' : undefined}
-                  className={`min-w-fit lg:w-full h-11 px-3.5 rounded-[14px] border-[1.5px] text-[12px] font-semibold transition flex items-center gap-2.5 ${
-                    active
-                      ? 'bg-[#0A13E6] border-black text-white shadow-[2px_2px_0_#000]'
-                      : 'bg-white border-black/10 text-black/60 hover:border-black/30 hover:text-black'
-                  }`}
+                  className="ct-filter-tab min-w-fit lg:w-full h-11 px-3.5 text-[12px] justify-start"
                 >
                   <Icon size={15} />
                   <span className="whitespace-nowrap">{item.label}</span>

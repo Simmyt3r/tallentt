@@ -37,11 +37,11 @@ export default function DisputeCenter() {
     <CompactPageHeader title="Dispute Center" searchValue={search} onSearchChange={setSearch}
       searchPlaceholder="Search disputes…" searchLabel="Search disputes by Hat, participant or reason"/>
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex gap-2" aria-label="Dispute status filter">
+      <div className="ct-filter-tabs" aria-label="Dispute status filter">
         {['open','released','refunded','all'].map(status =>
           <button key={status} type="button" onClick={() => setFilter(status)}
             aria-pressed={filter === status}
-            className={`min-h-10 rounded-full border px-3 text-[12px] font-bold ${filter === status ? 'border-black bg-black text-white' : 'border-black/15 bg-white'}`}>
+            className="ct-filter-tab min-h-10">
             {status === 'open' ? 'Under review' : status === 'all' ? 'All' : status === 'released' ? 'Released' : 'Refunded'}
           </button>)}
       </div>

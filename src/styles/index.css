@@ -369,6 +369,22 @@ img, video { max-width: 100%; }
 
 /* Design-system utilities matching reference HTML */
 @layer components {
+  /* Flat profile-style filter tabs: only the active underline is visible.
+     Use for filtering / view switching, not form inputs or action buttons. */
+  .ct-filter-tabs {
+    @apply flex min-w-0 items-center gap-4 overflow-x-auto border-b border-black/10;
+  }
+  .ct-filter-tab {
+    @apply inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border-0 border-b-2 border-transparent bg-transparent px-2 py-2 text-[12px] font-bold text-black/50 transition-colors hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0A13E6];
+    border-radius: 0;
+  }
+  .ct-filter-tab:is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"]) {
+    @apply border-[#0A13E6] text-[#0A13E6];
+  }
+  .ct-filter-select {
+    @apply min-h-10 min-w-0 shrink-0 border-0 border-b-2 border-black/15 bg-transparent px-2 text-[12px] font-bold text-black/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0A13E6];
+    border-radius: 0;
+  }
   .tw-border { border: 1.5px solid #000; }
   .tw-label {
     @apply text-[11px] font-bold tracking-widest uppercase text-black/60;
