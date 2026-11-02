@@ -289,26 +289,26 @@ export default function MyDeals() {
           label="Search My Deals" placeholder="Search My Deals…"
           className="ml-auto w-full max-w-[min(52vw,340px)] flex-1"/>
       </header>
-      <nav aria-label="Deal role modes" className="sticky top-[126px] md:top-[134px] z-10 mb-3 flex w-fit items-center gap-1 rounded-full bg-[#F7F3EB]/95 px-1 py-1 backdrop-blur-lg">
-        {['talent','client'].map(value=><button type="button" key={value}
-          aria-pressed={role===value} onClick={()=>setView(value,'incoming')}
-          className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[12px] font-black ${role===value?'bg-[#0A13E6] text-white':'text-black/60 hover:bg-black/5'}`}>
-          <span className={`grid h-7 w-7 place-items-center rounded-full ${role===value?'bg-white text-[#0A13E6]':'bg-black/10 text-black'}`}>{value==='talent'?'T':'C'}</span>
-          {value==='talent'?'Talent':'Client'}
-        </button>)}
-      </nav>
+      <div className="sticky top-[126px] md:top-[134px] z-10 -mx-4 mb-3 flex items-center justify-between gap-2 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-2 backdrop-blur-lg md:-mx-6 md:px-6 lg:-mx-8 lg:px-8" aria-label="My Deals display controls">
+        <nav aria-label="Deal role modes" className="flex min-w-0 items-center gap-1">
+          {['talent','client'].map(value=><button type="button" key={value}
+            aria-pressed={role===value} onClick={()=>setView(value,'incoming')}
+            className={`inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-black sm:gap-2 sm:px-3 sm:text-[12px] ${role===value?'bg-[#0A13E6] text-white':'text-black/60 hover:bg-black/5'}`}>
+            <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full sm:h-7 sm:w-7 ${role===value?'bg-white text-[#0A13E6]':'bg-black/10 text-black'}`}>{value==='talent'?'T':'C'}</span>
+            {value==='talent'?'Talent':'Client'}
+          </button>)}
+        </nav>
+        <div role="group" aria-label="My Deals view" className="flex shrink-0 items-center gap-0.5">
+          <button type="button" aria-label="Grid view" aria-pressed={viewMode==='grid'}
+            onClick={()=>setViewMode('grid')} className={`grid h-11 w-10 place-items-center rounded-lg ${viewMode==='grid'?'bg-[#0A13E6] text-white':'hover:bg-black/5'}`}><LayoutGrid size={18}/></button>
+          <button type="button" aria-label="List view" aria-pressed={viewMode==='list'}
+            onClick={()=>setViewMode('list')} className={`grid h-11 w-10 place-items-center rounded-lg ${viewMode==='list'?'bg-[#0A13E6] text-white':'hover:bg-black/5'}`}><List size={19}/></button>
+        </div>
+      </div>
       <section className="space-y-3" aria-label="My Deals">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h2 className="text-[18px] font-black">{title}</h2>
-            <p className="mt-0.5 text-[12px] font-medium text-black/50">{subtitle}</p>
-          </div>
-          <div role="group" aria-label="My Deals view" className="flex shrink-0 items-center gap-0.5">
-            <button type="button" aria-label="Grid view" aria-pressed={viewMode==='grid'}
-              onClick={()=>setViewMode('grid')} className={`grid h-11 w-10 place-items-center rounded-lg ${viewMode==='grid'?'bg-[#0A13E6] text-white':'hover:bg-black/5'}`}><LayoutGrid size={18}/></button>
-            <button type="button" aria-label="List view" aria-pressed={viewMode==='list'}
-              onClick={()=>setViewMode('list')} className={`grid h-11 w-10 place-items-center rounded-lg ${viewMode==='list'?'bg-[#0A13E6] text-white':'hover:bg-black/5'}`}><List size={19}/></button>
-          </div>
+        <div className="min-w-0">
+          <h2 className="text-[18px] font-black">{title}</h2>
+          <p className="mt-0.5 text-[12px] font-medium text-black/50">{subtitle}</p>
         </div>
 
         <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
