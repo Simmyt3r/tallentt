@@ -11,7 +11,7 @@ const cancel=read('api/_lib/dealCancellation.js')
 const route=read('api/escrows/index.js')
 
 test('My Deals has title-aligned search and independently accessible sticky T/C roles',()=>{
-  assert.match(overview,/<h1[^>]*>.*?My Deals<\/h1>/)
+  assert.match(overview,/<h1[^>]*>[\s\S]*?My Deals\s*<\/h1>/)
   // Mirrors Showroom: search stays visible next to the title at every width.
   assert.match(overview,/<header className="sticky top-14 md:top-16[^"]*flex min-h-\[70px\] items-center/)
   assert.match(overview,/<DiscoverySearch id="my-deals-search" value=\{search\} onChange=\{setSearch\}/)
