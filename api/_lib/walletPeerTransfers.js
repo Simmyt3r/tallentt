@@ -28,7 +28,7 @@ function uniqueRecipient(rows,username){
 export async function findWalletRecipient(senderId,username){
   const name=cleanUsername(username)
   const {rows}=await query(`SELECT id,username,full_name,role,avatar_url,company_suffix
-     FROM users WHERE LOWER(username)=LOWER($1) ORDER BY username LIMIT 2`,[name])
+     FROM users WHERE LOWER(username)=LOWER($1) ORDER BY (username=$1) DESC, username LIMIT 2`,[name])
   const person=uniqueRecipient(rows,name)
   if(person.id===senderId)throw bad(400,'You cannot transfer money to yourself.')
   return {id:person.id,username:person.username,full_name:person.full_name,
@@ -46,7 +46,7 @@ export async function transferWalletBalance(senderId,body){
     const {rows:installed}=await client.query("SELECT to_regclass('wallet_transfer_requests') AS rel")
     if(!installed[0]?.rel)throw bad(503,'Apply the Peer Wallet Transfers migration in Admin first.')
     const {rows:recipients}=await client.query(`SELECT id,username,full_name FROM users
-      WHERE LOWER(username)=LOWER($1) ORDER BY username LIMIT 2`,[username])
+      WHERE LOWER(username)=LOWER($1) ORDER BY (username=$1) DESC, username LIMIT 2`,[username])
     const recipient=uniqueRecipient(recipients,username)
     if(recipient.id===senderId)throw bad(400,'You cannot transfer money to yourself.')
     // Unique(sender, token) serializes retries, even across separate Vercel
