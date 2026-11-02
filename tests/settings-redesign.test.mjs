@@ -12,7 +12,7 @@ const {getContentPrivacy,updateContentPrivacy,assertShowroomInquiryAllowed,asser
   await import('../api/_lib/contentPrivacy.js')
 
 test('five settings sections are mobile-visible without global search or duplicate account information',()=>{
-  assert.match(settings,/grid grid-cols-3 gap-2 sm:grid-cols-5/)
+  assert.match(settings,/className="ct-filter-tabs w-full gap-2"/)
   for(const term of ["'general','General'","'notifications','Notifications'","'privacy','Privacy'","'security','Security'","'wallet','Wallet'"])
     assert.ok(settings.includes(term))
   assert.doesNotMatch(settings,/CompactPageHeader|Account information|Edit profile|Membership & verification|Open notifications inbox|Text-only browsing|Sign out/)
