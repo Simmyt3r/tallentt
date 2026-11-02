@@ -649,7 +649,7 @@ export default function Showroom() {
         <h2 className="text-[18px] sm:text-[21px] font-black tracking-tight shrink-0">Showroom</h2>
         <DiscoverySearch ref={searchRef} id="showroom-search" value={search}
           onChange={setSearch} label="Search Showroom posts and creators"
-          placeholder="Search Showroom…" className="ml-auto w-full max-w-[min(52vw,340px)]" />
+          placeholder="Search Showroom…" className="ml-auto min-w-0 max-w-[340px] flex-1" />
       </div>
 
       {view === 'top12' && <p role="status" className="mt-2 text-xs font-semibold text-amber-800">Top 12 is reserved for Gold and Diamond Work Passes, ranked by verified completed jobs and Orbit activity. No paid placements.</p>}

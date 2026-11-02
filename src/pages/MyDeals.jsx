@@ -281,15 +281,15 @@ export default function MyDeals() {
 
   return (
     <div className="mx-auto max-w-6xl pb-8">
-      <header className="sticky top-14 md:top-16 z-20 -mx-4 mb-3 flex min-h-[70px] items-center gap-3 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <header className="sticky top-14 md:top-16 z-20 -mx-4 mb-3 flex min-h-[70px] flex-wrap items-center gap-3 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
         <h1 className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[18px] font-black tracking-tight sm:text-[21px]">
           <Handshake size={21} aria-hidden="true" className="hidden sm:block"/> My Deals
         </h1>
         <DiscoverySearch id="my-deals-search" value={search} onChange={setSearch}
           label="Search My Deals" placeholder="Search My Deals…"
-          className="ml-auto w-full max-w-[min(52vw,340px)] flex-1"/>
+          className="ml-auto min-w-[10rem] max-w-[340px] flex-[1_1_12rem]"/>
       </header>
-      <div className="sticky top-[126px] md:top-[134px] z-10 -mx-4 mb-3 flex items-center justify-between gap-2 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-2 backdrop-blur-lg md:-mx-6 md:px-6 lg:-mx-8 lg:px-8" aria-label="My Deals display controls">
+      <div className="md:sticky md:top-[134px] z-10 -mx-4 mb-3 flex items-center justify-between gap-2 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-2 backdrop-blur-lg md:-mx-6 md:px-6 lg:-mx-8 lg:px-8" aria-label="My Deals display controls">
         <nav aria-label="Deal role modes" className="flex min-w-0 items-center gap-1">
           {['talent','client'].map(value=><button type="button" key={value}
             aria-pressed={role===value} onClick={()=>setView(value,'incoming')}

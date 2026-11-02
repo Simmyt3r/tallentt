@@ -44,6 +44,8 @@ test('primary screens keep classic flexible page headers with title and search',
   assert.doesNotMatch(settings,/CompactPageHeader|DiscoverySearch/)
   assert.match(settings,/aria-label="Settings sections"/)
   assert.match(read('src/pages/Inbox.jsx'),/aria-label=\{searchOpen\?'Close conversation search':'Search conversations'\}/)
+  assert.match(read('src/pages/Inbox.jsx'),/flex flex-wrap items-center gap-2 px-5 pt-5/)
+  assert.match(read('src/pages/Inbox.jsx'),/\{searchOpen&&<label className="order-3/)
   // Notifications intentionally keeps search and bulk actions beside its title.
   const notifications=read('src/pages/Notifications.jsx')
   assert.doesNotMatch(notifications,/CompactPageHeader/)
@@ -54,6 +56,8 @@ test('primary screens keep classic flexible page headers with title and search',
   const header = read('src/components/CompactPageHeader.jsx')
   assert.match(header, /sticky top-14 md:top-16 z-10/)
   assert.match(header, /flex w-full flex-wrap items-center justify-between gap-3/)
+  assert.match(header, /flex min-w-fit shrink-0 items-center gap-2/)
+  assert.match(header, /min-w-\[11rem\] max-w-\[340px\] flex-\[1_1_14rem\]/)
   assert.doesNotMatch(header, /h-\[52px\]/)
   assert.match(header, /<h1[^>]*>\{title\}<\/h1>/)
   assert.match(header, /<DiscoverySearch/)
