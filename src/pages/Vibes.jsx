@@ -16,6 +16,14 @@ import { formatEngagementCount } from '../lib/engagementCount.js'
 // Retain the actual loaded feed, pagination and anchor before opening comments.
 // This is intentionally in-memory and disappears when the tab reloads/logs out.
 let feedReturnSnapshot=null
+export function updateVibeReturnSnapshot(postId,patch){
+  if(!feedReturnSnapshot)return
+  feedReturnSnapshot.posts=feedReturnSnapshot.posts.map(item=>item.id===postId?{...item,...patch}:item)
+}
+export function discardVibeReturnSnapshot(postId){
+  if(!feedReturnSnapshot)return
+  feedReturnSnapshot.posts=feedReturnSnapshot.posts.filter(item=>item.id!==postId)
+}
 const MAX_PHOTOS = 10
 const MAX_POST_BYTES = 80 * 1024 * 1024
 const mediaMB = bytes => (bytes / (1024 * 1024)).toLocaleString('en-NG',{maximumFractionDigits:1})
