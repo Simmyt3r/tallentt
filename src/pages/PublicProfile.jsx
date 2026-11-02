@@ -44,7 +44,7 @@ export default function PublicProfile() {
   if (status === 'ready' && isOwnUsername && editing) {
     return (
       <>
-        <CompactPageHeader title="Edit Profile"/>
+        <CompactPageHeader title="Edit Profile" showSearch={false}/>
         <EditProfileForm
           user={user}
           onCancel={() => setEditing(false)}
@@ -61,7 +61,7 @@ export default function PublicProfile() {
 
   return (
     <>
-      <CompactPageHeader title={isOwnUsername ? 'My Profile' : 'Profile'}/>
+      <CompactPageHeader title={isOwnUsername ? 'My Profile' : 'Profile'} showSearch={!isOwnUsername}/>
       <ProfileView
         key={username}
         status={status}
