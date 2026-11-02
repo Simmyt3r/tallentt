@@ -36,7 +36,7 @@ test('primary screens keep classic flexible page headers with title and search',
   assert.doesNotMatch(deals,/CompactPageHeader/)
   assert.match(deals,/aria-label=\{searchOpen\?'Close deals search':'Search deals'\}/)
   assert.doesNotMatch(details,/CompactPageHeader/)
-  assert.match(details,/>Deals details<\/h1>/)
+  assert.match(details,/>Deal Details<\/h1>/)
   const settings=read('src/pages/Settings.jsx')
   assert.doesNotMatch(settings,/CompactPageHeader|DiscoverySearch/)
   assert.match(settings,/aria-label="Settings sections"/)
