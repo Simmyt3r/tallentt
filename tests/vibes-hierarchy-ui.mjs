@@ -83,17 +83,37 @@ try{
       await page.screenshot({path:'test-results/vibes-thread-'+width+'.png',fullPage:true})
       throw err
     }
-    // Size feedback is measured in MB, not in attachment slots.
-    assert.equal(await page.getByText('(0/10)').count(),0)
-    assert.equal(await page.getByText('80 MB max').count(),1)
+    // Limits are enforced without ever showing static counters or size hints.
+    const postText=page.getByRole('textbox',{name:'Say something…'})
+    assert.equal(await page.getByText('80 MB max').count(),0)
+    assert.equal(await page.getByText('Up to 10,000 characters').count(),0)
+    assert.equal(await page.locator('[aria-label^="Media storage:"]').count(),0)
+    assert.equal(await page.getByRole('button',{name:'Photo / video'}).getAttribute('title'),null)
+    await postText.fill('x'.repeat(10001))
+    await page.getByText('This Vibe exceeds the 10,000-character limit. Shorten it before posting.').waitFor()
+    await page.getByRole('button',{name:'Post Vibe'}).click()
+    assert.equal(await page.getByText('This Vibe exceeds the 10,000-character limit. Shorten it before posting.').count(),1)
+    await postText.fill('A normal Vibe')
+    assert.equal(await page.getByText('This Vibe exceeds the 10,000-character limit. Shorten it before posting.').count(),0)
     const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64')
     const upload=Buffer.concat([png,Buffer.alloc(1024*1024-png.length)])
     await page.getByLabel('Choose Vibes photos').setInputFiles({
       name:'tiny-photo.png',mimeType:'image/png',buffer:upload,
     })
-    await page.getByLabel('Media storage: 1 of 80 MB').waitFor()
+    await page.getByRole('button',{name:'Remove photo'}).waitFor()
+    assert.equal(await page.getByText('80 MB max').count(),0)
     await page.getByRole('button',{name:'Remove photo'}).click()
-    await page.getByText('80 MB max').waitFor()
+    // Reaching the existing attachment cap must not silently disable the picker.
+    await page.getByLabel('Choose Vibes photos').setInputFiles(Array.from({length:11},(_,i)=>({
+      name:'photo-'+i+'.png',mimeType:'image/png',buffer:png,
+    })))
+    await page.getByText('This post has reached its attachment limit. Publish it before adding more media.').waitFor()
+    assert.equal(await page.getByRole('button',{name:'Photo / video'}).isEnabled(),true)
+    await page.getByLabel('Choose Vibes photos').setInputFiles({
+      name:'tiny-photo.png',mimeType:'image/png',buffer:png,
+    })
+    assert.equal(await page.getByText('This post has reached its attachment limit. Publish it before adding more media.').count(),0)
+    await page.getByRole('button',{name:'Remove photo'}).click()
     const summary=article.getByRole('region',{name:'Vibe engagement counts'})
     // The like count, comments, shares and lower actions have distinct roles.
     const counts=article.locator('[aria-label="Vibe engagement counts"]')
