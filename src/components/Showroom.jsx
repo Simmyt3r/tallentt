@@ -653,7 +653,7 @@ export default function Showroom() {
       </div>
 
       {view === 'top12' && <p role="status" className="mt-2 text-xs font-semibold text-amber-800">Top 12 is reserved for Gold and Diamond Work Passes, ranked by verified completed jobs and Orbit activity. No paid placements.</p>}
-      <div className="flex shrink-0 gap-2 overflow-x-auto py-2" aria-label="Showroom discovery views">
+      <div className="ct-filter-tabs shrink-0 py-2" aria-label="Showroom discovery views">
         {[
           ['for_you', 'For You'],
           ['top12', '🏆 Top 12 · Gold+'],
@@ -663,15 +663,13 @@ export default function Showroom() {
         ].map(([value, label]) => (
           <button key={value} type="button" onClick={() => setView(value)}
             aria-pressed={view === value}
-            className={`h-9 shrink-0 rounded-full border px-3 text-[11px] font-bold ${
-              view === value ? 'border-black bg-black text-white' : 'border-black/15 bg-white text-black/65'
-            }`}>
+            className="ct-filter-tab min-h-9 text-[11px]">
             {label}
           </button>
         ))}
         <select value={category} onChange={(event) => setCategory(event.target.value)}
           aria-label="Showroom category"
-          className="h-9 max-w-[160px] shrink-0 rounded-full border border-black/20 bg-white px-3 text-[11px] font-bold">
+          className="ct-filter-select max-w-[160px] text-[11px]">
           <option value="">All categories</option>
           {categories.map((option) => <option key={option.id} value={option.name}>{option.name}</option>)}
         </select>
