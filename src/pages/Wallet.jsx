@@ -302,8 +302,9 @@ export default function Wallet() {
 
       {transferOpen&&<WalletTransferDialog balance={balance} onClose={()=>setTransferOpen(false)} onComplete={async(result)=>{
         setTransferOpen(false)
-        await reload()
         alert(result.alreadyProcessed?'This transfer was already processed.':'Transfer completed successfully.')
+        // A wallet refresh error must never be shown as a failed transfer.
+        try{await reload()}catch(err){setError('Transfer completed, but wallet refresh failed. Refresh to see the latest balance. '+(err.message||''))}
       }}/>}
       {topupOpen && (
         <div
