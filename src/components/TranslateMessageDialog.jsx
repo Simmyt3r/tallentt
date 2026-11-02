@@ -6,14 +6,17 @@ const languages=[['en','English'],['ha','Hausa'],['yo','Yoruba'],['ig','Igbo'],
 export default function TranslateMessageDialog({body,onClose}){
   const [language,setLanguage]=useState('en')
   const [error,setError]=useState('')
-  function translate(){
-    const message=String(body||'').trim()
-    if(!message){setError('This message has no text to translate.');return}
-    if(!window.confirm('This sends the selected message text to Google Translate outside ChombuTar. Continue?'))return
-    const params=new URLSearchParams({sl:'auto',tl:language,text:message,op:'translate'})
-    const page=window.open('https://translate.google.com/?'+params.toString(),'_blank','noopener,noreferrer')
-    if(!page)setError('Your browser blocked the translation tab. Allow pop-ups for this site and retry.')
-    else onClose()
+  const text=String(body||'').trim()
+  const params=new URLSearchParams({sl:'auto',tl:language,text,op:'translate'})
+  function translate(event){
+    if(!text){event.preventDefault();setError('This message has no text to translate.');return}
+    if(!window.confirm('This sends the selected message text to Google Translate outside ChombuTar. Continue?')){
+      event.preventDefault()
+      return
+    }
+    // Native link navigation with noopener avoids popup blockers and never
+    // shares the message with the translation provider before user consent.
+    setTimeout(onClose,0)
   }
   return <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 p-4" onClick={onClose}>
     <section role="dialog" aria-modal="true" aria-label="Translate this message"
@@ -31,9 +34,10 @@ export default function TranslateMessageDialog({body,onClose}){
         </select>
       </label>
       {error&&<p role="alert" className="text-xs font-semibold text-red-700">{error}</p>}
-      <button type="button" onClick={translate} className="min-h-11 w-full rounded-full bg-[#0A13E6] px-4 text-sm font-bold text-white">
+      <a href={'https://translate.google.com/?'+params.toString()} target="_blank" rel="noopener noreferrer"
+        onClick={translate} className="flex min-h-11 w-full items-center justify-center rounded-full bg-[#0A13E6] px-4 text-sm font-bold text-white">
         Open translation
-      </button>
+      </a>
     </section>
   </div>
 }
