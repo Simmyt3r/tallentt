@@ -114,8 +114,26 @@ try{
     await inbound.getByRole('menuitem',{name:'Copy message'}).click()
     assert.equal(await page.evaluate(()=>window.__copied),'Can you review my design?')
     await bubble.click({button:'right'})
-    await inbound.getByRole('menuitem',{name:'Translate message (coming soon)'}).click()
-    await inbound.getByText('Translations are coming soon.').waitFor()
+    await inbound.getByRole('menuitem',{name:'Translate message'}).click()
+    const translation=page.getByRole('dialog',{name:'Translate this message'})
+    await translation.waitFor()
+    await translation.getByRole('combobox').selectOption('ha')
+    const translationLink=translation.getByRole('link',{name:'Open translation'})
+    const translationUrl=new URL(await translationLink.getAttribute('href'))
+    assert.equal(translationUrl.hostname,'translate.google.com')
+    assert.equal(translationUrl.searchParams.get('text'),'Can you review my design?')
+    assert.equal(translationUrl.searchParams.get('tl'),'ha')
+    // Do not transmit fixture messages to an external provider. Dismissing
+    // explicit consent keeps the ChombuTar message private.
+    let promptSeen=false
+    page.once('dialog',async dialog=>{
+      assert.match(dialog.message(),/outside ChombuTar/)
+      promptSeen=true
+      await dialog.dismiss()
+    })
+    await translationLink.click()
+    assert.equal(promptSeen,true)
+    await translation.getByRole('button',{name:'Close translation'}).click()
     await bubble.click({button:'right'})
     await inbound.getByRole('menuitem',{name:'Reply to Can you review my design?'}).click()
     await page.getByRole('button',{name:'Cancel reply'}).waitFor()
@@ -133,7 +151,7 @@ try{
     assert.deepEqual(browserErrors,[])
     await context.close()
   }
-  console.log('Inbox grouping, read receipts, copy, forward, reply and translate placeholder passed.')
+  console.log('Inbox grouping, read receipts, copy, forward, reply and opt-in translation passed.')
 }finally{
   await browser?.close()
   if(server)await new Promise(resolve=>server.httpServer.close(resolve))
