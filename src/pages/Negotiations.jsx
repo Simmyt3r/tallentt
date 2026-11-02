@@ -79,13 +79,13 @@ export default function Negotiations() {
           <MessageCircle size={13}/> Deals Chat
         </Link>
       </div>
-      <div className={selected ? 'hidden md:flex gap-2' : 'flex gap-2'} role="tablist" aria-label="Negotiation status">
+      <div className={selected ? 'hidden md:flex ct-filter-tabs' : 'ct-filter-tabs'} role="tablist" aria-label="Negotiation status">
         {tabs.map((tab) => {
           const count = items.filter((item) => category(item, user.id) === tab).length
           return (
             <button key={tab} type="button" role="tab" aria-selected={activeTab === tab}
               onClick={() => updateSelection(null, tab)}
-              className={`rounded-full px-3 py-2 text-[11px] sm:text-xs font-bold whitespace-nowrap ${activeTab === tab ? 'bg-[#0A13E6] text-white' : 'bg-white border border-black/15 text-black/65'}`}>
+              className="ct-filter-tab text-[11px] sm:text-xs">
               {tab} <span className="opacity-65">{count}</span>
             </button>
           )
