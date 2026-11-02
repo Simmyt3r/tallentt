@@ -180,7 +180,7 @@ export default function Inbox() {
             </div>
           </header>
           <div
-            className="flex flex-wrap gap-1 px-4 py-3"
+            className="ct-filter-tabs mx-4 flex-nowrap py-3"
             aria-label="Filter conversations"
           >
             {[
@@ -195,7 +195,7 @@ export default function Inbox() {
                 type="button"
                 aria-pressed={filter === key}
                 onClick={() => setFilter(key)}
-                className={`rounded-full px-3 py-2 text-[11px] font-semibold ${filter === key ? 'bg-blue-50 text-[#0A13E6]' : 'text-black/50 hover:bg-black/5'}`}
+                className="ct-filter-tab text-[11px]"
               >
                 {label}
               </button>
