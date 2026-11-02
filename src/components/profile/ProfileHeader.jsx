@@ -4,7 +4,7 @@ import { BadgeCheck, Eye, Share2 } from 'lucide-react'
 import ProfilePhotoViewer from '../ProfilePhotoViewer.jsx'
 import UserIdentity from '../UserIdentity.jsx'
 import { getPrimaryIdentity, getProfilePath, isBusinessIdentity } from '../../lib/profile.js'
-import { singleDigitOrbit } from '../../lib/profileScore.js'
+import { fullOrbitScore, singleDigitOrbit } from '../../lib/profileScore.js'
 
 export default function ProfileHeader({
   user,
@@ -23,9 +23,7 @@ export default function ProfileHeader({
   const identityLine = getPrimaryIdentity(user)
   const mainTalent = user.talentCard?.mainTalent || user.talent_card?.mainTalent || ''
   const orbitDigit = singleDigitOrbit(orbit?.score)
-  const orbitScore = orbit?.score != null && Number.isFinite(Number(orbit.score))
-    ? Math.min(100, Math.max(0, Math.round(Number(orbit.score))))
-    : null
+  const orbitScore = fullOrbitScore(orbit?.score)
   const canonicalUrl = `${window.location.origin}${getProfilePath(user) || ''}`
 
   async function handleShare() {
