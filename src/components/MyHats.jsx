@@ -118,22 +118,20 @@ export default function MyHats() {
         searchPlaceholder="Search My Hats…" searchLabel="Search your Hats"
         status={<span className="text-[10px] font-bold text-black/40">{hats.length}</span>}/>
       <div className="flex items-center justify-end gap-2">
-          <div className="flex rounded-full bg-white border-[1.5px] border-black p-0.5">
+          <div className="ct-filter-tabs" role="group" aria-label="My Hats view">
             <button
               type="button"
               onClick={() => setMode('grid')}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition ${
-                viewMode === 'grid' ? 'bg-[#0A13E6] text-white' : 'text-black/50'
-              }`}
+              aria-label="Grid view" aria-pressed={viewMode === 'grid'}
+              className="ct-filter-tab w-9 h-10 px-0"
             >
               <LayoutGrid size={16} />
             </button>
             <button
               type="button"
               onClick={() => setMode('list')}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition ${
-                viewMode === 'list' ? 'bg-[#0A13E6] text-white' : 'text-black/50'
-              }`}
+              aria-label="List view" aria-pressed={viewMode === 'list'}
+              className="ct-filter-tab w-9 h-10 px-0"
             >
               <List size={16} />
             </button>
