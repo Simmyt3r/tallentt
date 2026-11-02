@@ -42,11 +42,13 @@ test('one Inbox combines conversations while retaining distinct thread handlers'
   assert.doesNotMatch(inbox,/community_messages/)
 })
 
-test('bottom nav has three destinations plus Work Pass; Inbox lives in header quick actions',()=>{
+test('bottom nav includes Add Hat plus Work Pass; Inbox remains in header quick actions',()=>{
   const navs=[...nav.matchAll(/<BottomNavLink\s+to="([^"]+)"/g)].map(x=>x[1])
-  assert.deepEqual(navs,['/showroom','/bento','/vibes'])
+  assert.deepEqual(navs,['/showroom','/bento','/create','/vibes'])
   assert.match(read('src/components/Layout.jsx'),/aria-label="Open Inbox"/)
   assert.match(nav,/aria-label="Open my Work Pass"/)
+  assert.match(nav,/<BottomNavLink to="\/create" icon=\{Plus\} label="Add Hat" create \/>/)
+  assert.match(read('src/App.jsx'),/path="\/create" element=\{<ProtectedRoute><HatForm/)
   assert.doesNotMatch(nav,/to="\/profile"/)
 })
 
