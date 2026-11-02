@@ -338,7 +338,7 @@ export function NewAssociateChat({ onOpen, onBack }) {
   }
   return (
     <section className="h-full overflow-y-auto bg-white p-5">
-      <header className="mb-5 flex items-center gap-3">
+      <header className="mb-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
           aria-label="Back to conversations"
@@ -346,12 +346,8 @@ export function NewAssociateChat({ onOpen, onBack }) {
         >
           <ArrowLeft size={20} />
         </button>
-        <h2 className="font-bold">New message</h2>
-      </header>
-      <p className="mb-4 text-sm text-black/50">
-        Find an Associate and send an introduction.
-      </p>
-      <label className="flex items-center gap-2 rounded-full border px-3">
+        <h2 className="shrink-0 font-bold">New message</h2>
+        <label className="ml-auto flex min-w-[10rem] flex-[1_1_12rem] items-center gap-2 rounded-full border px-3">
         <Search size={16} />
         <input
           aria-label="Find an Associate"
@@ -363,7 +359,11 @@ export function NewAssociateChat({ onOpen, onBack }) {
           }}
           className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none"
         />
-      </label>
+        </label>
+      </header>
+      <p className="mb-4 text-sm text-black/50">
+        Find an Associate and send an introduction.
+      </p>
       {loading && <p className="p-3 text-xs">Searching…</p>}
       {people.map((p) => (
         <button
