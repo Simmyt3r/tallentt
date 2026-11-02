@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useState} from 'react'
-import {Link,useNavigate,useParams} from 'react-router-dom'
+import {useLocation,useNavigate,useParams} from 'react-router-dom'
 import {ArrowLeft,MessageCircle,RefreshCw} from 'lucide-react'
 import {api} from '../lib/api.js'
 import {useAuth} from '../context/AuthContext.jsx'
@@ -11,6 +11,8 @@ import VibesComments from '../components/VibesComments.jsx'
 export default function VibesConversation(){
   const {postId}=useParams()
   const navigate=useNavigate()
+  const location=useLocation()
+  const closeComments=()=>location.state?.fromVibesFeed?navigate(-1):navigate('/vibes')
   const {user}=useAuth()
   const [post,setPost]=useState(null)
   const [loading,setLoading]=useState(true)
@@ -33,10 +35,10 @@ export default function VibesConversation(){
   },[])
   return <main className="mx-auto max-w-[720px] space-y-3 pb-12" aria-label="Vibe conversation page">
     <header className="sticky top-14 z-10 -mx-4 flex items-center gap-3 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:rounded-xl md:border md:border-black/10">
-      <Link to="/vibes" aria-label="Back to Hits & Vibes"
+      <button type="button" onClick={closeComments} aria-label="Close comments and return to Vibes"
         className="grid h-11 w-11 shrink-0 place-items-center rounded-full hover:bg-black/5">
         <ArrowLeft size={20}/>
-      </Link>
+      </button>
       <div className="min-w-0">
         <h1 className="text-lg font-black text-[#151B38]">Comments</h1>
         <p className="text-[11px] text-black/50">Join the conversation</p>
