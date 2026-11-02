@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronRight, Clock, Handshake, History, LayoutGrid, List, Search, Undo2, X } from 'lucide-react'
+import { ChevronRight, Clock, Handshake, History, LayoutGrid, List, Undo2 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
 import RoleCardBadge from '../components/RoleCardBadge.jsx'
+import DiscoverySearch from '../components/DiscoverySearch.jsx'
 
 function money(value, currency = 'NGN') {
   if (value == null) return '—'
@@ -62,7 +63,6 @@ export default function MyDeals() {
 
   const [items, setItems] = useState([])
   const [search,setSearch]=useState('')
-  const [searchOpen,setSearchOpen]=useState(false)
   const [expandedApplication,setExpandedApplication]=useState(null)
   const [viewMode,setViewMode]=useState(()=>{try{return localStorage.getItem('chombutar_deals_view')==='list'?'list':'grid'}catch{return 'grid'}})
   useEffect(()=>{try{localStorage.setItem('chombutar_deals_view',viewMode)}catch{}},[viewMode])
@@ -281,28 +281,13 @@ export default function MyDeals() {
 
   return (
     <div className="mx-auto max-w-6xl pb-8">
-      <header className="sticky top-14 md:top-16 z-20 -mx-4 mb-3 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <h1 className="flex min-w-0 items-center gap-2 text-[21px] font-black sm:text-[23px]"><Handshake size={21} aria-hidden="true"/> My Deals</h1>
-          <div className="flex shrink-0 items-center gap-1">
-            {quietLoading&&<span className="hidden text-[10px] text-black/35 sm:block">Updating…</span>}
-            <button type="button" aria-label={searchOpen?'Close deals search':'Search deals'} aria-expanded={searchOpen}
-              aria-controls="my-deals-search" onClick={()=>{if(searchOpen)setSearch('');setSearchOpen(v=>!v)}}
-              className="grid h-11 w-11 place-items-center rounded-full hover:bg-black/5">{searchOpen?<X size={19}/>:<Search size={19}/>}</button>
-            <div role="group" aria-label="My Deals view" className="flex items-center gap-0.5">
-              <button type="button" aria-label="Grid view" aria-pressed={viewMode==='grid'}
-                onClick={()=>setViewMode('grid')} className={`grid h-11 w-10 place-items-center rounded-lg ${viewMode==='grid'?'bg-[#0A13E6] text-white':'hover:bg-black/5'}`}><LayoutGrid size={18}/></button>
-              <button type="button" aria-label="List view" aria-pressed={viewMode==='list'}
-                onClick={()=>setViewMode('list')} className={`grid h-11 w-10 place-items-center rounded-lg ${viewMode==='list'?'bg-[#0A13E6] text-white':'hover:bg-black/5'}`}><List size={19}/></button>
-            </div>
-          </div>
-        </div>
-        {searchOpen&&<div id="my-deals-search" className="mt-3 flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3">
-          <Search size={16} className="shrink-0 text-black/45"/>
-          <input autoFocus type="text" inputMode="search" value={search} onChange={e=>setSearch(e.target.value)}
-            aria-label="Search loaded deal records" placeholder="Search My Deals…"
-            className="h-11 min-w-0 flex-1 bg-transparent text-[13px] outline-none"/>
-        </div>}
+      <header className="sticky top-14 md:top-16 z-20 -mx-4 mb-3 flex min-h-[70px] items-center gap-3 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur-lg md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+        <h1 className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[18px] font-black tracking-tight sm:text-[21px]">
+          <Handshake size={21} aria-hidden="true" className="hidden sm:block"/> My Deals
+        </h1>
+        <DiscoverySearch id="my-deals-search" value={search} onChange={setSearch}
+          label="Search My Deals" placeholder="Search My Deals…"
+          className="ml-auto w-full max-w-[min(52vw,340px)] flex-1"/>
       </header>
       <nav aria-label="Deal role modes" className="sticky top-[126px] md:top-[134px] z-10 mb-3 flex w-fit items-center gap-1 rounded-full bg-[#F7F3EB]/95 px-1 py-1 backdrop-blur-lg">
         {['talent','client'].map(value=><button type="button" key={value}
@@ -313,9 +298,17 @@ export default function MyDeals() {
         </button>)}
       </nav>
       <section className="space-y-3" aria-label="My Deals">
-        <div>
-          <h2 className="text-[18px] font-black">{title}</h2>
-          <p className="mt-0.5 text-[12px] font-medium text-black/50">{subtitle}</p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-[18px] font-black">{title}</h2>
+            <p className="mt-0.5 text-[12px] font-medium text-black/50">{subtitle}</p>
+          </div>
+          <div role="group" aria-label="My Deals view" className="flex shrink-0 items-center gap-0.5">
+            <button type="button" aria-label="Grid view" aria-pressed={viewMode==='grid'}
+              onClick={()=>setViewMode('grid')} className={`grid h-11 w-10 place-items-center rounded-lg ${viewMode==='grid'?'bg-[#0A13E6] text-white':'hover:bg-black/5'}`}><LayoutGrid size={18}/></button>
+            <button type="button" aria-label="List view" aria-pressed={viewMode==='list'}
+              onClick={()=>setViewMode('list')} className={`grid h-11 w-10 place-items-center rounded-lg ${viewMode==='list'?'bg-[#0A13E6] text-white':'hover:bg-black/5'}`}><List size={19}/></button>
+          </div>
         </div>
 
         <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
