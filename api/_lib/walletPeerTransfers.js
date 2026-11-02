@@ -18,12 +18,18 @@ function cleanUsername(value){
   if(!USERNAME.test(clean))throw bad(400,'Enter a valid ChombuTar username.')
   return clean
 }
+function uniqueRecipient(rows,username){
+  if(!rows.length)throw bad(404,'No registered ChombuTar account matches that username.')
+  const exact=rows.find(row=>row.username===username)
+  if(rows.length>1&&!exact)
+    throw bad(409,'Multiple accounts match that spelling. Enter the username with exact capitalization.')
+  return exact||rows[0]
+}
 export async function findWalletRecipient(senderId,username){
   const name=cleanUsername(username)
   const {rows}=await query(`SELECT id,username,full_name,role,avatar_url,company_suffix
-     FROM users WHERE LOWER(username)=LOWER($1) LIMIT 1`,[name])
-  const person=rows[0]
-  if(!person)throw bad(404,'No registered ChombuTar account matches that username.')
+     FROM users WHERE LOWER(username)=LOWER($1) ORDER BY username LIMIT 2`,[name])
+  const person=uniqueRecipient(rows,name)
   if(person.id===senderId)throw bad(400,'You cannot transfer money to yourself.')
   return {id:person.id,username:person.username,full_name:person.full_name,
     role:person.role,avatar_url:person.avatar_url,company_suffix:person.company_suffix}
@@ -40,9 +46,8 @@ export async function transferWalletBalance(senderId,body){
     const {rows:installed}=await client.query("SELECT to_regclass('wallet_transfer_requests') AS rel")
     if(!installed[0]?.rel)throw bad(503,'Apply the Peer Wallet Transfers migration in Admin first.')
     const {rows:recipients}=await client.query(`SELECT id,username,full_name FROM users
-      WHERE LOWER(username)=LOWER($1) LIMIT 1`,[username])
-    const recipient=recipients[0]
-    if(!recipient)throw bad(404,'No registered ChombuTar account matches that username.')
+      WHERE LOWER(username)=LOWER($1) ORDER BY username LIMIT 2`,[username])
+    const recipient=uniqueRecipient(recipients,username)
     if(recipient.id===senderId)throw bad(400,'You cannot transfer money to yourself.')
     // Unique(sender, token) serializes retries, even across separate Vercel
     // instances. The winner commits *both* wallet postings or neither.
