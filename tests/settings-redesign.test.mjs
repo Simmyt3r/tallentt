@@ -93,3 +93,24 @@ test('privacy policy blocks only NEW hiring requests and newly created replies',
   assert.match(settings,/getContentPrivacy\(\)/)
   assert.match(settings,/updateContentPrivacy\(field,value\)/)
 })
+
+test('Settings privacy GET and POST routes are dispatched before the booking fallthrough',()=>{
+  const escrow=read('api/escrows/index.js')
+  const client=read('src/lib/api.js')
+  const getRoute="if(url.searchParams.get('content_privacy')==='1')"
+  const postRoute="if(body.action==='content_privacy')"
+  assert.ok(escrow.includes(getRoute),'missing GET route for content privacy')
+  assert.ok(escrow.includes(postRoute),'missing POST route for content privacy')
+  assert.ok(escrow.includes('getContentPrivacy(session.sub)'))
+  assert.ok(escrow.includes('updateContentPrivacy(session.sub,body.field,body.value)'))
+  assert.ok(escrow.indexOf(getRoute)<escrow.indexOf("if (url.searchParams.get('mine') !== '1')"),
+    'Settings GET must not reach the 405 booking fallback')
+  assert.ok(escrow.indexOf(postRoute)<escrow.indexOf("if (body.action) return json(res, 400"),
+    'Settings POST must not reach the unknown booking action fallback')
+  assert.ok(client.includes("getContentPrivacy:()=>request('/api/escrows?content_privacy=1'"))
+  assert.ok(client.includes("updateContentPrivacy:(field,value)=>request('/api/escrows',{method:'POST'"))
+  assert.ok(settings.includes('api.getContentPrivacy()'))
+  assert.ok(settings.includes('api.updateContentPrivacy(field,value)'))
+  assert.ok(settings.includes('restartPageTours(user.id)'))
+  assert.ok(settings.includes('getSavedVideoSummary()'))
+})
