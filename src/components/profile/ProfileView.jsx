@@ -275,8 +275,8 @@ export default function ProfileView({
         {employment?.employed&&<p className="text-xs font-semibold text-green-700">Employed via ChombuTar · agreement accepted by both parties</p>}
         {Number(employment?.confirmed_months)>0&&<p className="text-xs text-black/60">{employment.confirmed_months} salary periods confirmed received · amounts private</p>}
         {card.workModes.includes('Full-time') && <p className="text-xs text-black/60">Salary expectation: {card.salary.visibility === 'range' ? 'NGN ' + Number(card.salary.min).toLocaleString() + '–' + Number(card.salary.max).toLocaleString() + '/month' : card.salary.visibility === 'tier' ? card.salary.tier + ' level' : 'Private · ask me'}</p>}
-        <div role="group" aria-label="Filter by talent" className="flex flex-wrap gap-2">
-          {['', ...groups].map(name => <button type="button" key={name} aria-pressed={selectedTalent === name} onClick={() => selectTalent(name)} className={`rounded-full border px-3 py-2 text-xs font-semibold ${selectedTalent === name ? 'bg-[#0A13E6] text-white border-[#0A13E6]' : 'border-black/15'}`}>{name || 'All'}{name && name === card.mainTalent ? ' · Main' : ''}</button>)}
+        <div role="group" aria-label="Filter by talent" className="ct-filter-tabs">
+          {['', ...groups].map(name => <button type="button" key={name} aria-pressed={selectedTalent === name} onClick={() => selectTalent(name)} className="ct-filter-tab text-xs">{name || 'All'}{name && name === card.mainTalent ? ' · Main' : ''}</button>)}
         </div>
         <p className="text-xs text-black/50">{selectedTalent ? 'Portfolio and Talent Hats for ' + selectedTalent : 'Featured portfolio · up to three selected works'}</p>
         {shareStatus && <p role="status" className="break-all text-xs text-blue-700">{shareStatus}</p>}
