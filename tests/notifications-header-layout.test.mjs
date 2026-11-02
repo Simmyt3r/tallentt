@@ -7,12 +7,14 @@ const page=read('src/pages/Notifications.jsx')
 
 test('notifications title, search trigger, and bulk actions share one header row',()=>{
   assert.match(page,/<header className="sticky top-14 md:top-16[^\n]*?>/)
-  assert.match(page,/<div className="flex min-w-0 items-center justify-between gap-2">/)
+  assert.match(page,/<div className="flex min-w-0 flex-wrap items-center gap-2">/)
   assert.match(page,/<h1[^>]*>Notifications<\/h1>/)
   const header=page.slice(page.indexOf('<header className="sticky'),page.indexOf('</header>'))
   assert.match(header,/aria-label=\{searchOpen\?'Close notifications search':'Search notifications'\}/)
   assert.match(header,/aria-label="More notification actions"/)
   assert.match(header,/\{searchOpen&&<div id="notification-search"/)
+  assert.match(header,/flex min-w-\[11rem\] flex-\[1_1_12rem\]/)
+  assert.doesNotMatch(page,/className="mt-3 flex items-center gap-2 rounded-xl/)
   assert.doesNotMatch(page,/CompactPageHeader/)
 })
 
