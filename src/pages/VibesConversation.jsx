@@ -3,7 +3,7 @@ import {useLocation,useNavigate,useParams} from 'react-router-dom'
 import {ArrowLeft,MessageCircle,RefreshCw} from 'lucide-react'
 import {api} from '../lib/api.js'
 import {useAuth} from '../context/AuthContext.jsx'
-import {VibeCard} from './Vibes.jsx'
+import {VibeCard,updateVibeReturnSnapshot,discardVibeReturnSnapshot} from './Vibes.jsx'
 import VibesComments from '../components/VibesComments.jsx'
 
 // A dedicated, addressable conversation screen instead of an expanding section
@@ -32,6 +32,7 @@ export default function VibesConversation(){
   },[postId,refresh])
   const onDelta=useCallback((id,patch)=>{
     setPost(current=>current?.id===id?{...current,...patch}:current)
+    updateVibeReturnSnapshot(id,patch)
   },[])
   return <main className="mx-auto max-w-[720px] space-y-3 pb-12" aria-label="Vibe conversation page">
     <header className="sticky top-14 z-10 -mx-4 flex items-center gap-3 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:rounded-xl md:border md:border-black/10">
@@ -55,7 +56,7 @@ export default function VibesConversation(){
     </section>}
     {post&&<>
       <VibeCard post={post} me={user} commentsPage onChange={onDelta}
-        onDeleted={()=>navigate('/vibes',{replace:true})}/>
+        onDeleted={()=>{discardVibeReturnSnapshot(postId);navigate('/vibes',{replace:true})}}/>
       <div className="rounded-2xl border border-black/10 bg-white px-4 pb-5 pt-2 shadow-sm"
         aria-label="Full-page comments">
         <VibesComments post={post} me={user} onDelta={onDelta}/>
