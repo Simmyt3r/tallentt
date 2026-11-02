@@ -401,12 +401,7 @@ export function BookingThread({ id, onBack }) {
               </Link>
             </UserIdentity>
           </div>
-          <Link
-            to={thread.is_client ? '/deals?role=client&tab=active' : '/deals?role=talent&tab=active'}
-            className="shrink-0 rounded-full border border-black/10 bg-[#F5F3EF] px-3 py-1.5 text-[10px] font-black text-black/60 hover:border-black/25"
-          >
-            My Deals
-          </Link>
+
         </div>
         <div className="mt-2 ml-8 sm:ml-12 flex min-w-0 items-center gap-2 text-[10px] font-semibold text-black/45">
           <span className="truncate">{dealStatus}</span>
