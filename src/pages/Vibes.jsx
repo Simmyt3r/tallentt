@@ -26,7 +26,7 @@ export function discardVibeReturnSnapshot(postId){
 }
 const MAX_PHOTOS = 10
 const MAX_POST_BYTES = 80 * 1024 * 1024
-const mediaMB = bytes => (bytes / (1024 * 1024)).toLocaleString('en-NG',{maximumFractionDigits:1})
+const MAX_POST_CHARS = 10000
 const dateText = value => {
   try { return new Date(value).toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) }
   catch { return '' }
@@ -292,7 +292,7 @@ export default function Vibes() {
 
   async function publish(e) {
     e.preventDefault()
-    if(publishing||(!text.trim()&&!photos.length))return
+    if(publishing||(!text.trim()&&!photos.length)||textLimitExceeded)return
     setPublishing(true);setPostError('')
     try {
       // Signed media uploads may run concurrently, but with a low ceiling to
@@ -330,7 +330,7 @@ export default function Vibes() {
     finally{setPaging(false)}
   }
   const change=(id,patch)=>setPosts(current=>current.map(p=>p.id===id?{...p,...patch}:p))
-  const mediaBytes=photos.reduce((total,item)=>total+item.file.size,0)
+  const textLimitExceeded = text.length > MAX_POST_CHARS
   return <main className="mx-auto max-w-[660px] space-y-4 pb-10">
     <CompactPageHeader title="Hits & Vibes" searchValue={search} onSearchChange={setSearch}
       searchPlaceholder="Search Vibes…" searchLabel="Search Vibes posts and people"/>
@@ -340,9 +340,12 @@ export default function Vibes() {
         <div className="min-w-0 flex-1">
           <label htmlFor="vibe-text" className="sr-only">Say something…</label>
           <textarea id="vibe-text" value={text} onChange={e=>setText(e.target.value)}
-            rows={2} placeholder="Say something…"
+            rows={2} placeholder="Say something…" aria-invalid={textLimitExceeded}
+            aria-describedby={textLimitExceeded?'vibe-text-limit-error':undefined}
             className="w-full min-h-0 resize-y rounded-xl border-0 bg-[#F7F3EB] px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0A13E6]"/>
-          <div className="mt-1 text-right text-[10px] text-black/40">Up to 10,000 characters</div>
+          {textLimitExceeded&&<p id="vibe-text-limit-error" role="alert" className="mt-1 text-[12px] font-medium text-red-700">
+            This Vibe exceeds the 10,000-character limit. Shorten it before posting.
+          </p>}
         </div>
       </div>
       {photos.length>0&&<div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -352,6 +355,7 @@ export default function Vibes() {
             disabled={publishing} onClick={()=>{
               URL.revokeObjectURL(item.preview)
               setPhotos(current=>current.filter(photo=>photo.id!==item.id))
+              setPostError('')
             }} className="absolute top-1 right-1 grid h-8 w-8 place-items-center rounded-full bg-black/80 text-white">
             <X size={16}/></button>
         </div>)}
@@ -362,16 +366,11 @@ export default function Vibes() {
         <div>
           <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
             aria-label="Choose Vibes photos" className="hidden" onChange={choosePhotos}/>
-          <button type="button" disabled={publishing||photos.length>=MAX_PHOTOS||mediaBytes>=MAX_POST_BYTES}
+          <button type="button" disabled={publishing}
             onClick={()=>fileRef.current?.click()}
-            className="inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[12px] font-bold text-[#0A13E6] hover:bg-blue-50 disabled:opacity-40"
-            title="Up to 80 MB total per post. Images up to 8 MB; videos up to 20 MB each.">
+            className="inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[12px] font-bold text-[#0A13E6] hover:bg-blue-50 disabled:opacity-40">
             <ImagePlus size={19}/> Photo / video
           </button>
-          <span className="block pl-3 text-[10px] text-black/45"
-            aria-label={`Media storage: ${mediaMB(mediaBytes)} of 80 MB`}>
-            {photos.length>0?`${mediaMB(mediaBytes)} / 80 MB`:'80 MB max'}
-          </span>
         </div>
         <button type="submit" disabled={publishing||(!text.trim()&&!photos.length)}
           className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-6 text-[12px] font-black text-white disabled:opacity-40">
