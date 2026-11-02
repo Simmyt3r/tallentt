@@ -59,7 +59,7 @@ export default function Profile() {
   if (editing) {
     return (
       <>
-        <CompactPageHeader title="Edit Profile"/>
+        <CompactPageHeader title="Edit Profile" showSearch={false}/>
         <EditProfileForm
           user={user}
           onCancel={() => setEditing(false)}
@@ -71,7 +71,7 @@ export default function Profile() {
 
   return (
     <>
-      <CompactPageHeader title="My Profile"/>
+      <CompactPageHeader title="My Profile" showSearch={false}/>
       <ProfileView
         key={user.username}
         status={loading ? 'loading' : 'ready'}
