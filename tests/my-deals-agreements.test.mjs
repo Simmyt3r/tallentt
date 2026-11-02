@@ -28,7 +28,7 @@ test('My Deals supports persistent flat grid and list with one detail action per
   assert.doesNotMatch(overview,/>Agreement<\/Link>/)
 })
 test('deal detail hides discovery search and routes Agreement/history/cancellation per deal',()=>{
-  assert.match(detail,/>Deals details<\/h1>/)
+  assert.match(detail,/>Deal Details<\/h1>/)
   assert.doesNotMatch(detail,/CompactPageHeader/)
   assert.match(detail,/Deal transaction sections/)
   assert.match(detail,/\['agreement','Agreement'\]/)
@@ -37,7 +37,7 @@ test('deal detail hides discovery search and routes Agreement/history/cancellati
   assert.match(detail,/detailSection==='history'/)
   assert.match(detail,/\/messages\?escrow=\$\{thread.id\}/)
   assert.match(detail,/\/deals\/\$\{thread.id\}\/agreement/)
-  assert.match(detail,/How escrow works/)
+  assert.match(detail,/How Escrow Works/)
   assert.match(detail,/Request cancellation \/ Open dispute/)
   assert.doesNotMatch(detail,/Negotiation<\/Link>/)
 })
