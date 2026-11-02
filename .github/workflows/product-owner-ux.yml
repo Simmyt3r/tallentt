@@ -1,0 +1,44 @@
+name: Product Owner Wallet and UX
+on:
+  pull_request:
+    paths:
+      - 'api/_lib/walletPeerTransfers.js'
+      - 'api/escrows/index.js'
+      - 'src/pages/Wallet.jsx'
+      - 'src/pages/MyDeals.jsx'
+      - 'src/pages/DealDetails.jsx'
+      - 'src/pages/Messages.jsx'
+      - 'src/pages/Inbox.jsx'
+      - 'src/pages/Vibes.jsx'
+      - 'src/pages/VibesConversation.jsx'
+      - 'src/components/WalletTransferDialog.jsx'
+      - 'src/components/MessageActions.jsx'
+      - 'src/components/TranslateMessageDialog.jsx'
+      - 'tests/product-owner-pass.test.mjs'
+      - 'tests/messages-consolidation.test.mjs'
+      - '.github/workflows/product-owner-ux.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'api/_lib/walletPeerTransfers.js'
+      - 'src/pages/Wallet.jsx'
+      - 'src/pages/DealDetails.jsx'
+      - 'src/pages/Messages.jsx'
+      - 'src/pages/Vibes.jsx'
+      - 'src/pages/VibesConversation.jsx'
+      - 'tests/product-owner-pass.test.mjs'
+      - '.github/workflows/product-owner-ux.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify product-owner UI and ledger guards
+        run: node --test tests/product-owner-pass.test.mjs tests/messages-consolidation.test.mjs tests/my-deals-agreements.test.mjs tests/notifications-header-layout.test.mjs tests/vibes-hierarchy-ui.test.mjs
+      - name: Production build
+        run: npm run build
