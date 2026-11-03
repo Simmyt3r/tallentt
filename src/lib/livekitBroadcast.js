@@ -1,6 +1,6 @@
 // ChombuTar's browser LiveKit publisher. Camera capture is first requested by
 // LiveHub for its local preview; the very same tracks are published to LiveKit.
-import {Room,RoomEvent} from 'livekit-client'
+import {Room,RoomEvent,Track} from 'livekit-client'
 
 export async function startLivekitBroadcast({url,token,mediaStream,onConnectionState}){
   if(!/^wss:\/\//.test(String(url||''))||!token)
@@ -18,6 +18,7 @@ export async function startLivekitBroadcast({url,token,mediaStream,onConnectionS
     await room.connect(url,token)
     for(const track of tracks)await room.localParticipant.publishTrack(track,{
       name:track.kind==='video'?'camera':'microphone',
+      source:track.kind==='video'?Track.Source.Camera:Track.Source.Microphone,
     })
     emit('connected')
   }catch(error){
