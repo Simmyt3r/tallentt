@@ -1,5 +1,5 @@
 // Path: src/pages/Live/StageRoom.jsx
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import Hls from 'hls.js'
 import { ArrowLeft, Camera, Heart, Maximize, Mic, MicOff, VideoOff, Wifi, Users, Gift as GiftIcon } from 'lucide-react'
@@ -9,7 +9,7 @@ import UserIdentity from '../../components/UserIdentity'
 import CompactPageHeader from '../../components/CompactPageHeader.jsx'
 import { connectLiveRealtime } from '../../lib/liveRealtime'
 import { clearLivePublisher, getLivePublisher } from '../../lib/liveSession'
-import LiveKitStage from './LiveKitStage.jsx'
+const LiveKitStage = lazy(() => import('./LiveKitStage.jsx'))
 
 function money(n) { return `₦${Number(n || 0).toLocaleString()}` }
 function makeKey() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}` }
@@ -439,7 +439,9 @@ export default function StageRoom() {
           : room.status === 'ended' ? <div className="w-full h-full grid place-items-center text-white/70 text-[13px] font-semibold">Live has ended</div>
             : room.status === 'failed' ? <div className="w-full h-full grid place-items-center text-red-300 text-[13px] font-semibold">Live stream failed</div>
               : isFallback ? <FallbackStage mediaStream={fallbackMedia} isHost={isHost} />
-                : room.media_mode==='livekit' ? <LiveKitStage id={id} hostId={room.talent_id} isHost={isHost} onState={setPlaybackState}/>
+                : room.media_mode==='livekit' ? <Suspense fallback={<div className="grid h-full w-full place-items-center text-white">Connecting to LiveKit…</div>}>
+                    <LiveKitStage id={id} hostId={room.talent_id} isHost={isHost} onState={setPlaybackState}/>
+                  </Suspense>
                 : <StreamPlayer src={room.hls_url} quality={quality} onState={setPlaybackState} />}
         {playerMessage && isLive && !isFallback && <div className="absolute left-3 bottom-3 rounded-full bg-black/70 text-white px-3 py-1.5 text-[10px] font-bold">{playerMessage}</div>}
         {animation && <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center motion-reduce:hidden"><div className="rounded-full bg-black/75 text-white px-5 py-2.5 text-[13px] font-bold shadow-xl animate-bounce">{animation.icon} {animation.name}</div></div>}
