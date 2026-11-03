@@ -1,0 +1,20 @@
+# Optional HTTPS browser-broadcast gateway. Combine with docker-compose.yml:
+# docker compose -f docker-compose.yml -f docker-compose.browser.yml up -d --build
+services:
+  media-tls:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      LIVE_MEDIA_HOST: "${LIVE_MEDIA_HOST:?set LIVE_MEDIA_HOST}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,26 @@
+# Public HTTPS entry point for browser camera -> WHIP -> MediaMTX -> HLS.
+# LIVE_MEDIA_HOST must be a DNS hostname pointing to the persistent Live server.
+{$LIVE_MEDIA_HOST} {
+  encode zstd gzip
+
+  # A basic reachability check for the HTTPS media gateway.
+  # The actual publish/read readiness is proved by a two-device WHIP/HLS test.
+  @health path /health
+  handle @health {
+    header Content-Type application/json
+    respond `{"gateway":"online"}` 200
+  }
+
+  # Both the initial WHIP POST and subsequent resource URL / DELETE requests
+  # must be proxied unchanged (including Authorization and Location headers).
+  @whip path_regexp ^/live-[0-9a-f-]{36}/whip(?:/.*)?$
+  handle @whip {
+    reverse_proxy mediamtx:8889
+  }
+
+  # MediaMTX serves HLS playlists, segments and initialization data.
+  # Every read is subject to MediaMTX's external HTTP authorization.
+  handle {
+    reverse_proxy mediamtx:8888
+  }
+}
