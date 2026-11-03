@@ -68,5 +68,5 @@ test('users publish their own browser camera through WHIP, not RTMP', () => {
   assert.match(broadcast, /RTCPeerConnection/)
   assert.match(broadcast, /'Content-Type': 'application\/sdp'/)
   assert.match(server, /LIVE_VIDEO_PROVIDER\|\|'mediamtx'/)
-  assert.match(guide, /two-device WHIP\/HLS test/i)
+  assert.match(guide, /different device and account/i)
 })
