@@ -229,6 +229,56 @@ export async function refreshCloudinaryLive(streamId){
   }
 }
 
+// Check LiveKit's actual host participant, not an untrusted browser status.
+// The check is rate-limited in PostgreSQL across Vercel instances.
+export async function refreshLivekitStream(streamId){
+  const {rows}=await query(`UPDATE live_streams SET last_media_event_at=NOW()
+    WHERE id=$1 AND stream_path LIKE 'lk-%'
+      AND status IN ('starting','live','reconnecting')
+      AND (last_media_event_at IS NULL OR last_media_event_at < NOW()-INTERVAL '15 seconds')
+    RETURNING stream_path,status,talent_id,started_at,created_at,updated_at`,[streamId])
+  const stream=rows[0]
+  if(!stream)return
+  try{
+    const publishing=await livekitHostPublishing(stream.stream_path,stream.talent_id)
+    const now=Date.now()
+    const startingExpired=!stream.started_at&&now-new Date(stream.created_at).getTime()>120000
+    const reconnectExpired=stream.status==='reconnecting'&&now-new Date(stream.updated_at).getTime()>120000
+    const next=publishing?'live'
+      :startingExpired?'failed'
+      :reconnectExpired?'ended'
+      :stream.started_at?'reconnecting':'starting'
+    const media=publishing?'connected':next==='starting'?'authorizing':
+      next==='reconnecting'?'disconnected':next
+    if(next==='ended')await deleteLivekitRoom(stream.stream_path)
+    const updated=await query(`UPDATE live_streams SET status=$2,media_status=$3,
+      started_at=CASE WHEN $2='live' THEN COALESCE(started_at,NOW()) ELSE started_at END,
+      ended_at=CASE WHEN $2='ended' THEN COALESCE(ended_at,NOW()) ELSE ended_at END,
+      updated_at=CASE WHEN status IS DISTINCT FROM $2 THEN NOW() ELSE updated_at END
+      WHERE id=$1 AND stream_path=$4 AND status IN ('starting','live','reconnecting')
+      RETURNING id`,[streamId,next,media,stream.stream_path])
+    if(updated.rows.length&&next!==stream.status)
+      emitLiveEvent(streamId,'stream_status',{status:next,media_status:media})
+  }catch(error){
+    // Do not incorrectly end a broadcaster because of a transient API failure.
+    console.error('LiveKit status check failed:',error.message)
+  }
+}
+
+// No arbitrary room names, identities or publisher rights can come from the
+// client: the authenticated session and database ownership decide the grant.
+export async function getLivekitParticipantCredentials(userId,streamId){
+  streamId=requireUuid(streamId,'stream_id')
+  const {rows}=await query('SELECT talent_id,stream_path,status FROM live_streams WHERE id=$1',[streamId])
+  const room=rows[0]
+  if(!room||!isLivekitStream(room))throw liveError(404,'LiveKit broadcast not found.')
+  if(['ended','failed'].includes(room.status))throw liveError(409,'This broadcast has ended.')
+  const publisher=room.talent_id===userId
+  if(!publisher&&!['live','reconnecting'].includes(room.status))
+    throw liveError(409,'This Talent has not started broadcasting yet.')
+  return livekitJoinCredentials({room:room.stream_path,userId,publisher})
+}
+
 export async function getCloudinaryPublisherDetails(userId,streamId){
   requireUuid(streamId,'stream_id')
   const {rows}=await query('SELECT talent_id,cloudinary_stream_id,status FROM live_streams WHERE id=$1',[streamId])
