@@ -111,7 +111,7 @@ export async function listStreams({ viewerId, status }) {
   }
   // Historical fallback rooms do not deliver video to viewers.
   where.push("ls.media_status IS DISTINCT FROM 'fallback'")
-  const { rows } = await query(
+  const fetchRows=()=>query(
     `SELECT ls.*, u.username, u.full_name, u.avatar_url, u.role, u.company_suffix
      FROM live_streams ls JOIN users u ON u.id = ls.talent_id
      WHERE ${where.join(' AND ')}
@@ -120,6 +120,14 @@ export async function listStreams({ viewerId, status }) {
      LIMIT 60`,
     params,
   )
+  let {rows}=await fetchRows()
+  // An abandoned phone tab must not appear LIVE indefinitely in the directory.
+  // Provider checks are independently throttled to 15s via Postgres.
+  if(rows.some(isLivekitStream)){
+    await Promise.all(rows.filter(isLivekitStream).slice(0,12)
+      .map(item=>refreshLivekitStream(item.id)))
+    ;({rows}=await fetchRows())
+  }
   return Promise.all(rows.map((row) => mapStream(row, viewerId)))
 }
 
