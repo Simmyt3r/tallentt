@@ -7,7 +7,6 @@ import CompactPageHeader from '../../components/CompactPageHeader.jsx'
 import { useAuth } from '../../context/AuthContext'
 import UserIdentity from '../../components/UserIdentity'
 import { getLiveMedia, startWhipBroadcast } from '../../lib/liveBroadcast'
-import { startLivekitBroadcast } from '../../lib/livekitBroadcast'
 import { clearLivePublisher, setLivePublisher } from '../../lib/liveSession'
 
 const LIVE_READINESS_HELP = {
@@ -175,6 +174,7 @@ export default function LiveHub() {
         handedOffRef.current=true
         navigate(`/live/stage/${streamId}`,{state:{isHost:true,mediaMode:'cloudinary'}})
       }else if(created.media_mode==='livekit'){
+        const {startLivekitBroadcast}=await import('../../lib/livekitBroadcast.js')
         publisher=await startLivekitBroadcast({
           url:created.url,token:created.token,mediaStream:media,onConnectionState:setConnectionStatus,
         })
