@@ -52,7 +52,7 @@ test('deployment provides an HTTPS WHIP/HLS gateway and keeps raw media private'
   assert.match(example, /LIVE_ICE_UDP_PORT=8189/)
   assert.match(example, /LIVE_HLS_PORT=127\.0\.0\.1:8888/)
   assert.match(example, /LIVE_WHIP_PORT=127\.0\.0\.1:8889/)
-  assert.match(vercel, /^LIVE_VIDEO_PROVIDER=mediamtx$/m)
+  assert.match(vercel, /^LIVE_VIDEO_PROVIDER=livekit$/m)
 })
 
 test('users publish their own browser camera through WHIP, not RTMP', () => {
