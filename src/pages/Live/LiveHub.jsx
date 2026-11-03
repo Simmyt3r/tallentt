@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import CompactPageHeader from '../../components/CompactPageHeader.jsx'
 import { useAuth } from '../../context/AuthContext'
 import UserIdentity from '../../components/UserIdentity'
-import { getLiveMedia, startFallbackBroadcast, startWhipBroadcast } from '../../lib/liveBroadcast'
+import { getLiveMedia, startWhipBroadcast } from '../../lib/liveBroadcast'
 import { clearLivePublisher, setLivePublisher } from '../../lib/liveSession'
 
 const LIVE_READINESS_HELP = {
@@ -116,7 +116,7 @@ export default function LiveHub() {
       return
     }
     if(!readiness.broadcast_ready){
-      setError(readiness.message||LIVE_READINESS_HELP[readiness.reason] || 'Broadcast unavailable. Enable Cloudinary Live or configure the media relay.')
+      setError(readiness.message||LIVE_READINESS_HELP[readiness.reason] || 'Browser broadcasting is unavailable until the media relay is ready.')
       return
     }
     setError('')
@@ -206,6 +206,9 @@ export default function LiveHub() {
       <CompactPageHeader title="ChombuTar Live" icon={Radio} searchValue={search} onSearchChange={setSearch}
         searchPlaceholder="Search live rooms…" searchLabel="Search live rooms by title, category or host"/>
 
+      {mediaReadiness?.broadcast_ready&&mediaReadiness.mode==='mediamtx'&&<p role="status" className="rounded-xl bg-blue-50 p-3 text-[12px] text-blue-900">
+        Go Live directly with your phone or computer camera. Allow camera and microphone, review the preview, and start streaming. No OBS or stream key required.
+      </p>}
       {mediaReadiness?.broadcast_ready&&mediaReadiness.mode==='cloudinary'&&<p role="status" className="rounded-xl bg-blue-50 p-3 text-[12px] text-blue-900">
         Live uses Cloudinary RTMP. Create a room, then start broadcasting from OBS or an RTMP-capable phone app. Your broadcast is marked LIVE only after Cloudinary detects actual video.
       </p>}
@@ -228,7 +231,7 @@ export default function LiveHub() {
         }}
           aria-current="page" aria-pressed
           className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
-          <Radio size={14}/> {creating ? 'Close broadcast setup' : 'Live broadcast'}
+          <Radio size={14}/> {creating ? 'Close broadcast setup' : mediaReadiness?.mode==='cloudinary' ? 'RTMP broadcast setup' : 'Go Live from camera'}
         </button>
         <Link to="/live/competitions" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/15 px-4 text-[12px] font-bold hover:bg-blue-50">
           <Trophy size={14}/> Stage competitions
@@ -255,7 +258,7 @@ export default function LiveHub() {
             {mediaReadiness?.mode!=='cloudinary'&&<><label className="text-[11px] font-bold text-black/55"><span className="flex items-center gap-1 mb-1"><Camera size={12} /> Camera</span><select disabled={starting} value={form.camera} onChange={(event) => switchDevices({ ...form, camera: event.target.value })} className="w-full h-10 rounded-xl border border-black/20 px-2 bg-white text-[12px] disabled:opacity-50"><option value="">Default camera</option>{devices.cameras.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || 'Camera'}</option>)}</select></label>
             <label className="text-[11px] font-bold text-black/55"><span className="flex items-center gap-1 mb-1"><Mic size={12} /> Microphone</span><select disabled={starting} value={form.microphone} onChange={(event) => switchDevices({ ...form, microphone: event.target.value })} className="w-full h-10 rounded-xl border border-black/20 px-2 bg-white text-[12px] disabled:opacity-50"><option value="">Default microphone</option>{devices.microphones.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || 'Microphone'}</option>)}</select></label>
             </>}
-            <button disabled={starting} className="sm:col-span-2 h-11 rounded-full bg-[#0A13E6] text-white text-[13px] font-bold flex items-center justify-center gap-2 disabled:opacity-60"><Wifi size={14} /> {starting?'Creating Live room…':mediaReadiness?.mode==='cloudinary'?'Create RTMP Live room':'Start Live'}</button>
+            <button disabled={starting} className="sm:col-span-2 h-11 rounded-full bg-[#0A13E6] text-white text-[13px] font-bold flex items-center justify-center gap-2 disabled:opacity-60"><Wifi size={14} /> {starting?'Connecting Live camera…':mediaReadiness?.mode==='cloudinary'?'Create RTMP Live room':'Start Live'}</button>
           </div>
         </form>
       )}
