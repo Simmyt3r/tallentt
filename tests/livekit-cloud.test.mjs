@@ -39,7 +39,7 @@ test('LiveKit requires complete server-only configuration and reports unconfigur
   process.env.LIVE_VIDEO_PROVIDER='livekit'
   assert.equal(livekitConfigured(),false)
   assert.deepEqual(await resolveBroadcastAvailability(),{
-    mode:'fallback',ready:false,reason:'livekit_unconfigured',
+    mode:'fallback',ready:false,reason:'livekit_unconfigured',message:undefined,
   })
   process.env.LIVEKIT_URL='https://unsecured.test'
   process.env.LIVEKIT_API_KEY='API_TESTING_12345678'
