@@ -36,6 +36,7 @@ function setup(){
 }
 
 test('LiveKit requires complete server-only configuration and reports unconfigured safely',async()=>{
+  process.env.LIVE_VIDEO_PROVIDER='livekit'
   assert.equal(livekitConfigured(),false)
   assert.deepEqual(await resolveBroadcastAvailability(),{
     mode:'fallback',ready:false,reason:'livekit_unconfigured',
