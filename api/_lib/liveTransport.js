@@ -1,10 +1,12 @@
 import {getLiveMediaMode,resolveLiveMediaAvailability} from './liveMedia.js'
 import {cloudinaryLiveAvailability,cloudinaryLiveConfigured} from './cloudinaryLive.js'
 
-// Auto prefers browser broadcasting when WHIP is truly reachable, otherwise
-// falls back to a REAL Cloudinary RTMP broadcast, not a misleading camera preview.
+// Browser-only broadcasting uses WebRTC/WHIP. Cloudinary RTMP remains an
+// explicit opt-in for legacy encoder workflows (not a browser camera ingest).
 export async function resolveBroadcastAvailability(){
-  const preferred=String(process.env.LIVE_VIDEO_PROVIDER||'auto').trim().toLowerCase()
+  // Browser-first by default. Cloudinary RTMP is an explicit legacy/encoder option,
+  // never a silent fallback when someone expects one-tap camera broadcasting.
+  const preferred=String(process.env.LIVE_VIDEO_PROVIDER||'mediamtx').trim().toLowerCase()
   if(preferred==='cloudinary'){
     const info=await cloudinaryLiveAvailability()
     return {mode:info.ready?'cloudinary':'fallback',ready:info.ready,reason:info.reason,message:info.message}
