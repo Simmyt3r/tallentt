@@ -2,7 +2,7 @@
 // Uses the existing jsonwebtoken dependency and LiveKit's documented Twirp RoomService API.
 import jwt from 'jsonwebtoken'
 
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const fail=(status,message)=>Object.assign(new Error(message),{status})
 
 function config(){
