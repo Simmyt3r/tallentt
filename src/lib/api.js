@@ -392,6 +392,7 @@ export const api = {
   stageAction: (body) => request('/api/live', {method:'POST',body:JSON.stringify(body)}),
   getLiveMediaStatus: () => request('/api/live?media_status=1'),
   getCloudinaryPublisher:(id)=>request('/api/live?cloudinary_publisher='+encodeURIComponent(id),{cache:'no-store'}),
+  getLivekitToken:(id)=>request('/api/live?livekit_token='+encodeURIComponent(id),{cache:'no-store'}),
   getLiveRooms: (status) => request(`/api/live${status ? `?status=${encodeURIComponent(status)}` : ''}`),
   getLiveRoom: (roomId) => request(`/api/live?room_id=${encodeURIComponent(roomId)}`),
   liveAction: (body) => request('/api/live', { method: 'POST', body: JSON.stringify(body) }),

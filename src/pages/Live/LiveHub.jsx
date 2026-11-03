@@ -19,6 +19,8 @@ const LIVE_READINESS_HELP = {
   preflight_failed: 'The app could not verify Live readiness. Check your connection, session and deployment status.',
   cloudinary_unconfigured:'Configure Cloudinary API keys and enable Live Streaming.',
   cloudinary_unavailable:'Cloudinary Live Streaming is unavailable. Check your account permissions and subscription.',
+  livekit_unconfigured:'Configure LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET and LIVE_VIDEO_PROVIDER=livekit in Vercel.',
+  livekit_unavailable:'LiveKit Cloud cannot be reached or the credentials are not valid. Check your LiveKit project settings.',
 }
 const CATEGORIES = ['Music', 'Dance', 'Comedy', 'Fashion', 'Acting', 'Modeling', 'Art & Design', 'Writing', 'Photography', 'Content Creation', 'Sports', 'Other']
 
@@ -161,14 +163,31 @@ export default function LiveHub() {
     setError('')
     setStarting(true)
     let streamId = null
+    let createdMode = null
     let publisher = null
     try {
       setConnectionStatus('connecting')
       const created = await api.liveAction({ action: 'create_stream', title: form.title, category: form.category })
       streamId = created.stream.id
+      createdMode = created.media_mode
       if(created.media_mode==='cloudinary'){
         handedOffRef.current=true
         navigate(`/live/stage/${streamId}`,{state:{isHost:true,mediaMode:'cloudinary'}})
+      }else if(created.media_mode==='livekit'){
+        const {startLivekitBroadcast}=await import('../../lib/livekitBroadcast.js')
+        publisher=await startLivekitBroadcast({
+          url:created.url,token:created.token,mediaStream:media,onConnectionState:setConnectionStatus,
+        })
+        setLivePublisher(streamId,publisher)
+        // Provider track registration can lag a successful client publish briefly.
+        for(let attempt=0;attempt<4;attempt++){
+          try{await api.liveAction({action:'mark_live',stream_id:streamId});break}
+          catch(err){if(err.status!==409||attempt===3)throw err
+            await new Promise(resolve=>setTimeout(resolve,700))}
+        }
+        handedOffRef.current=true
+        sessionStorage.setItem(`chombutar-live-publisher:${streamId}`,'livekit')
+        navigate(`/live/stage/${streamId}`,{state:{isHost:true,mediaMode:'livekit'}})
       }else{
         publisher=await startWhipBroadcast({
           ingestUrl:created.ingest_url,publishToken:created.publish_token,
@@ -182,9 +201,9 @@ export default function LiveHub() {
       }
     } catch (err) {
       if (streamId) {
-        if(mediaReadiness?.mode==='cloudinary')
-          api.liveAction({action:'end_stream',stream_id:streamId}).catch(()=>{})
-        else api.liveAction({action:'publisher_state',stream_id:streamId,state:'failed'}).catch(()=>{})
+        if(['cloudinary','livekit'].includes(createdMode))
+          await api.liveAction({action:'end_stream',stream_id:streamId}).catch(()=>{})
+        else await api.liveAction({action:'publisher_state',stream_id:streamId,state:'failed'}).catch(()=>{})
         await clearLivePublisher(streamId).catch(() => {})
       } else if (publisher) {
         await publisher.stop().catch(() => {})
@@ -206,6 +225,9 @@ export default function LiveHub() {
       <CompactPageHeader title="ChombuTar Live" icon={Radio} searchValue={search} onSearchChange={setSearch}
         searchPlaceholder="Search live rooms…" searchLabel="Search live rooms by title, category or host"/>
 
+      {mediaReadiness?.broadcast_ready&&mediaReadiness.mode==='livekit'&&<p role="status" className="rounded-xl bg-blue-50 p-3 text-[12px] text-blue-900">
+        LiveKit Cloud is ready. Allow camera and microphone, preview your video, then select Start Live. No OBS, RTMP key or VPS needed.
+      </p>}
       {mediaReadiness?.broadcast_ready&&mediaReadiness.mode==='mediamtx'&&<p role="status" className="rounded-xl bg-blue-50 p-3 text-[12px] text-blue-900">
         Go Live directly with your phone or computer camera. Allow camera and microphone, review the preview, and start streaming. No OBS or stream key required.
       </p>}
@@ -215,7 +237,7 @@ export default function LiveHub() {
       {mediaReadiness?.broadcast_ready===false&&<div role="alert" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
         <p className="font-bold">Live Broadcast connection unavailable ({mediaReadiness.reason||'transport not ready'}).</p>
         <p>{LIVE_READINESS_HELP[mediaReadiness.reason] || 'Video publishing requires a running WHIP/MediaMTX relay and HLS playback endpoint.'}</p>
-        <p className="text-[11px]">The production media server is separate from Vercel. A camera preview alone is not a public broadcast.</p>
+        <p className="text-[11px]">A camera preview alone is not a public broadcast. ChombuTar needs a working LiveKit Cloud or MediaMTX connection.</p>
         <button type="button" onClick={async()=>{
           try{setMediaReadiness(await api.getLiveMediaStatus())}
           catch{setMediaReadiness({broadcast_ready:false,reason:'preflight_failed'})}
