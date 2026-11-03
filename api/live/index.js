@@ -15,6 +15,7 @@ import {
   sendSupport,
   endStream,
   getCloudinaryPublisherDetails,
+  getLivekitParticipantCredentials,
 } from '../_lib/live.js'
 
 const POST_ACTIONS = {
@@ -50,6 +51,8 @@ export default async function handler(req, res) {
         return json(res,200,{broadcast_ready:availability.ready,mode:availability.mode,
           reason:availability.reason||null,message:availability.message||null})
       }
+      if(url.searchParams.has('livekit_token'))
+        return json(res,200,await getLivekitParticipantCredentials(session.sub,url.searchParams.get('livekit_token')))
       if(url.searchParams.has('cloudinary_publisher'))
         return json(res,200,await getCloudinaryPublisherDetails(session.sub,url.searchParams.get('cloudinary_publisher')))
       if (url.searchParams.get('stage_competitions') === '1') return json(res,200,await listStageCompetitions())
