@@ -90,6 +90,7 @@ function ShowroomPost({
         {hat.is_entertainment && <span className="pointer-events-none absolute top-3 left-3 z-10 rounded-full bg-black/75 px-3 py-1.5 text-[10px] font-bold text-white">Showcase · no booking</span>}
         <ShowroomMedia
           media={media}
+          fit="cover"
           alt={caption || `${ownerName}'s Showroom ${isVideo ? 'video' : 'post'}`}
           playing={playing}
           muted={muted}
