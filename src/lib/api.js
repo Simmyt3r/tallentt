@@ -68,6 +68,7 @@ export const api = {
   getWorkPassKey: () => request('/api/auth?action=work_pass_key',{cache:'no-store'}),
   getDealWorkPassEvidence: (id) => request('/api/auth?action=work_pass_deal_evidence&escrow_id='+encodeURIComponent(id),{cache:'no-store'}),
   workPassAction: (body) => request('/api/auth',{method:'POST',body:JSON.stringify(body)}),
+  reconcileAdminCommissions: () => request('/api/admin',{method:'POST',body:JSON.stringify({action:'reconcile_commissions'})}),
   getAdminFinanceSummary: () => request('/api/admin?action=finance_summary',{cache:'no-store'}),
   getAdminLiabilityAudit: (kind,cursor) => request('/api/admin?'+new URLSearchParams({action:'finance_liability_audit',kind,...(cursor?{cursor}:{})}),{cache:'no-store'}),
   getAdminFinanceAudit: (stream,cursor) => request('/api/admin?'+new URLSearchParams({

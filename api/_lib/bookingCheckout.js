@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { getClient } from './db.js'
 import { withBooking, assertNoPendingOffer } from './bookingThreads.js'
-import { bookingError, assertExpectedAmount } from './bookingRules.js'
+import { bookingError, assertExpectedAmount, requireBookingId } from './bookingRules.js'
 import { creditWallet, debitWallet } from './wallet.js'
 import { notifyEscrowSecured } from './notifications.js'
+import {ensureCommissionLedger} from './commissionLedger.js'
 import { GIG_FEE_BPS, gigQuote } from '../../shared/monetization.js'
 
 function assertNegotiationSettled(escrow) {
@@ -34,6 +35,8 @@ export async function prepareCheckout(userId, escrowId, expectedAmount) {
 }
 
 export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
+  requireBookingId(escrowId)
+  await ensureCommissionLedger()
   const result = await withBooking(userId, escrowId, async (client, escrow) => {
     if (escrow.client_id !== userId) throw bookingError(403, 'Only the client can fund this booking.')
     if (escrow.status !== 'not_funded') throw bookingError(409, 'This booking is no longer awaiting payment.')
@@ -41,13 +44,8 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
     assertNegotiationSettled(escrow)
     assertExpectedAmount(escrow, expectedAmount)
     await assertNoPendingOffer(client, escrow.id)
-    // The admin migration enables fees without changing legacy databases.
-    // Until it is installed, existing checkouts remain operational under
-    // their original zero-fee terms, rather than crashing at payment time.
-    const billingReady=Object.hasOwn(escrow,'gig_fee_bps')
-    if(billingReady&&(escrow.currency||'NGN')!=='NGN')throw bookingError(400,'Commission-based checkout supports NGN only.')
-    const sealedBilling=billingReady&&Object.hasOwn(escrow,'gig_fee_sealed')
-    const quote=billingReady?gigQuote(Number(escrow.amount)):null
+    if((escrow.currency||'NGN')!=='NGN')throw bookingError(400,'Commission-based checkout supports NGN only.')
+    const quote=gigQuote(Number(escrow.amount))
 
     await debitWallet(client, {
       userId,
@@ -64,14 +62,12 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
            contacts_unlocked = true,
            funded_at = NOW(),
            checkout_locked_at = COALESCE(checkout_locked_at, NOW()),
-           checkout_reference = NULL
-           ${billingReady?', gig_fee_bps = $2':''}
-           ${sealedBilling?', gig_fee_sealed = TRUE':''}
+           checkout_reference = NULL, gig_fee_bps = $2, gig_fee_sealed = TRUE
        WHERE id = $1
        RETURNING *`,
-      billingReady?[escrow.id,GIG_FEE_BPS]:[escrow.id],
+      [escrow.id,GIG_FEE_BPS],
     )
-    if(sealedBilling&&quote?.platformFee>0){
+    if(quote.platformFee>0){
       // At the moment the client funds and seals the agreed deal, the
       // 5% seller-side commission is reserved and booked exactly once.
       // Talent milestones still receive the agreed net; no later fee
@@ -93,6 +89,8 @@ export async function payBookingWithWallet(userId, escrowId, expectedAmount) {
 export async function applyVerifiedLegacyBookingCharge({ escrowId, reference, txn, userId = null }) {
   const cleanReference = String(reference || '').trim()
   if (!cleanReference) throw bookingError(400, 'Payment reference is required.')
+  requireBookingId(escrowId)
+  await ensureCommissionLedger()
 
   const client = await getClient()
   let result
@@ -185,20 +183,17 @@ export async function applyVerifiedLegacyBookingCharge({ escrowId, reference, tx
            contacts_unlocked = true,
            payment_reference = $2,
            funded_at = NOW(),
-           checkout_reference = NULL
-           ${Object.hasOwn(escrow,'gig_fee_sealed')?', gig_fee_bps = $3, gig_fee_sealed = TRUE':''}
+           checkout_reference = NULL, gig_fee_bps = $3, gig_fee_sealed = TRUE
        WHERE id = $1
        RETURNING *`,
-      Object.hasOwn(escrow,'gig_fee_sealed')?[escrow.id,cleanReference,GIG_FEE_BPS]:[escrow.id,cleanReference],
+      [escrow.id,cleanReference,GIG_FEE_BPS],
     )
-    if(Object.hasOwn(escrow,'gig_fee_sealed')){
-      const quote=gigQuote(Number(escrow.amount))
-      if(quote.platformFee>0)await client.query(`INSERT INTO gig_fee_events
+    const quote=gigQuote(Number(escrow.amount))
+    if(quote.platformFee>0)await client.query(`INSERT INTO gig_fee_events
         (escrow_id,stage,gross_released,fee_amount,rate_bps)
         VALUES($1,'sealed',$2,$3,$4)`,[
           escrow.id,quote.gigAmount,quote.platformFee,GIG_FEE_BPS,
         ])
-    }
     result = { escrow: secured[0], alreadyProcessed: false }
     await client.query('COMMIT')
   } catch (err) {

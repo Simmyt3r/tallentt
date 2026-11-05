@@ -28,7 +28,10 @@ export async function financeSummary(){
   let gig=null,billing=null
   if(tables[0]?.gig_fees){
     const {rows}=await query(`SELECT COALESCE(SUM(fee_amount::bigint),0)::text AS accrued_fees,
-      COUNT(*)::int AS transactions,COUNT(DISTINCT escrow_id)::int AS deals FROM gig_fee_events`)
+      COUNT(*)::int AS transactions,COUNT(DISTINCT escrow_id)::int AS deals,
+      (SELECT COUNT(*)::int FROM escrows e WHERE e.status IN ('secured','released','refunded')
+        AND NOT EXISTS(SELECT 1 FROM gig_fee_events f WHERE f.escrow_id=e.id)) AS unrecorded_deals
+      FROM gig_fee_events`)
     gig=rows[0]
     if(tables[0]?.gig_adjustments){
       const {rows:adjustments}=await query(`SELECT COALESCE(SUM(commission_reversed::bigint),0)::text AS reversals FROM gig_commission_adjustments`)
@@ -66,7 +69,7 @@ export async function financeSummary(){
     deal_commissions:{recorded:gig!==null,
       gross:gig!==null?(BigInt(gig.accrued_fees||0)+BigInt(gig.commission_reversals||0)).toString():null,
       reversed:gig!==null?(gig.commission_reversals||'0'):null,
-      net:gig?.accrued_fees??null,deals:gig?.deals??null},
+      net:gig?.accrued_fees??null,deals:gig?.deals??null,unrecorded_deals:gig?.unrecorded_deals??null},
     recognized_revenue: live!==null||gig!==null
       ? (BigInt(live?.accrued_fees||0)+BigInt(gig?.accrued_fees||0)).toString() : null,
     recognized_revenue_partial:true,
@@ -115,25 +118,32 @@ async function dealCommissionAudit({cursor=null}={}){
       MAX(f.created_at) AS last_charge_at,
       jsonb_agg(jsonb_build_object('id',f.id,'stage',f.stage,
         'gross_amount',f.gross_released::text,'fee_amount',f.fee_amount::text,
-        'rate_bps',f.rate_bps,'created_at',f.created_at)
+        'rate_bps',f.rate_bps,'created_at',f.created_at,
+        'source_transaction_id',to_jsonb(f)->>'source_transaction_id',
+        'reconciled_at',to_jsonb(f)->>'reconciled_at')
         ORDER BY f.created_at,f.id) AS events
     FROM gig_fee_events f GROUP BY f.escrow_id
   ), deals AS (
     SELECT e.id,e.amount::text AS deal_amount,e.currency,e.status,e.work_status,
       e.client_id,e.talent_id,h.hat_title AS deal_title,
       c.username AS client_username,t.username AS talent_username,
-      f.commission_gross::text AS commission_gross,
+      COALESCE(f.commission_gross,0)::text AS commission_gross,
+      CASE WHEN f.escrow_id IS NOT NULL THEN 'recorded'
+        WHEN COALESCE((to_jsonb(e)->>'gig_fee_bps')::int,0)>0 THEN 'unverified'
+        ELSE 'not_collected' END AS commission_status,
       ${hasAdjustments?'COALESCE(a.commission_reversed,0)':'0'}::text AS commission_reversed,
-      (f.commission_gross-${hasAdjustments?'COALESCE(a.commission_reversed,0)':'0'})::text AS commission_net,
+      (COALESCE(f.commission_gross,0)-${hasAdjustments?'COALESCE(a.commission_reversed,0)':'0'})::text AS commission_net,
       ${hasAdjustments?'COALESCE(a.refunded_gross,0)':'0'}::text AS refunded_gross,
       ${hasAdjustments?'a.created_at':'NULL::timestamptz'} AS reversed_at,
-      ${hasAdjustments?'GREATEST(f.last_charge_at,a.created_at)':'f.last_charge_at'} AS created_at,
-      f.events
-    FROM commissions f JOIN escrows e ON e.id=f.escrow_id
+      ${hasAdjustments?'GREATEST(COALESCE(f.last_charge_at,e.funded_at,e.released_at,e.created_at),a.created_at)':'COALESCE(f.last_charge_at,e.funded_at,e.released_at,e.created_at)'} AS created_at,
+      COALESCE(f.events,'[]'::jsonb) AS events,
+      ${hasAdjustments?"to_jsonb(a)->>'source_transaction_id'":'NULL::text'} AS refund_transaction_id
+    FROM escrows e LEFT JOIN commissions f ON e.id=f.escrow_id
     LEFT JOIN hats h ON h.id=e.hat_id
     LEFT JOIN users c ON c.id=e.client_id
     LEFT JOIN users t ON t.id=e.talent_id
     ${hasAdjustments?'LEFT JOIN gig_commission_adjustments a ON a.escrow_id=e.id':''}
+    WHERE e.status IN ('secured','released','refunded') OR f.escrow_id IS NOT NULL
   ) SELECT * FROM deals
     WHERE ($1::uuid IS NULL OR (created_at,id)<(SELECT created_at,id FROM deals WHERE id=$1))
     ORDER BY created_at DESC,id DESC LIMIT 26`,[cursor])

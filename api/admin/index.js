@@ -1,6 +1,7 @@
 // Path: api/admin/index.js
 import { query, getClient } from '../_lib/db.js'
 import {pendingVibesVideos,reviewVibesVideo} from '../_lib/vibesReview.js'
+import {reconcileCommissionLedger} from '../_lib/commissionLedger.js'
 import {financeSummary,financeAudit,financeLiabilityAudit} from '../_lib/financeReporting.js'
 import { adminBillingStatus, adminPlanPrice, adminReviewBusiness } from '../_lib/billing.js'
 import { adminSalaryPrice } from '../_lib/salaryTrackingFees.js'
@@ -307,6 +308,7 @@ async function getDashboard() {
 }
 
 async function handleAdminAction(admin, body) {
+  if(body?.action==='reconcile_commissions')return reconcileCommissionLedger(admin.id)
   if(body?.action==='salary_tracking_price')return adminSalaryPrice(admin.id,body)
   if(body?.action==='billing_plan_price')return adminPlanPrice(admin.id,body)
   if(body?.action==='billing_review_business')return adminReviewBusiness(admin.id,body)

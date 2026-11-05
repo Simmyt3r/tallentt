@@ -1,8 +1,8 @@
 import {useEffect,useState} from 'react'
 import {api} from '../lib/api.js'
 
-const money=value=>{
-  try{return '₦'+BigInt(String(value)).toLocaleString('en-NG')}
+const money=(value,currency='NGN')=>{
+  try{return (currency&&currency!=='NGN'?currency+' ':'₦')+BigInt(String(value)).toLocaleString('en-NG')}
   catch{return 'Unavailable'}
 }
 const date=value=>new Date(value).toLocaleString('en-NG')
@@ -54,24 +54,26 @@ export default function AdminFinanceAudit({stream,onClose}){
             <p>Client: {item.client_username||'Deleted account'}</p>
             <p>Talent: {item.talent_username||'Deleted account'}</p>
           </td>
-          <td className="p-2 tabular-nums">{money(item.deal_amount)}</td>
-          <td className="p-2 tabular-nums">{money(item.commission_gross)}</td>
-          <td className="p-2 tabular-nums">{money(item.commission_reversed)}</td>
-          <td className="p-2 font-bold tabular-nums text-[#0A13E6]">{money(item.commission_net)}</td>
-          <td className="min-w-48 p-2"><details>
+          <td className="p-2 tabular-nums">{money(item.deal_amount,item.currency)}</td>
+          <td className="p-2 tabular-nums">{item.commission_status==='unverified'?'Unverified':money(item.commission_gross)}</td>
+          <td className="p-2 tabular-nums">{item.commission_status==='unverified'?'Unverified':money(item.commission_reversed)}</td>
+          <td className="p-2 font-bold tabular-nums text-[#0A13E6]">{item.commission_status==='unverified'?'Unverified':money(item.commission_net)}</td>
+          <td className="min-w-48 p-2">{!item.events.length?<p className="text-black/60">{item.commission_status==='unverified'?'Fee terms exist, but no matching commission receipt could be verified.':'No commission was collected on this earlier deal.'}</p>:<details>
             <summary className="min-h-10 cursor-pointer font-bold">View fee records</summary>
             {item.events.map(event=><div key={event.id} className="mt-2 border-t border-black/10 pt-2">
               <p className="capitalize">{label(event.stage)} · {event.rate_bps/100}%</p>
               <p>{money(event.fee_amount)} on {money(event.gross_amount)}</p>
               <p>{date(event.created_at)}</p>
               <p className="break-all font-mono">{event.id}</p>
+              {event.source_transaction_id&&<p className="mt-1 break-all">Recovered from transaction: <span className="font-mono">{event.source_transaction_id}</span></p>}
             </div>)}
             {item.reversed_at&&<div className="mt-2 border-t border-black/10 pt-2">
               <p>Commission reversal: {money(item.commission_reversed)}</p>
               <p>Deal refund: {money(item.refunded_gross)}</p>
               <p>{date(item.reversed_at)}</p>
+              {item.refund_transaction_id&&<p className="break-all">Refund transaction: {item.refund_transaction_id}</p>}
             </div>}
-          </details></td>
+          </details>}</td>
         </tr>)}</tbody>
       </table>:<table className="w-full min-w-[620px] text-left text-[11px]">
         <thead><tr className="border-b border-black/15">

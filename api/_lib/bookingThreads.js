@@ -1,4 +1,5 @@
 import { query, getClient } from './db.js'
+import {GIG_FEE_BPS} from '../../shared/monetization.js'
 import { bookingError, requireBookingId, requireAmount, assertNegotiable, assertOfferWithinRange, assertPriceEditable, messageText, canShareContacts } from './bookingRules.js'
 import { lifecycleHistory } from './bookingLifecycle.js'
 import { dispatchStoredNotifications } from './pushNotifications.js'
@@ -146,8 +147,9 @@ export async function getThread(userId, escrowId, before, eventsBefore) {
         agreed_at: escrow.agreed_at, request_kind: escrow.request_kind, application_id: escrow.application_id,
         price_type: escrow.price_type, price_min: escrow.price_min, price_max: escrow.price_max,
         status: escrow.status, is_client: userId === escrow.client_id,
-        gig_fee_terms_available: Object.hasOwn(escrow,'gig_fee_bps'),
-        gig_fee_bps: escrow.gig_fee_bps??null,
+        gig_fee_terms_available: escrow.status==='not_funded'
+          ? (escrow.currency||escrow.hat_currency||'NGN')==='NGN' : Object.hasOwn(escrow,'gig_fee_bps'),
+        gig_fee_bps: escrow.status==='not_funded'?GIG_FEE_BPS:(escrow.gig_fee_bps??null),
         work_status: escrow.work_status, work_version: escrow.work_version,
         start_released_amount: escrow.start_released_amount, work_started_at: escrow.work_started_at,
         contacts_unlocked: canShareContacts(escrow), price_negotiable: escrow.price_negotiable,

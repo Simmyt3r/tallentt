@@ -15,7 +15,11 @@ export default function AdminFinanceLedger(){
   const [error,setError]=useState('')
   async function refresh(){
     setBusy(true);setError('')
-    try{setSummary(await api.getAdminFinanceSummary())}
+    try{
+      await api.reconcileAdminCommissions()
+      setSummary(await api.getAdminFinanceSummary())
+      setAuditVersion(version=>version+1)
+    }
     catch(e){setError(e.message||'Finance report unavailable.')}
     finally{setBusy(false)}
   }
@@ -28,7 +32,7 @@ export default function AdminFinanceLedger(){
         <h3 className="text-[16px] font-black">Escrow liability & platform earnings</h3>
         <p className="text-[12px] text-black/55">Customer balances are never company income. Fees are shown separately from liabilities.</p>
       </div>
-      <button type="button" onClick={()=>{refresh();setAuditVersion(version=>version+1)}} disabled={busy} className="min-h-10 rounded-full border border-black/20 px-4 text-[11px] font-bold">Refresh</button>
+      <button type="button" onClick={refresh} disabled={busy} className="min-h-10 rounded-full border border-black/20 px-4 text-[11px] font-bold">Refresh</button>
     </div>
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-[12px] text-red-700">{error}</p>}
     {!summary&&busy&&<p role="status" className="text-sm">Loading accounting records…</p>}
@@ -52,7 +56,7 @@ export default function AdminFinanceLedger(){
           </div>)}
         </div>
         <p className="mt-3 text-[11px] text-black/60">{summary.deal_commissions?.recorded
-          ?`${summary.deal_commissions.deals} deal(s) with recorded commission. Each row below identifies the deal and its fee records.`
+          ?`${summary.deal_commissions.deals} deal(s) with recorded commission. ${summary.deal_commissions.unrecorded_deals||0} paid deal(s) have no recorded commission; see their status below.`
           :'Commission records are unavailable. Apply the billing migration in Database Migrations to enable recording.'}</p>
       </section>
       {stream&&<AdminFinanceAudit key={`${stream}:${auditVersion}`} stream={stream} onClose={()=>setStream(null)}/>}
