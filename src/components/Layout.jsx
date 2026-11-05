@@ -21,6 +21,7 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const navigationType=useNavigationType()
   const lastPath=useRef(location.pathname)
+  const isShowroom = location.pathname === '/showroom' || location.pathname.startsWith('/showroom/')
   const { user } = useAuth()
   // Preserve the original cross-tab Back behavior: returning across major
   // sections lands on Showroom rather than traversing every prior tab.
@@ -154,9 +155,11 @@ export default function Layout({ children }) {
       <PageTour />
 
       <main
-        className={`w-full transition-[padding] duration-200 ease-out ${collapsed ? 'md:pl-[72px]' : 'md:pl-[236px]'}`}
+        className={`w-full min-w-0 transition-[padding] duration-200 ease-out ${collapsed ? 'md:pl-[72px]' : 'md:pl-[236px]'}`}
       >
-        <div className="w-full max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 pt-5 pb-[76px] md:pb-7 md:pt-[calc(64px+1.75rem)]">
+        <div className={isShowroom
+          ? 'w-full min-w-0 px-0 pt-5 pb-[76px] md:pb-7 md:pt-[calc(64px+1.75rem)]'
+          : 'w-full min-w-0 max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 pt-5 pb-[76px] md:pb-7 md:pt-[calc(64px+1.75rem)]'}>
           {children}
         </div>
       </main>
