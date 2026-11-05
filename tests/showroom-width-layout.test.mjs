@@ -26,3 +26,18 @@ test('Showroom screen, header and media posts fill available width',()=>{
   assert.match(css,/\.sr-feed-viewport \{[\s\S]*?width: 100%;/)
   assert.match(css,/scroll-snap-type: y mandatory/)
 })
+
+test('Showroom feed media fills the card without distortion while detail keeps uncropped fit',()=>{
+  const post=read('src/components/ShowroomPost.jsx')
+  const media=read('src/components/ShowroomMedia.jsx')
+  const detail=read('src/components/ShowroomDetailModal.jsx')
+  assert.match(post,/<ShowroomMedia\s+media=\{media\}\s+fit="cover"/)
+  assert.match(media,/fit = 'contain'/)
+  assert.match(media,/fit === 'cover' \? 'object-cover' : 'object-contain'/)
+  const adaptiveClasses=/absolute inset-0 w-full h-full object-center \$\{mediaFit\}/g
+  assert.equal([...media.matchAll(adaptiveClasses)].length,2,
+    'both video and image must respect cover or contain fit')
+  assert.match(detail,/<ShowroomMedia\s+media=\{media\}\s+alt=/)
+  assert.doesNotMatch(detail,/<ShowroomMedia\s+media=\{media\}\s+fit="cover"/)
+  assert.match(post,/onOpen=\{\(\) => onView\(hat\.id\)\}/)
+})
