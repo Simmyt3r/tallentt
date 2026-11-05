@@ -10,7 +10,7 @@ const software='85d022a2-6b94-45ef-8d87-8055492e3d2d',music='8739fa2c-4270-4715-
 const clientId=randomUUID(),developerId=randomUUID(),musicianId=randomUUID(),hat=randomUUID(),other=randomUUID()
 before(async()=>{
   database=await testDatabase();pool=database.pool;global.__tworldPool=pool
-  for(const file of ['schema.sql','patch-monetization-2026-10.sql'])
+  for(const file of ['schema.sql','patch-monetization-2026-10.sql','patch-wallet-peer-transfers-2026-11.sql'])
     await pool.query(await readFile(new URL('../db/'+file,import.meta.url),'utf8'))
   await (await import('../api/_lib/commissionLedger.js')).ensureCommissionLedger()
   finance=await import('../api/_lib/financeReporting.js')
@@ -44,6 +44,11 @@ test('the reviewed completed test deals deduct exactly ₦27,900, with matching 
   assert.equal(await balance(developerId),535500)
   assert.equal(await balance(musicianId),155100)
   assert.equal(await balance(clientId),50000)
+  const typeCheck=(await pool.query("SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='wallet_transactions'::regclass AND conname='wallet_transactions_type_check'")).rows[0].definition
+  assert.match(typeCheck,/wallet_transfer_sent/)
+  assert.match(typeCheck,/wallet_transfer_received/)
+  assert.match(typeCheck,/billing_charge/)
+  assert.match(typeCheck,/billing_refund/)
   const {rows}=await pool.query(`SELECT escrow_id,fee_amount,balance_before,balance_after FROM test_completed_commission_deductions ORDER BY fee_amount DESC`)
   assert.deepEqual(rows,[{escrow_id:software,fee_amount:25000,balance_before:560500,balance_after:535500},
     {escrow_id:music,fee_amount:2900,balance_before:158000,balance_after:155100}])

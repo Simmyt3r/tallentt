@@ -2,6 +2,20 @@
 -- Scope is the two reviewed, already completed deals below. No future,
 -- unfinished, refunded, or other subscriber deals can enter this batch.
 BEGIN;
+-- A previously applied wallet-transfer patch replaced the type check and
+-- omitted billing entries. Extend its existing expression rather than replacing
+-- its supported transfer/Live/escrow types with another incomplete list.
+DO $$
+DECLARE type_expression TEXT;
+BEGIN
+  SELECT pg_get_expr(conbin,conrelid) INTO type_expression FROM pg_constraint
+    WHERE conrelid='wallet_transactions'::regclass AND conname='wallet_transactions_type_check';
+  IF type_expression IS NULL THEN RAISE EXCEPTION 'Wallet transaction validation is missing.'; END IF;
+  IF position('billing_charge' IN type_expression)=0 OR position('billing_refund' IN type_expression)=0 THEN
+    ALTER TABLE wallet_transactions DROP CONSTRAINT wallet_transactions_type_check;
+    EXECUTE format('ALTER TABLE wallet_transactions ADD CONSTRAINT wallet_transactions_type_check CHECK ((%s) OR type IN (''billing_charge'',''billing_refund''))',type_expression);
+  END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS test_completed_commission_deductions (
   escrow_id UUID PRIMARY KEY REFERENCES escrows(id) ON DELETE RESTRICT,
   wallet_transaction_id UUID NOT NULL UNIQUE,
