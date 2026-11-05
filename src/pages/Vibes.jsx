@@ -339,10 +339,18 @@ export default function Vibes() {
         <Avatar user={user}/>
         <div className="min-w-0 flex-1">
           <label htmlFor="vibe-text" className="sr-only">Say something…</label>
-          <textarea id="vibe-text" value={text} onChange={e=>setText(e.target.value)}
-            rows={2} placeholder="Say something…" aria-invalid={textLimitExceeded}
-            aria-describedby={textLimitExceeded?'vibe-text-limit-error':undefined}
-            className="w-full min-h-0 resize-y rounded-xl border-0 bg-[#F7F3EB] px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0A13E6]"/>
+          <div className="relative">
+            <textarea id="vibe-text" value={text} onChange={e=>setText(e.target.value)}
+              rows={2} placeholder="Say something…" aria-invalid={textLimitExceeded}
+              aria-describedby={textLimitExceeded?'vibe-text-limit-error':undefined}
+              className="block w-full min-h-0 resize-y rounded-xl border-0 bg-[#F7F3EB] px-3 py-2 text-[13px] placeholder:text-transparent outline-none focus:ring-2 focus:ring-[#0A13E6]"/>
+            {!text && (
+              <span aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 left-3 right-3 flex items-center text-[13px] text-gray-500">
+                Say something…
+              </span>
+            )}
+          </div>
           {textLimitExceeded&&<p id="vibe-text-limit-error" role="alert" className="mt-1 text-[12px] font-medium text-red-700">
             This Vibe exceeds the 10,000-character limit. Shorten it before posting.
           </p>}
