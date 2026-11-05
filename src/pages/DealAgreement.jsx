@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useState} from 'react'
-import {ArrowLeft,Download,FileCheck2,Printer,RefreshCw,ShieldCheck} from 'lucide-react'
-import {Link,useParams} from 'react-router-dom'
+import {Download,FileCheck2,Printer,RefreshCw,ShieldCheck} from 'lucide-react'
+import {useParams} from 'react-router-dom'
 import QRCode from 'qrcode'
 import {api} from '../lib/api.js'
 import {createAgreementHtml} from '../lib/dealAgreementDocument.js'
@@ -49,13 +49,9 @@ export default function DealAgreement(){
   const valid=record?.agreement?.status==='secured'&&record?.agreement?.work_status!=='disputed'&&Boolean(token)
   const ready=Boolean(record)&&(!token||Boolean(qr))
   return <main className="mx-auto max-w-4xl space-y-4 pb-12">
-    <header className="flex flex-wrap items-center gap-3 border-b border-black/10 pb-3">
-      <Link to={`/deals/${dealId}`} aria-label="Back to Deal details"
-        className="grid h-11 w-11 place-items-center rounded-full hover:bg-black/5"><ArrowLeft size={21}/></Link>
-      <div className="min-w-0 flex-1">
-        <h1 className="text-[21px] font-black">Agreement</h1>
-        <p className="text-[11px] text-black/50">Generated for this transaction only</p>
-      </div>
+    <header className="pb-1">
+      <h1 className="text-[21px] font-black">Agreement</h1>
+      <p className="text-[11px] text-black/50">Generated for this transaction only</p>
     </header>
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-700">{error}</p>}
     {loading&&<p role="status" className="py-8 text-center text-sm text-black/55">Preparing the agreement…</p>}
@@ -67,16 +63,16 @@ export default function DealAgreement(){
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={()=>setRefresh(x=>x+1)}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-black/15 bg-white px-3 text-[12px] font-semibold"><RefreshCw size={15}/> Refresh</button>
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-transparent px-3 text-[12px] font-semibold transition-colors hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0A13E6]"><RefreshCw size={15}/> Refresh</button>
           <button type="button" disabled={!ready} onClick={download}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-black/15 bg-white px-3 text-[12px] font-semibold"><Download size={15}/> Download (.html)</button>
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-transparent px-3 text-[12px] font-semibold transition-colors hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0A13E6]"><Download size={15}/> Download (.html)</button>
           <button type="button" disabled={!ready} onClick={print}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#0A13E6] px-3 text-[12px] font-bold text-white"><Printer size={15}/> Print / Save as PDF</button>
         </div>
       </div>
       <p className="text-[11px] text-black/55">Downloaded HTML opens offline and can be printed. For PDF, choose “Save as PDF” in the print dialog. A physical entry pass is valid only while the live deal status is secured and the venue authorizes entry.</p>
       <iframe ref={setFrame} srcDoc={html} title="ChombuTar service agreement preview"
-        className="h-[900px] w-full rounded-xl border border-black/15 bg-white"
+        className="h-[900px] w-full border-0 bg-white"
         sandbox="allow-same-origin allow-modals"/>
     </div>}
   </main>
