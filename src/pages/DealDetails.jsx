@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, FileText, MessageCircle, ShieldAlert, WalletCards } from 'lucide-react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { FileText, MessageCircle, ShieldAlert, WalletCards } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import BookingProgress from '../components/BookingProgress.jsx'
@@ -28,7 +28,6 @@ function nice(value) {
 
 export default function DealDetails() {
   const { dealId } = useParams()
-  const [params] = useSearchParams()
   const { user, refreshUser } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -112,12 +111,7 @@ export default function DealDetails() {
   }
 
   const thread = data.thread
-  const role = params.get('role') === 'talent' || params.get('role') === 'client'
-    ? params.get('role')
-    : thread.is_client ? 'client' : 'talent'
   const closed = ['released', 'refunded', 'cancelled'].includes(thread.status)
-  const backTab = closed ? 'history' : thread.contacts_unlocked ? 'active' : thread.is_client ? 'outgoing' : 'incoming'
-  const backUrl = `/deals?role=${role}&tab=${backTab}`
   const released = Number(thread.start_released_amount || 0)
   const remaining = Math.max(0, Number(thread.amount || 0) - released)
   const fundingBlocked = Boolean(thread.pending_offer) ||
@@ -126,16 +120,11 @@ export default function DealDetails() {
   return (
     <div className="mx-auto max-w-4xl pb-8">
       <h1 className="mb-3 text-[22px] font-black">Deal Details</h1>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Link to={backUrl} className="inline-flex h-10 items-center gap-2 rounded-full border-[1.5px] border-black bg-white px-4 text-[11px] font-black">
-          <ArrowLeft size={15} /> My Deals
-        </Link>
-      </div>
-      <nav aria-label="Deal transaction sections" className="mb-3 flex flex-nowrap items-center gap-2 overflow-x-auto pb-2 whitespace-nowrap">
+      <nav aria-label="Deal transaction sections" className="ct-filter-tabs mb-3 gap-3 border-b-0 whitespace-nowrap sm:gap-4">
         {[['overview','Overview'],['agreement','Agreement'],['history','Chat History'],['cancel','Cancel Deal']].map(([id,label])=><button
           key={id} type="button" aria-current={detailSection===id?'page':undefined}
           onClick={()=>setDetailSection(id)}
-          className={`min-h-11 shrink-0 rounded-full px-4 text-[12px] font-bold ${detailSection===id?'bg-[#0A13E6] text-white':'bg-white text-black/65 hover:bg-black/5'}`}>
+          className="ct-filter-tab min-h-10 px-2 text-[11px] sm:text-[12px]">
           {label}
         </button>)}
       </nav>

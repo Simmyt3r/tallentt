@@ -289,8 +289,8 @@ export default function MyDeals() {
           label="Search My Deals" placeholder="Search My Deals…"
           className="ml-auto min-w-[10rem] max-w-[340px] flex-[1_1_12rem]"/>
       </header>
-      <div className="md:sticky md:top-[134px] z-10 -mx-4 mb-3 flex items-center justify-between gap-2 border-b border-black/10 bg-[#F7F3EB]/95 px-4 py-2 backdrop-blur-lg md:-mx-6 md:px-6 lg:-mx-8 lg:px-8" aria-label="My Deals display controls">
-        <nav aria-label="Deal role modes" className="flex min-w-0 items-center gap-3">
+      <div className="md:sticky md:top-[134px] z-10 -mx-4 mb-3 flex items-center justify-between gap-2 bg-[#F7F3EB]/95 px-4 py-2 backdrop-blur-lg md:-mx-6 md:px-6 lg:-mx-8 lg:px-8" aria-label="My Deals display controls">
+        <nav aria-label="Deal role modes" className="ct-filter-tabs min-w-0 gap-3 border-b-0">
           {['talent','client'].map(value=><button type="button" key={value}
             aria-pressed={role===value} onClick={()=>setView(value,'incoming')}
             className="ct-filter-tab min-h-11 px-1 text-[11px] sm:text-[12px]">
@@ -298,7 +298,7 @@ export default function MyDeals() {
             {value==='talent'?'Talent':'Client'}
           </button>)}
         </nav>
-        <div role="group" aria-label="My Deals view" className="flex shrink-0 items-center gap-0.5">
+        <div role="group" aria-label="My Deals view" className="ct-filter-tabs shrink-0 gap-0.5 border-b-0">
           <button type="button" aria-label="Grid view" aria-pressed={viewMode==='grid'}
             onClick={()=>setViewMode('grid')} className="ct-filter-tab h-11 w-10 p-0"><LayoutGrid size={18}/></button>
           <button type="button" aria-label="List view" aria-pressed={viewMode==='list'}
@@ -311,7 +311,7 @@ export default function MyDeals() {
           <p className="mt-0.5 text-[12px] font-medium text-black/50">{subtitle}</p>
         </div>
 
-        <div className="ct-filter-tabs mt-4" aria-label="Deal status filters">
+        <div className="ct-filter-tabs mt-4 gap-3 border-b-0 sm:gap-4" aria-label="Deal status filters">
           {[
             ['incoming', 'Incoming'],
             ['outgoing', 'Outgoing'],
