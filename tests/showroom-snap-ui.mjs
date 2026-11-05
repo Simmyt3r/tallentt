@@ -36,6 +36,11 @@ try{
     page.setDefaultTimeout(20000)
     const errors=[]
     page.on('pageerror',e=>errors.push(e.message))
+    // Prevent an unreachable external payment SDK from blocking the offline
+    // browser fixture before the ChombuTar React app can mount.
+    await page.route('https://js.paystack.co/v1/inline.js',route=>route.fulfill({
+      status:200,contentType:'application/javascript',body:'/* Showroom does not use Paystack */',
+    }))
     await page.route('**/showroom-clip.mp4',route=>route.fulfill({status:200,
       contentType:'video/mp4',body:clip,headers:{'access-control-allow-origin':'*'}}))
     await page.route('**/showroom-photo.svg',route=>route.fulfill({status:200,
@@ -56,7 +61,7 @@ try{
     })
     await page.goto('http://127.0.0.1:'+port+'/showroom')
     const feed=page.getByRole('region',{name:'Showroom full-screen posts'})
-    try { await feed.waitFor({timeout:12000}) }
+    try { await feed.waitFor({timeout:45000}) }
     catch (error) {
       console.error('Showroom fixture did not render:',{
         url:page.url(),
