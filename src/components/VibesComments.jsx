@@ -146,7 +146,7 @@ function CommentThread({item,post,me,onCount,onRootRemoved,threaded}){
     </div>}
   </div>
 }
-export default function VibesComments({post,me,onDelta}){
+export default function VibesComments({post,me,onDelta,fullScreen=false}){
   const [comments,setComments]=useState([])
   const [cursor,setCursor]=useState(null),[text,setText]=useState('')
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false)
@@ -179,11 +179,16 @@ export default function VibesComments({post,me,onDelta}){
     }catch(err){setError(err.message||'Could not post your comment.')}
     finally{setBusy(false)}
   }
-  return <section aria-label="Comments" className="mt-3 border-t border-black/10 pt-3">
-    <div className="mb-3 flex items-center justify-between gap-2">
+  return <section aria-label="Comments"
+    className={fullScreen
+      ? 'mx-auto flex min-h-0 w-full max-w-[800px] flex-1 flex-col overflow-hidden bg-white'
+      : 'mt-3 border-t border-black/10 pt-3'}>
+    {!fullScreen&&<div className="mb-3 flex items-center justify-between gap-2">
       <h3 className="text-[13px] font-black text-[#17214C]">Conversation</h3>
       <span className="text-[10px] font-semibold text-black/45">{post.replies||0} comments and replies</span>
-    </div>
+    </div>}
+    <div aria-label="Comments list"
+      className={fullScreen?'min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6':''}>
     {error&&<p role="alert" className="mb-2 text-[12px] text-red-700">{error}</p>}
     {loading&&!comments.length&&<p role="status" className="py-3 text-[12px] text-black/40">Loading comments…</p>}
     {!loading&&!comments.length&&<p className="py-3 text-[12px] text-black/40">Be the first to reply.</p>}
@@ -194,7 +199,12 @@ export default function VibesComments({post,me,onDelta}){
     </div>
     {cursor&&<button type="button" disabled={loading} onClick={()=>fetchPage(cursor)}
       className="mt-3 min-h-10 w-full rounded-xl border border-black/15 text-[12px] font-semibold">Load older comments</button>}
-    <form onSubmit={submit} className="mt-4 flex items-start gap-2 border-t border-black/10 pt-3">
+    </div>
+    <form onSubmit={submit}
+      className={fullScreen
+        ? 'flex shrink-0 items-start gap-2 border-t border-black/10 bg-white px-3 pb-3 pt-3 sm:px-6'
+        : 'mt-4 flex items-start gap-2 border-t border-black/10 pt-3'}
+      style={fullScreen?{paddingBottom:'max(12px, env(safe-area-inset-bottom))'}:undefined}>
       <Avatar person={me} size={32}/>
       <div className="flex min-w-0 flex-1 gap-2">
         <label className="sr-only" htmlFor={'vibe-reply-'+post.id}>Write a reply</label>

@@ -149,9 +149,19 @@ try{
     await page.waitForURL(url=>url.pathname==='/vibes/'+postId+'/comments')
     const conversation=page.getByRole('main',{name:'Vibe conversation page'})
     await conversation.getByRole('heading',{name:'Comments'}).waitFor()
-    await conversation.getByRole('article',{name:'Vibe by Creator Person'}).waitFor()
-    assert.equal(await conversation.getByRole('article',{name:'Vibe by Creator Person'}).count(),1,
-      'full-page conversation keeps the original post visible')
+    assert.equal(await conversation.getByRole('article',{name:'Vibe by Creator Person'}).count(),0,
+      'comments must not repeat the original Vibe or its media')
+    const bounds=await conversation.boundingBox()
+    assert.ok(Math.abs(bounds.x)<2 && Math.abs(bounds.y)<2 &&
+      Math.abs(bounds.width-width)<2 && Math.abs(bounds.height-900)<2,
+      'comments should cover the whole viewport at '+width+'px: '+JSON.stringify(bounds))
+    const list=conversation.locator('[aria-label="Comments list"]')
+    const fixedComposer=conversation.locator('section[aria-label="Comments"] > form')
+    await list.waitFor()
+    await fixedComposer.waitFor()
+    const composerBounds=await fixedComposer.boundingBox()
+    assert.ok(Math.abs(composerBounds.y+composerBounds.height-900)<2,
+      'reply composer must remain at the bottom of the screen')
     const thread=conversation.locator('[data-thread-id="'+rootId+'"]')
     await thread.getByText('Original comment').waitFor()
     assert.equal(await thread.getByText('Older nested reply').count(),0,'Nested replies should be expandable')
@@ -162,7 +172,7 @@ try{
     await composer.fill('A thoughtful second-level response')
     await thread.getByRole('button',{name:'Send threaded reply'}).click()
     await thread.getByText('A thoughtful second-level response').waitFor()
-    await conversation.getByRole('button',{name:'View comments (3)'}).waitFor()
+    await conversation.getByText('3 comments and replies').waitFor()
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'Vibes comments should fit at '+width+'px')
     await page.screenshot({path:'test-results/vibes-thread-'+width+'.png',animations:'disabled'})

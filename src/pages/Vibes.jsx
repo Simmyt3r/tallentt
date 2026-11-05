@@ -146,20 +146,20 @@ export function VibeCard({post,me,onChange,onDeleted,onOpenComments,commentsPage
     {/* Facebook-style engagement summary: real counts first, controls second.
         Heart/count is the sole entry to the existing people-who-liked list. */}
     <div aria-label="Vibe engagement counts"
-      className="mt-3 flex min-h-10 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-black/10 py-1.5 text-[12px] text-black/55">
+      className="mt-2 flex min-h-8 flex-wrap items-center justify-between gap-x-2 gap-y-0.5 border-t border-black/10 py-0.5 text-[10px] text-black/55">
       <button type="button" onClick={()=>setShowLikers(true)}
         aria-label={`View people who liked this Vibe (${post.likes||0} likes)`}
-        className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-1 font-semibold hover:text-[#0A13E6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0A13E6]">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-[#E12754] text-white">
-          <Heart size={12} fill="currentColor" aria-hidden="true"/>
+        className="inline-flex min-h-8 items-center gap-1 rounded-full px-1 font-semibold hover:text-[#0A13E6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0A13E6]">
+        <span className="grid h-4 w-4 place-items-center rounded-full bg-[#E12754] text-white">
+          <Heart size={10} fill="currentColor" aria-hidden="true"/>
         </span>
         <span>{formatEngagementCount(post.likes)}</span>
       </button>
-      <div className="ml-auto flex items-center gap-3 text-[11px] sm:gap-4 sm:text-[12px]">
+      <div className="ml-auto flex items-center gap-2 text-[10px] sm:gap-3">
         <button type="button"
           aria-label={`View comments (${post.replies||0})`}
           onClick={openComments}
-          className="min-h-9 rounded-lg px-0.5 font-semibold hover:text-[#0A13E6] hover:underline">
+          className="min-h-8 rounded-lg px-0.5 font-semibold hover:text-[#0A13E6] hover:underline">
           {formatEngagementCount(post.replies)} comments
         </button>
         <span aria-label={`${post.shares||0} shares`} className="whitespace-nowrap font-semibold">
@@ -167,21 +167,21 @@ export function VibeCard({post,me,onChange,onDeleted,onOpenComments,commentsPage
         </span>
       </div>
     </div>
-    <div aria-label="Vibe actions" className="grid grid-cols-3 gap-1 border-y border-black/10 py-1">
+    <div aria-label="Vibe actions" className="grid grid-cols-3 gap-0.5 border-y border-black/10 py-0.5">
       <button type="button" onClick={like} disabled={busy} aria-pressed={post.liked_by_me}
         aria-label={post.liked_by_me?'Unlike Vibe':'Like Vibe'}
-        className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold hover:bg-[#F7F3EB] ${post.liked_by_me?'text-[#0A13E6]':'text-black/55'}`}>
-        <ThumbsUp size={17} fill={post.liked_by_me?'currentColor':'none'} aria-hidden="true"/> Like
+        className={`flex min-h-10 items-center justify-center gap-1 rounded-lg text-[11px] font-semibold hover:bg-[#F7F3EB] ${post.liked_by_me?'text-[#0A13E6]':'text-black/55'}`}>
+        <ThumbsUp size={15} fill={post.liked_by_me?'currentColor':'none'} aria-hidden="true"/> Like
       </button>
       <button type="button" aria-label="Comment on Vibe"
         onClick={openComments}
-        className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB]">
-        <MessageCircle size={17} aria-hidden="true"/> Comment
+        className="flex min-h-10 items-center justify-center gap-1 rounded-lg text-[11px] font-semibold text-black/55 hover:bg-[#F7F3EB]">
+        <MessageCircle size={15} aria-hidden="true"/> Comment
       </button>
       <button type="button" onClick={()=>share()} disabled={exporting}
         aria-label="Share Vibe"
-        className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-[12px] font-semibold text-black/55 hover:bg-[#F7F3EB] disabled:opacity-50">
-        <Share2 size={17} aria-hidden="true"/> Share
+        className="flex min-h-10 items-center justify-center gap-1 rounded-lg text-[11px] font-semibold text-black/55 hover:bg-[#F7F3EB] disabled:opacity-50">
+        <Share2 size={15} aria-hidden="true"/> Share
       </button>
     </div>
     {error&&<p role="status" className="mt-2 text-[11px] text-black/60">{error}</p>}
