@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { ImageOff, Music } from 'lucide-react'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 
-// One media item. Showroom feed requests `cover` to remove black sidebars;
-// the full-detail viewer retains `contain` so nothing is cut off. Neither
-// mode stretches the image. Videos keep their NATIVE controls (play/pause,
-// seek, volume, fullscreen); the app only decides
+// The feed uses `ambient`: keep the entire photo/video visible with contain,
+// and extend the same media into leftover space as a softly blurred backdrop.
+// This avoids both harsh black bars and the aggressive cropping of cover.
+// Detail viewing still uses the uncropped, unblurred default `contain`.
+// Videos keep native controls (play/pause, seek, volume, fullscreen). The app decides
 // *when* a video should be playing via `playing`, and mirrors the mute
 // preference across posts.
 //
@@ -31,6 +32,11 @@ function MediaInner({
   const isAudio = media?.type === 'audio' && !!url
   const isImage = !!url && !isVideo && !isAudio
   const mediaFit = fit === 'cover' ? 'object-cover' : 'object-contain'
+  const ambient = fit === 'ambient' && (isImage || isVideo)
+  // Reuse the foreground's image URL (or the video's existing poster) so a
+  // blurred background doesn't download a second full-resolution asset.
+  const imageSrc = isImage ? cldImage(url, { w: width, crop: 'limit' }) : ''
+  const videoPoster = isVideo ? cldVideoPoster(url, { w: width, crop: 'limit' }) : ''
 
   const elRef = useRef(null)
   const [status, setStatus] = useState(url ? 'loading' : 'empty') // loading | ready | error | empty
@@ -81,13 +87,24 @@ function MediaInner({
 
   return (
     <div className="absolute inset-0 bg-[#0b0b0b] overflow-hidden">
+      {ambient && status !== 'error' && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+          <img
+            src={isVideo ? videoPoster : imageSrc}
+            alt=""
+            decoding="async"
+            className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl opacity-70"
+          />
+          <div className="absolute inset-0 bg-black/15" />
+        </div>
+      )}
       {status === 'loading' && <div className="absolute inset-0 animate-pulse bg-white/[0.06]" aria-hidden="true" />}
 
       {isVideo && (
         <video
           ref={elRef}
           src={cldVideo(url, { w: width })}
-          poster={cldVideoPoster(url, { w: width, crop: 'limit' })}
+          poster={videoPoster}
           aria-label={alt || 'Video'}
           className={`absolute inset-0 w-full h-full object-center ${mediaFit}`}
           controls
@@ -104,7 +121,7 @@ function MediaInner({
 
       {isImage && (
         <img
-          src={cldImage(url, { w: width, crop: 'limit' })}
+          src={imageSrc}
           alt={alt}
           decoding="async"
           draggable={false}
