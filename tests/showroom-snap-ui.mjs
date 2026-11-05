@@ -56,7 +56,16 @@ try{
     })
     await page.goto('http://127.0.0.1:'+port+'/showroom')
     const feed=page.getByRole('region',{name:'Showroom full-screen posts'})
-    await feed.waitFor()
+    try { await feed.waitFor({timeout:12000}) }
+    catch (error) {
+      console.error('Showroom fixture did not render:',{
+        url:page.url(),
+        body:(await page.locator('body').innerText().catch(()=>''))?.slice(0,1500),
+        pageErrors:errors,
+      })
+      await page.screenshot({path:'test-results/showroom-render-error-'+width+'.png'}).catch(()=>{})
+      throw error
+    }
     const first=page.locator('[data-post-key]').first()
     await first.waitFor()
     const metrics=await page.evaluate(()=>{
