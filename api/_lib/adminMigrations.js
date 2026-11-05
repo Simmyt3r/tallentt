@@ -231,6 +231,7 @@ export async function applyAdminMigration(adminId, { migrationId, confirm, check
 
   const client = await getClient()
   let began = false
+  let released = false
   try {
     await client.query('BEGIN')
     began = true
@@ -276,12 +277,28 @@ export async function applyAdminMigration(adminId, { migrationId, confirm, check
     return { status: 'applied', migrationId: migration.id, durationMs: Date.now() - started }
   } catch(error) {
     if (began) await client.query('ROLLBACK').catch(() => {})
+    // The production pool has one connection. Release the rolled-back client
+    // before writing a separate failure audit, otherwise that write waits on itself.
+    began = false
+    client.release()
+    released = true
     // Failed attempts are noted separately after rollback; successful
     // migration-history entries and their audits are always atomic.
     await query(`INSERT INTO admin_audit_logs (admin_id, action, target_type, metadata)
       VALUES ($1,'apply_db_migration_failed','db_migration',$2::jsonb)`,
       [adminId, JSON.stringify({migrationId: migration.id, reason: error.status ? 'rejected' : 'sql_error'})]
     ).catch(auditError => console.error('Migration failure audit unavailable:', auditError.code || auditError.message))
+    // These are reviewed application validation messages from the scoped test batch.
+    const testMessages=new Set([
+      'The reviewed test deals are absent; no deductions applied.',
+      'Reviewed test deal changed; no deductions applied.',
+      'Test deal funding evidence is missing.',
+      'Full fee-free test payout could not be verified.',
+      'Insufficient test wallet balance; entire batch rolled back.',
+      'Test wallet changed; entire batch rolled back.',
+    ])
+    if(migration.id==='test-completed-commissions-2026-11'&&error.code==='P0001'&&[...testMessages].some(message=>error.message===message||error.message.startsWith(message+' Deal ')))
+      throw bad(409,error.message)
     // Do not expose raw SQL/database errors to the browser.
     if (!error.status) {
       console.error('Admin migration failed:', migration.id, error.code || error.message)
@@ -289,6 +306,6 @@ export async function applyAdminMigration(adminId, { migrationId, confirm, check
     }
     throw error
   } finally {
-    client.release()
+    if(!released)client.release()
   }
 }

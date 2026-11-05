@@ -82,3 +82,14 @@ test('an unfinished deal or mismatched payout refuses the entire batch',async()=
   assert.equal(await balance(developerId),560500)
   assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM wallet_transactions WHERE type='billing_charge'")).rows[0].n,0)
 })
+
+
+test('Admin receives the safe rollback reason without waiting on its own connection',{timeout:5000},async()=>{
+  await pool.query('UPDATE wallets SET balance=1000 WHERE user_id=$1',[musicianId])
+  const {adminMigrationStatus,applyAdminMigration}=await import('../api/_lib/adminMigrations.js')
+  const item=(await adminMigrationStatus()).migrations.find(item=>item.id==='test-completed-commissions-2026-11')
+  await assert.rejects(applyAdminMigration(clientId,{migrationId:item.id,checksum:item.checksum,confirm:'APPLY '+item.id}),
+    error=>error.status===409&&/Insufficient test wallet balance/.test(error.message))
+  assert.equal(await balance(developerId),560500)
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM admin_audit_logs WHERE action='apply_db_migration_failed'")).rows[0].n,1)
+})
