@@ -72,7 +72,7 @@ export default function Negotiations() {
   return (
     <main className="max-w-5xl mx-auto space-y-4 pb-8">
       <CompactPageHeader title="Negotiation Center" searchValue={search} onSearchChange={setSearch}
-        searchPlaceholder="Search negotiations…" searchLabel="Search negotiations by Hat or participant"/>
+        inlineSearch searchPlaceholder="Search negotiations…" searchLabel="Search negotiations by Hat or participant"/>
       <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-semibold text-black/45">
         <span>Price negotiation only. Completed is negotiation history only.</span>
         <Link to="/messages" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-black/20 bg-white px-3 text-[11px] font-black text-black">
