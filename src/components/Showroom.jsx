@@ -567,7 +567,7 @@ export default function Showroom() {
   let body
   if (loading) {
     body = (
-      <div className="sr-post mt-2 -mx-4 md:mx-0 flex items-center justify-center bg-white border-y md:border border-black/15 md:rounded-[20px] animate-pulse">
+      <div className="sr-post mt-2 w-full flex items-center justify-center bg-white border-y md:border border-black/15 md:rounded-[20px] animate-pulse">
         <p className="text-black/40 text-[13px] font-medium">Loading showroom…</p>
       </div>
     )
@@ -639,12 +639,12 @@ export default function Showroom() {
   }
 
   return (
-    <div className="sr-showroom-screen relative -mt-5 md:-mt-7" style={{height:'calc(var(--app-vh) - var(--sr-app-top) - var(--sr-app-bottom))'}}>
+    <div className="sr-showroom-screen relative w-full min-w-0 -mt-5 md:-mt-7" style={{height:'calc(var(--app-vh) - var(--sr-app-top) - var(--sr-app-bottom))'}}>
       <h1 className="sr-only">Showroom</h1>
       <div
         ref={headerRef}
         style={{ top: 'var(--sr-app-top)', height: 'var(--sr-header-h)' }}
-        className="sticky z-30 isolate shrink-0 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 bg-[#F7F3EB]/95 backdrop-blur-md border-b border-black/10 flex items-center gap-3"
+        className="sticky z-30 isolate w-full min-w-0 shrink-0 px-4 md:px-6 lg:px-8 bg-[#F7F3EB]/95 backdrop-blur-md border-b border-black/10 flex items-center gap-3"
       >
         <h2 className="text-[18px] sm:text-[21px] font-black tracking-tight shrink-0">Showroom</h2>
         <DiscoverySearch ref={searchRef} id="showroom-search" value={search}
@@ -653,7 +653,7 @@ export default function Showroom() {
       </div>
 
       {view === 'top12' && <p role="status" className="mt-2 text-xs font-semibold text-amber-800">Top 12 is reserved for Gold and Diamond Work Passes, ranked by verified completed jobs and Orbit activity. No paid placements.</p>}
-      <div className="ct-filter-tabs shrink-0 py-2" aria-label="Showroom discovery views">
+      <div className="ct-filter-tabs shrink-0 px-2 sm:px-4 py-2" aria-label="Showroom discovery views">
         {[
           ['for_you', 'For You'],
           ['top12', '🏆 Top 12 · Gold+'],

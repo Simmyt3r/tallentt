@@ -29,13 +29,18 @@ try{
   await vite.listen()
   browser=await chromium.launch({headless:true,
     executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined})
-  for(const width of [390,1280]){
+  for(const width of [390,1280,1920]){
     const context=await browser.newContext({viewport:{width,height:850}})
     await optOutPageToursForFixture(context)
     const page=await context.newPage()
     page.setDefaultTimeout(20000)
     const errors=[]
     page.on('pageerror',e=>errors.push(e.message))
+    // Prevent an unreachable external payment SDK from blocking the offline
+    // browser fixture before the ChombuTar React app can mount.
+    await page.route('https://js.paystack.co/v1/inline.js',route=>route.fulfill({
+      status:200,contentType:'application/javascript',body:'/* Showroom does not use Paystack */',
+    }))
     await page.route('**/showroom-clip.mp4',route=>route.fulfill({status:200,
       contentType:'video/mp4',body:clip,headers:{'access-control-allow-origin':'*'}}))
     await page.route('**/showroom-photo.svg',route=>route.fulfill({status:200,
@@ -56,18 +61,44 @@ try{
     })
     await page.goto('http://127.0.0.1:'+port+'/showroom')
     const feed=page.getByRole('region',{name:'Showroom full-screen posts'})
-    await feed.waitFor()
+    try { await feed.waitFor({timeout:45000}) }
+    catch (error) {
+      console.error('Showroom fixture did not render:',{
+        url:page.url(),
+        body:(await page.locator('body').innerText().catch(()=>''))?.slice(0,1500),
+        pageErrors:errors,
+      })
+      await page.screenshot({path:'test-results/showroom-render-error-'+width+'.png'}).catch(()=>{})
+      throw error
+    }
     const first=page.locator('[data-post-key]').first()
     await first.waitFor()
     const metrics=await page.evaluate(()=>{
       const feed=document.querySelector('.sr-feed-viewport')
       const card=document.querySelector('.sr-post')
-      return {height:feed.clientHeight,card:card.getBoundingClientRect().height,
+      const main=document.querySelector('main')
+      const mainStyle=getComputedStyle(main)
+      const feedBounds=feed.getBoundingClientRect()
+      const cardBounds=card.getBoundingClientRect()
+      return {height:feed.clientHeight,card:cardBounds.height,
+        feedLeft:feedBounds.left,feedRight:feedBounds.right,feedWidth:feedBounds.width,
+        cardLeft:cardBounds.left,cardRight:cardBounds.right,
+        availableLeft:main.getBoundingClientRect().left+parseFloat(mainStyle.paddingLeft),
+        availableRight:main.getBoundingClientRect().right-parseFloat(mainStyle.paddingRight),
         snap:getComputedStyle(feed).scrollSnapType,gap:parseFloat(getComputedStyle(card).marginBottom)}
     })
     assert.ok(Math.abs(metrics.height-metrics.card-metrics.gap)<2,
       'Each post and its visible separator must fill one screen: '+JSON.stringify(metrics))
     assert.match(metrics.snap,/y mandatory/)
+    // The Showroom must use every available horizontal pixel; the layout's
+    // desktop sidebar remains reserved, while phones extend edge-to-edge.
+    assert.ok(Math.abs(metrics.feedLeft-metrics.availableLeft)<2,
+      'Showroom is inset from the left edge: '+JSON.stringify(metrics))
+    assert.ok(Math.abs(metrics.feedRight-metrics.availableRight)<2,
+      'Showroom is inset from the right edge: '+JSON.stringify(metrics))
+    assert.ok(Math.abs(metrics.cardLeft-metrics.feedLeft)<2 &&
+      Math.abs(metrics.cardRight-metrics.feedRight)<2,
+      'Showroom posts must fill their scroll viewport: '+JSON.stringify(metrics))
     const video=first.locator('video')
     await video.waitFor()
     assert.equal(await video.evaluate(el=>el.paused),true,'Video must not autoplay on arrival')

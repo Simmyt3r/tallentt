@@ -79,7 +79,7 @@ function ShowroomPost({
       data-template={template}
       style={{ borderTop: accent === 'transparent' ? undefined : `4px solid ${accent}` }}
       aria-label={`Showroom post by ${ownerName}`}
-      className={`sr-post flex flex-col overflow-hidden rounded-[18px] border-2 border-[#1D255D]/35 shadow-[0_12px_30px_-18px_rgba(10,19,230,.38)] ${
+      className={`sr-post w-full min-w-0 flex flex-col overflow-hidden rounded-none md:rounded-[18px] border-2 border-[#1D255D]/35 shadow-[0_12px_30px_-18px_rgba(10,19,230,.38)] ${
         surface
       }`}
     >
