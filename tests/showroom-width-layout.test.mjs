@@ -27,17 +27,26 @@ test('Showroom screen, header and media posts fill available width',()=>{
   assert.match(css,/scroll-snap-type: y mandatory/)
 })
 
-test('Showroom feed media fills the card without distortion while detail keeps uncropped fit',()=>{
+test('Showroom feed shows entire photo/video over a blurred background, with full-detail view intact',()=>{
   const post=read('src/components/ShowroomPost.jsx')
   const media=read('src/components/ShowroomMedia.jsx')
   const detail=read('src/components/ShowroomDetailModal.jsx')
-  assert.match(post,/<ShowroomMedia\s+media=\{media\}\s+fit="cover"/)
-  assert.match(media,/fit = 'contain'/)
+  assert.match(post,/<ShowroomMedia\s+media=\{media\}\s+fit="ambient"/)
+  assert.doesNotMatch(post,/<ShowroomMedia\s+media=\{media\}\s+fit="cover"/)
+  assert.match(media,/const ambient = fit === 'ambient' && \(isImage \|\| isVideo\)/)
   assert.match(media,/fit === 'cover' \? 'object-cover' : 'object-contain'/)
-  const adaptiveClasses=/absolute inset-0 w-full h-full object-center \$\{mediaFit\}/g
-  assert.equal([...media.matchAll(adaptiveClasses)].length,2,
-    'both video and image must respect cover or contain fit')
+  assert.match(media,/const imageSrc = isImage \? cldImage\(url, \{ w: width, crop: 'limit' \}\) : ''/)
+  assert.match(media,/const videoPoster = isVideo \? cldVideoPoster\(url, \{ w: width, crop: 'limit' \}\) : ''/)
+  assert.match(media,/\{ambient && status !== 'error' && \(/)
+  assert.match(media,/src=\{isVideo \? videoPoster : imageSrc\}/)
+  assert.match(media,/aria-hidden="true"/)
+  assert.match(media,/object-cover blur-2xl opacity-70/)
+  const foregroundClasses=/absolute inset-0 w-full h-full object-center \$\{mediaFit\}/g
+  assert.equal([...media.matchAll(foregroundClasses)].length,2,
+    'foreground images and videos must be uncropped (object-contain) in ambient mode')
+  assert.match(media,/poster=\{videoPoster\}/)
+  assert.match(media,/src=\{imageSrc\}/)
   assert.match(detail,/<ShowroomMedia\s+media=\{media\}\s+alt=/)
-  assert.doesNotMatch(detail,/<ShowroomMedia\s+media=\{media\}\s+fit="cover"/)
+  assert.doesNotMatch(detail,/<ShowroomMedia\s+media=\{media\}\s+fit="ambient"/)
   assert.match(post,/onOpen=\{\(\) => onView\(hat\.id\)\}/)
 })
