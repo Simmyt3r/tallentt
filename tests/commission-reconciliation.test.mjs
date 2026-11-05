@@ -60,7 +60,9 @@ test('a database without billing migrations automatically charges 5% on new fund
   const preview=(await getThread(clientId,newDeal)).thread
   assert.equal(preview.gig_fee_terms_available,true,'fee disclosure is visible before automatic setup')
   assert.equal(preview.gig_fee_bps,500)
-  const result=await checkout.payBookingWithWallet(clientId,newDeal,10000)
+  const [result]=await Promise.all([
+    checkout.payBookingWithWallet(clientId,newDeal,10000),ledger.ensureCommissionLedger(),
+  ])
   assert.equal(result.checkout.platformFee,500)
   assert.equal(result.escrow.gig_fee_bps,500)
   assert.equal(result.escrow.gig_fee_sealed,true)
@@ -159,15 +161,17 @@ test('commission storage errors stop checkout before any money can move',async()
   assert.equal((await pool.query('SELECT status FROM escrows WHERE id=$1',[id])).rows[0].status,'not_funded')
 })
 
-test('a failed commission receipt insert rolls back funding and the wallet debit together',async()=>{
+test('a failed commission receipt insert rolls back funding and the wallet debit together',{timeout:30000},async()=>{
   const id=await createDeal(),before=await snapshot(),originalConnect=pool.connect
-  pool.connect=async function(){
-    const client=await originalConnect.call(this),originalQuery=client.query.bind(client)
-    client.query=async(sql,...args)=>{
-      if(sql.includes('INSERT INTO gig_fee_events'))throw new Error('receipt insert failed')
-      return originalQuery(sql,...args)
-    }
-    return client
+  pool.connect=function(callback){
+    // pg.Pool.query uses connect(callback); service transactions use the promise
+    // form. Preserve both signatures and do not mutate the pooled client.
+    if(typeof callback==='function')return originalConnect.call(this,callback)
+    return originalConnect.call(this).then(client=>({
+      query:(sql,...args)=>sql.includes('INSERT INTO gig_fee_events')
+        ?Promise.reject(new Error('receipt insert failed')):client.query(sql,...args),
+      release:()=>client.release(),
+    }))
   }
   try{await assert.rejects(checkout.payBookingWithWallet(clientId,id,10000),/receipt insert failed/)}
   finally{pool.connect=originalConnect}

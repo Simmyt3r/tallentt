@@ -1,21 +1,29 @@
 import {query,getClient} from './db.js'
 
-// Install only commission storage. Run before obtaining a booking row lock so
-// schema locks cannot deadlock an in-flight settlement. Failure stops checkout.
-export async function ensureCommissionLedger(){
-  const {rows}=await query(`SELECT
+const COMMISSION_READY_SQL=`SELECT
     to_regclass('gig_fee_events') IS NOT NULL AND to_regclass('gig_commission_adjustments') IS NOT NULL
     AND (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=current_schema()
       AND ((table_name='escrows' AND column_name IN ('gig_fee_bps','gig_fee_sealed'))
         OR (table_name IN ('gig_fee_events','gig_commission_adjustments')
           AND column_name IN ('source_transaction_id','reconciled_at'))))=6
     AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass('gig_fee_events')
-      AND conname='gig_fee_events_stage_check' AND pg_get_constraintdef(oid) LIKE '%sealed%') AS ready`)
+      AND conname='gig_fee_events_stage_check' AND pg_get_constraintdef(oid) LIKE '%sealed%') AS ready`
+
+// Install only commission storage. Run before obtaining a booking row lock so
+// schema locks cannot deadlock an in-flight settlement. Failure stops checkout.
+export async function ensureCommissionLedger(){
+  const {rows}=await query(COMMISSION_READY_SQL)
   if(rows[0]?.ready)return
   const client=await getClient()
   try{
     await client.query('BEGIN')
     await client.query('SELECT pg_advisory_xact_lock(176483,5)')
+    // Another request may have installed it while this request waited. Avoid
+    // repeating DDL once a concurrent payment can already hold booking locks.
+    if((await client.query(COMMISSION_READY_SQL)).rows[0]?.ready){
+      await client.query('COMMIT')
+      return
+    }
     await client.query(`ALTER TABLE escrows ADD COLUMN IF NOT EXISTS gig_fee_bps INTEGER
       CHECK(gig_fee_bps IS NULL OR gig_fee_bps BETWEEN 0 AND 10000);
       ALTER TABLE escrows ADD COLUMN IF NOT EXISTS gig_fee_sealed BOOLEAN NOT NULL DEFAULT FALSE;
