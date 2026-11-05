@@ -93,3 +93,12 @@ test('Admin receives the safe rollback reason without waiting on its own connect
   assert.equal(await balance(developerId),560500)
   assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM admin_audit_logs WHERE action='apply_db_migration_failed'")).rows[0].n,1)
 })
+
+
+test('historical split payouts use actual wallet receipts when old start metadata is absent',async()=>{
+  await pool.query('UPDATE escrows SET start_released_amount=0,work_started_at=NULL WHERE id IN ($1,$2)',[software,music])
+  await run()
+  assert.equal(await balance(developerId),535500)
+  assert.equal(await balance(musicianId),155100)
+  assert.equal((await finance.financeSummary()).deal_commissions.net,'27900')
+})

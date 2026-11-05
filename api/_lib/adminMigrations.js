@@ -299,6 +299,10 @@ export async function applyAdminMigration(adminId, { migrationId, confirm, check
     ])
     if(migration.id==='test-completed-commissions-2026-11'&&error.code==='P0001'&&[...testMessages].some(message=>error.message===message||error.message.startsWith(message+' Deal ')))
       throw bad(409,error.message)
+    if(migration.id==='test-completed-commissions-2026-11'&&error.code){
+      console.error('Test commission batch failed:',error.code,error.constraint||'')
+      throw bad(409,`Test deduction batch rolled back (${error.code}${error.constraint?', '+error.constraint:''}). No balances changed.`)
+    }
     // Do not expose raw SQL/database errors to the browser.
     if (!error.status) {
       console.error('Admin migration failed:', migration.id, error.code || error.message)
