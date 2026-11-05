@@ -36,7 +36,20 @@ try {
   await page.goto('http://127.0.0.1:5188/inbox', { waitUntil: 'domcontentloaded', timeout: 120000 })
   await page.getByRole('heading', { name: 'Chats', exact: true }).waitFor()
   const list = page.getByRole('complementary', { name: 'Conversations' })
+  const search = list.getByRole('textbox', { name: 'Search messages and people' })
+  const verifySearchAlignment = async width => {
+    const titleBox = await list.getByRole('heading', { name: 'Chats' }).boundingBox()
+    const searchBox = await search.boundingBox()
+    assert.ok(titleBox && searchBox && Math.abs((titleBox.y + titleBox.height / 2) -
+      (searchBox.y + searchBox.height / 2)) < 5, 'Chats and search must share a row at ' + width + 'px')
+    assert.ok(searchBox.x >= titleBox.x + titleBox.width, 'Search must sit beside Chats at ' + width + 'px')
+  }
+  await verifySearchAlignment(1280)
   await list.getByText('Clara', { exact: true }).waitFor()
+  await list.getByText('Bob', { exact: true }).waitFor()
+  await search.fill('Clara')
+  assert.equal(await list.getByText('Bob', { exact: true }).count(), 0, 'Search must filter the chat list')
+  await search.fill('')
   await list.getByText('Bob', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'Unread', exact: true }).click()
   assert.equal(await list.getByText('Bob', { exact: true }).count(), 0)
@@ -56,6 +69,7 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
   await page.screenshot({ path: 'test-results/unified-messaging-mobile.png', fullPage: true })
   await page.getByRole('button', { name: 'Back to conversations', exact: true }).click()
+  await verifySearchAlignment(390)
   await list.getByText('Clara', { exact: true }).click()
   await page.getByText('The photos are ready.', { exact: true }).last().waitFor()
   await page.getByRole('button', { name: 'Reply to The photos are ready.', exact: true }).click()
