@@ -173,7 +173,7 @@ export default function Inbox() {
             <p className="mt-1 text-[10px] text-black/45">Your people. Your work. One inbox.</p>
           </header>
           <div
-            className="ct-filter-tabs mx-4 flex-nowrap py-3"
+            className="ct-filter-tabs mx-4 flex-nowrap gap-3 border-b-0 py-2"
             aria-label="Filter conversations"
           >
             {[
@@ -239,11 +239,11 @@ export default function Inbox() {
           className={`${active ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-col [&>section]:flex-1`}
         >
           {activePerson?.threads.length>1&&<nav aria-label="Chats with this subscriber"
-            className="flex shrink-0 gap-2 overflow-x-auto border-b border-black/10 bg-[#FAFAF8] px-3 py-2">
+            className="ct-filter-tabs shrink-0 gap-3 border-b-0 bg-[#FAFAF8] px-3 py-1.5 sm:gap-4">
             {activePerson.threads.map(entry=><button type="button" key={entry.kind+':'+entry.id}
               onClick={()=>open(entry.kind,entry.id)}
               aria-current={(entry.kind==='bento'&&entry.id===escrow)||(entry.kind==='employment'&&entry.id===employmentId)||(entry.kind==='associates'&&entry.id===thread)?'page':undefined}
-              className={`shrink-0 rounded-full px-3 py-2 text-[11px] font-bold ${(entry.kind==='bento'&&entry.id===escrow)||(entry.kind==='employment'&&entry.id===employmentId)||(entry.kind==='associates'&&entry.id===thread)?'bg-[#0A13E6] text-white':'bg-white text-black/60'}`}>
+              className="ct-filter-tab min-h-10 px-2 text-[11px]">
               {chatLabel(entry)}
             </button>)}
           </nav>}
