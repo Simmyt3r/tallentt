@@ -83,14 +83,13 @@ function ShowroomPost({
         surface
       }`}
     >
-      <div className="relative flex-1 min-h-0 bg-[#0b0b0b]">
+      <div className="relative flex-1 min-h-0 bg-[#F7F3EB]">
         {hat.top12_rank && <span className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-full border border-amber-400 bg-black/80 px-3 py-1.5 text-[11px] font-black text-amber-200">
           #{hat.top12_rank} · {hat.work_pass_tier} Work Pass
         </span>}
         {hat.is_entertainment && <span className="pointer-events-none absolute top-3 left-3 z-10 rounded-full bg-black/75 px-3 py-1.5 text-[10px] font-bold text-white">Showcase · no booking</span>}
         <ShowroomMedia
           media={media}
-          fit="ambient"
           alt={caption || `${ownerName}'s Showroom ${isVideo ? 'video' : 'post'}`}
           playing={playing}
           muted={muted}
