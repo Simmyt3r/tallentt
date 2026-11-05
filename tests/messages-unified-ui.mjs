@@ -109,6 +109,23 @@ try{
     }));throw e}
     await channels.getByRole('button',{name:/^Bento ·/}).waitFor()
     await channels.getByRole('button',{name:/Employment/}).waitFor()
+    const styles=await channels.evaluate(nav=>{
+      const buttons=[...nav.querySelectorAll('button')]
+      return {
+        containerBottom:getComputedStyle(nav).borderBottomWidth,
+        buttons:buttons.map(button=>({
+          top:getComputedStyle(button).borderTopWidth,
+          left:getComputedStyle(button).borderLeftWidth,
+          right:getComputedStyle(button).borderRightWidth,
+          radius:getComputedStyle(button).borderRadius,
+          active:button.getAttribute('aria-current')==='page',
+        })),
+      }
+    })
+    assert.equal(styles.containerBottom,'0px','Channel tabs must not have a divider border')
+    assert.ok(styles.buttons.length>1 && styles.buttons.some(tab=>tab.active),'Active channel must stay identifiable')
+    assert.ok(styles.buttons.every(tab=>tab.top==='0px'&&tab.left==='0px'&&tab.right==='0px'&&tab.radius==='0px'),
+      'Channel tabs must be flat without pill borders at '+width+'px: '+JSON.stringify(styles))
     await page.screenshot({path:'test-results/messages-consolidated-'+width+'.png',animations:'disabled'})
     await channels.getByRole('button',{name:/Associate chat/}).click()
     const history=page.getByRole('region',{name:'Message history'})
