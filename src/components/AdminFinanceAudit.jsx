@@ -65,7 +65,7 @@ export default function AdminFinanceAudit({stream,onClose}){
               <p>{money(event.fee_amount)} on {money(event.gross_amount)}</p>
               <p>{date(event.created_at)}</p>
               <p className="break-all font-mono">{event.id}</p>
-              {event.source_transaction_id&&<p className="mt-1 break-all">Recovered from transaction: <span className="font-mono">{event.source_transaction_id}</span></p>}
+              {event.source_transaction_id&&<p className="mt-1 break-all">{event.origin==='historical_test'?'Test deduction transaction:':'Recovered from transaction:'} <span className="font-mono">{event.source_transaction_id}</span></p>}
             </div>)}
             {item.reversed_at&&<div className="mt-2 border-t border-black/10 pt-2">
               <p>Commission reversal: {money(item.commission_reversed)}</p>

@@ -120,6 +120,7 @@ async function dealCommissionAudit({cursor=null}={}){
         'gross_amount',f.gross_released::text,'fee_amount',f.fee_amount::text,
         'rate_bps',f.rate_bps,'created_at',f.created_at,
         'source_transaction_id',to_jsonb(f)->>'source_transaction_id',
+        'origin',to_jsonb(f)->>'origin',
         'reconciled_at',to_jsonb(f)->>'reconciled_at')
         ORDER BY f.created_at,f.id) AS events
     FROM gig_fee_events f GROUP BY f.escrow_id
