@@ -18,7 +18,8 @@ test('one tap opens the latest real chat instead of a person conversation select
   assert.match(inbox,/initialTab=\{params.get\("view"\)/)
   assert.doesNotMatch(inbox,/>Hire full-time</)
   assert.doesNotMatch(inbox,/rounded-3xl border border-black\/10 bg-white shadow-sm/)
-  assert.match(inbox,/Search conversations/)
+  assert.match(inbox,/aria-label="Search messages and people"/)
+  assert.match(inbox,/placeholder="Search chats…"/)
 })
 
 test('chat list removal is a hold or swipe action with confirmation, not a permanent inline delete button',()=>{

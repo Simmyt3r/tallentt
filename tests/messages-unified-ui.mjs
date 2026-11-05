@@ -80,6 +80,19 @@ try{
     })
     await page.goto('http://127.0.0.1:'+port+'/inbox')
     const aside=page.getByRole('complementary',{name:'Conversations'})
+    const heading=aside.getByRole('heading',{name:'Chats'})
+    const searchInput=aside.getByRole('textbox',{name:'Search messages and people'})
+    await searchInput.waitFor()
+    const [headingBounds,searchBounds]=await Promise.all([heading.boundingBox(),searchInput.boundingBox()])
+    assert.ok(headingBounds && searchBounds &&
+      Math.abs((headingBounds.y+headingBounds.height/2)-(searchBounds.y+searchBounds.height/2))<5,
+      'Chats title and search must stay vertically aligned at '+width+'px')
+    assert.ok(searchBounds.x>=headingBounds.x+headingBounds.width,
+      'Search must sit beside Chats, never below it, at '+width+'px')
+    await aside.getByRole('button',{name:/Alex User/}).waitFor()
+    await searchInput.fill('No matching person')
+    await aside.getByText('No matching conversations.').waitFor()
+    await searchInput.fill('')
     await aside.getByRole('button',{name:/Alex User/}).waitFor()
     assert.equal(await aside.getByRole('button',{name:/Alex User/}).count(),1,
       'Alex should appear once even with three chat types')

@@ -18,8 +18,7 @@ export default function Inbox() {
     [filter, setFilter] = useState('all'),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(''),
-    [paging, setPaging] = useState(false),
-    [searchOpen,setSearchOpen] = useState(false)
+    [paging, setPaging] = useState(false)
   const alive = useRef(true),
     initialized = useRef(false),
     hidden = useRef(new Set())
@@ -156,28 +155,22 @@ export default function Inbox() {
           aria-label="Conversations"
           className={`${active ? 'hidden md:flex' : 'flex'} min-h-0 flex-col md:border-r md:border-black/10`}
         >
-          <header className="flex flex-wrap items-center gap-2 px-5 pt-5">
-            <div className="shrink-0">
-              <h1 className="text-2xl font-black tracking-tight">Chats</h1>
-              <p className="mt-1 text-xs text-black/45">
-                Your people. Your work. One inbox.
-              </p>
-            </div>
-            {searchOpen&&<label className="order-3 flex min-w-[10rem] flex-[1_1_12rem] items-center gap-2 rounded-full border border-black/15 bg-[#F4F5F7] px-3 sm:order-none">
-              <Search size={17} className="shrink-0 text-black/40"/>
-              <input autoFocus aria-label="Search messages and people" value={search}
-                onChange={e=>setSearch(e.target.value)} placeholder="Search messages and people"
-                className="min-w-0 flex-1 bg-transparent py-2 text-xs outline-none"/>
-            </label>}
-            <div className="ml-auto flex shrink-0 items-center gap-1">
-              <button type="button" aria-label={searchOpen?'Close conversation search':'Search conversations'}
-                aria-expanded={searchOpen} onClick={()=>{setSearchOpen(open=>!open);setSearch('')}}
-                className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><Search size={19}/></button>
+          <header className="px-3 pt-4 pb-1 sm:px-4" aria-label="Chats header">
+            <div className="flex min-w-0 flex-nowrap items-center gap-2">
+              <h1 className="shrink-0 whitespace-nowrap text-[18px] font-black tracking-tight">Chats</h1>
+              <label className="flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-full border border-black/15 bg-[#F4F5F7] px-2.5">
+                <Search size={15} aria-hidden="true" className="shrink-0 text-black/40"/>
+                <input type="text" inputMode="search" aria-label="Search messages and people"
+                  value={search} onChange={e=>setSearch(e.target.value)}
+                  placeholder="Search chats…"
+                  className="w-full min-w-0 flex-1 bg-transparent py-2 text-[11px] outline-none placeholder:text-black/45"/>
+              </label>
               <button type="button" onClick={()=>setParams({compose:'1'})} aria-label="Browse contacts and start a message"
-                title="Find a subscriber" className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-blue-50 px-3 text-[11px] font-bold text-[#0A13E6]">
-                <PenSquare size={17}/><span>Contacts</span>
+                title="Find a subscriber" className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2.5 text-[11px] font-bold text-[#0A13E6]">
+                <PenSquare size={17}/><span className="hidden min-[380px]:inline">Contacts</span>
               </button>
             </div>
+            <p className="mt-1 text-[10px] text-black/45">Your people. Your work. One inbox.</p>
           </header>
           <div
             className="ct-filter-tabs mx-4 flex-nowrap py-3"
