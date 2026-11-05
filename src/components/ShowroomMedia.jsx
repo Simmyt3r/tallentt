@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { ImageOff, Music } from 'lucide-react'
 import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 
-// One media item, letterboxed (`object-contain`) inside whatever box the
-// parent gives it — never cropped, never stretched. Videos keep their NATIVE
-// controls (play/pause, seek, volume, fullscreen); the app only decides
+// One media item. Showroom feed requests `cover` to remove black sidebars;
+// the full-detail viewer retains `contain` so nothing is cut off. Neither
+// mode stretches the image. Videos keep their NATIVE controls (play/pause,
+// seek, volume, fullscreen); the app only decides
 // *when* a video should be playing via `playing`, and mirrors the mute
 // preference across posts.
 //
@@ -23,11 +24,13 @@ function MediaInner({
   onOpen,
   onDimensions,
   width = 1080,
+  fit = 'contain',
 }) {
   const url = media?.url
   const isVideo = media?.type === 'video' && !!url
   const isAudio = media?.type === 'audio' && !!url
   const isImage = !!url && !isVideo && !isAudio
+  const mediaFit = fit === 'cover' ? 'object-cover' : 'object-contain'
 
   const elRef = useRef(null)
   const [status, setStatus] = useState(url ? 'loading' : 'empty') // loading | ready | error | empty
@@ -86,7 +89,7 @@ function MediaInner({
           src={cldVideo(url, { w: width })}
           poster={cldVideoPoster(url, { w: width, crop: 'limit' })}
           aria-label={alt || 'Video'}
-          className="absolute inset-0 w-full h-full object-contain"
+          className={`absolute inset-0 w-full h-full object-center ${mediaFit}`}
           controls
           playsInline
           preload="metadata"
@@ -106,7 +109,7 @@ function MediaInner({
           decoding="async"
           draggable={false}
           onClick={onOpen}
-          className={`absolute inset-0 w-full h-full object-contain ${onOpen ? 'cursor-zoom-in' : ''}`}
+          className={`absolute inset-0 w-full h-full object-center ${mediaFit} ${onOpen ? 'cursor-zoom-in' : ''}`}
           onLoad={(e) => {
             setStatus('ready')
             onDimensions?.({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
