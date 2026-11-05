@@ -1,0 +1,88 @@
+import {chromium} from 'playwright'
+import {createServer} from 'vite'
+import assert from 'node:assert/strict'
+import {mkdir,writeFile,unlink} from 'node:fs/promises'
+import {fileURLToPath} from 'node:url'
+
+const summary={deal_commissions:{recorded:true,gross:'1000',reversed:'350',net:'650',deals:2},
+  liabilities:{},recognized_revenue:'850',income_streams:[
+    {id:'live_support',name:'Live support platform fees',recorded:true,transactions:1,inflow:'200'},
+    {id:'deal_fees',name:'Deal commissions',recorded:true,transactions:2,inflow:'650'},
+  ]}
+const deal={id:'11111111-1111-4111-8111-111111111111',deal_title:'Electrical repair',deal_amount:'10000',
+  client_username:'test_client',talent_username:'test_talent',status:'refunded',work_status:'refunded',
+  commission_gross:'500',commission_reversed:'350',commission_net:'150',refunded_gross:'7000',
+  created_at:'2026-11-01T10:00:00Z',reversed_at:'2026-11-01T10:00:00Z',
+  events:[{id:'33333333-3333-4333-8333-333333333333',stage:'sealed',rate_bps:500,
+    fee_amount:'500',gross_amount:'10000',created_at:'2026-10-31T10:00:00Z'}]}
+const older={...deal,id:'22222222-2222-4222-8222-222222222222',deal_title:'Logo design',commission_reversed:'0',commission_net:'500',reversed_at:null}
+const fixtureName=`.commission-ui-${process.pid}.html`
+const root=fileURLToPath(new URL('..',import.meta.url))
+const fixturePath=new URL('../'+fixtureName,import.meta.url)
+await writeFile(fixturePath,`<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="margin:0;height:auto"><div id="root"></div><script type="module">
+  import React from 'react';
+  import {createRoot} from 'react-dom/client';
+  import AdminFinanceLedger from '/src/components/AdminFinanceLedger.jsx';
+  import '/src/styles/index.css';
+  createRoot(document.getElementById('root')).render(React.createElement(AdminFinanceLedger));
+</script></body></html>`)
+const server=await createServer({root,server:{host:'127.0.0.1',port:5182,strictPort:true}})
+let browser
+try{
+  await server.listen()
+  browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined})
+  const page=await browser.newPage({viewport:{width:1280,height:900}})
+  const errors=[]
+  page.on('pageerror',error=>errors.push(error.message))
+  let mode='normal'
+  await page.route('**/api/admin?**',async route=>{
+    const params=new URL(route.request().url()).searchParams
+    if(params.get('action')==='finance_summary')return route.fulfill({json:summary})
+    if(params.get('stream')==='live_support')return route.fulfill({json:{recorded:true,next_cursor:null,transactions:[{
+      id:'live-fee',created_at:deal.created_at,supporter_username:'live_supporter',talent_username:'live_talent',
+      gross_amount:2000,platform_fee:200,net_amount:1800,
+    }]}})
+    if(mode==='error')return route.fulfill({status:500,json:{error:'Commission report temporarily unavailable'}})
+    if(mode==='missing')return route.fulfill({json:{recorded:false,transactions:[],next_cursor:null}})
+    if(mode==='empty')return route.fulfill({json:{recorded:true,transactions:[],next_cursor:null}})
+    return route.fulfill({json:{recorded:true,transactions:params.has('cursor')?[older]:[deal],next_cursor:params.has('cursor')?null:deal.id}})
+  })
+  await page.goto(`http://127.0.0.1:5182/${fixtureName}`)
+  await page.getByRole('heading',{name:'Commissions by deal',exact:true}).waitFor()
+  await page.getByRole('cell',{name:'Client: test_client Talent: test_talent'}).waitFor()
+  assert.match(await page.getByRole('region',{name:'Deal commission earnings'}).innerText(),/₦650/)
+  await page.getByText('View fee records',{exact:true}).click()
+  await page.getByText('sealed · 5%',{exact:true}).waitFor()
+  await page.getByText('Commission reversal: ₦350',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Load older deals',exact:true}).click()
+  await page.getByText('Logo design',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Load older deals'}).count(),0)
+  await mkdir('test-results',{recursive:true})
+  for(const width of [320,390,768,1280]){
+    await page.setViewportSize({width,height:900})
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`page overflows at ${width}px`)
+    await page.screenshot({path:`test-results/admin-commissions-${width}.png`,fullPage:true})
+  }
+  await page.getByRole('button',{name:'Audit trail',exact:true}).first().click()
+  await page.getByRole('heading',{name:'Live support fee audit trail',exact:true}).waitFor()
+  await page.getByText('live_supporter / live_talent',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Close audit',exact:true}).click()
+  assert.equal(await page.getByRole('region',{name:'Platform fee accrual audit'}).count(),0)
+  await page.getByRole('button',{name:'View commissions by deal',exact:true}).click()
+  await page.getByText('Electrical repair',{exact:true}).waitFor()
+  for(const [next,text] of [['empty','No deal commissions recorded yet.'],['missing','Commission records are unavailable. Apply the billing migration in Database Migrations.'],['error','Commission report temporarily unavailable']]){
+    mode=next
+    await page.getByRole('button',{name:'Refresh',exact:true}).click()
+    if(next==='error')await page.getByRole('alert').filter({hasText:text}).waitFor()
+    else await page.getByText(text,{exact:true}).waitFor()
+  }
+  mode='normal'
+  await page.getByRole('button',{name:'Retry',exact:true}).click()
+  await page.getByText('Electrical repair',{exact:true}).waitFor()
+  assert.deepEqual(errors,[])
+  console.log('Admin commission UI passed: mobile/desktop layout, fee details, pagination, Live fees, refresh, empty/unavailable states and retry.')
+}finally{
+  await browser?.close()
+  await server.close()
+  await unlink(fixturePath)
+}

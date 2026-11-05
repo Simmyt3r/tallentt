@@ -17,7 +17,7 @@ before(async()=>{
      VALUES($1,$2,$2,$3,'test')`,[id,username,username+'@test.example'])
  await pool.query('INSERT INTO wallets(user_id,balance) VALUES($1,5500),($2,4500)',[clientId,talentId])
  await pool.query(`INSERT INTO escrows(client_id,talent_id,amount,status,
-   start_released_amount) VALUES($1,$2,10000,'secured',3000)`,[clientId,talentId])
+   start_released_amount,work_started_at) VALUES($1,$2,10000,'secured',3000,NOW())`,[clientId,talentId])
  await pool.query(`INSERT INTO wallet_transactions(user_id,type,amount,balance_after,status)
    VALUES($1,'withdrawal',900,4600,'pending')`,[clientId])
  await pool.query(`CREATE TABLE IF NOT EXISTS live_support_transactions(
@@ -51,6 +51,7 @@ test('platform income audit counts only successful, source-linked fees',async()=
  assert.equal(audit.transactions[0].platform_fee,200)
  assert.equal(audit.transactions[0].gross_amount,2000)
  assert.equal(audit.transactions[0].talent_username,'finance_talent')
- await assert.rejects(financeAudit({stream:'deal_fees'}),/accrual audit/)
+ assert.deepEqual(await financeAudit({stream:'deal_fees'}),{transactions:[],next_cursor:null,recorded:false})
+ await assert.rejects(financeAudit({stream:'unknown'}),/accrual audit/)
  await assert.rejects(financeAudit({cursor:'not-a-uuid'}),/Invalid audit cursor/)
 })
