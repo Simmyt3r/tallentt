@@ -28,7 +28,7 @@ export async function financeSummary(){
   let gig=null,billing=null
   if(tables[0]?.gig_fees){
     const {rows}=await query(`SELECT COALESCE(SUM(fee_amount::bigint),0)::text AS accrued_fees,
-      COUNT(*)::int AS transactions FROM gig_fee_events`)
+      COUNT(*)::int AS transactions,COUNT(DISTINCT escrow_id)::int AS deals FROM gig_fee_events`)
     gig=rows[0]
     if(tables[0]?.gig_adjustments){
       const {rows:adjustments}=await query(`SELECT COALESCE(SUM(commission_reversed::bigint),0)::text AS reversals FROM gig_commission_adjustments`)
@@ -54,7 +54,7 @@ export async function financeSummary(){
     income_streams:[
       {id:'live_support',name:'Live support platform fees',source:'live_support_transactions',
         recorded:exists,inflow:live?.accrued_fees??null,transactions:live?.transactions??null},
-      {id:'deal_fees',name:'Released gig commissions (5% on new deals)',source:'gig_fee_events',
+      {id:'deal_fees',name:'Deal commissions',source:'gig_fee_events',
         recorded:gig!==null,inflow:gig?.accrued_fees??null,transactions:gig?.transactions??null},
       billingStream('salary_tracking','Salary tracking charges (subject to confirmation)'),
       billingStream('salary_tracking_talent','Talent-side salary tracking charges (subject to confirmation)'),
@@ -63,14 +63,19 @@ export async function financeSummary(){
       {id:'sponsorships',name:'Sponsorship and other income',source:'not reconciled in this release',
         recorded:false,inflow:null,transactions:null},
     ],
+    deal_commissions:{recorded:gig!==null,
+      gross:gig!==null?(BigInt(gig.accrued_fees||0)+BigInt(gig.commission_reversals||0)).toString():null,
+      reversed:gig!==null?(gig.commission_reversals||'0'):null,
+      net:gig?.accrued_fees??null,deals:gig?.deals??null},
     recognized_revenue: live!==null||gig!==null
       ? (BigInt(live?.accrued_fees||0)+BigInt(gig?.accrued_fees||0)).toString() : null,
     recognized_revenue_partial:true,
     net_profit:null,
-    warning:'Recognized revenue includes Live support and released-gig fees where recorded. Subscription collections are NOT counted as earned service revenue pending deferral policy. Salary and verification charges may be refundable or subject to recognition timing. No tax, settlement, processor-cost or net-profit reconciliation is implied.',
+    warning:'Recognized revenue includes Live support and recorded deal commissions after refund reversals. Subscription collections are NOT counted as earned service revenue pending deferral policy. Salary and verification charges may be refundable or subject to recognition timing. No tax, settlement, processor-cost or net-profit reconciliation is implied.',
   }
 }
 export async function financeAudit({stream='live_support',cursor=null}={}){
+  if(stream==='deal_fees')return dealCommissionAudit({cursor})
   if(stream!=='live_support')
     throw Object.assign(new Error('An accrual audit is not yet available for this income stream.'),{status:400})
   const {rows:found}=await query("SELECT to_regclass('live_support_transactions') AS present")
@@ -95,6 +100,45 @@ export async function financeAudit({stream='live_support',cursor=null}={}){
 
 const LIABILITY_AUDIT_TYPES=new Set(['escrow','wallet','pending_payout'])
 const AUDIT_UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i
+
+
+// One row per deal: aggregate milestones before joining refund adjustments so
+// a reversal is deducted exactly once, even on legacy multi-release deals.
+async function dealCommissionAudit({cursor=null}={}){
+  if(cursor&&!AUDIT_UUID.test(cursor))
+    throw Object.assign(new Error('Invalid audit cursor.'),{status:400})
+  const {rows:tables}=await query("SELECT to_regclass('gig_fee_events') AS fees, to_regclass('gig_commission_adjustments') AS adjustments")
+  if(!tables[0]?.fees)return {transactions:[],next_cursor:null,recorded:false}
+  const hasAdjustments=Boolean(tables[0]?.adjustments)
+  const {rows}=await query(`WITH commissions AS (
+    SELECT f.escrow_id,SUM(f.fee_amount::bigint) AS commission_gross,
+      MAX(f.created_at) AS last_charge_at,
+      jsonb_agg(jsonb_build_object('id',f.id,'stage',f.stage,
+        'gross_amount',f.gross_released::text,'fee_amount',f.fee_amount::text,
+        'rate_bps',f.rate_bps,'created_at',f.created_at)
+        ORDER BY f.created_at,f.id) AS events
+    FROM gig_fee_events f GROUP BY f.escrow_id
+  ), deals AS (
+    SELECT e.id,e.amount::text AS deal_amount,e.currency,e.status,e.work_status,
+      e.client_id,e.talent_id,h.hat_title AS deal_title,
+      c.username AS client_username,t.username AS talent_username,
+      f.commission_gross::text AS commission_gross,
+      ${hasAdjustments?'COALESCE(a.commission_reversed,0)':'0'}::text AS commission_reversed,
+      (f.commission_gross-${hasAdjustments?'COALESCE(a.commission_reversed,0)':'0'})::text AS commission_net,
+      ${hasAdjustments?'COALESCE(a.refunded_gross,0)':'0'}::text AS refunded_gross,
+      ${hasAdjustments?'a.created_at':'NULL::timestamptz'} AS reversed_at,
+      ${hasAdjustments?'GREATEST(f.last_charge_at,a.created_at)':'f.last_charge_at'} AS created_at,
+      f.events
+    FROM commissions f JOIN escrows e ON e.id=f.escrow_id
+    LEFT JOIN hats h ON h.id=e.hat_id
+    LEFT JOIN users c ON c.id=e.client_id
+    LEFT JOIN users t ON t.id=e.talent_id
+    ${hasAdjustments?'LEFT JOIN gig_commission_adjustments a ON a.escrow_id=e.id':''}
+  ) SELECT * FROM deals
+    WHERE ($1::uuid IS NULL OR (created_at,id)<(SELECT created_at,id FROM deals WHERE id=$1))
+    ORDER BY created_at DESC,id DESC LIMIT 26`,[cursor])
+  return {transactions:rows.slice(0,25),next_cursor:rows.length>25?rows[24].id:null,recorded:true}
+}
 
 // Read-only drilldowns for financial obligations. This does not assert that
 // three liability categories are additive or that the platform owns the cash.
