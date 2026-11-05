@@ -29,7 +29,7 @@ try{
   await vite.listen()
   browser=await chromium.launch({headless:true,
     executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined})
-  for(const width of [390,1280]){
+  for(const width of [390,1280,1920]){
     const context=await browser.newContext({viewport:{width,height:850}})
     await optOutPageToursForFixture(context)
     const page=await context.newPage()
@@ -62,12 +62,29 @@ try{
     const metrics=await page.evaluate(()=>{
       const feed=document.querySelector('.sr-feed-viewport')
       const card=document.querySelector('.sr-post')
-      return {height:feed.clientHeight,card:card.getBoundingClientRect().height,
+      const main=document.querySelector('main')
+      const mainStyle=getComputedStyle(main)
+      const feedBounds=feed.getBoundingClientRect()
+      const cardBounds=card.getBoundingClientRect()
+      return {height:feed.clientHeight,card:cardBounds.height,
+        feedLeft:feedBounds.left,feedRight:feedBounds.right,feedWidth:feedBounds.width,
+        cardLeft:cardBounds.left,cardRight:cardBounds.right,
+        availableLeft:main.getBoundingClientRect().left+parseFloat(mainStyle.paddingLeft),
+        availableRight:main.getBoundingClientRect().right-parseFloat(mainStyle.paddingRight),
         snap:getComputedStyle(feed).scrollSnapType,gap:parseFloat(getComputedStyle(card).marginBottom)}
     })
     assert.ok(Math.abs(metrics.height-metrics.card-metrics.gap)<2,
       'Each post and its visible separator must fill one screen: '+JSON.stringify(metrics))
     assert.match(metrics.snap,/y mandatory/)
+    // The Showroom must use every available horizontal pixel; the layout's
+    // desktop sidebar remains reserved, while phones extend edge-to-edge.
+    assert.ok(Math.abs(metrics.feedLeft-metrics.availableLeft)<2,
+      'Showroom is inset from the left edge: '+JSON.stringify(metrics))
+    assert.ok(Math.abs(metrics.feedRight-metrics.availableRight)<2,
+      'Showroom is inset from the right edge: '+JSON.stringify(metrics))
+    assert.ok(Math.abs(metrics.cardLeft-metrics.feedLeft)<2 &&
+      Math.abs(metrics.cardRight-metrics.feedRight)<2,
+      'Showroom posts must fill their scroll viewport: '+JSON.stringify(metrics))
     const video=first.locator('video')
     await video.waitFor()
     assert.equal(await video.evaluate(el=>el.paused),true,'Video must not autoplay on arrival')
