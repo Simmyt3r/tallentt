@@ -263,18 +263,18 @@ test('wallet uses accepted price and QR checkpoints credit talent once in two st
     { id: escrowId, action: 'notify-qr-ready' })
   assert.equal(duplicateQrPush.body.queued, false)
   await redeemBookingQr(talentId, escrowId, start.token)
-  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 2550)
+  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 2422)
   await lifecycle(talentId, escrowId, 'submit_delivery', { expected_version: 1, note: 'Completed the edit.', client_token: randomUUID() })
   const releaseBody = { expected_version: 2, note: 'Approved.', client_token: randomUUID() }
   assert.equal((await request(releaseHandler, clientId, 'POST', '', releaseBody, { id: escrowId, action: 'release' })).status, 200)
-  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 2550)
+  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 2422)
   assert.equal((await request(releaseHandler, clientId, 'POST', '', releaseBody, { id: escrowId, action: 'release' })).body.alreadyProcessed, true)
   const finish = await issueBookingQr(clientId, escrowId, 'completion')
   const completionPush = await request(qrActionHandler, clientId, 'POST', '', { stage: 'completion' },
     { id: escrowId, action: 'notify-qr-ready' })
   assert.equal(completionPush.body.queued, true)
   await redeemBookingQr(talentId, escrowId, finish.token)
-  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 8500)
+  assert.equal((await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [talentId])).rows[0].balance, 8075)
 })
 
 test('legacy card checkout enters wallet first, then funds escrow from wallet', async () => {

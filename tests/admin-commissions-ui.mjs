@@ -14,8 +14,9 @@ const deal={id:'11111111-1111-4111-8111-111111111111',deal_title:'Electrical rep
   commission_gross:'500',commission_reversed:'350',commission_net:'150',refunded_gross:'7000',
   created_at:'2026-11-01T10:00:00Z',reversed_at:'2026-11-01T10:00:00Z',
   events:[{id:'33333333-3333-4333-8333-333333333333',stage:'sealed',rate_bps:500,
-    fee_amount:'500',gross_amount:'10000',created_at:'2026-10-31T10:00:00Z'}]}
+    fee_amount:'500',gross_amount:'10000',created_at:'2026-10-31T10:00:00Z',source_transaction_id:'recovered-wallet-transaction'}]}
 const older={...deal,id:'22222222-2222-4222-8222-222222222222',deal_title:'Logo design',commission_reversed:'0',commission_net:'500',reversed_at:null}
+const uncharged={...older,id:'44444444-4444-4444-8444-444444444444',deal_title:'Earlier fee-free deal',events:[],commission_status:'not_collected',commission_gross:'0',commission_net:'0'}
 const fixtureName=`.commission-ui-${process.pid}.html`
 const root=fileURLToPath(new URL('..',import.meta.url))
 const fixturePath=new URL('../'+fixtureName,import.meta.url)
@@ -34,8 +35,12 @@ try{
   const page=await browser.newPage({viewport:{width:1280,height:900}})
   const errors=[]
   page.on('pageerror',error=>errors.push(error.message))
-  let mode='normal'
-  await page.route('**/api/admin?**',async route=>{
+  let mode='normal',reconciliations=0
+  await page.route('**/api/admin**',async route=>{
+    if(route.request().method()==='POST'){
+      reconciliations++
+      return mode==='sync_error'?route.fulfill({status:500,json:{error:'Reconciliation unavailable'}}):route.fulfill({json:{recovered_fees:0,recovered_refunds:0}})
+    }
     const params=new URL(route.request().url()).searchParams
     if(params.get('action')==='finance_summary')return route.fulfill({json:summary})
     if(params.get('stream')==='live_support')return route.fulfill({json:{recorded:true,next_cursor:null,transactions:[{
@@ -45,17 +50,20 @@ try{
     if(mode==='error')return route.fulfill({status:500,json:{error:'Commission report temporarily unavailable'}})
     if(mode==='missing')return route.fulfill({json:{recorded:false,transactions:[],next_cursor:null}})
     if(mode==='empty')return route.fulfill({json:{recorded:true,transactions:[],next_cursor:null}})
-    return route.fulfill({json:{recorded:true,transactions:params.has('cursor')?[older]:[deal],next_cursor:params.has('cursor')?null:deal.id}})
+    return route.fulfill({json:{recorded:true,transactions:params.has('cursor')?[older,uncharged]:[deal],next_cursor:params.has('cursor')?null:deal.id}})
   })
   await page.goto(`http://127.0.0.1:5182/${fixtureName}`)
   await page.getByRole('heading',{name:'Commissions by deal',exact:true}).waitFor()
   await page.getByRole('cell',{name:'Client: test_client Talent: test_talent'}).waitFor()
+  assert.equal(reconciliations,1)
   assert.match(await page.getByRole('region',{name:'Deal commission earnings'}).innerText(),/₦650/)
   await page.getByText('View fee records',{exact:true}).click()
   await page.getByText('sealed · 5%',{exact:true}).waitFor()
   await page.getByText('Commission reversal: ₦350',{exact:true}).waitFor()
+  await page.getByText(/Recovered from transaction: recovered-wallet-transaction/).waitFor()
   await page.getByRole('button',{name:'Load older deals',exact:true}).click()
   await page.getByText('Logo design',{exact:true}).waitFor()
+  await page.getByText('No commission was collected on this earlier deal.',{exact:true}).waitFor()
   assert.equal(await page.getByRole('button',{name:'Load older deals'}).count(),0)
   await mkdir('test-results',{recursive:true})
   for(const width of [320,390,768,1280]){
@@ -78,6 +86,12 @@ try{
   }
   mode='normal'
   await page.getByRole('button',{name:'Retry',exact:true}).click()
+  await page.getByText('Electrical repair',{exact:true}).waitFor()
+  mode='sync_error'
+  await page.getByRole('button',{name:'Refresh',exact:true}).click()
+  await page.getByRole('alert').filter({hasText:'Reconciliation unavailable'}).waitFor()
+  mode='normal'
+  await page.getByRole('button',{name:'Refresh',exact:true}).click()
   await page.getByText('Electrical repair',{exact:true}).waitFor()
   assert.deepEqual(errors,[])
   console.log('Admin commission UI passed: mobile/desktop layout, fee details, pagination, Live fees, refresh, empty/unavailable states and retry.')

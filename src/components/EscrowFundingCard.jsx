@@ -79,7 +79,7 @@ export default function EscrowFundingCard({
         </div>
       </div>
 
-      {!feeEnabled&&<p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-[11px] font-semibold text-amber-900">Gig fees are awaiting the Admin Monetization migration. Existing checkout terms remain in effect until it is applied.</p>}
+      {!feeEnabled&&<p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-[11px] font-semibold text-amber-900">Commission-based checkout currently supports NGN deals only.</p>}
       {feeEnabled&&checkout&&<div aria-label="5% gig fee checkout breakdown" className="mt-3 rounded-xl border border-[#0A13E6]/20 bg-white p-3">
         <p className="text-[11px] font-black text-[#0A13E6]">Clear checkout breakdown · 5% gig fee</p>
         <dl className="mt-2 space-y-1.5 text-[11px]">
@@ -100,7 +100,7 @@ export default function EscrowFundingCard({
         {enough ? (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy||!feeEnabled||currency!=='NGN'}
             onClick={onFund}
             className="h-10 rounded-full bg-[#0A13E6] px-4 text-[11px] font-black text-white disabled:opacity-50"
           >
