@@ -20,6 +20,9 @@ DECLARE
   deal RECORD;
   paid BIGINT;
   payout_count INTEGER;
+  start_count INTEGER;
+  release_count INTEGER;
+  positive_payouts BOOLEAN;
   payout_ids JSONB;
   fee INTEGER;
   previous_balance INTEGER;
@@ -50,23 +53,26 @@ BEGIN
     IF deal.status<>'released' OR deal.work_status<>'completed'
       OR deal.amount<>deal.expected_amount OR COALESCE(deal.currency,'NGN')<>'NGN'
       OR COALESCE(deal.gig_fee_bps,0)<>0 THEN
-      RAISE EXCEPTION 'Reviewed test deal changed; no deductions applied.';
+      RAISE EXCEPTION 'Reviewed test deal changed; no deductions applied. Deal %, status %, work %, amount %, currency %, fee bps %.',
+        deal.id,deal.status,deal.work_status,deal.amount,deal.currency,deal.gig_fee_bps;
     END IF;
     -- Receipts from any other path already account for this deal. Never charge twice.
     IF EXISTS(SELECT 1 FROM gig_fee_events WHERE escrow_id=deal.id) THEN CONTINUE; END IF;
     IF NOT EXISTS(SELECT 1 FROM wallet_transactions WHERE escrow_id=deal.id
       AND user_id=deal.client_id AND type='escrow_fund' AND status='success' AND amount=deal.amount) THEN
-      RAISE EXCEPTION 'Test deal funding evidence is missing.';
+      RAISE EXCEPTION 'Test deal funding evidence is missing. Deal %.',deal.id;
     END IF;
-    SELECT COALESCE(SUM(amount::bigint),0),COUNT(*)::int,jsonb_agg(id ORDER BY created_at,id)
-      INTO paid,payout_count,payout_ids FROM wallet_transactions
+    SELECT COALESCE(SUM(amount::bigint),0),COUNT(*)::int,jsonb_agg(id ORDER BY created_at,id),
+      COUNT(*) FILTER(WHERE type='escrow_start')::int,COUNT(*) FILTER(WHERE type='escrow_release')::int,BOOL_AND(amount>0)
+      INTO paid,payout_count,payout_ids,start_count,release_count,positive_payouts FROM wallet_transactions
       WHERE escrow_id=deal.id AND user_id=deal.talent_id
         AND type IN ('escrow_start','escrow_release') AND status='success';
-    IF paid<>deal.amount OR payout_count<>(CASE WHEN deal.start_released_amount>0 THEN 2 ELSE 1 END)
-      OR NOT EXISTS(SELECT 1 FROM wallet_transactions WHERE escrow_id=deal.id
-        AND user_id=deal.talent_id AND type='escrow_release' AND status='success'
-        AND amount=deal.amount-deal.start_released_amount) THEN
-      RAISE EXCEPTION 'Full fee-free test payout could not be verified.';
+    -- The wallet ledger is authoritative for older completed deals whose
+    -- start_released_amount snapshot may predate the QR backfill.
+    IF paid<>deal.amount OR payout_count NOT IN (1,2) OR start_count NOT IN (0,1)
+      OR release_count<>1 OR positive_payouts IS NOT TRUE THEN
+      RAISE EXCEPTION 'Full fee-free test payout could not be verified. Deal %, gross %, stored start %, paid %, payout records %.',
+        deal.id,deal.amount,deal.start_released_amount,paid,payout_count;
     END IF;
     fee:=((deal.amount::bigint*500+5000)/10000)::int;
     SELECT balance INTO previous_balance FROM wallets WHERE user_id=deal.talent_id;
