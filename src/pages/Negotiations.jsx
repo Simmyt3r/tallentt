@@ -224,7 +224,7 @@ function NegotiationDetail({ id, user, readOnly, onBack, onUpdated }) {
         <header>
           <h2 className="text-lg font-black">{thread.hat_title}</h2>
           <p className="text-xs text-black/50">Client and Talent</p>
-          <NegotiationParties currentUser={user} peer={thread.peer} currentRole={thread.is_client ? 'client' : 'talent'} />
+          <NegotiationParties borderless currentUser={user} peer={thread.peer} currentRole={thread.is_client ? 'client' : 'talent'} />
         </header>
         {readOnly || thread.agreed_at || ['cancelled', 'refunded', 'released'].includes(thread.status) ? (
           <section className="space-y-3">
@@ -240,7 +240,7 @@ function NegotiationDetail({ id, user, readOnly, onBack, onUpdated }) {
               </p>
             </div>
             {offers.length > 0 ? (
-              <NegotiationHistory offers={offers} thread={thread} userId={user.id} />
+              <NegotiationHistory borderless offers={offers} thread={thread} userId={user.id} />
             ) : (
               <p className="text-xs text-black/45">No proposal history is available.</p>
             )}
@@ -248,13 +248,13 @@ function NegotiationDetail({ id, user, readOnly, onBack, onUpdated }) {
         ) : (thread.price_type === 'range' || thread.price_negotiable) ? (
           <>
             <NegotiationPanel thread={thread} offers={offers} pending={pending} userId={user.id} currentUser={user}
-              showParties={false}
+              borderless showParties={false}
               busy={busy} offerMode={offerMode} amount={amount} note={note} error={offerError}
               onAmount={(value) => { setAmount(value); setOfferError('') }} onNote={setNote}
               onOpenOffer={openOffer} onCancelOffer={() => { setOfferMode(false); setOfferError('') }}
               onSubmitOffer={submitOffer}
               onRespond={(status) => act({ action: 'respond_offer', offer_id: pending.id, status })} />
-            {offers.length > 0 && <NegotiationHistory offers={offers} thread={thread} userId={user.id} />}
+            {offers.length > 0 && <NegotiationHistory borderless offers={offers} thread={thread} userId={user.id} />}
           </>
         ) : (
           <p className="py-3 text-xs text-black/55">

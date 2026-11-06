@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { ArrowLeftRight } from 'lucide-react'
 import UserIdentity from './UserIdentity.jsx'
 
-function PartyCard({ user, role, isCurrent, compact }) {
+function PartyCard({ user, role, isCurrent, compact, borderless }) {
   return (
-    <div className="min-w-0 flex-1 rounded-[14px] border border-black/10 bg-white px-2.5 py-2.5">
+    <div className={borderless ? 'min-w-0 flex-1 py-2.5' : 'min-w-0 flex-1 rounded-[14px] border border-black/10 bg-white px-2.5 py-2.5'}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span
           className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] ${
@@ -39,6 +39,7 @@ export default function NegotiationParties({
   peer,
   currentRole,
   compact = false,
+  borderless = false,
 }) {
   const [swapped, setSwapped] = useState(false)
 
@@ -63,7 +64,7 @@ export default function NegotiationParties({
   return (
     <div className={compact ? '' : 'mt-3'}>
       <div className="grid grid-cols-[minmax(0,1fr)_40px_minmax(0,1fr)] items-center gap-2">
-        <PartyCard {...parties[0]} compact={compact} />
+        <PartyCard {...parties[0]} compact={compact} borderless={borderless} />
 
         <button
           type="button"
@@ -75,7 +76,7 @@ export default function NegotiationParties({
           <ArrowLeftRight size={15} />
         </button>
 
-        <PartyCard {...parties[1]} compact={compact} />
+        <PartyCard {...parties[1]} compact={compact} borderless={borderless} />
       </div>
 
       {!compact && (
