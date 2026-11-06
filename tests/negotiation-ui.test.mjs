@@ -40,8 +40,7 @@ test('negotiation center, My Deals, and Deals Chat have strict responsibilities'
   }
 
   for (const tab of ['Action needed', 'Ongoing', 'Completed']) assert.ok(center.includes(tab))
-  assert.match(center, /Price negotiation only/)
-  assert.match(center, /Completed is negotiation history only/)
+  assert.doesNotMatch(center, /Price negotiation only\. Completed is negotiation history only\./)
   assert.match(center, /This record is read-only/)
   assert.doesNotMatch(center, /fundEscrowWithWallet/)
   assert.doesNotMatch(center, /DealQrCheckpoint/)
