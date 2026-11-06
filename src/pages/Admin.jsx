@@ -604,7 +604,7 @@ function OverviewPanel({ dashboard, setTab }) {
           <ServiceState label="Paystack" ready={dashboard?.services?.paystack} />
           <ServiceState label="Cloudinary" ready={dashboard?.services?.cloudinary} />
           <ServiceState label="Live media" ready={dashboard?.services?.live_media} fallback />
-          <ServiceState label="Live realtime" ready={dashboard?.services?.live_realtime} />
+          <ServiceState label={dashboard?.services?.live_realtime?'Live updates':'Live updates (polling)'} ready={dashboard?.services?.live_media} />
           <ServiceState label="Push" ready={dashboard?.services?.push} />
         </div>
       </section>
