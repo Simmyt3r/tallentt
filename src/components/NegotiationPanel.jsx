@@ -12,11 +12,11 @@ function formatRange(thread) {
   return 'Flexible'
 }
 
-export function NegotiationHistory({ offers, thread, userId }) {
+export function NegotiationHistory({ offers, thread, userId, borderless = false }) {
   if (!offers.length) return null
 
   return (
-    <details className="rounded-[15px] border border-black/10 bg-white overflow-hidden">
+    <details className={borderless ? 'py-2' : 'rounded-[15px] border border-black/10 bg-white overflow-hidden'}>
       <summary className="cursor-pointer list-none px-3.5 py-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.12em] text-black/45">
@@ -98,6 +98,7 @@ export function NegotiationPanel({
   onSubmitOffer,
   onRespond,
   showParties = true,
+  borderless = false,
 }) {
   const range = formatRange(thread)
   const ownPending = pending?.sender_id === userId
@@ -114,7 +115,7 @@ export function NegotiationPanel({
 
   return (
     <>
-      <section className="mx-3 mt-2 rounded-[16px] border border-black/10 bg-[#FCFBF8] px-3.5 py-3">
+      <section className={borderless ? 'mt-2 py-3' : 'mx-3 mt-2 rounded-[16px] border border-black/10 bg-[#FCFBF8] px-3.5 py-3'}>
         <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0A13E6]">
           Price negotiation
         </p>
@@ -122,6 +123,7 @@ export function NegotiationPanel({
           currentUser={currentUser}
           peer={thread.peer}
           currentRole={thread.is_client ? 'client' : 'talent'}
+          borderless={borderless}
         />}
         <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -252,6 +254,7 @@ export function NegotiationPanel({
                 peer={thread.peer}
                 currentRole={thread.is_client ? 'client' : 'talent'}
                 compact
+                borderless={borderless}
               />
             </div>
 
