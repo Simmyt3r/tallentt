@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { FileText, MessageCircle, ShieldAlert, WalletCards } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
+import { workStatusForDeal } from '../../shared/dealWorkStatus.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import BookingProgress from '../components/BookingProgress.jsx'
 import DealQrCheckpoint from '../components/DealQrCheckpoint.jsx'
@@ -251,7 +252,7 @@ export default function DealDetails() {
             </div>
             <div className="min-w-0 px-1 py-3 sm:px-2">
               <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Work status</p>
-              <p className="mt-1 text-[14px] font-black">{nice(thread.work_status || thread.status)}</p>
+              <p className="mt-1 text-[14px] font-black">{nice(workStatusForDeal(thread))}</p>
             </div>
             <div className="min-w-0 px-1 py-3 sm:px-2">
               <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/35">Your side</p>

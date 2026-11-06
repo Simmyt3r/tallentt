@@ -34,7 +34,11 @@ export async function orbitWeights(){
   try{return validateOrbitWeights(weights)}catch{return {...ORBIT_DEFAULTS}}
 }
 
-const ratio=(count,cap)=>Math.max(0,Math.min(1,Number(count||0)/cap))
+// Weights calibrate points per activity block, not a maximum score.
+const ratio=(count,unit)=>{
+  const value=Number(count||0)
+  return Number.isFinite(value)?Math.max(0,value)/unit:0
+}
 export function calculateOrbitScore(metrics,weights=ORBIT_DEFAULTS){
   validateOrbitWeights(weights)
   const normalized={
@@ -54,10 +58,10 @@ export function calculateOrbitScore(metrics,weights=ORBIT_DEFAULTS){
     const filtered=factors.filter(f=>f.key!==(role==='talent'?'successful_hires':'completed_work'))
     const possible=filtered.reduce((n,f)=>n+f.possible,0)
     const earned=filtered.reduce((n,f)=>n+f.earned,0)
-    return [role,{score:possible?Math.min(100,Math.round(earned/possible*100)):0,max:100,
+    return [role,{score:possible?Math.round(earned/possible*100):0,max:null,
       factors:filtered}]
   }))
-  return {score:Math.min(100,score),max:100,factors,metrics,byRole:segmented,
+  return {score,max:null,factors,metrics,byRole:segmented,
     disclaimer:'An activity-based indicator, not identity verification or a guarantee of reliability.'}
 }
 
@@ -70,21 +74,19 @@ export async function accountOrbit(userId){
   const {rows:summary}=await query(`SELECT
     (SELECT COUNT(*)::int FROM hats WHERE user_id=$1 AND is_verified=TRUE) AS verified_hats,
     (SELECT COUNT(*)::int FROM escrows WHERE talent_id=$1 AND status='released') AS completed_work,
-    (SELECT COUNT(*)::int FROM escrows WHERE client_id=$1 AND status='released') AS successful_hires,
-    (SELECT COUNT(DISTINCT created_at::date)::int FROM hats
-      WHERE user_id=$1 AND active=TRUE AND feed_visible=TRUE) AS hat_days`,[userId])
+    (SELECT COUNT(*)::int FROM escrows WHERE client_id=$1 AND status='released') AS successful_hires`,[userId])
   const base=summary[0]
   const optional=await query(`SELECT to_regclass('vibes_posts') AS vibes,
     to_regclass('showroom_gallery_posts') AS gallery`)
-  const days=new Set()
-  const [hatDays,vibeDays,galleryDays]=await Promise.all([
-    query('SELECT DISTINCT created_at::date AS day FROM hats WHERE user_id=$1 AND active=TRUE AND feed_visible=TRUE LIMIT 50',[userId]),
-    optional.rows[0].vibes?query(`SELECT DISTINCT created_at::date AS day FROM vibes_posts
-      WHERE author_id=$1 AND deleted_at IS NULL AND moderation_status='visible' LIMIT 50`,[userId]):Promise.resolve({rows:[]}),
-    optional.rows[0].gallery?query(`SELECT DISTINCT created_at::date AS day FROM showroom_gallery_posts
-      WHERE author_id=$1 AND deleted_at IS NULL AND moderation_status='visible' LIMIT 50`,[userId]):Promise.resolve({rows:[]}),
-  ])
-  for(const item of [...hatDays.rows,...vibeDays.rows,...galleryDays.rows])days.add(String(item.day))
+  const activitySources=[
+    'SELECT created_at::date AS day FROM hats WHERE user_id=$1 AND active=TRUE AND feed_visible=TRUE',
+  ]
+  if(optional.rows[0].vibes)activitySources.push(`SELECT created_at::date AS day FROM vibes_posts
+    WHERE author_id=$1 AND deleted_at IS NULL AND moderation_status='visible'`)
+  if(optional.rows[0].gallery)activitySources.push(`SELECT created_at::date AS day FROM showroom_gallery_posts
+    WHERE author_id=$1 AND deleted_at IS NULL AND moderation_status='visible'`)
+  const {rows:activity}=await query('SELECT COUNT(DISTINCT day)::int AS active_days FROM ('+
+    activitySources.join(' UNION ALL ')+') publishing_days',[userId])
   const completedProfileFields=[
     Boolean(owner.avatar_url),Boolean(owner.bio?.trim()),
     Boolean(owner.skills?.length),Boolean(owner.location||owner.lga),Boolean(owner.country),
@@ -94,7 +96,7 @@ export async function accountOrbit(userId){
     verifiedIdentity:Number(base.verified_hats)>0,
     completedWork:Number(base.completed_work),
     successfulHires:Number(base.successful_hires),
-    activeDays:days.size,
+    activeDays:Number(activity[0]?.active_days||0),
     accountAgeDays:Math.max(0,Math.floor((Date.now()-new Date(owner.created_at).getTime())/86400000)),
   }
   return calculateOrbitScore(metrics,await orbitWeights())

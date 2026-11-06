@@ -4,7 +4,7 @@ export const WORK_PASS_DISCLAIMER = 'Verified past records do not guarantee futu
 export const WORK_PASS_LEVELS = Object.freeze(['Bronze', 'Silver', 'Gold', 'Diamond'])
 export function workPassTier(completedJobs = 0, orbit = 0) {
   const jobs = Math.max(0, Number(completedJobs) || 0)
-  const score = Math.max(0, Math.min(100, Number(orbit) || 0))
+  const score = Math.max(0, Number(orbit) || 0)
   if (jobs >= 30 && score >= 85) return 'Diamond'
   if (jobs >= 10 && score >= 65) return 'Gold'
   if (jobs >= 3 && score >= 30) return 'Silver'

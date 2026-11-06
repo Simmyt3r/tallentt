@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Eye, EyeOff, Landmark, Wallet as WalletIcon } from 'lucide-react'
 import { api, payWithPaystack } from '../lib/api'
+import { WALLET_CREDIT_TYPES } from '../../shared/walletTransaction.js'
 import { useAuth } from '../context/AuthContext'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromRow } from '../lib/profile.js'
@@ -41,7 +42,7 @@ const STATUS_STYLE = {
 // Direction is implied by `type`, mirroring api/_lib/wallet.js — topup,
 // escrow_start, escrow_release, and refund credit the wallet; escrow_fund and
 // withdrawal debit it.
-const CREDIT_TYPES = new Set(['topup', 'escrow_start', 'escrow_release', 'refund','wallet_transfer_received'])
+const CREDIT_TYPES = new Set(WALLET_CREDIT_TYPES)
 
 export default function Wallet() {
   const { user, refreshUser } = useAuth()

@@ -40,8 +40,8 @@ export async function getWorkPass(username, viewerId=null) {
   const successfulHires=Number(counts.successful_hires||0)
   const orbit=score?.score ?? 0
   const roleOrbit=score?.byRole||{
-    talent:{score:0,max:100,factors:[]},
-    client:{score:0,max:100,factors:[]},
+    talent:{score:0,max:null,factors:[]},
+    client:{score:0,max:null,factors:[]},
   }
   const paidTrackingMonths=await trackingPeriodsPaid(query,user.id).catch(()=>({talent:0,client:0}))
   // Printing is owner-only and checked from authoritative records. Never expose

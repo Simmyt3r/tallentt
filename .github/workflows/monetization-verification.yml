@@ -29,3 +29,7 @@ jobs:
         run: node tests/admin-commissions-ui.mjs
       - name: Verify deal QR sharing, scanning and visible work submission
         run: node tests/deal-payments-qr-ui.mjs
+      - name: Uncapped Orbit and admin reporting regressions
+        run: node --test tests/account-orbit.test.mjs tests/profile-orbit-layout.test.mjs tests/admin-ledger-status.test.mjs tests/work-pass-top12.test.mjs
+      - name: Verify Orbit and admin reporting UI
+        run: node tests/orbit-admin-fixes-ui.mjs

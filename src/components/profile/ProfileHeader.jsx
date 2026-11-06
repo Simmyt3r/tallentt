@@ -4,7 +4,7 @@ import { BadgeCheck, Eye, Share2 } from 'lucide-react'
 import ProfilePhotoViewer from '../ProfilePhotoViewer.jsx'
 import UserIdentity from '../UserIdentity.jsx'
 import { getPrimaryIdentity, getProfilePath, isBusinessIdentity } from '../../lib/profile.js'
-import { fullOrbitScore, singleDigitOrbit } from '../../lib/profileScore.js'
+import { fullOrbitScore } from '../../lib/profileScore.js'
 
 export default function ProfileHeader({
   user,
@@ -22,7 +22,6 @@ export default function ProfileHeader({
   const isBusiness = isBusinessIdentity(user.role)
   const identityLine = getPrimaryIdentity(user)
   const mainTalent = user.talentCard?.mainTalent || user.talent_card?.mainTalent || ''
-  const orbitDigit = singleDigitOrbit(orbit?.score)
   const orbitScore = fullOrbitScore(orbit?.score)
   const canonicalUrl = `${window.location.origin}${getProfilePath(user) || ''}`
 
@@ -104,8 +103,8 @@ export default function ProfileHeader({
       {isOwner ? (
         <div className="mt-4 flex min-w-0 items-center justify-between gap-2" aria-label="Profile actions and Orbit score">
           <span className="min-w-0 whitespace-nowrap text-[11px] font-bold text-[#0A13E6] sm:text-[12px]"
-            aria-label={orbitScore !== null ? `Orbit score ${orbitScore} out of 100` : 'Orbit score unavailable'}>
-            Orbit Score: <strong className="text-[13px] font-black tabular-nums sm:text-[15px]">{orbitScore !== null ? `${orbitScore}/100` : '—'}</strong>
+            aria-label={orbitScore !== null ? `Orbit score ${orbitScore}` : 'Orbit score unavailable'}>
+            Orbit Score: <strong className="text-[13px] font-black tabular-nums sm:text-[15px]">{orbitScore !== null ? orbitScore : '—'}</strong>
           </span>
           <button type="button" onClick={onEditClick} className="tw-btn-primary h-9 shrink-0 px-3 text-[11px] sm:px-4 sm:text-[12px]">
             Edit Profile
@@ -113,8 +112,8 @@ export default function ProfileHeader({
         </div>
       ) : (
         <>
-          {orbitDigit !== null && <div className="mt-4 flex items-center gap-3 text-[12px]">
-            <span className="rounded-full bg-[#EEF0FF] px-3 py-1.5 font-black text-[#0A13E6]" aria-label={`Orbit score ${orbitDigit} on a single-digit scale`}>Orbit {orbitDigit}</span>
+          {orbitScore !== null && <div className="mt-4 flex items-center gap-3 text-[12px]">
+            <span className="rounded-full bg-[#EEF0FF] px-3 py-1.5 font-black text-[#0A13E6]" aria-label={`Orbit score ${orbitScore}`}>Orbit {orbitScore}</span>
           </div>}
           {showHatsAction && <div className="mt-4 flex items-center gap-2">
             <button type="button" onClick={onShowHats} className="tw-btn-primary h-9 px-4 text-[12px] inline-flex items-center">

@@ -70,6 +70,7 @@ export default function AdminOrbitAndHatReview(){
     {!loading&&tab==='weights'&&config&&
       <section className="space-y-4 rounded-2xl border border-black/10 bg-white p-5">
         <p className="text-[12px] text-black/60">{config.reason}</p>
+        <p className="text-[12px] text-black/60">Weights add up to 100 for calibration; Orbit itself has no upper limit. Profile completeness and verification are one-off awards. Other weights award points per 5 completed jobs, 4 successful hires, 10 publishing days and 365 account days, and keep accumulating.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           {Object.keys(config.labels).map(key=><label key={key}
             className="flex items-center justify-between gap-3 border-b border-black/10 pb-3 text-[12px] font-semibold">
@@ -80,7 +81,7 @@ export default function AdminOrbitAndHatReview(){
               className="h-11 w-20 rounded-xl border border-black/20 px-3 text-right font-bold"/>
           </label>)}
         </div>
-        <p className={`text-[13px] font-black ${total===100?'text-green-800':'text-red-700'}`}>Total: {total}/100 points</p>
+        <p className={`text-[13px] font-black ${total===100?'text-green-800':'text-red-700'}`}>Weight total: {total}/100</p>
         <button type="button" disabled={Boolean(busy)||total!==100}
           onClick={saveWeights} className="min-h-11 rounded-full bg-[#0A13E6] px-6 text-[12px] font-bold text-white disabled:opacity-40">Save Orbit configuration</button>
       </section>}

@@ -1,5 +1,6 @@
 // Path: api/admin/index.js
 import { query, getClient } from '../_lib/db.js'
+import { DEAL_WORK_STATUS_SQL } from '../../shared/dealWorkStatus.js'
 import {pendingVibesVideos,reviewVibesVideo} from '../_lib/vibesReview.js'
 import {reconcileCommissionLedger} from '../_lib/commissionLedger.js'
 import {financeSummary,financeAudit,financeLiabilityAudit} from '../_lib/financeReporting.js'
@@ -188,10 +189,10 @@ async function getDashboard() {
       FROM escrows GROUP BY status ORDER BY status
     `),
     query(`
-      SELECT work_status as status, COUNT(*)::int as count, COALESCE(SUM(amount), 0)::int as amount
+      SELECT ${DEAL_WORK_STATUS_SQL} as status, COUNT(*)::int as count, COALESCE(SUM(amount), 0)::int as amount
       FROM escrows
-      GROUP BY work_status
-      ORDER BY work_status
+      GROUP BY 1
+      ORDER BY 1
     `),
     query(`
       SELECT type, status, COUNT(*)::int as count, COALESCE(SUM(amount), 0)::int as amount
