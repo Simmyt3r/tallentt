@@ -6,7 +6,7 @@ import { useAccountOrbit } from '../../lib/useAccountOrbit.js'
 
 function AssociateOrbit({username}) {
   const {node,score,resolved}=useAccountOrbit(username)
-  return <span ref={node}>Orbit {score===null?(resolved?'—':'…'):score}/100</span>
+  return <span ref={node}>Orbit {score===null?(resolved?'—':'…'):score}</span>
 }
 
 export default function AssociatesSection({ data, isOwner, onRefresh }) {

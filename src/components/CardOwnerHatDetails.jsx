@@ -56,7 +56,7 @@ export default function CardOwnerHatDetails({detail,hat,entertainment=false}){
       {detail?.performance ? (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Stat label="Orbit activity score" value={orbit ? `${orbit.score}/100` : 'Not available'}/>
+            <Stat label="Orbit activity score" value={orbit ? orbit.score : 'Not available'}/>
             <Stat label="Active Hats" value={performance.active_hats ?? 'Not available'}/>
             <Stat label="Completed talent jobs" value={performance.completed_jobs ?? 'Not available'}/>
             <Stat label="Successful hires" value={performance.successful_hires ?? 'Not available'}/>
@@ -66,7 +66,7 @@ export default function CardOwnerHatDetails({detail,hat,entertainment=false}){
             <summary className="cursor-pointer font-semibold">How Orbit is calculated</summary>
             <dl className="mt-2 space-y-1">
               {orbit.factors.map(f=><div key={f.key} className="flex justify-between gap-2">
-                <dt>{f.label}</dt><dd>{f.earned}/{f.possible}</dd>
+                <dt>{f.label}</dt><dd>{f.earned} points</dd>
               </div>)}
             </dl>
           </details>}

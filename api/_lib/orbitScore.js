@@ -1,5 +1,5 @@
 /**
- * Orbit score = confidence score (0–100).
+ * Legacy Hat activity points; completed bookings can keep adding points.
  * Completeness + social proof. Used for ranking and UI "confidence".
  */
 export function computeOrbitScore({
@@ -20,8 +20,8 @@ export function computeOrbitScore({
   if (hasMotto) score += 5
   if (hasPrice) score += 4
   if (availability) score += 4
-  score += Math.min(bookings, 20) * 1.2
+  score += Math.max(0, Number(bookings) || 0) * 1.2
   score += Math.min(likes, 100) * 0.12
   score += Math.min(Number(rating) || 0, 5) * 1.8
-  return Math.max(0, Math.min(100, Math.round(score)))
+  return Math.max(0, Math.round(score))
 }

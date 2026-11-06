@@ -1,7 +1,7 @@
 // Story export mirrors the ChombuTar Work Pass branding using canvas.
 // Only current profile facts are rendered. No synthetic awards or false verification.
 import { workPassAccent } from '../../shared/workPass.js'
-import { singleDigitOrbit } from './profileScore.js'
+import { fullOrbitScore } from './profileScore.js'
 const BLUE='#0A13E6',CREAM='#F7F3EB',INK='#101735'
 function round(ctx,x,y,w,h,r,fill,stroke){
   ctx.beginPath();ctx.roundRect(x,y,w,h,r)
@@ -73,9 +73,10 @@ export async function renderWorkPassStory({pass,qr,avatarUrl}){
   ctx.font='700 30px system-ui,sans-serif';ctx.fillStyle='#fff'
   ctx.fillText(pass.token?'●  Digitally signed by ChombuTar':'●  Unsigned profile preview',150,843)
   ctx.font='700 24px system-ui,sans-serif';ctx.fillStyle='#DCE4FF';ctx.fillText('WORK  ·  TRUST  ·  GROW',140,991)
-  ctx.font='800 23px system-ui,sans-serif'
-  ctx.fillText('TALENT ORBIT '+String(singleDigitOrbit(pass.roleOrbit?.talent?.score) ?? '—'),140,1048)
-  ctx.fillText('CLIENT ORBIT '+String(singleDigitOrbit(pass.roleOrbit?.client?.score) ?? '—'),570,1048)
+  const talentOrbit='TALENT ORBIT '+String(fullOrbitScore(pass.roleOrbit?.talent?.score) ?? '—')
+  const clientOrbit='CLIENT ORBIT '+String(fullOrbitScore(pass.roleOrbit?.client?.score) ?? '—')
+  textFit(ctx,talentOrbit,390,23,11);ctx.fillText(talentOrbit,140,1048,390)
+  textFit(ctx,clientOrbit,390,23,11);ctx.fillText(clientOrbit,570,1048,390)
   // Metrics, labels and QR retain live platform data and true score units.
   round(ctx,58,1110,964,233,34,'#fff','#DCE0F0')
   const stats=[['COMPLETED JOBS',String(Number(pass.completedJobs)||0)],['SUCCESSFUL HIRES',String(Number(pass.successfulHires)||0)],['TRACKED MONTHS',String(Number(pass.paidTrackingMonths?.talent||0)+Number(pass.paidTrackingMonths?.client||0))]]

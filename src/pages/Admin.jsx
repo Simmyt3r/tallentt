@@ -21,6 +21,8 @@ import {
   Wallet,
 } from 'lucide-react'
 import { api } from '../lib/api.js'
+import { WALLET_CREDIT_TYPES } from '../../shared/walletTransaction.js'
+import { workStatusForDeal } from '../../shared/dealWorkStatus.js'
 import AdminDisputes from '../components/AdminDisputes.jsx'
 import CompactPageHeader from '../components/CompactPageHeader.jsx'
 import AdminMigrations from '../components/AdminMigrations.jsx'
@@ -81,7 +83,7 @@ const STATUS_STYLE = {
   completed: 'bg-[#E8FFE6] text-[#0A7A00]',
 }
 
-const MONEY_TYPES = new Set(['topup', 'escrow_start', 'escrow_release', 'refund'])
+const MONEY_TYPES = new Set(WALLET_CREDIT_TYPES)
 
 function fmtMoney(n) {
   if (n == null) return '₦0'
@@ -921,7 +923,7 @@ function EscrowsTable({ rows, busy, runAction }) {
               )}
             </Td>
             <Td>
-              <StatusPill status={e.work_status || 'in_progress'} />
+              <StatusPill status={workStatusForDeal(e)} />
               {e.work_started_at && <p className="text-[10px] text-black/35 mt-1">Started {fmtDate(e.work_started_at)}</p>}
             </Td>
             <Td className="max-w-[220px]">

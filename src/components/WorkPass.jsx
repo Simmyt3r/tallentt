@@ -9,7 +9,7 @@ import { cldImage } from '../lib/cloudinary.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { renderWorkPassStory } from '../lib/workPassArtwork.js'
 import { workPassAccent, WORK_PASS_DISCLAIMER } from '../../shared/workPass.js'
-import { singleDigitOrbit } from '../lib/profileScore.js'
+import { fullOrbitScore } from '../lib/profileScore.js'
 import '../styles/work-pass.css'
 
 const nameOf = user => user?.name || user?.username || 'ChombuTar member'
@@ -155,16 +155,16 @@ export default function WorkPass({username,onClose,compact=false}) {
       <div className="space-y-5 bg-gradient-to-b from-white to-[#FDFBF8] p-4 sm:p-6">
         <section aria-label="Separate talent and client Orbit scores" className="rounded-2xl border border-[#DCE0FF] bg-[#F1F3FF] p-3 sm:p-4">
           <h3 className="text-[13px] font-black text-[#111837]">Your work reputation · Separate roles</h3>
-          <p className="mt-1 text-[10px] text-[#5D647B]">Talent Orbit reflects completed work; Client Orbit reflects successful hiring. The figures use a 0–9 display scale, and are separate views of your activity—not three competing scores. Salary months count only after both people pay tracking fees.</p>
+          <p className="mt-1 text-[10px] text-[#5D647B]">Talent Orbit reflects completed work; Client Orbit reflects successful hiring. Both scores keep growing as recorded activity accumulates, with no upper limit. Salary months count only after both people pay tracking fees.</p>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-[#D6DCFC] bg-white p-3">
               <p className="text-[11px] font-black text-[#0A13E6]">Talent Orbit</p>
-              <p className="mt-1 text-2xl font-black text-[#111837]">{singleDigitOrbit(data.roleOrbit?.talent?.score) ?? '—'}</p>
+              <p className="mt-1 break-all text-2xl font-black text-[#111837]">{fullOrbitScore(data.roleOrbit?.talent?.score) ?? '—'}</p>
               <p className="mt-2 text-[10px] text-[#626B82]">{data.completedJobs||0} completed jobs · {data.paidTrackingMonths?.talent||0} paid-confirmed salary months</p>
             </div>
             <div className="rounded-xl border border-[#D6DCFC] bg-white p-3">
               <p className="text-[11px] font-black text-[#0A13E6]">Client Orbit</p>
-              <p className="mt-1 text-2xl font-black text-[#111837]">{singleDigitOrbit(data.roleOrbit?.client?.score) ?? '—'}</p>
+              <p className="mt-1 break-all text-2xl font-black text-[#111837]">{fullOrbitScore(data.roleOrbit?.client?.score) ?? '—'}</p>
               <p className="mt-2 text-[10px] text-[#626B82]">{data.successfulHires||0} successful hires · {data.paidTrackingMonths?.client||0} paid-confirmed salary months</p>
             </div>
           </div>

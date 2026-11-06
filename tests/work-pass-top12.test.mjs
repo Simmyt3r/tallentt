@@ -20,11 +20,14 @@ test('Top 12 rejects lower-tier passes and caps at twelve unique owners',()=>{
   assert.equal(result.some(p=>p.id==='person-0'),false)
   assert.equal(result.every(p=>p.tier==='Gold'||p.tier==='Diamond'),true)
 })
-test('insufficient Orbit Score blocks Gold even with many jobs',()=>{
+test('a long completed-work history grows beyond 100 Orbit points',()=>{
   const low=owner(1,100)
   low.avatar_url='';low.bio='';low.skills=[];low.location='';low.country=''
   low.verified_hats=0;low.successful_hires=0;low.created_at=new Date().toISOString()
-  assert.deepEqual(selectGoldTop12([low],ORBIT_DEFAULTS),[])
+  const result=selectGoldTop12([low],ORBIT_DEFAULTS)
+  assert.equal(result.length,1)
+  assert.ok(result[0].orbit>100)
+  assert.equal(result[0].tier,'Diamond')
 })
 test('Top 12 is enforced by API rather than client-side decoration',()=>{
   const api=read('api/showroom/index.js'),ui=read('src/components/Showroom.jsx')

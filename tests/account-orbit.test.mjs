@@ -37,7 +37,7 @@ test('high raw likes and views cannot alter Orbit Score',()=>{
   const low=orbit.calculateOrbitScore({...metrics,likes:0,views:0})
   const high=orbit.calculateOrbitScore({...metrics,likes:5000000,views:100000000})
   assert.equal(low.score,high.score)
-  assert.equal(low.max,100)
+  assert.equal(low.max,null)
 })
 
 test('completed escrow evidence raises Orbit; repeat account views do not',async()=>{
@@ -74,4 +74,39 @@ test('Hat review requires a meaningful note and does not rewrite escrow status',
   assert.equal((await pool.query('SELECT status FROM escrows WHERE id=$1',[dealId])).rows[0].status,'released')
   const corrected=await orbit.reviewHatData(admin,{hat_id:hatId,decision:'reviewed',note:''})
   assert.equal(corrected.decision,'reviewed')
+})
+
+
+test('Orbit continues growing beyond every former activity ceiling and keeps roles separate',()=>{
+  const metrics={completedProfileFields:5,verifiedIdentity:true,
+    completedWork:100,successfulHires:100,activeDays:100,accountAgeDays:3650}
+  const first=orbit.calculateOrbitScore(metrics)
+  const next=orbit.calculateOrbitScore({...metrics,completedWork:101,successfulHires:101,
+    activeDays:101,accountAgeDays:4015})
+  assert.ok(first.score>100)
+  assert.ok(next.score>first.score)
+  for(const role of ['talent','client']){
+    assert.ok(first.byRole[role].score>100)
+    assert.ok(next.byRole[role].score>first.byRole[role].score)
+    assert.equal(next.byRole[role].max,null)
+  }
+  const talentOnly=orbit.calculateOrbitScore({...metrics,completedWork:101})
+  assert.ok(talentOnly.byRole.talent.score>first.byRole.talent.score)
+  assert.equal(talentOnly.byRole.client.score,first.byRole.client.score)
+})
+
+test('all publishing days count after the former 50-day query limit',async()=>{
+  await pool.query(`INSERT INTO hats(user_id,username,hat_title,hat_name,category,created_at,active,feed_visible)
+    SELECT $1,'orbit_talent','Orbit day '||n,'Orbit day '||n,'Art & Design',
+      NOW()-n*INTERVAL '1 day',TRUE,TRUE FROM generate_series(1,65) AS n`,[talent])
+  const result=await orbit.accountOrbit(talent)
+  assert.ok(result.metrics.activeDays>=65)
+  assert.equal(result.factors.find(f=>f.key==='contributions').earned,result.metrics.activeDays)
+})
+
+test('legacy Hat activity also keeps growing with completed bookings',async()=>{
+  const {computeOrbitScore}=await import('../api/_lib/orbitScore.js')
+  const first=computeOrbitScore({bookings:1000})
+  assert.ok(first>100)
+  assert.ok(computeOrbitScore({bookings:1001})>first)
 })

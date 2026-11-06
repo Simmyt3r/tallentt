@@ -35,7 +35,7 @@ export default function VerifyWorkPass(){
     {claim&&<section className="rounded-xl bg-green-50 p-4 text-xs">
       <h2 className="font-black">Valid Chombutar signature</h2>
       <p>{claim.name} · @{claim.username} · {claim.tier}</p>
-      <p>Jobs: {claim.completedJobs} · Orbit: {claim.orbit}/100</p>
+      <p>Jobs: {claim.completedJobs} · Orbit: {claim.orbit}</p>
       <p className="mt-2">Signed snapshot only. Verify current status online before relying on it.</p>
     </section>}
   </main>
