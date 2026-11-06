@@ -9,6 +9,7 @@ import UserIdentity from '../../components/UserIdentity'
 import CompactPageHeader from '../../components/CompactPageHeader.jsx'
 import { connectLiveRealtime } from '../../lib/liveRealtime'
 import { clearLivePublisher, getLivePublisher } from '../../lib/liveSession'
+import PlatformLivePlayer from './PlatformLivePlayer.jsx'
 const LiveKitStage = lazy(() => import('./LiveKitStage.jsx'))
 
 function money(n) { return `₦${Number(n || 0).toLocaleString()}` }
@@ -345,7 +346,7 @@ export default function StageRoom() {
     }
     return publisher.subscribeConnection((state) => {
       setPublisherConnection(state)
-      if (room?.media_mode === 'fallback' || room?.media_mode === 'livekit') return
+      if (['fallback','livekit','platform'].includes(room?.media_mode)) return
       if (!['connected', 'disconnected', 'failed'].includes(state) || lastPublisherStateRef.current === state) return
       lastPublisherStateRef.current = state
       api.liveAction({ action: 'publisher_state', stream_id: id, state }).then(() => load()).catch(() => {})
@@ -421,7 +422,9 @@ export default function StageRoom() {
   const playerMessage = room.media_mode==='livekit'
     ? ({reconnecting:'Reconnecting to LiveKit…',unavailable:'Camera session unavailable.',
         error:'LiveKit playback failed.',loading:'Connecting to LiveKit…'}[playbackState]||'')
-    : playbackMessage(playbackState)
+    : room.media_mode==='platform'
+      ? ({loading:'Loading Live video…',reconnecting:'Waiting for the broadcaster’s connection…',error:'Video playback failed. Try rejoining Live.',ended:'Live has ended.'}[playbackState]||'')
+      : playbackMessage(playbackState)
 
   return (
     <div className="max-w-[780px] mx-auto space-y-4 pb-10" ref={shellRef}>
@@ -439,6 +442,8 @@ export default function StageRoom() {
           : room.status === 'ended' ? <div className="w-full h-full grid place-items-center text-white/70 text-[13px] font-semibold">Live has ended</div>
             : room.status === 'failed' ? <div className="w-full h-full grid place-items-center text-red-300 text-[13px] font-semibold">Live stream failed</div>
               : isFallback ? <FallbackStage mediaStream={fallbackMedia} isHost={isHost} />
+                : room.media_mode==='platform' ? <PlatformLivePlayer id={id}
+                    mediaStream={isHost?getLivePublisher(id)?.mediaStream:null} onState={setPlaybackState}/>
                 : room.media_mode==='livekit' ? <Suspense fallback={<div className="grid h-full w-full place-items-center text-white">Connecting to LiveKit…</div>}>
                     <LiveKitStage id={id} hostId={room.talent_id} isHost={isHost} onState={setPlaybackState}/>
                   </Suspense>
@@ -467,6 +472,8 @@ export default function StageRoom() {
           : isFallback?'Serverless fallback • camera stays on this device':publisherLabel(publisherConnection)}</p>}
         {isFallback ? (
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold"><Wifi size={13} /><span className="rounded-full border border-black/15 px-3 py-1.5">Temporary preview mode</span><span className="text-[9px] text-black/35 ml-auto">{realtimeState === 'connected' ? 'Live updates connected' : 'Live updates via polling'}</span></div>
+        ) : room.media_mode==='platform' ? (
+          <p className="text-[11px] text-black/55">Live video and sound · short broadcast delay</p>
         ) : room.media_mode==='livekit' ? (
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold"><Wifi size={13}/><span>LiveKit adaptive quality</span><span className="text-[9px] text-black/35 ml-auto">{realtimeState === 'connected' ? 'Live updates connected' : 'Live updates via polling'}</span></div>
         ) : (

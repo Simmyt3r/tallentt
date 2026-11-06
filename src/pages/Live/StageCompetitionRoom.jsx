@@ -6,6 +6,7 @@ import { api } from '../../lib/api.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import UserIdentity from '../../components/UserIdentity.jsx'
 import CompactPageHeader from '../../components/CompactPageHeader.jsx'
+import PlatformLivePlayer from './PlatformLivePlayer.jsx'
 
 function LiveVideo({src,quality}){
   const ref=useRef(null)
@@ -159,12 +160,14 @@ export default function StageCompetitionRoom(){
       <div className="grid gap-4 sm:grid-cols-2">
         {entrants.map((entrant,index)=><article key={entrant.talent_id}
           className="overflow-hidden rounded-2xl border border-black/10 bg-white">
-          {active?.stream_id===entrant.stream_id&&entrant.hls_url&&contest.status==='live'
-            ? <LiveVideo src={entrant.hls_url} quality={quality}/>
+          {active?.stream_id===entrant.stream_id&&(entrant.hls_url||entrant.media_mode==='platform')&&contest.status==='live'
+            ? entrant.media_mode==='platform'
+              ? <div className="aspect-video"><PlatformLivePlayer id={entrant.stream_id}/></div>
+              : <LiveVideo src={entrant.hls_url} quality={quality}/>
             : <div className="flex aspect-video flex-col items-center justify-center gap-2 bg-[#101525] p-3 text-center text-white">
               <Radio size={24}/>
               <span className="text-[12px] font-bold">{entrant.stream_status==='live'?'Stream available':'Stream offline'}</span>
-              {entrant.hls_url&&contest.status==='live'&&
+              {(entrant.hls_url||entrant.media_mode==='platform')&&entrant.stream_status==='live'&&contest.status==='live'&&
                 <button type="button" onClick={()=>setPlayId(entrant.stream_id)}
                   className="min-h-10 rounded-full border border-white/30 bg-white px-5 text-[12px] font-bold text-black">
                   Watch this contestant

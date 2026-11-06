@@ -34,6 +34,7 @@ const escrowHandler = (await import('../api/escrows/index.js')).default
 const actionHandler = (await import('../api/escrows/[id]/[action].js')).default
 const authHandler = (await import('../api/auth/index.js')).default
 const adminHandler = (await import('../api/admin/index.js')).default
+const liveHandler = (await import('../api/live/index.js')).default
 const { signSession } = await import('../api/_lib/auth.js')
 const server = http.createServer(async (req, res) => {
   res.status = (code) => { res.statusCode = code; return res }
@@ -52,6 +53,7 @@ const server = http.createServer(async (req, res) => {
     // /me and /profile sub-paths this fixture used to dispatch to separately.
     if (url.pathname === '/api/auth') return await authHandler(req, res)
     if (url.pathname === '/api/admin') return await adminHandler(req, res)
+    if (url.pathname === '/api/live') return await liveHandler(req, res)
     if (url.pathname === '/api/escrows') return await escrowHandler(req, res)
     const action = url.pathname.match(/^\/api\/escrows\/([^/]+)\/([^/]+)$/)
     if (action) { req.query = { id: action[1], action: action[2] }; return await actionHandler(req, res) }

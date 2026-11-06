@@ -1,4 +1,4 @@
-name: Cloudinary Live Broadcast
+name: Live Broadcast Verification
 
 on:
   pull_request:
@@ -7,6 +7,9 @@ on:
       - "api/_lib/liveTransport.js"
       - "api/_lib/live.js"
       - "api/_lib/liveMedia.js"
+      - "api/_lib/platformLive.js"
+      - "src/lib/platformLiveBroadcast.js"
+      - "tests/platform-live*"
       - "api/live/index.js"
       - "src/pages/Live/**"
       - "src/lib/api.js"
@@ -23,6 +26,9 @@ on:
       - "api/_lib/liveTransport.js"
       - "api/_lib/live.js"
       - "api/_lib/liveMedia.js"
+      - "api/_lib/platformLive.js"
+      - "src/lib/platformLiveBroadcast.js"
+      - "tests/platform-live*"
       - "api/live/index.js"
       - "src/pages/Live/**"
       - "src/lib/api.js"
@@ -44,6 +50,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Verify Cloudinary provider and legacy Live auth
-        run: node --test tests/cloudinary-live.test.mjs tests/live-media.test.mjs tests/live-playback-auth.test.mjs
+        run: node --test tests/platform-live.test.mjs tests/live-stage-competitions.test.mjs tests/browser-live-no-obs.test.mjs tests/livekit-cloud.test.mjs tests/cloudinary-live.test.mjs tests/live-media.test.mjs tests/live-playback-auth.test.mjs
       - name: Build ChombuTar web app
         run: npm run build
+      - name: Install Live test browser
+        run: npx playwright install --with-deps chromium-headless-shell
+      - name: Verify separate non-admin camera host and viewer
+        run: node tests/platform-live-ui.mjs

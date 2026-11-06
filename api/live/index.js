@@ -3,6 +3,7 @@ import { getSessionUser } from '../_lib/auth.js'
 import { listStageCompetitions, ownCompetitionStreams, stageCompetition, createStageCompetition, stageCompetitionAction } from '../_lib/stageCompetitions.js'
 import {resolveBroadcastAvailability} from '../_lib/liveTransport.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
+import {uploadPlatformSegment,platformManifest,platformSegment} from '../_lib/platformLive.js'
 import {
   listStreams,
   getStream,
@@ -26,6 +27,7 @@ const POST_ACTIONS = {
   like: likeStream,
   send_support: sendSupport,
   end_stream: endStream,
+  upload_video: uploadPlatformSegment,
 }
 
 export default async function handler(req, res) {
@@ -46,6 +48,15 @@ export default async function handler(req, res) {
     if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
     if (req.method === 'GET') {
+      if(url.searchParams.has('media_manifest'))
+        return json(res,200,await platformManifest(url.searchParams.get('media_manifest')))
+      if(url.searchParams.has('media_segment')){
+        const segment=await platformSegment(url.searchParams.get('media_segment'),url.searchParams.get('sequence'))
+        res.setHeader('Content-Type',segment.mime)
+        res.setHeader('X-Content-Type-Options','nosniff')
+        res.setHeader('Content-Length',segment.media.length)
+        res.statusCode=200;res.end(segment.media);return
+      }
       if (url.searchParams.get('media_status') === '1') {
         const availability=await resolveBroadcastAvailability()
         return json(res,200,{broadcast_ready:availability.ready,mode:availability.mode,
@@ -65,7 +76,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method !== 'POST') return methodNotAllowed(res, ['GET', 'POST'])
-    const body = await readBody(req)
+    const body = await readBody(req,{maxBytes:1100000})
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'A JSON object is required.' })
     if (body.action === 'stage_create') return json(res,201,await createStageCompetition(session.sub,body))
     if (['stage_join','stage_vote','stage_start','stage_complete','stage_cancel'].includes(body.action))

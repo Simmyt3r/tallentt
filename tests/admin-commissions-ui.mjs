@@ -53,17 +53,17 @@ try{
     return route.fulfill({json:{recorded:true,transactions:params.has('cursor')?[older,uncharged]:[deal],next_cursor:params.has('cursor')?null:deal.id}})
   })
   await page.goto(`http://127.0.0.1:5182/${fixtureName}`)
-  await page.getByRole('heading',{name:'Commissions by deal',exact:true}).waitFor()
+  await page.getByRole('heading',{name:'Service charges by deal',exact:true}).waitFor()
   await page.getByRole('cell',{name:'Client: test_client Talent: test_talent'}).waitFor()
   assert.equal(reconciliations,1)
-  assert.match(await page.getByRole('region',{name:'Deal commission earnings'}).innerText(),/₦650/)
+  assert.match(await page.getByRole('region',{name:'Deal service charge earnings'}).innerText(),/₦650/)
   await page.getByText('View fee records',{exact:true}).click()
   await page.getByText('sealed · 5%',{exact:true}).waitFor()
-  await page.getByText('Commission reversal: ₦350',{exact:true}).waitFor()
+  await page.getByText('Service charge reversal: ₦350',{exact:true}).waitFor()
   await page.getByText(/Recovered from transaction: recovered-wallet-transaction/).waitFor()
   await page.getByRole('button',{name:'Load older deals',exact:true}).click()
   await page.getByText('Logo design',{exact:true}).waitFor()
-  await page.getByText('No commission was collected on this earlier deal.',{exact:true}).waitFor()
+  await page.getByText('No service charge was collected on this earlier deal.',{exact:true}).waitFor()
   assert.equal(await page.getByRole('button',{name:'Load older deals'}).count(),0)
   await mkdir('test-results',{recursive:true})
   for(const width of [320,390,768,1280]){
@@ -76,9 +76,9 @@ try{
   await page.getByText('live_supporter / live_talent',{exact:true}).waitFor()
   await page.getByRole('button',{name:'Close audit',exact:true}).click()
   assert.equal(await page.getByRole('region',{name:'Platform fee accrual audit'}).count(),0)
-  await page.getByRole('button',{name:'View commissions by deal',exact:true}).click()
+  await page.getByRole('button',{name:'View service charges by deal',exact:true}).click()
   await page.getByText('Electrical repair',{exact:true}).waitFor()
-  for(const [next,text] of [['empty','No deal commissions recorded yet.'],['missing','Commission records are unavailable. Apply the billing migration in Database Migrations.'],['error','Commission report temporarily unavailable']]){
+  for(const [next,text] of [['empty','No deal service charges recorded yet.'],['missing','Service charge records are unavailable. Apply the billing migration in Database Migrations.'],['error','Commission report temporarily unavailable']]){
     mode=next
     await page.getByRole('button',{name:'Refresh',exact:true}).click()
     if(next==='error')await page.getByRole('alert').filter({hasText:text}).waitFor()

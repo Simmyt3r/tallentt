@@ -42,7 +42,7 @@ test('Cloudinary Live requires server-side keys and a successful API check',asyn
  assert.equal(availability.ready,true)
  delete process.env.CLOUDINARY_API_SECRET
  assert.equal(cloudinaryLiveConfigured(),false)
- assert.equal((await resolveBroadcastAvailability()).ready,false)
+ assert.deepEqual(await resolveBroadcastAvailability(),{mode:'platform',ready:true,reason:null})
 })
 test('Live creates authenticated RTMP input and validated Cloudinary HLS output',async()=>{
  const result=await createCloudinaryLive('Singing practice')

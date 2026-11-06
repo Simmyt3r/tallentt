@@ -12,13 +12,14 @@ before(async()=>{
   pool=db.pool
   global.__tworldPool=pool
   await pool.query(await readFile(new URL('../db/schema.sql',import.meta.url),'utf8'))
+  await pool.query(await readFile(new URL('../db/live-support.sql',import.meta.url),'utf8'))
   await pool.query(await readFile(new URL('../db/patch-live-stage-competitions-2026-10.sql',import.meta.url),'utf8'))
   for(const [id,username,role] of [[host,'stage_host','talent'],[alice,'stage_alice','talent'],
     [bob,'stage_bob','dual'],[audience,'stage_audience','client']]){
     await pool.query('INSERT INTO users(id,username,full_name,email,password_hash,role) VALUES($1,$2,$2,$3,$4,$5)',
       [id,username,username+'@example.test','hash',role])
   }
-  for(const [id,talent,path] of [[streamAlice,alice,'live-alice'],[streamBob,bob,'live-bob']]){
+  for(const [id,talent,path] of [[streamAlice,alice,`app-${streamAlice}`],[streamBob,bob,'live-bob']]){
     await pool.query(`INSERT INTO live_streams(id,talent_id,title,category,status,media_status,stream_path)
       VALUES($1,$2,'Competition stream','Music','live','connected',$3)`,[id,talent,path])
   }
@@ -53,6 +54,8 @@ test('contestants must own an actual connected video stream',async()=>{
     action:'stage_join',competition_id:contestId,stream_id:streamBob,
   })
   assert.equal(joined.ok,true)
+  const entrants=(await stage.stageCompetition(audience,contestId)).entrants
+  assert.equal(entrants.find(item=>item.stream_id===streamAlice).media_mode,'platform')
 })
 
 test('only host starts two eligible live entrants; no voting before start',async()=>{

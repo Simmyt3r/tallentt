@@ -24,7 +24,7 @@ const CATEGORIES = [
 const LEGAL = {
   terms: {
     title: 'Terms of Service',
-    body: 'ChombuTar is a talent marketplace connecting clients and service providers. Only authorized account holders may use services. Gig deals have a disclosed 5% platform commission recorded when a deal is sealed. Funded booking payments are managed through staged escrow checkpoints; disputes may delay settlement, and refunds only cover eligible unreleased funds. Full-time employment salary-tracking fees are charged monthly to both parties under the published fee terms. Your services, venue access and obligations are governed by applicable booking rules and any legally enforceable terms you accept. This short summary is not a complete services contract.',
+    body: 'ChombuTar is a talent marketplace connecting clients and service providers. Only authorized account holders may use services. Gig deals have a disclosed 5% service charge recorded when a deal is sealed. Funded booking payments are managed through staged escrow checkpoints; disputes may delay settlement, and refunds only cover eligible unreleased funds. Full-time employment salary-tracking fees are charged monthly to both parties under the published fee terms. Your services, venue access and obligations are governed by applicable booking rules and any legally enforceable terms you accept. This short summary is not a complete services contract.',
   },
   privacy: {
     title: 'Privacy Policy',
@@ -32,7 +32,7 @@ const LEGAL = {
   },
   vendor: {
     title: 'Vendor Affiliate Agreement',
-    body: 'Subscribers must accurately represent their qualifications and their media rights, avoid spam and impersonation, follow marketplace and publishing rules, and pay applicable disclosed transaction fees. Marketplace commissions are separate from any independently agreed affiliate reward. Violations can lead to moderation or suspension.',
+    body: 'Subscribers must accurately represent their qualifications and their media rights, avoid spam and impersonation, follow marketplace and publishing rules, and pay applicable disclosed transaction fees. Marketplace service charges are separate from any independently agreed affiliate reward. Violations can lead to moderation or suspension.',
   },
   cookie: {
     title: 'Cookie Policy',

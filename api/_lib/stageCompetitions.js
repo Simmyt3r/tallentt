@@ -2,6 +2,7 @@
 // payouts, or gambling. Video is supplied by each contestant's existing Live.
 import {query,getClient} from './db.js'
 import {publicLiveMediaEndpoints} from './liveMedia.js'
+import {isPlatformStream,expirePlatformStreams} from './platformLive.js'
 
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i
 const bad=(status,message)=>Object.assign(new Error(message),{status})
@@ -32,6 +33,7 @@ export async function listStageCompetitions() {
 
 export async function ownCompetitionStreams(userId) {
   await checkInstall()
+  await expirePlatformStreams()
   const {rows}=await query(`SELECT id,title,category,started_at FROM live_streams
     WHERE talent_id=$1 AND status='live' AND media_status='connected'
     ORDER BY started_at DESC LIMIT 6`,[userId])
@@ -40,6 +42,7 @@ export async function ownCompetitionStreams(userId) {
 
 export async function stageCompetition(userId,id) {
   await checkInstall()
+  await expirePlatformStreams()
   requiredId(id)
   const {rows}=await query(`SELECT c.*,u.username AS host_username,
     u.full_name AS host_full_name FROM stage_competitions c
@@ -59,8 +62,9 @@ export async function stageCompetition(userId,id) {
     WHERE e.competition_id=$1
     ORDER BY votes DESC,e.joined_at ASC`,[id])
   const entrants=participants.map(({stream_path,cloudinary_stream_id,cloudinary_hls_url,...row})=>({
+    media_mode:isPlatformStream({stream_path})?'platform':null,
     ...row,hls_url:row.stream_status==='live'&&row.media_status==='connected'
-      ? (cloudinary_stream_id ? cloudinary_hls_url : publicLiveMediaEndpoints(stream_path).hlsUrl)||null : null,
+      ? (isPlatformStream({stream_path})?null:cloudinary_stream_id ? cloudinary_hls_url : publicLiveMediaEndpoints(stream_path).hlsUrl)||null : null,
   }))
   const {rows:voted}=userId?await query(`SELECT talent_id FROM stage_competition_votes
     WHERE competition_id=$1 AND voter_id=$2`,[id,userId]):{rows:[]}
@@ -91,6 +95,7 @@ export async function createStageCompetition(userId,body) {
 
 export async function stageCompetitionAction(userId,body) {
   await checkInstall()
+  await expirePlatformStreams()
   const id=requiredId(body.competition_id)
   const client=await getClient()
   try {

@@ -10,6 +10,7 @@ import { emitLiveEvent } from './liveRealtime.js'
 import {resolveBroadcastAvailability} from './liveTransport.js'
 import {createCloudinaryLive,getCloudinaryLive,idleCloudinaryLive,deleteCloudinaryLive} from './cloudinaryLive.js'
 import {createLivekitRoom,deleteLivekitRoom,isLivekitStream,livekitHostPublishing,livekitJoinCredentials,livekitRoomName} from './livekitCloud.js'
+import {isPlatformStream,createPlatformStream,expirePlatformStreams,clearPlatformSegments} from './platformLive.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const ALLOWED_STATES = new Set(['scheduled', 'starting', 'live', 'reconnecting', 'ended', 'failed'])
@@ -56,7 +57,7 @@ function safeTokenMatch(token, expectedHex) {
 function publicStream(row) {
   if (!row) return null
   const { publish_token_hash: _publishTokenHash, ...safe } = row
-  const mediaMode = isLivekitStream(row) ? 'livekit'
+  const mediaMode = isPlatformStream(row) ? 'platform' : isLivekitStream(row) ? 'livekit'
     : row.cloudinary_stream_id ? 'cloudinary'
     : row.media_status === 'fallback' ? 'fallback' : getLiveMediaMode()
   const endpoints = mediaMode==='cloudinary'
@@ -101,6 +102,7 @@ async function mapStream(row, viewerId) {
 }
 
 export async function listStreams({ viewerId, status }) {
+  await expirePlatformStreams()
   const params = []
   const where = []
   if (status && ALLOWED_STATES.has(status)) {
@@ -133,6 +135,7 @@ export async function listStreams({ viewerId, status }) {
 
 export async function getStream(streamId, viewerId) {
   streamId = requireUuid(streamId, 'stream_id')
+  await expirePlatformStreams()
   await refreshCloudinaryLive(streamId)
   await refreshLivekitStream(streamId)
   const { rows } = await query(
@@ -316,6 +319,11 @@ export async function createStream(userId, body) {
   const streamId=crypto.randomUUID()
   const streamPath=streamPathForId(streamId)
 
+  if(availability.mode==='platform'){
+    const stream=await createPlatformStream(userId,{streamId,title,category})
+    return {stream:publicStream(stream),media_mode:'platform'}
+  }
+
   if(availability.mode==='livekit'){
     const roomName=livekitRoomName(streamId)
     const {rows:existing}=await query(`SELECT COUNT(*)::int AS total FROM live_streams
@@ -391,6 +399,7 @@ export async function markStreamLive(userId, body) {
     stream = await ownerStreamForUpdate(client, userId, streamId)
     if (stream.status === 'ended') throw liveError(409, 'This Live has already ended.')
     if (stream.status === 'failed') throw liveError(409, 'This Live publish session has failed.')
+    if(isPlatformStream(stream))throw liveError(409,'Live starts after the first camera video segment is received.')
     if(stream.cloudinary_stream_id)throw liveError(409,'Cloudinary broadcasts become live only after the RTMP source connects.')
     if(isLivekitStream(stream)&&!await livekitHostPublishing(stream.stream_path,userId))
       throw liveError(409,'Camera and microphone are not publishing to LiveKit yet.')
@@ -424,6 +433,7 @@ export async function publisherState(userId, body) {
   try {
     await client.query('BEGIN')
     stream = await ownerStreamForUpdate(client, userId, streamId)
+    if(isPlatformStream(stream))throw liveError(409,'Live status is verified from incoming video.')
     if(stream.cloudinary_stream_id)throw liveError(409,'Cloudinary broadcast state is verified directly with the provider.')
     if(isLivekitStream(stream))throw liveError(409,'LiveKit broadcast status is verified by the server, not the browser.')
     if (stream.status === 'ended') {
@@ -625,7 +635,7 @@ export async function endStream(userId, body) {
   const streamId = requireUuid(body.stream_id, 'stream_id')
   // Stop the actual Cloudinary source BEFORE hiding the room. A database
   // status update alone would leave the video publicly accessible.
-  const {rows:upstream}=await query('SELECT talent_id,cloudinary_stream_id,stream_path,status FROM live_streams WHERE id=$1',[streamId])
+  const {rows:upstream}=await query('SELECT * FROM live_streams WHERE id=$1',[streamId])
   if(!upstream[0]||upstream[0].talent_id!==userId)throw liveError(404,'Live broadcast not found.')
   if(isLivekitStream(upstream[0])&&upstream[0].status!=='ended')
     await deleteLivekitRoom(upstream[0].stream_path)
@@ -660,6 +670,7 @@ export async function endStream(userId, body) {
   }
 
   emitLiveEvent(streamId, 'stream_status', { status: 'ended', media_status: 'ended' })
+  if(isPlatformStream(stream))await clearPlatformSegments(streamId)
 
   const { rows } = await query(
     `SELECT COALESCE(SUM(gross_amount),0)::int AS gross, COUNT(*)::int AS gifts

@@ -1,8 +1,21 @@
 # ChombuTar Live — broadcast from a phone/browser (no OBS)
 
+## Default: existing platform hosting and database
+
+`LIVE_VIDEO_PROVIDER=platform` is the default. No additional provider, account, API key, VPS, media relay, WebSocket service or encoder is required. Camera and microphone are captured as independent two-second WebM/MP4 clips, authenticated uploads pass through the existing API, and signed-in viewers preload clips from a rolling database buffer. Video and sound reach a separate viewer; this is not a private preview. The first accepted video upload marks the room LIVE.
+
+Keep the host tab open. Browsers may suspend capture in the background or when a phone locks. Slow connections can add several seconds of delay or brief pauses between clips. This mode uses existing API/database storage and bandwidth, so it is for modest audiences, not unlimited low-latency streaming. Camera capture and video formats depend on browser support. Each upload is capped at 768 KiB, only the owner may upload, eight clips are retained per room, and clips expire after 45 seconds. Ending Live removes its buffer immediately. Active requests clean expired clips and abandoned rooms; this is not a recording archive. The playback controls start muted and offer Enable sound.
+
+Run `node --test tests/platform-live.test.mjs` and, after `npm run build`, `node tests/platform-live-ui.mjs`. The latter sends real fake-device camera/audio recordings between separate non-admin browser contexts, checks actual video decoding across successive clips, and verifies End Live and permissions. Also verify Safari/iPhone and real mobile networks before a broad launch.
+
+## Optional external transports
+
+The remaining instructions describe the optional MediaMTX deployment. They are not prerequisites for the default platform transport. A configured external provider can be selected explicitly; unavailable providers fall back to the platform transport.
+
+
 **Goal:** Talent opens ChombuTar Live, allows camera and microphone access, previews the camera, and taps **Go Live**. A separate subscriber watches and hears the video in ChombuTar. No stream key and no encoder app.
 
-The existing application already implements WebRTC/WHIP publishing, signed-in Live room creation, viewer HLS playback, stop controls and room interactions. It cannot go live until a **persistent public media server** is deployed and linked. Vercel hosts the app/API, **not** the video relay.
+The existing application already implements WebRTC/WHIP publishing, signed-in Live room creation, viewer HLS playback, stop controls and room interactions. The optional WHIP/HLS transport needs a **persistent public media server**. The default platform transport above runs through the existing app/API and database.
 
 ## Media flow
 

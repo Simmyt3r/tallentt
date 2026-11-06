@@ -57,7 +57,7 @@ export async function financeSummary(){
     income_streams:[
       {id:'live_support',name:'Live support platform fees',source:'live_support_transactions',
         recorded:exists,inflow:live?.accrued_fees??null,transactions:live?.transactions??null},
-      {id:'deal_fees',name:'Deal commissions',source:'gig_fee_events',
+      {id:'deal_fees',name:'Deal service charges',source:'gig_fee_events',
         recorded:gig!==null,inflow:gig?.accrued_fees??null,transactions:gig?.transactions??null},
       billingStream('salary_tracking','Salary tracking charges (subject to confirmation)'),
       billingStream('salary_tracking_talent','Talent-side salary tracking charges (subject to confirmation)'),
@@ -74,7 +74,7 @@ export async function financeSummary(){
       ? (BigInt(live?.accrued_fees||0)+BigInt(gig?.accrued_fees||0)).toString() : null,
     recognized_revenue_partial:true,
     net_profit:null,
-    warning:'Recognized revenue includes Live support and recorded deal commissions after refund reversals. Subscription collections are NOT counted as earned service revenue pending deferral policy. Salary and verification charges may be refundable or subject to recognition timing. No tax, settlement, processor-cost or net-profit reconciliation is implied.',
+    warning:'Recognized revenue includes Live support and recorded deal service charges after refund reversals. Subscription collections are NOT counted as earned service revenue pending deferral policy. Salary and verification charges may be refundable or subject to recognition timing. No tax, settlement, processor-cost or net-profit reconciliation is implied.',
   }
 }
 export async function financeAudit({stream='live_support',cursor=null}={}){

@@ -39,7 +39,7 @@ test('LiveKit requires complete server-only configuration and reports unconfigur
   process.env.LIVE_VIDEO_PROVIDER='livekit'
   assert.equal(livekitConfigured(),false)
   assert.deepEqual(await resolveBroadcastAvailability(),{
-    mode:'fallback',ready:false,reason:'livekit_unconfigured',message:undefined,
+    mode:'platform',ready:true,reason:null,
   })
   process.env.LIVEKIT_URL='https://unsecured.test'
   process.env.LIVEKIT_API_KEY='API_TESTING_12345678'
@@ -81,7 +81,7 @@ test('LiveKit readiness checks authenticated API and remote host tracks before c
       :method==='CreateRoom'?{name:stream}:{}
     return {ok:true,status:200,json:async()=>data}
   }
-  assert.deepEqual(await resolveBroadcastAvailability(),{mode:'livekit',ready:true,reason:null,message:undefined})
+  assert.deepEqual(await resolveBroadcastAvailability(),{mode:'livekit',ready:true,reason:null})
   await createLivekitRoom(stream)
   assert.equal(await livekitHostPublishing(stream,hostId),true)
   await deleteLivekitRoom(stream)
@@ -123,6 +123,6 @@ test('LiveKit routes and media paths are guarded by authenticated subscriber own
   assert.match(stage,/LiveKitStage/)
   assert.match(player,/api\.getLivekitToken\(id\)/)
   assert.match(player,/Tap to enable sound/)
-  assert.match(read('.env.example'),/^LIVE_VIDEO_PROVIDER=livekit$/m)
+  assert.match(read('.env.example'),/^LIVE_VIDEO_PROVIDER=platform$/m)
   assert.doesNotMatch(read('.env.example'),/LIVEKIT_API_SECRET=only-a-test-secret/)
 })

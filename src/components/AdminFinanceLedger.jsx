@@ -37,27 +37,27 @@ export default function AdminFinanceLedger(){
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-[12px] text-red-700">{error}</p>}
     {!summary&&busy&&<p role="status" className="text-sm">Loading accounting records…</p>}
     {summary&&<>
-      <section aria-label="Deal commission earnings" className="rounded-2xl border border-[#0A13E6]/20 bg-[#EEF0FF] p-4">
+      <section aria-label="Deal service charge earnings" className="rounded-2xl border border-[#0A13E6]/20 bg-[#EEF0FF] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h4 className="text-[14px] font-black">Deal commissions</h4>
-            <p className="mt-1 text-[12px] text-black/60">Platform commission earned from deals, after refund reversals.</p>
+            <h4 className="text-[14px] font-black">Deal service charges</h4>
+            <p className="mt-1 text-[12px] text-black/60">Service charge earned from deals, after refund reversals.</p>
           </div>
-          <button type="button" onClick={()=>setStream('deal_fees')} className="min-h-10 rounded-full border border-[#0A13E6]/30 px-4 text-[11px] font-bold text-[#0A13E6]">View commissions by deal</button>
+          <button type="button" onClick={()=>setStream('deal_fees')} className="min-h-10 rounded-full border border-[#0A13E6]/30 px-4 text-[11px] font-bold text-[#0A13E6]">View service charges by deal</button>
         </div>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
-            ['Commission recorded',summary.deal_commissions?.gross],
+            ['Service charges recorded',summary.deal_commissions?.gross],
             ['Refund reversals',summary.deal_commissions?.reversed],
-            ['Net commission earned',summary.deal_commissions?.net],
+            ['Net service charges earned',summary.deal_commissions?.net],
           ].map(([name,value])=><div key={name} className="rounded-xl bg-white p-3">
             <p className="text-[20px] font-black tabular-nums text-[#0A13E6]">{money(value)}</p>
             <p className="mt-1 text-[11px] font-semibold text-black/60">{name}</p>
           </div>)}
         </div>
         <p className="mt-3 text-[11px] text-black/60">{summary.deal_commissions?.recorded
-          ?`${summary.deal_commissions.deals} deal(s) with recorded commission. ${summary.deal_commissions.unrecorded_deals||0} paid deal(s) have no recorded commission; see their status below.`
-          :'Commission records are unavailable. Apply the billing migration in Database Migrations to enable recording.'}</p>
+          ?`${summary.deal_commissions.deals} deal(s) with recorded service charge. ${summary.deal_commissions.unrecorded_deals||0} paid deal(s) have no recorded service charge; see their status below.`
+          :'Service charge records are unavailable. Apply the billing migration in Database Migrations to enable recording.'}</p>
       </section>
       {stream&&<AdminFinanceAudit key={`${stream}:${auditVersion}`} stream={stream} onClose={()=>setStream(null)}/>}
       <section aria-label="Customer and escrow liabilities" className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
