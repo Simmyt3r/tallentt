@@ -294,7 +294,7 @@ export default function DealDetails() {
               </div>
               <details className="mt-3 border-t border-black/10 pt-3 text-[12px]">
                 <summary className="cursor-pointer font-bold text-[#0A13E6]">How Escrow Works</summary>
-                <p className="mt-2 text-black/65">The agreed amount is secured before work starts. A verified Start QR releases the initial 30% payment; the remaining escrow is released after delivery approval and the Completion QR. Disputes pause settlement so the authorized process can release or refund funds still held. Platform commission is recorded when the deal is sealed.</p>
+                <p className="mt-2 text-black/65">The agreed amount is secured before work starts. A verified Start QR releases the initial 30% payment; the remaining escrow is released after delivery approval and the Completion QR. Disputes pause settlement so the authorized process can release or refund funds still held. Service charge is recorded when the deal is sealed.</p>
               </details>
             </section>
           )}

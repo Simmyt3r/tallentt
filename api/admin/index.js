@@ -6,7 +6,7 @@ import {reconcileCommissionLedger} from '../_lib/commissionLedger.js'
 import {financeSummary,financeAudit,financeLiabilityAudit} from '../_lib/financeReporting.js'
 import { adminBillingStatus, adminPlanPrice, adminReviewBusiness } from '../_lib/billing.js'
 import { adminSalaryPrice } from '../_lib/salaryTrackingFees.js'
-import {resolveLiveMediaAvailability} from '../_lib/liveMedia.js'
+import {resolveBroadcastAvailability} from '../_lib/liveTransport.js'
 import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
 import { adminGalleryQueue, adminGalleryDecision } from '../_lib/showroomGallery.js'
@@ -145,7 +145,7 @@ async function requireAdmin(req, res) {
 
 async function getDashboard() {
   const pushStatusPromise = getAdminVapidStatus()
-  const mediaStatusPromise=resolveLiveMediaAvailability()
+  const mediaStatusPromise=resolveBroadcastAvailability()
   const [
     metrics,
     applicationStatuses,
@@ -286,7 +286,8 @@ async function getDashboard() {
       database: Boolean(process.env.DATABASE_URL),
       paystack: Boolean(process.env.PAYSTACK_SECRET_KEY),
       cloudinary: Boolean(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)),
-      live_media: mediaStatus.mode === 'mediamtx',
+      live_media: mediaStatus.ready,
+      live_media_mode: mediaStatus.mode,
       live_media_reason: mediaStatus.reason || null,
       live_realtime: Boolean(process.env.LIVE_REALTIME_PUBLISH_URL && process.env.LIVE_REALTIME_SECRET),
       push: Boolean(pushStatus.configured),

@@ -62,7 +62,7 @@ export default function EscrowFundingCard({
           </p>
           <p className="mt-1 max-w-[520px] text-[10.5px] leading-relaxed text-black/50">
             The full agreed amount moves from your wallet into escrow. When the deal is sealed,
-            the disclosed 5% talent-side platform commission is booked once. The talent receives
+            the disclosed 5% talent-side service charge is booked once. The talent receives
             their net payout when approved work milestones are scanned.
           </p>
         </div>
@@ -79,16 +79,16 @@ export default function EscrowFundingCard({
         </div>
       </div>
 
-      {!feeEnabled&&<p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-[11px] font-semibold text-amber-900">Commission-based checkout currently supports NGN deals only.</p>}
+      {!feeEnabled&&<p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-[11px] font-semibold text-amber-900">Service charge checkout currently supports NGN deals only.</p>}
       {feeEnabled&&checkout&&<div aria-label="5% gig fee checkout breakdown" className="mt-3 rounded-xl border border-[#0A13E6]/20 bg-white p-3">
         <p className="text-[11px] font-black text-[#0A13E6]">Clear checkout breakdown · 5% gig fee</p>
         <dl className="mt-2 space-y-1.5 text-[11px]">
           <div className="flex justify-between gap-2"><dt>Agreed gig price</dt><dd>{money(checkout.gigAmount,currency)}</dd></div>
           <div className="flex justify-between gap-2"><dt>Client pays (no platform surcharge)</dt><dd className="font-black">{money(checkout.clientTotal,currency)}</dd></div>
-          <div className="flex justify-between gap-2"><dt>Platform commission (5%, deducted from talent)</dt><dd>{money(checkout.platformFee,currency)}</dd></div>
+          <div className="flex justify-between gap-2"><dt>Service charge (5%, deducted from talent)</dt><dd>{money(checkout.platformFee,currency)}</dd></div>
           <div className="flex justify-between gap-2 border-t border-black/10 pt-1.5"><dt>Talent receives after completed milestones</dt><dd className="font-black">{money(checkout.talentNet,currency)}</dd></div>
         </dl>
-        <p className="mt-2 text-[10px] leading-relaxed text-black/55">The 5% commission is booked when you fund and seal the deal, not charged monthly. If a dispute refunds unreleased escrow, the associated unearned commission is reversed. Previously completed milestones remain settled.</p>
+        <p className="mt-2 text-[10px] leading-relaxed text-black/55">The 5% service charge is booked when you fund and seal the deal, not charged monthly. If a dispute refunds unreleased escrow, the associated unearned service charge is reversed. Previously completed milestones remain settled.</p>
       </div>}
       {!enough && (
         <p className="mt-2 text-[11px] font-bold text-amber-800">

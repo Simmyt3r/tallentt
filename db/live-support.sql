@@ -34,7 +34,8 @@ ALTER TABLE live_streams ADD CONSTRAINT live_streams_media_status_check CHECK (m
 -- Existing managed-provider sessions cannot be resumed through MediaMTX.
 UPDATE live_streams
 SET status='failed', media_status='failed', publish_token_hash=NULL, updated_at=NOW()
-WHERE status IN ('scheduled','starting','live','reconnecting') AND publish_token_hash IS NULL AND media_status <> 'fallback';
+WHERE status IN ('scheduled','starting','live','reconnecting') AND publish_token_hash IS NULL AND media_status <> 'fallback'
+  AND stream_path NOT LIKE 'app-%';
 
 DROP INDEX IF EXISTS idx_live_streams_provider_input;
 ALTER TABLE live_streams DROP COLUMN IF EXISTS provider_input_id;

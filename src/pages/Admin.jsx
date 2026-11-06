@@ -604,7 +604,7 @@ function OverviewPanel({ dashboard, setTab }) {
           <ServiceState label="Paystack" ready={dashboard?.services?.paystack} />
           <ServiceState label="Cloudinary" ready={dashboard?.services?.cloudinary} />
           <ServiceState label="Live media" ready={dashboard?.services?.live_media} fallback />
-          <ServiceState label="Live realtime" ready={dashboard?.services?.live_realtime} />
+          <ServiceState label={dashboard?.services?.live_realtime?'Live updates':'Live updates (polling)'} ready={dashboard?.services?.live_media} />
           <ServiceState label="Push" ready={dashboard?.services?.push} />
         </div>
       </section>
@@ -977,7 +977,7 @@ function WalletTable({ rows, busy, runAction }) {
           return (
             <tr key={t.id} className="border-t border-black/10">
               <Td>{t.username ? <UserIdentity user={resolveIdentity({ username: t.username, fullName: t.user_full_name, role: t.user_role, companySuffix: t.user_company_suffix })} layout="inline" showAvatar={false} nameClassName="font-semibold" usernameClassName="font-semibold text-black/50" /> : '—'}</Td>
-              <Td>{cleanLabel(t.type)}</Td>
+              <Td>{t.type==='billing_charge'?'Service charge':t.type==='billing_refund'?'Service charge refund':cleanLabel(t.type)}</Td>
               <Td className={credit ? 'text-green-700 font-bold' : 'font-bold'}>
                 {credit ? '+' : '-'}
                 {fmtMoney(t.amount)}

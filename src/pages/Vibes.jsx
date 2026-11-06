@@ -400,7 +400,7 @@ export default function Vibes() {
     {posts.map(post=><div key={post.id} id={'vibe-feed-'+post.id}>
       <VibeCard post={post} me={user} onOpenComments={openFeedComments}
         onChange={change} onDeleted={id=>setPosts(current=>current.filter(p=>p.id!==id))}/>
-    </div>)}}
+    </div>)}
     {cursor&&!specific&&<button type="button" disabled={paging} onClick={older}
       className="w-full min-h-11 rounded-xl border border-black/20 bg-white text-[12px] font-bold disabled:opacity-50">
       {paging?'Loading…':'Load more Vibes'}

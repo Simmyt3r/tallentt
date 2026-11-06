@@ -24,6 +24,8 @@ function fmtMoney(n) {
 
 const TYPE_LABEL = {
   topup: 'Wallet top-up',
+  billing_charge: 'Service charge',
+  billing_refund: 'Service charge refund',
   escrow_fund: 'Booking payment',
   escrow_start: 'Work start payment (30%)',
   escrow_release: 'Booking earnings',
@@ -277,6 +279,7 @@ export default function Wallet() {
               <li key={t.id} className="flex items-center gap-3 p-4">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[13px]">{t.type === 'refund' && t.escrow_id ? 'Booking refund' : TYPE_LABEL[t.type] || t.type}</p>
+                  {t.escrow_id && <Link to={`/deals/${t.escrow_id}`} className="mt-1 inline-block text-[11px] font-bold text-[#0A13E6] underline">View deal</Link>}
                   {t.counterparty_username && (
                     <p className="text-[11px] text-black/50 mt-0.5 truncate">
                       With <UserIdentity user={identityFromRow(t, 'counterparty')} layout="inline" showAvatar={false} nameClassName="font-semibold text-black/70" usernameClassName="font-semibold text-black/50" />

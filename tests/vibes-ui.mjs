@@ -1,16 +1,15 @@
 import { chromium } from 'playwright'
-import { createServer } from 'vite'
+import { preview } from 'vite'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import {optOutPageToursForFixture} from './page-tour-fixture.mjs'
 
-const vite=await createServer({
+const vite=await preview({
   root:fileURLToPath(new URL('..',import.meta.url)),
-  server:{host:'127.0.0.1',port:5187,strictPort:true},
+  preview:{host:'127.0.0.1',port:5187,strictPort:true},
 })
 let browser
 try {
-  await vite.listen()
   browser=await chromium.launch({
     headless:true,
     executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined,
@@ -71,7 +70,8 @@ try {
     await page.getByRole('navigation',{name:'Primary'}).getByRole('link',{name:'Vibes'}).waitFor({state:width<768?'visible':'hidden'}).catch(()=>{})
     assert.equal(await page.getByRole('heading',{name:'Hits & Vibes'}).count(),1)
     assert.equal(await page.getByText('Nothing here yet').count(),1)
-    assert.equal(await page.getByRole('searchbox',{name:'Search Vibes posts and people'}).count(),1)
+    assert.doesNotMatch(await page.locator('main').last().innerText(),/(^|\n)\s*}\s*($|\n)/,'No stray JSX brace in an empty feed')
+    assert.equal(await page.getByRole('textbox',{name:'Search Vibes posts and people'}).count(),1)
     const vibeComposer=page.getByRole('textbox',{name:'Say something…'})
     const centeredHint=page.locator('form[aria-label="Create a Vibe"] span[aria-hidden="true"]')
       .filter({hasText:'Say something…'})
@@ -83,6 +83,7 @@ try {
     assert.equal(await centeredHint.count(),0,'Centered hint must disappear as soon as writing begins')
     await page.getByRole('button',{name:'Post Vibe'}).click()
     await page.getByText('First Vibe!').waitFor()
+    assert.doesNotMatch(await page.locator('main').last().innerText(),/(^|\n)\s*}\s*($|\n)/,'No stray JSX brace after feed posts')
     assert.equal(published,true)
     await page.getByRole('button',{name:'Like Vibe'}).click()
     await page.getByRole('button',{name:'Unlike Vibe'}).waitFor()
@@ -96,7 +97,6 @@ try {
     await page.getByText('Hello!').waitFor()
     const input=page.getByRole('textbox',{name:'Write a reply'})
     const reply=page.getByText('Hello!')
-    assert.equal(await reply.evaluate(el=>el.getBoundingClientRect().bottom),await reply.evaluate(el=>el.getBoundingClientRect().bottom))
     assert.ok((await input.boundingBox()).y>(await reply.boundingBox()).y,'Replies should appear above composer')
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'Vibes must not horizontally overflow on '+width+'px')
@@ -106,5 +106,5 @@ try {
   console.log('Vibes smoke tests passed at 320px, 390px and 1280px.')
 } finally {
   await browser?.close()
-  await vite.close()
+  await new Promise(resolve=>vite.httpServer.close(resolve))
 }

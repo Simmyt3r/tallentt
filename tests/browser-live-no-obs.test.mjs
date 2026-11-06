@@ -13,8 +13,9 @@ test('browser streaming is the default and cannot silently fall back to RTMP', a
     for (const key of keys) delete process.env[key]
     // Even if Cloudinary API keys are present, default Live must not require OBS.
     assert.deepEqual(await resolveBroadcastAvailability(), {
-      mode: 'fallback', ready: false, reason: 'unconfigured',
+      mode: 'platform', ready: true, reason: null,
     })
+    process.env.LIVE_VIDEO_PROVIDER = 'mediamtx'
     process.env.LIVE_MEDIA_SERVER_URL = 'https://live.example.test/health'
     process.env.LIVE_WHIP_URL = 'https://live.example.test'
     process.env.LIVE_HLS_BASE_URL = 'https://live.example.test'
@@ -52,7 +53,7 @@ test('deployment provides an HTTPS WHIP/HLS gateway and keeps raw media private'
   assert.match(example, /LIVE_ICE_UDP_PORT=8189/)
   assert.match(example, /LIVE_HLS_PORT=127\.0\.0\.1:8888/)
   assert.match(example, /LIVE_WHIP_PORT=127\.0\.0\.1:8889/)
-  assert.match(vercel, /^LIVE_VIDEO_PROVIDER=livekit$/m)
+  assert.match(vercel, /^LIVE_VIDEO_PROVIDER=platform$/m)
 })
 
 test('users publish their own browser camera through WHIP, not RTMP', () => {
@@ -67,6 +68,6 @@ test('users publish their own browser camera through WHIP, not RTMP', () => {
   assert.match(hub, /await api\.liveAction\(\{action:'mark_live'/)
   assert.match(broadcast, /RTCPeerConnection/)
   assert.match(broadcast, /'Content-Type': 'application\/sdp'/)
-  assert.match(server, /LIVE_VIDEO_PROVIDER\|\|'mediamtx'/)
+  assert.match(server, /LIVE_VIDEO_PROVIDER\|\|'platform'/)
   assert.match(guide, /different device and account/i)
 })

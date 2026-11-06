@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext'
 import UserIdentity from '../../components/UserIdentity'
 import { getLiveMedia, startWhipBroadcast } from '../../lib/liveBroadcast'
 import { clearLivePublisher, setLivePublisher } from '../../lib/liveSession'
+import {platformRecordingType,startPlatformBroadcast} from '../../lib/platformLiveBroadcast.js'
 
 const LIVE_READINESS_HELP = {
   unconfigured: 'The production media relay has not been connected. Configure LIVE_MEDIA_SERVER_URL, LIVE_WHIP_URL and LIVE_HLS_BASE_URL.',
@@ -125,6 +126,7 @@ export default function LiveHub() {
     setConnectionStatus('preview')
     handedOffRef.current = false
     try {
+      if(readiness.mode==='platform')platformRecordingType()
       const stream = await getLiveMedia()
       setMedia(stream)
       setCreating(true)
@@ -173,6 +175,11 @@ export default function LiveHub() {
       if(created.media_mode==='cloudinary'){
         handedOffRef.current=true
         navigate(`/live/stage/${streamId}`,{state:{isHost:true,mediaMode:'cloudinary'}})
+      }else if(created.media_mode==='platform'){
+        publisher=await startPlatformBroadcast({streamId,mediaStream:media,onConnectionState:setConnectionStatus})
+        setLivePublisher(streamId,publisher)
+        handedOffRef.current=true
+        navigate(`/live/stage/${streamId}`,{state:{isHost:true,mediaMode:'platform'}})
       }else if(created.media_mode==='livekit'){
         const {startLivekitBroadcast}=await import('../../lib/livekitBroadcast.js')
         publisher=await startLivekitBroadcast({
@@ -201,7 +208,7 @@ export default function LiveHub() {
       }
     } catch (err) {
       if (streamId) {
-        if(['cloudinary','livekit'].includes(createdMode))
+        if(['cloudinary','livekit','platform'].includes(createdMode))
           await api.liveAction({action:'end_stream',stream_id:streamId}).catch(()=>{})
         else await api.liveAction({action:'publisher_state',stream_id:streamId,state:'failed'}).catch(()=>{})
         await clearLivePublisher(streamId).catch(() => {})
@@ -224,6 +231,10 @@ export default function LiveHub() {
     <div className="max-w-[860px] mx-auto space-y-5 pb-8">
       <CompactPageHeader title="ChombuTar Live" icon={Radio} searchValue={search} onSearchChange={setSearch}
         searchPlaceholder="Search live rooms…" searchLabel="Search live rooms by title, category or host"/>
+
+      {mediaReadiness?.broadcast_ready&&mediaReadiness.mode==='platform'&&<p role="status" className="p-3 text-[12px] text-blue-900">
+        Preview your camera, add a title and start Live. Viewers receive video and sound with a short delay. Keep this tab open while broadcasting.
+      </p>}
 
       {mediaReadiness?.broadcast_ready&&mediaReadiness.mode==='livekit'&&<p role="status" className="rounded-xl bg-blue-50 p-3 text-[12px] text-blue-900">
         LiveKit Cloud is ready. Allow camera and microphone, preview your video, then select Start Live. No OBS, RTMP key or VPS needed.

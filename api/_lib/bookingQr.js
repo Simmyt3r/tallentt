@@ -243,8 +243,8 @@ export async function redeemBookingQr(userId, escrowId, token) {
          VALUES ($1, 'booking_checkpoint', $2, $3, $4, $5::jsonb)
          RETURNING id, user_id, type, title, body, link_url, metadata, read_at, created_at`,
         [recipient, stage === 'start' ? 'Work started' : 'Booking completed',
-          stage === 'start' ? 'Work started. The agreed 30% gross tranche was settled less the disclosed gig commission.'
-            : 'The remaining escrow tranche was settled less the disclosed gig commission.',
+          stage === 'start' ? 'Work started. The agreed 30% gross tranche was settled less the disclosed service charge.'
+            : 'The remaining escrow tranche was settled less the disclosed service charge.',
           `/deals/${escrowId}?role=${role}`, JSON.stringify({ escrow_id: escrowId, stage, event: 'qr_scanned' })],
       )
       if (notificationRows[0]) pushNotifications.push(notificationRows[0])

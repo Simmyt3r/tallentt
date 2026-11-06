@@ -136,7 +136,7 @@ export default function DealQrCheckpoint({booking,role,onComplete,compact=false}
       :'Confirm a code sent by the client, scan their QR, or scan a saved QR image. Payment goes to your wallet only after verification.'}</p>
     <dl className="grid grid-cols-1 gap-2 rounded-xl bg-white p-3 text-[12px] sm:grid-cols-3">
       <div><dt className="text-black/55">Escrow payment</dt><dd className="font-bold">{money(amount)}</dd></div>
-      <div><dt className="text-black/55">Platform commission</dt><dd className="font-bold">{money(fee)}</dd></div>
+      <div><dt className="text-black/55">Service charge</dt><dd className="font-bold">{money(fee)}</dd></div>
       <div><dt className="text-black/55">Talent receives</dt><dd className="font-black text-[#0A13E6]">{money(net)}</dd></div>
     </dl>
     {error&&<p role="alert" className="text-[12px] font-semibold text-red-700">{error}</p>}
