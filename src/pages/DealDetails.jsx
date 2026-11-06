@@ -44,9 +44,9 @@ export default function DealDetails() {
       const next = await api.getDealDetail(dealId)
       if (sequence !== requestSequence.current) return
       setData(next)
-      setError('')
+      if (!quiet) setError('')
     } catch (err) {
-      if (sequence === requestSequence.current) {
+      if (!quiet && sequence === requestSequence.current) {
         setError(err.message || 'Could not load this deal.')
       }
     } finally {
@@ -58,6 +58,21 @@ export default function DealDetails() {
     void load()
     return () => { ++requestSequence.current }
   }, [load])
+
+  // Reconcile the other participant's checkpoint or submission without hiding
+  // an open work form. Version checks still reject stale submissions.
+  useEffect(() => {
+    if (data?.thread?.status !== 'secured' || busy) return undefined
+    let inFlight = false
+    async function refresh() {
+      if (inFlight || document.hidden) return
+      inFlight = true
+      try { await load({ quiet: true }) } finally { inFlight = false }
+    }
+    const timer = setInterval(refresh, 5000)
+    window.addEventListener('focus', refresh)
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh) }
+  }, [data?.thread?.status, busy, load])
 
   async function run(operation) {
     if (busy) return
@@ -244,6 +259,18 @@ export default function DealDetails() {
             </div>
           </section>
 
+          {['secured', 'released', 'refunded', 'cancelled'].includes(thread.status) && (
+            <BookingProgress
+              key={thread.id}
+              thread={thread}
+              events={data.events || []}
+              eventsCursor={data.eventsCursor || null}
+              busy={busy}
+              run={run}
+              showHistory
+            />
+          )}
+
           {thread.status === 'secured' && (
             <section className="border-t border-black/10 pt-4" aria-label="Escrow summary">
               <div className="flex items-center gap-2">
@@ -297,17 +324,6 @@ export default function DealDetails() {
               booking={thread}
               role={thread.is_client ? 'client' : 'talent'}
               onComplete={(result) => run(() => Promise.resolve(result))}
-            />
-          )}
-
-          {['secured', 'released', 'refunded', 'cancelled'].includes(thread.status) && (
-            <BookingProgress
-              thread={thread}
-              events={data.events || []}
-              eventsCursor={data.eventsCursor || null}
-              busy={busy}
-              run={run}
-              showHistory
             />
           )}
 

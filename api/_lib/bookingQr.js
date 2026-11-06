@@ -3,6 +3,7 @@ import { getClient, query } from './db.js'
 import { bookingError, requireAmount, requireBookingId } from './bookingRules.js'
 import { creditWallet } from './wallet.js'
 import { bookGigRelease } from './gigFees.js'
+import {gigReleaseFee} from '../../shared/monetization.js'
 import { emitMyDealsEvent } from './myDeals.js'
 import { dispatchStoredNotifications } from './pushNotifications.js'
 
@@ -12,6 +13,78 @@ const digest = (value) => createHash('sha256').update(value).digest('hex')
 
 export function startShare(amount) {
   return Math.floor(requireAmount(Number(amount)) * 3 / 10)
+}
+
+function checkpointQuote(escrow,stage){
+  const amount=stage==='start'?startShare(escrow.amount):Number(escrow.amount)-Number(escrow.start_released_amount||0)
+  const platformFee=gigReleaseFee(Number(escrow.amount),stage==='start'?0:Number(escrow.start_released_amount||0),amount,Number(escrow.gig_fee_bps||0))
+  return {amount,platformFee,netAmount:amount-platformFee,currency:escrow.currency||'NGN'}
+}
+
+const sharedCodeBody=(stage,token)=>`ChombuTar ${stage} payment code: ${token}`
+const shareId=token=>{
+  const hex=digest('share:'+token).slice(0,32)
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-a${hex.slice(17,20)}-${hex.slice(20)}`
+}
+
+// Codes remain in the existing private deal conversation. Only its talent can
+// retrieve and redeem a currently issued code; sharing itself never moves money.
+export async function shareBookingQr(userId,escrowId,token){
+  requireBookingId(escrowId)
+  const match=typeof token==='string'&&token.length<150?TOKEN_PATTERN.exec(token):null
+  if(!match||match[1]!==escrowId)throw bookingError(400,'Choose a valid QR code for this deal.')
+  const stage=match[2],client=await getClient()
+  let result,talentId
+  try{
+    await client.query('BEGIN')
+    const {rows}=await client.query('SELECT * FROM escrows WHERE id=$1 FOR UPDATE',[escrowId])
+    const escrow=rows[0]
+    talentId=escrow?.talent_id
+    if(!escrow||escrow.client_id!==userId)throw bookingError(404,'Booking not found.')
+    if(escrow.status!=='secured'||escrow.work_status!==(stage==='start'?'awaiting_start':'awaiting_completion'))
+      throw bookingError(409,'This payment checkpoint is no longer available.')
+    const {rows:tokens}=await client.query(`SELECT token_hash,expires_at,consumed_at,expires_at<=NOW() AS expired
+      FROM booking_qr_tokens WHERE escrow_id=$1 AND stage=$2 FOR UPDATE`,[escrowId,stage])
+    const current=tokens[0]
+    if(!current||current.token_hash.trim()!==digest(token)||current.consumed_at)
+      throw bookingError(409,'Generate a current QR code before sending it.')
+    if(current.expired)throw bookingError(410,'This code expired. Generate and send a new one.')
+    const {rows:messages}=await client.query(`INSERT INTO booking_messages
+      (escrow_id,sender_id,recipient_id,kind,body,client_token)
+      VALUES($1,$2,$3,'message',$4,$5) ON CONFLICT(escrow_id,sender_id,client_token) DO NOTHING RETURNING id::text`,
+      [escrowId,userId,escrow.talent_id,sharedCodeBody(stage,token),shareId(token)])
+    if(messages.length){
+      await client.query('UPDATE escrows SET messages_updated_at=NOW() WHERE id=$1',[escrowId])
+      await client.query(`INSERT INTO notifications(user_id,type,title,body,link_url,metadata)
+        VALUES($1,'booking_checkpoint',$2,$3,$4,$5::jsonb)`,[escrow.talent_id,
+        stage==='start'?'Start payment code received':'Completion payment code received',
+        'The client sent a payment code. Open the deal and confirm it when you are ready.',
+        `/deals/${escrowId}?role=talent`,JSON.stringify({escrow_id:escrowId,stage,event:'qr_shared'})])
+    }
+    await client.query('COMMIT')
+    result={sent:true,alreadySent:!messages.length,stage,expiresAt:current.expires_at}
+  }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error}
+  finally{client.release()}
+  emitMyDealsEvent([userId,talentId], 'qr_shared')
+  return result
+}
+
+export async function receivedBookingQr(userId,escrowId,stage){
+  requireBookingId(escrowId)
+  if(!['start','completion'].includes(stage))throw bookingError(400,'Choose a valid payment checkpoint.')
+  const {rows}=await query(`SELECT e.*,t.token_hash,t.expires_at,t.consumed_at,t.expires_at<=NOW() AS expired,
+      (SELECT m.body FROM booking_messages m WHERE m.escrow_id=e.id AND m.sender_id=e.client_id
+        AND m.recipient_id=e.talent_id AND m.kind='message' AND m.created_at>=t.created_at
+        AND m.body LIKE $3 ORDER BY m.id DESC LIMIT 1) AS shared_body
+      FROM escrows e LEFT JOIN booking_qr_tokens t ON t.escrow_id=e.id AND t.stage=$2
+      WHERE e.id=$1 AND e.talent_id=$4`,[escrowId,stage,`ChombuTar ${stage} payment code: %`,userId])
+  const escrow=rows[0]
+  if(!escrow)throw bookingError(404,'Booking not found.')
+  if(escrow.status!=='secured'||escrow.work_status!==(stage==='start'?'awaiting_start':'awaiting_completion')
+    ||escrow.expired||escrow.consumed_at||!escrow.shared_body)return {shared:null}
+  const token=escrow.shared_body.slice(`ChombuTar ${stage} payment code: `.length)
+  if(!TOKEN_PATTERN.test(token)||escrow.token_hash?.trim()!==digest(token))return {shared:null}
+  return {shared:{token,stage,expiresAt:escrow.expires_at,...checkpointQuote(escrow,stage)}}
 }
 
 export async function issueBookingQr(userId, escrowId, stage) {
@@ -54,8 +127,7 @@ export async function issueBookingQr(userId, escrowId, stage) {
         JSON.stringify({ escrow_id: escrowId, stage, event: 'qr_ready' })],
     )
     await client.query('COMMIT')
-    return { token, stage, expiresAt: issued[0].expires_at, amount: stage === 'start'
-      ? startShare(escrow.amount) : Number(escrow.amount) - Number(escrow.start_released_amount) }
+    return { token, stage, expiresAt: issued[0].expires_at, ...checkpointQuote(escrow,stage) }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     throw err
@@ -117,7 +189,8 @@ export async function redeemBookingQr(userId, escrowId, token) {
   if (!match || match[1] !== escrowId) throw bookingError(400, 'Scan a valid code for this booking.')
   const stage = match[2]
   const client = await getClient()
-  let participants
+  let participants,result
+  const pushNotifications=[]
   try {
     await client.query('BEGIN')
     const { rows } = await client.query('SELECT * FROM escrows WHERE id = $1 FOR UPDATE', [escrowId])
@@ -163,7 +236,6 @@ export async function redeemBookingQr(userId, escrowId, token) {
        VALUES ($1, $2, $3, '', $4, $5)`,
       [escrowId, userId, stage === 'start' ? 'scan_start' : 'scan_completion', escrow.work_version, randomUUID()],
     )
-    const pushNotifications = []
     for (const recipient of [escrow.client_id, escrow.talent_id]) {
       const role = recipient === escrow.client_id ? 'client' : 'talent'
       const { rows: notificationRows } = await client.query(
@@ -178,11 +250,10 @@ export async function redeemBookingQr(userId, escrowId, token) {
       if (notificationRows[0]) pushNotifications.push(notificationRows[0])
     }
     await client.query('COMMIT')
-    if (pushNotifications.length) await dispatchStoredNotifications(pushNotifications)
     participants = [escrow.client_id, escrow.talent_id]
-    return { escrow: { id: updated[0].id, status: updated[0].status,
+    result = { escrow: { id: updated[0].id, status: updated[0].status,
       work_status: updated[0].work_status, work_version: updated[0].work_version,
-      start_released_amount: updated[0].start_released_amount }, amount:settlement.net, grossAmount:amount, platformFee:settlement.fee, alreadyProcessed: false }
+      start_released_amount: updated[0].start_released_amount,work_started_at:updated[0].work_started_at }, amount:settlement.net, grossAmount:amount, platformFee:settlement.fee, alreadyProcessed: false }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     throw err
@@ -190,4 +261,6 @@ export async function redeemBookingQr(userId, escrowId, token) {
     client.release()
     if (participants) emitMyDealsEvent(participants, 'booking_checkpoint')
   }
+  if(pushNotifications.length)await dispatchStoredNotifications(pushNotifications)
+  return result
 }

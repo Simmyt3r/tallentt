@@ -27,3 +27,5 @@ jobs:
         run: npx playwright install --with-deps chromium-headless-shell
       - name: Verify Admin commission audit on mobile and desktop
         run: node tests/admin-commissions-ui.mjs
+      - name: Verify deal QR sharing, scanning and visible work submission
+        run: node tests/deal-payments-qr-ui.mjs
