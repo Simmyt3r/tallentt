@@ -141,6 +141,10 @@ export default function BookingProgress({
     ...new Map([...older, ...(events || [])].map((event) => [event.id, event])).values(),
   ].sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1))
 
+  const latestSubmission = [...allEvents].reverse().find(event => event.action === 'submit_delivery')
+  const noteLabel = action === 'approve_delivery' ? 'Approval note (optional)'
+    : action === 'submit_delivery' ? 'Work submission details' : 'Booking update'
+
   const title =
     thread.status === 'not_funded'
       ? 'Ready for payment'
@@ -158,7 +162,7 @@ export default function BookingProgress({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.12em] text-black/35">
-            Deal status
+            Work &amp; delivery
           </p>
           <h3 className="mt-0.5 text-[13px] font-black">{title}</h3>
         </div>
@@ -187,6 +191,20 @@ export default function BookingProgress({
         </p>
       )}
 
+      {showActions && !thread.is_client && thread.status === 'secured' && thread.work_status === 'awaiting_start' && (
+        <div className="mt-3 space-y-2">
+          <button type="button" disabled className="min-h-11 rounded-full bg-[#0A13E6] px-4 text-[12px] font-black text-white opacity-40">Submit work</button>
+          <p className="text-[12px] text-black/65">Confirm the client’s Start payment code below to begin work and enable submission.</p>
+        </div>
+      )}
+      {!compact && latestSubmission && (
+        <article aria-label="Latest work submission" className="mt-3 space-y-2 rounded-xl bg-[#EEF0FF] p-3">
+          <h4 className="text-[13px] font-black">Latest work submission</h4>
+          <p className="whitespace-pre-wrap break-words text-[12px] text-black/75 [overflow-wrap:anywhere]">{latestSubmission.note}</p>
+          <time dateTime={latestSubmission.created_at} className="block text-[11px] text-black/55">{new Date(latestSubmission.created_at).toLocaleString()}</time>
+        </article>
+      )}
+
       {!!actions.length && (
         <div className="mt-3 flex flex-wrap gap-2">
           {actions.map((item) => (
@@ -195,7 +213,7 @@ export default function BookingProgress({
               type="button"
               className={
                 item === 'approve_delivery' || item === 'submit_delivery'
-                  ? `${actionButton} bg-[#0A13E6] text-white border-[#0A13E6]`
+                  ? 'min-h-11 px-4 rounded-full bg-[#0A13E6] text-white text-[12px] font-black disabled:opacity-40'
                   : actionButton
               }
               disabled={busy}
@@ -240,9 +258,9 @@ export default function BookingProgress({
             </p>
           )}
           <label className="block text-[11px] font-bold">
-            {action === 'approve_delivery' ? 'Approval note (optional)' : 'Booking update'}
+            {noteLabel}
             <textarea
-              aria-label={action === 'approve_delivery' ? 'Approval note (optional)' : 'Booking update'}
+              aria-label={noteLabel}
               required={action !== 'approve_delivery'}
               maxLength={2000}
               rows={3}

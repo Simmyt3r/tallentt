@@ -4,7 +4,7 @@ import { json, methodNotAllowed, readBody } from '../../_lib/http.js'
 import { verifyPaystackTransaction } from '../../_lib/paystack.js'
 import { bookingLifecycle } from '../../_lib/bookingLifecycle.js'
 import { applyVerifiedLegacyBookingCharge, prepareCheckout, payBookingWithWallet } from '../../_lib/bookingCheckout.js'
-import { issueBookingQr, redeemBookingQr, dispatchBookingQrReadyNotification } from '../../_lib/bookingQr.js'
+import { issueBookingQr, redeemBookingQr, dispatchBookingQrReadyNotification,shareBookingQr,receivedBookingQr } from '../../_lib/bookingQr.js'
 
 // Handles:
 //   POST /api/escrows/:id/fund-wallet  — fund strictly from wallet balance
@@ -36,11 +36,13 @@ export default async function handler(req, res) {
   }
 
   if (action === 'fund') return fund(req, res, id)
-  if (action === 'generate-qr' || action === 'redeem-qr' || action === 'notify-qr-ready') {
+  if (action === 'generate-qr' || action === 'redeem-qr' || action === 'notify-qr-ready' || action === 'share-qr' || action === 'received-qr') {
     try {
       const session = getSessionUser(req)
       if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
       const body = await readBody(req)
+      if(action==='share-qr')return json(res,200,await shareBookingQr(session.sub,id,body?.token))
+      if(action==='received-qr')return json(res,200,await receivedBookingQr(session.sub,id,body?.stage))
       const result = action === 'generate-qr'
         ? await issueBookingQr(session.sub, id, body?.stage)
         : action === 'redeem-qr'

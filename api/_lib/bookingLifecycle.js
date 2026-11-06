@@ -43,6 +43,8 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
     throw bookingError(400, 'Unknown booking action.')
   }
   const client = await getClient()
+  let result
+  const pushNotifications=[]
   try {
     await client.query('BEGIN')
     const { rows } = await client.query('SELECT * FROM escrows WHERE id = $1 FOR UPDATE', [escrowId])
@@ -140,7 +142,6 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
         previously_released: escrow.start_released_amount, remaining: Number(escrow.amount) - Number(escrow.start_released_amount),
         outcome: settlement, reason: note })],
     )
-    const pushNotifications = []
     const recipients = adminAction ? [escrow.client_id, escrow.talent_id]
       : [userId === escrow.client_id ? escrow.talent_id : escrow.client_id]
     for (const recipient of recipients) {
@@ -167,12 +168,13 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
       pushNotifications.push(...adminNotifications)
     }
     await client.query('COMMIT')
-    if (pushNotifications.length) await dispatchStoredNotifications(pushNotifications)
-    return { escrow: publicState(updated[0]), alreadyProcessed: false }
+    result = { escrow: publicState(updated[0]), alreadyProcessed: false }
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
     throw err
   } finally { client.release() }
+  if(pushNotifications.length)await dispatchStoredNotifications(pushNotifications)
+  return result
 }
 
 // These readers are reachable only through the admin-authenticated endpoint.

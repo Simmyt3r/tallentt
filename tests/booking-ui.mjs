@@ -109,7 +109,7 @@ try {
 
   await talent.goto('http://127.0.0.1:5179/deals/44444444-4444-4444-8444-444444444444?role=talent')
   await talent.getByRole('button', { name: 'Submit work', exact: true }).click()
-  await talent.getByLabel('Booking update', { exact: true }).fill('The highlight reel is complete, including the agreed music and colours.')
+  await talent.getByLabel('Work submission details', { exact: true }).fill('The highlight reel is complete, including the agreed music and colours.')
   await talent.getByRole('button', { name: 'Confirm submit work', exact: true }).click()
   await talent.getByText('Awaiting delivery review', { exact: true }).first().waitFor()
 
@@ -121,7 +121,7 @@ try {
 
   await talent.goto('http://127.0.0.1:5179/deals/44444444-4444-4444-8444-444444444444?role=talent')
   await talent.getByRole('button', { name: 'Submit work', exact: true }).click()
-  await talent.getByLabel('Booking update', { exact: true }).fill('The final scene is now brighter.')
+  await talent.getByLabel('Work submission details', { exact: true }).fill('The final scene is now brighter.')
   await talent.getByRole('button', { name: 'Confirm submit work', exact: true }).click()
   await talent.getByText('Awaiting delivery review', { exact: true }).first().waitFor()
 
