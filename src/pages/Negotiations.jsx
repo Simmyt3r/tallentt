@@ -73,13 +73,12 @@ export default function Negotiations() {
     <main className="max-w-5xl mx-auto space-y-4 pb-8">
       <CompactPageHeader title="Negotiation Center" searchValue={search} onSearchChange={setSearch}
         inlineSearch searchPlaceholder="Search negotiations…" searchLabel="Search negotiations by Hat or participant"/>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-semibold text-black/45">
-        <span>Price negotiation only. Completed is negotiation history only.</span>
-        <Link to="/messages" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-black/20 bg-white px-3 text-[11px] font-black text-black">
-          <MessageCircle size={13}/> Deals Chat
+      <div className="flex justify-end">
+        <Link to="/messages" className="inline-flex min-h-9 items-center gap-1.5 px-2 text-[11px] font-black text-[#0A13E6] hover:underline">
+          <MessageCircle size={14}/> Deals Chat
         </Link>
       </div>
-      <div className={selected ? 'hidden md:flex ct-filter-tabs' : 'ct-filter-tabs'} role="tablist" aria-label="Negotiation status">
+      <div className={selected ? 'hidden md:flex ct-filter-tabs border-b-0' : 'ct-filter-tabs border-b-0'} role="tablist" aria-label="Negotiation status">
         {tabs.map((tab) => {
           const count = items.filter((item) => category(item, user.id) === tab).length
           return (
@@ -91,17 +90,17 @@ export default function Negotiations() {
           )
         })}
         </div>
-      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 flex justify-between gap-2">{error}<button type="button" onClick={() => setRefresh((v) => v + 1)} aria-label="Retry"><RefreshCw size={16} /></button></div>}
-      <div className="grid md:grid-cols-[minmax(240px,350px)_minmax(0,1fr)] md:min-h-[520px] rounded-[20px] border-[1.5px] border-black bg-white overflow-hidden">
-        <div className={`${selected ? 'hidden md:block' : ''} md:border-r border-black/10 min-w-0`}>
+      {error && <div role="alert" className="bg-red-50 p-3 text-xs text-red-700 flex justify-between gap-2">{error}<button type="button" onClick={() => setRefresh((v) => v + 1)} aria-label="Retry"><RefreshCw size={16} /></button></div>}
+      <div className="grid gap-3 md:grid-cols-[minmax(240px,350px)_minmax(0,1fr)] md:min-h-[520px]">
+        <div className={`${selected ? 'hidden md:block' : ''} min-w-0 bg-white`}>
           {loading && <p className="p-5 text-sm text-black/55">Loading negotiations…</p>}
           {!loading && !visible.length && <p className="p-5 text-sm text-black/55">No negotiations in {activeTab.toLowerCase()}.</p>}
-          <ul className="divide-y divide-black/10">
+          <ul className="space-y-1">
             {visible.map((item) => (
               <li key={item.id}>
                 <button type="button" aria-current={selected === item.id ? 'page' : undefined}
                   onClick={() => updateSelection(item.id)}
-                  className={`w-full text-left p-4 hover:bg-black/5 ${selected === item.id ? 'bg-[#0A13E6]/5 border-l-4 border-[#0A13E6]' : ''}`}>
+                  className={`w-full text-left p-4 hover:bg-black/5 ${selected === item.id ? 'bg-[#0A13E6]/5' : ''}`}>
                   <p className="text-[13px] font-black truncate">{item.hat_title}</p>
                   <p className="text-[11px] text-black/55 truncate">With {item.peer_full_name || item.peer_username || 'ChombuTar user'}</p>
                   <p className="mt-1 text-[11px] font-semibold text-[#0A13E6]">
@@ -124,7 +123,7 @@ export default function Negotiations() {
               setItems((previous) => [...previous, ...result.negotiations.filter((item) => !previous.some((old) => old.id === item.id))])
               setCursor(result.nextCursor)
             } catch (err) { setError(err.message) } finally { setPaging(false) }
-          }} className="m-3 px-4 py-2 rounded-full border border-black/20 text-xs font-bold disabled:opacity-50">{paging ? 'Loading…' : 'Load more'}</button>}
+          }} className="m-3 px-4 py-2 text-xs font-bold text-[#0A13E6] hover:underline disabled:opacity-50">{paging ? 'Loading…' : 'Load more'}</button>}
         </div>
         {selected ? (
           <NegotiationDetail
@@ -136,7 +135,7 @@ export default function Negotiations() {
             onUpdated={() => setRefresh((v) => v + 1)}
           />
         ) : (
-          <div className="hidden md:grid place-items-center p-8 text-sm text-black/45">Select a negotiation to review the offer.</div>
+          <div className="hidden md:grid place-items-center bg-white p-8 text-sm text-black/45">Select a negotiation to review the offer.</div>
         )}
       </div>
     </main>
@@ -217,7 +216,7 @@ function NegotiationDetail({ id, user, readOnly, onBack, onUpdated }) {
   }
 
   return (
-    <section className="min-w-0 p-3 sm:p-5 space-y-4" aria-label="Negotiation details">
+    <section className="min-w-0 space-y-4 bg-white p-3 sm:p-5" aria-label="Negotiation details">
       <button type="button" onClick={onBack} className="md:hidden inline-flex items-center gap-1 text-xs font-bold"><ArrowLeft size={16} /> Back to negotiations</button>
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs text-red-700">{error}</p>}
       {loading && <p className="text-sm text-black/55">Loading negotiation…</p>}
@@ -229,7 +228,7 @@ function NegotiationDetail({ id, user, readOnly, onBack, onUpdated }) {
         </header>
         {readOnly || thread.agreed_at || ['cancelled', 'refunded', 'released'].includes(thread.status) ? (
           <section className="space-y-3">
-            <div className="rounded-[16px] border border-black/10 bg-[#F7F3EB] p-3.5">
+            <div className="py-3">
               <p className="text-[10px] font-black uppercase tracking-[0.1em] text-black/40">Negotiation history</p>
               <p className="mt-1 text-[13px] font-black">
                 {thread.agreed_at
@@ -258,7 +257,7 @@ function NegotiationDetail({ id, user, readOnly, onBack, onUpdated }) {
             {offers.length > 0 && <NegotiationHistory offers={offers} thread={thread} userId={user.id} />}
           </>
         ) : (
-          <p className="rounded-[14px] border border-black/10 bg-[#F7F3EB] p-3 text-xs text-black/55">
+          <p className="py-3 text-xs text-black/55">
             This deal uses a fixed price and does not belong in Negotiation Center.
           </p>
         )}
@@ -268,7 +267,7 @@ function NegotiationDetail({ id, user, readOnly, onBack, onUpdated }) {
             setOlder((current) => [...result.messages, ...current])
             setCursor(result.nextCursor)
           } catch (err) { setError(err.message) }
-        }} className="rounded-full border border-black/20 px-4 py-2 text-xs font-bold">Load older proposals</button>}
+        }} className="px-4 py-2 text-xs font-bold text-[#0A13E6] hover:underline">Load older proposals</button>}
       </>}
     </section>
   )
