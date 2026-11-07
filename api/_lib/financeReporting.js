@@ -1,22 +1,8 @@
+import {summarizeRecordedIncome} from '../../shared/incomeTotals.js'
 import {query} from './db.js'
 
 // Financial reporting treats only source-linked platform fees as income.
 // A charge can exist before the service has been earned or the bank has settled it.
-export function summarizeRecordedIncome(streams){
-  const recorded=streams.filter(item=>item.recorded&&item.inflow!==null&&item.inflow!==undefined)
-  const total=rows=>rows.reduce((sum,row)=>sum+BigInt(row.inflow),0n).toString()
-  const earned=recorded.filter(item=>item.recognition==='earned')
-  const awaiting=recorded.filter(item=>item.recognition!=='earned')
-  return {
-    recorded_fee_charges:recorded.length?total(recorded):null,
-    earned_revenue:earned.length?total(earned):null,
-    pending_recognition:awaiting.length?total(awaiting):null,
-    recorded_categories:recorded.length,
-    unavailable_categories:streams.filter(item=>!item.recorded).map(item=>item.id),
-    partial:true,
-    basis:'Source-linked platform charges; not bank settlement, cash balance or net profit.',
-  }
-}
 
 // Financial reporting uses only actual database records, never balance
 // arithmetic or assumed escrow commissions. Read-only: no funds are moved.
