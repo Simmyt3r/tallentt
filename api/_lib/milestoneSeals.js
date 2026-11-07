@@ -35,13 +35,71 @@ async function sourceEvidence(db,verb,sourceId){
   return rows[0]||null
 }
 
+// Show only the signed-in user's genuine, source-verified transactions.
+// These options make the Seal workflow usable without asking subscribers to
+// find UUIDs manually. No new award, approval or money movement occurs here.
+export async function eligibleSealSources(userId,db={query}){
+  if(!valid(userId))throw bad(401,'Sign in to see eligible milestones.')
+  await requiredMilestoneSchema(db)
+  const {rows:installed}=await db.query(`SELECT
+    to_regclass('employment_agreements') AS employment,
+    to_regclass('wallet_transfer_requests') AS transfers`)
+  const collabs=await db.query(`SELECT 'Collab' AS verb,e.id AS source_id,
+      h.hat_title AS title,p.username AS counterparty,e.released_at AS occurred_at
+    FROM escrows e JOIN hats h ON h.id=e.hat_id
+    JOIN users p ON p.id=CASE WHEN e.client_id=$1 THEN e.talent_id ELSE e.client_id END
+    WHERE (e.client_id=$1 OR e.talent_id=$1)
+      AND e.status='released' AND e.work_status='completed' AND e.released_at IS NOT NULL
+      AND EXISTS(SELECT 1 FROM wallet_transactions wt WHERE wt.escrow_id=e.id
+        AND wt.user_id=e.talent_id AND wt.status='success'
+        AND wt.type IN ('escrow_release','escrow_start'))
+      AND NOT EXISTS(SELECT 1 FROM orbit_seals s WHERE s.verb='Collab' AND s.source_id=e.id)
+    ORDER BY e.released_at DESC,e.id LIMIT 30`,[userId])
+  const results=[...collabs.rows]
+  if(installed[0]?.employment){
+    const {rows}=await db.query(`SELECT 'Hire' AS verb,a.id AS source_id,
+        'Confirmed employment' AS title,p.username AS counterparty,a.updated_at AS occurred_at
+      FROM employment_agreements a
+      JOIN users p ON p.id=CASE WHEN a.employer_id=$1 THEN a.talent_id ELSE a.employer_id END
+      WHERE (a.employer_id=$1 OR a.talent_id=$1)
+        AND a.status IN ('active','ended') AND a.accepted_version=a.version
+        AND a.employer_accepted_at IS NOT NULL AND a.talent_accepted_at IS NOT NULL
+        AND EXISTS(SELECT 1 FROM employment_salary_periods sp WHERE sp.agreement_id=a.id
+          AND sp.status='confirmed' AND sp.confirmed_at IS NOT NULL)
+        AND NOT EXISTS(SELECT 1 FROM orbit_seals s WHERE s.verb='Hire' AND s.source_id=a.id)
+      ORDER BY a.updated_at DESC,a.id LIMIT 30`,[userId])
+    results.push(...rows)
+  }
+  if(installed[0]?.transfers){
+    const {rows}=await db.query(`SELECT 'Sponsor' AS verb,w.id AS source_id,
+        'Settled wallet support' AS title,p.username AS counterparty,w.created_at AS occurred_at
+      FROM wallet_transfer_requests w
+      JOIN users t ON t.id=w.recipient_id AND t.role IN ('talent','dual')
+      JOIN users p ON p.id=CASE WHEN w.sender_id=$1 THEN w.recipient_id ELSE w.sender_id END
+      WHERE (w.sender_id=$1 OR w.recipient_id=$1)
+        AND EXISTS(SELECT 1 FROM wallet_transactions wt WHERE wt.transfer_id=w.id
+          AND wt.user_id=w.sender_id AND wt.type='wallet_transfer_sent'
+          AND wt.status='success' AND wt.amount=w.amount)
+        AND EXISTS(SELECT 1 FROM wallet_transactions wt WHERE wt.transfer_id=w.id
+          AND wt.user_id=w.recipient_id AND wt.type='wallet_transfer_received'
+          AND wt.status='success' AND wt.amount=w.amount)
+        AND NOT EXISTS(SELECT 1 FROM orbit_seals s WHERE s.verb='Sponsor' AND s.source_id=w.id)
+      ORDER BY w.created_at DESC,w.id LIMIT 30`,[userId])
+    results.push(...rows)
+  }
+  return results
+}
+
 export async function getMilestoneSeals(userId){
   await requiredMilestoneSchema()
-  const {rows}=await query(`SELECT id,verb,source_id,client_id,talent_id,created_by,
-    client_signed_at,talent_signed_at,sealed_at,status,created_at
-    FROM orbit_seals WHERE client_id=$1 OR talent_id=$1
-    ORDER BY created_at DESC LIMIT 100`,[userId])
-  return {seals:rows}
+  const [history,sources]=await Promise.all([
+    query(`SELECT id,verb,source_id,client_id,talent_id,created_by,
+      client_signed_at,talent_signed_at,sealed_at,status,created_at
+      FROM orbit_seals WHERE client_id=$1 OR talent_id=$1
+      ORDER BY created_at DESC LIMIT 100`,[userId]),
+    eligibleSealSources(userId),
+  ])
+  return {seals:history.rows,sources}
 }
 
 export async function milestoneSealAction(userId,body){
