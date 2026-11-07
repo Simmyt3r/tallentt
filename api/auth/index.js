@@ -272,8 +272,13 @@ async function handleRegister(body, res) {
   if (!VALID_ROLES.includes(role)) {
     return json(res, 400, { error: 'Choose a valid role.' })
   }
-  if (!country || !lga) {
-    return json(res, 400, { error: 'Country and city/LGA are required.' })
+  // A city/LGA is not a talent category. Registration must never put an
+  // occupational category into the geographic location column. Location is
+  // intentionally optional until the subscriber explicitly supplies one.
+  const safeCountry = typeof country === 'string' && country.trim() ? country.trim() : 'Nigeria'
+  const safeLga = typeof lga === 'string' && lga.trim() ? lga.trim() : null
+  if (safeCountry.length > 100 || (safeLga && safeLga.length > 120)) {
+    return json(res, 400, { error: 'Country or city/LGA is too long.' })
   }
 
   try {
@@ -282,7 +287,7 @@ async function handleRegister(body, res) {
       `INSERT INTO users (full_name, username, email, password_hash, role, country, lga)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, full_name, username, email, role, is_admin, country, lga`,
-      [fullName.trim(), cleanUsername, String(email).trim().toLowerCase(), passwordHash, role, country, lga.trim()],
+      [fullName.trim(), cleanUsername, String(email).trim().toLowerCase(), passwordHash, role, safeCountry, safeLga],
     )
 
     const user = toPublicUser(result.rows[0])
