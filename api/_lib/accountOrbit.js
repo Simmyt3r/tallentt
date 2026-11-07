@@ -3,6 +3,7 @@ import {classifyOrbitEvidence} from '../../shared/orbitEvidence.js'
 // trustworthiness or suitability. Engagement likes and page views do not earn points.
 import {query,getClient} from './db.js'
 import {notifyUser} from './notifications.js'
+import {keepUpOrbitSummary} from './keepUpMilestones.js'
 
 export const ORBIT_DEFAULTS=Object.freeze({
   profile:15, verification:20, completed_work:25,
@@ -104,7 +105,17 @@ export async function accountOrbit(userId){
     activeDays:Number(activity[0]?.active_days||0),
     accountAgeDays:Math.max(0,Math.floor((Date.now()-new Date(owner.created_at).getTime())/86400000)),
   }
-  return calculateOrbitScore(metrics,await orbitWeights())
+  const orbit=calculateOrbitScore(metrics,await orbitWeights())
+  const keepUp=await keepUpOrbitSummary(userId)
+  // Add verified, one-time milestone points on top of the existing six-factor
+  // activity model. Only the Talent lane earns a follower-related milestone.
+  const bonus=Number(keepUp.points||0)
+  orbit.score=Math.round((orbit.score+bonus)*10)/10
+  orbit.byRole.talent.score=Math.round((orbit.byRole.talent.score+bonus)*10)/10
+  orbit.evidence.showcase_activity.points+=bonus
+  orbit.byRole.talent.evidence.showcase_activity.points+=bonus
+  orbit.milestones={keep_up:keepUp}
+  return orbit
 }
 
 export async function orbitAdminStatus(){

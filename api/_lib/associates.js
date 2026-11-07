@@ -1,5 +1,6 @@
 import { query, getClient } from './db.js'
 import { notifyUser } from './notifications.js'
+import { recordKeepUpTransition } from './keepUpMilestones.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const fail = (status,message) => Object.assign(new Error(message),{status})
@@ -83,20 +84,34 @@ export async function associatesAction(userId,body){
   if(!valid(other)||other===userId)throw fail(400,'Select another subscriber.')
   const [lo,hi]=pair(userId,other)
   if(action==='associate_follow'||action==='associate_unfollow'){
-    if(action==='associate_follow'){
-      const {rows:blocked}=await query(`SELECT 1 FROM associate_links
-        WHERE member_low=$1 AND member_high=$2 AND status='blocked'`,[lo,hi])
-      if(blocked.length)throw fail(403,'This subscriber connection is blocked.')
-      const {rows:rate}=await query(`SELECT COUNT(*)::int AS n FROM subscriber_follows
-        WHERE follower_id=$1 AND created_at>NOW()-INTERVAL '24 hours'`,[userId])
-      if(rate[0].n>=60)throw fail(429,'You have followed many accounts today.')
-      const {rowCount}=await query(`INSERT INTO subscriber_follows(follower_id,followed_id)
-        SELECT $1,id FROM users WHERE id=$2 ON CONFLICT DO NOTHING`,[userId,other])
-      if(!rowCount)throw fail(409,'Subscriber unavailable or already followed.')
-    }else{
-      await query('DELETE FROM subscriber_follows WHERE follower_id=$1 AND followed_id=$2',[userId,other])
-    }
-    return {ok:true}
+    // Both directions of this pair lock users in a stable order, so parallel
+    // actions, block requests and retries cannot diverge from Orbit evidence.
+    const client=await getClient()
+    try{
+      await client.query('BEGIN')
+      const {rows:members}=await client.query(
+        'SELECT id FROM users WHERE id IN ($1,$2) ORDER BY id FOR UPDATE',[lo,hi])
+      if(members.length!==2)throw fail(404,'Subscriber unavailable.')
+      if(action==='associate_follow'){
+        const {rows:blocked}=await client.query(`SELECT 1 FROM associate_links
+          WHERE member_low=$1 AND member_high=$2 AND status='blocked'`,[lo,hi])
+        if(blocked.length)throw fail(403,'This subscriber connection is blocked.')
+        const {rows:rate}=await client.query(`SELECT COUNT(*)::int AS n FROM subscriber_follows
+          WHERE follower_id=$1 AND created_at>NOW()-INTERVAL '24 hours'`,[userId])
+        if(rate[0].n>=60)throw fail(429,'You have followed many accounts today.')
+        const {rowCount}=await client.query(`INSERT INTO subscriber_follows(follower_id,followed_id)
+          VALUES($1,$2) ON CONFLICT DO NOTHING`,[userId,other])
+        if(!rowCount)throw fail(409,'Subscriber unavailable or already followed.')
+        await recordKeepUpTransition(client,userId,other,true)
+      }else{
+        const {rowCount}=await client.query(`DELETE FROM subscriber_follows
+          WHERE follower_id=$1 AND followed_id=$2`,[userId,other])
+        if(rowCount)await recordKeepUpTransition(client,userId,other,false)
+      }
+      await client.query('COMMIT')
+      return {ok:true}
+    }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error}
+    finally{client.release()}
   }
   if(action==='associate_request'){
     const {rows:recipient}=await query(`SELECT u.id,COALESCE(s.who_can_request,'everyone') AS policy
@@ -133,6 +148,8 @@ export async function associatesAction(userId,body){
   let updated
   try{
     await client.query('BEGIN')
+    // Lock in the same order as follow/unfollow to avoid cross-action races.
+    await client.query('SELECT id FROM users WHERE id IN ($1,$2) ORDER BY id FOR UPDATE',[lo,hi])
     const {rows}=await client.query(`SELECT * FROM associate_links
       WHERE member_low=$1 AND member_high=$2 FOR UPDATE`,[lo,hi])
     const link=rows[0]
@@ -148,7 +165,12 @@ export async function associatesAction(userId,body){
       await client.query(`UPDATE associate_links SET status='blocked',
         vouched_by_low=FALSE,vouched_by_high=FALSE,updated_at=NOW()
         WHERE member_low=$1 AND member_high=$2`,[lo,hi])
-      await client.query('DELETE FROM subscriber_follows WHERE (follower_id=$1 AND followed_id=$2) OR (follower_id=$2 AND followed_id=$1)',[lo,hi])
+      const {rows:revoked}=await client.query(`DELETE FROM subscriber_follows
+        WHERE (follower_id=$1 AND followed_id=$2) OR (follower_id=$2 AND followed_id=$1)
+        RETURNING follower_id,followed_id`,[lo,hi])
+      for(const follow of revoked){
+        await recordKeepUpTransition(client,follow.follower_id,follow.followed_id,false)
+      }
     }else if(action==='associate_remove'){
       if(link.status!=='accepted')throw fail(409,'No active Associate connection to remove.')
       updated='removed'
