@@ -74,7 +74,12 @@ try {
   await talent.getByText(/Final agreed price:/).waitFor()
   await talent.goto('http://127.0.0.1:5179/deals?role=talent&tab=incoming')
   await talent.getByRole('heading', { name: 'My Deals', exact: true }).waitFor()
-  await talent.getByRole('button', { name: 'Accept', exact: true }).click()
+  // Grid and List show clean View details links; the signed-in Talent
+  // accepts inside Deal Details, not with crowded card-level buttons.
+  await talent.getByRole('link', { name: /View details/ }).first().click()
+  await talent.getByRole('button', { name: 'Accept booking', exact: true }).click()
+  await talent.getByRole('button', { name: 'Accept booking', exact: true }).waitFor({state:'hidden'})
+  await talent.goto('http://127.0.0.1:5179/deals?role=talent&tab=active')
   await talent.getByRole('button', { name: /Active \(1\)/ }).waitFor()
   await client.reload()
   await client.getByText(/Final agreed price:/).waitFor()
