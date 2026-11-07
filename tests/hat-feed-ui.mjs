@@ -90,7 +90,7 @@ try {
     assert.equal(await page.getByText('Duration:',{exact:true}).count(),0)
     assert.equal(await page.getByText('Event:',{exact:true}).count(),0)
     assert.equal(await page.getByText('/hour',{exact:false}).count() > 0,true,'range price must display pay unit')
-    assert.equal(await page.getByRole('searchbox',{name:'Search BentoField talents and client Hats'}).count(),1)
+    assert.equal(await page.getByRole('textbox',{name:'Search BentoField talents and client Hats'}).count(),1)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
 
     // One subscriber with simultaneous services needs two distinct decisions,
@@ -106,7 +106,7 @@ try {
     assert.ok((await rangeCard.innerText()).includes('/hour'))
     await page.getByRole('button',{name:'+1 More',exact:true}).first().click()
     await page.getByText('Other independently bookable Hats').first().waitFor()
-    const search=page.getByRole('searchbox',{name:'Search BentoField talents and client Hats'})
+    const search=page.getByRole('textbox',{name:'Search BentoField talents and client Hats'})
     const searchBox=await search.boundingBox()
     await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight))
     const scrollBox=await search.boundingBox()
