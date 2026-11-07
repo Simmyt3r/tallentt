@@ -2,6 +2,7 @@ import { getClient, query } from './db.js'
 import { bookingError, requireBookingId, requireAmount, messageText } from './bookingRules.js'
 import { creditWallet } from './wallet.js'
 import { bookGigRelease } from './gigFees.js'
+import {awardCompletedBooking} from './verifiedMilestones.js'
 import { dispatchStoredNotifications } from './pushNotifications.js'
 
 const titles = {
@@ -131,6 +132,7 @@ export async function bookingLifecycle(userId, escrowId, action, body = {}, admi
        contacts_unlocked = CASE WHEN $3 = 'refunded' THEN false ELSE contacts_unlocked END,
        messages_updated_at = NOW() WHERE id = $1 RETURNING *`, [escrowId, workStatus, settlement || null],
     )
+    if(settlement==='released')await awardCompletedBooking(client,escrowId)
     await client.query(
       `INSERT INTO booking_events (escrow_id, actor_id, action, note, expected_version, client_token)
        VALUES ($1, $2, $3, $4, $5, $6)`, [escrowId, userId, action, note, body.expected_version, body.client_token],
