@@ -3,13 +3,13 @@ import assert from 'node:assert/strict'
 import {randomUUID} from 'node:crypto'
 import {readFile} from 'node:fs/promises'
 import {testDatabase} from './database.mjs'
-import {guestDiscovery} from '../api/_lib/guestDiscovery.js'
 import {guestAuthUrl,guestResumePath,parseGuestResume,safeAuthReturnPath} from '../src/lib/guestIntent.js'
 
-let db,pool,goodTalent,client,goodHat,hiddenHat,pendingHat,post,oldViews
+let db,pool,guestDiscovery,goodTalent,client,goodHat,hiddenHat,pendingHat,post,oldViews
 before(async()=>{
   db=await testDatabase();pool=db.pool;global.__tworldPool=pool
   await pool.query(await readFile(new URL('../db/schema.sql',import.meta.url),'utf8'))
+  ;({guestDiscovery}=await import('../api/_lib/guestDiscovery.js'))
   goodTalent=randomUUID();client=randomUUID();goodHat=randomUUID()
   hiddenHat=randomUUID();pendingHat=randomUUID();post=randomUUID()
   await pool.query(`INSERT INTO users(id,full_name,username,email,password_hash,role,country,lga,bank_name)
