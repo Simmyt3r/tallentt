@@ -216,7 +216,7 @@ export async function shareHat({ hatId, title, context }) {
 // feedback — no application alert() and no state the parent needs to own.
 // Always stops propagation: it sits inside surfaces that are themselves
 // clickable, and a click here should only ever share.
-export function ShareButton({ hatId, title, context, className = '' }) {
+export function ShareButton({ hatId, title, context, className = '', onSuccess }) {
   const [feedback, setFeedback] = useState('')
 
   useEffect(() => {
@@ -230,6 +230,7 @@ export function ShareButton({ hatId, title, context, className = '' }) {
     e.preventDefault()
     if (!hatId) return
     const result = await shareHat({ hatId, title, context })
+    if (result === 'copied' || result === 'shared') onSuccess?.(result)
     if (result === 'copied') setFeedback('Link copied')
     else if (result === 'error') setFeedback('Could not copy link')
   }
@@ -299,11 +300,13 @@ export function useLikeToggle({ id, liked: initialLiked, count: initialCount, on
     try {
       await api.toggleLike(id)
       onHatChange?.({ id, liked_by_me: next, likes: nextCount })
+      return next
     } catch {
       // Restore the previous state — never leave the UI showing a like the
       // server rejected (e.g. session expired, so the PATCH 401s).
       setLiked(!next)
       setCount(count)
+      return null
     } finally {
       setLiking(false)
     }
@@ -325,13 +328,14 @@ export function HatOwnerHeader({
   liked,
   onToggleLike,
   likeDisabled,
+  onShareSuccess,
   onClose,
 }) {
   return (
     <div className="flex items-start justify-between gap-2">
       <div className="min-w-0">{identity}</div>
       <div className="flex items-center gap-0.5 shrink-0">
-        <ShareButton hatId={hatId} title={shareTitle} context={shareContext} />
+        <ShareButton hatId={hatId} title={shareTitle} context={shareContext} onSuccess={onShareSuccess} />
         <LikeButton liked={liked} onToggle={onToggleLike} disabled={likeDisabled} />
         {onClose && (
           <button
