@@ -111,6 +111,36 @@ function SalaryReport({period,agreement,today,onAction,busy,trackingPrices}){
   </form>
 }
 
+const statementStatus={
+  not_paid:'No fee charged',
+  wallet_charge_recorded:'Paid · internal wallet debit matched',
+  wallet_refund_recorded:'Refunded · internal wallet credit matched',
+  charge_unverified:'Review · wallet debit not verified',
+  refund_review:'Review · refund mismatch',
+  records_disagree:'Review · billing records disagree',
+}
+function MonthlyTrackingStatement({statement,month}){
+  if(!statement?.available)return null
+  return <details className="rounded-xl bg-black/[0.035] px-3 py-3 text-[11px]" aria-label={'Monthly tracking statement for '+month}>
+    <summary className="min-h-8 cursor-pointer font-bold">View monthly tracking fee statement</summary>
+    <div className="mt-3 space-y-3">
+      {statement.entries.map(item=><section key={item.side} className="space-y-1 border-t border-black/10 pt-3">
+        <p className="text-xs font-bold">{item.side==='client'?'Client fee':'Talent fee'}</p>
+        <p className={item.status==='wallet_charge_recorded'||item.status==='wallet_refund_recorded'
+          ?'font-semibold text-green-700':'font-semibold text-amber-800'}>
+          {statementStatus[item.status]||'Requires review'}
+        </p>
+        <p>{item.amount==null?'No billed fee amount': 'Tracking charge: ₦'+Number(item.amount).toLocaleString('en-NG')}</p>
+        {item.charged_at&&<p>Recorded {new Date(item.charged_at).toLocaleDateString('en-NG')}</p>}
+        {item.refunded_at&&<p>Refund recorded {new Date(item.refunded_at).toLocaleDateString('en-NG')}</p>}
+        {item.reference&&<p className="break-all font-mono text-black/55">Reference: {item.reference}</p>}
+        {item.receipt_id&&<p className="break-all font-mono text-black/55">Receipt: {item.receipt_id}</p>}
+      </section>)}
+      <p className="text-black/55">{statement.note}</p>
+    </div>
+  </details>
+}
+
 function SalaryPeriod({period,employer,agreement,today,onAction,busy,trackingPrices}){
   const [mode,setMode]=useState(''),[note,setNote]=useState(''),[received,setReceived]=useState(today)
   const status={reported:'Awaiting talent confirmation',disputed:'Not received in full',confirmed:'Receipt confirmed'}[period.status]
@@ -119,6 +149,7 @@ function SalaryPeriod({period,employer,agreement,today,onAction,busy,trackingPri
     <p className="text-xs text-black/60">Due {period.due_on} · Reported paid {period.paid_on} · {{bank_transfer:'Bank transfer',cash:'Cash',escrow:'ChombuTar escrow'}[period.method]}</p>
     {period.note&&<p className="whitespace-pre-wrap break-words text-xs">{period.note}</p>}
     {period.status==='confirmed'&&<p className="text-xs font-semibold text-green-700">Received {period.received_on} · {period.received_on<=period.due_on?'On time':'After due date'}</p>}
+    <MonthlyTrackingStatement statement={period.trackingStatement} month={period.month}/>
     {period.trackingFees&&<div className="rounded-xl border border-[#0A13E6]/15 bg-[#F2F3FF] p-3 text-[11px]">
       <strong>Monthly Work Pass tracking · both sides</strong>
       <p className="mt-1">Client: {period.trackingFees.clientPaid?'Paid':'Unpaid'} · Talent: {period.trackingFees.talentPaid?'Paid':'Unpaid'}</p>
