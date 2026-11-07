@@ -4,6 +4,9 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import Landing from './pages/Landing.jsx'
+import GuestLayout from './components/GuestLayout.jsx'
+import GuestDiscovery, {GuestHat,GuestProfile,GuestWorkPass} from './pages/GuestDiscovery.jsx'
+import GuestResume from './pages/GuestResume.jsx'
 import Layout from './components/Layout.jsx'
 import Feed from './pages/Feed.jsx'
 import Vibes from './pages/Vibes.jsx'
@@ -35,6 +38,7 @@ import StageCompetitions from './pages/Live/StageCompetitions.jsx'
 import StageCompetitionRoom from './pages/Live/StageCompetitionRoom.jsx'
 import { decideLanding } from './lib/landing.js'
 import { safeVibeReturnPath } from './lib/vibeSharing.js'
+import {safeAuthReturnPath} from './lib/guestIntent.js'
 
 function LegacyInboxRedirect({ tab }) { const { search } = useLocation(); const params = new URLSearchParams(search); params.set('tab', tab); return <Navigate to={'/inbox?' + params.toString()} replace /> }
 
@@ -72,12 +76,17 @@ function ProtectedRoute({ children }) {
   }
   return <Layout>{children}</Layout>
 }
+function GuestOrMemberRoute({children,guest}) {
+  const {user,loading}=useAuth()
+  if(loading)return <FullPageSpinner />
+  return user?<Layout>{children}</Layout>:<GuestLayout>{guest}</GuestLayout>
+}
 function PublicOnlyRoute({ children }) {
   const {user,loading}=useAuth()
   const location=useLocation()
   if(loading)return <FullPageSpinner />
   if(user){
-    const next=safeVibeReturnPath(new URLSearchParams(location.search).get('next'))
+    const next=safeAuthReturnPath(new URLSearchParams(location.search).get('next'))
     return <Navigate to={next||'/'} replace />
   }
   return children
@@ -95,20 +104,20 @@ export default function App() {
   return <Routes>
     <Route path="/auth" element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />
     <Route path="/" element={<HomeRoute />} />
-    <Route path="/bento" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
-    <Route path="/vibes" element={<ProtectedRoute><VibesRenderBoundary><Vibes /></VibesRenderBoundary></ProtectedRoute>} />
+    <Route path="/bento" element={<GuestOrMemberRoute guest={<GuestDiscovery mode="bento"/>}><Feed /></GuestOrMemberRoute>} />
+    <Route path="/vibes" element={<GuestOrMemberRoute guest={<GuestDiscovery mode="vibes"/>}><VibesRenderBoundary><Vibes /></VibesRenderBoundary></GuestOrMemberRoute>} />
     <Route path="/vibes/:postId/comments" element={<ProtectedRoute><VibesRenderBoundary><VibesConversation /></VibesRenderBoundary></ProtectedRoute>} />
     <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
     <Route path="/messages" element={<LegacyInboxRedirect tab="bento" />} />
     <Route path="/chats" element={<LegacyInboxRedirect tab="associates" />} />
     <Route path="/negotiations" element={<ProtectedRoute><Negotiations /></ProtectedRoute>} />
     <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-    <Route path="/showroom/:postId?" element={<ProtectedRoute><ShowroomPage /></ProtectedRoute>} />
+    <Route path="/showroom/:postId?" element={<GuestOrMemberRoute guest={<GuestDiscovery mode="showroom"/>}><ShowroomPage /></GuestOrMemberRoute>} />
     <Route path="/my-hats" element={<ProtectedRoute><MyHats /></ProtectedRoute>} />
     <Route path="/milestones" element={<ProtectedRoute><MilestoneCenter /></ProtectedRoute>} />
     <Route path="/create" element={<ProtectedRoute><HatForm /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-    <Route path="/profile/:username" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
+    <Route path="/profile/:username" element={<GuestOrMemberRoute guest={<GuestProfile/>}><PublicProfile /></GuestOrMemberRoute>} />
     <Route path="/work-pass/verify" element={<ProtectedRoute><VerifyWorkPass /></ProtectedRoute>} />
     <Route path="/deals" element={<ProtectedRoute><MyDeals /></ProtectedRoute>} />
     <Route path="/deals/:dealId" element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
@@ -126,9 +135,11 @@ export default function App() {
     <Route path="/live/competitions/:id" element={<ProtectedRoute><StageCompetitionRoom /></ProtectedRoute>} />
     <Route path="/live/stage" element={<Navigate to="/live" replace />} />
     <Route path="/live/arena/:id?" element={<Navigate to="/live" replace />} />
+    <Route path="/guest-resume" element={<ProtectedRoute><GuestResume/></ProtectedRoute>} />
+    <Route path="/work-pass/:username" element={<GuestOrMemberRoute guest={<GuestWorkPass/>}><GuestWorkPass/></GuestOrMemberRoute>} />
     <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-    <Route path="/talent/:hatId" element={<ProtectedRoute><TalentProfile /></ProtectedRoute>} />
-    <Route path="/hat/:hatId" element={<ProtectedRoute><HatPage /></ProtectedRoute>} />
+    <Route path="/talent/:hatId" element={<GuestOrMemberRoute guest={<GuestHat/>}><TalentProfile /></GuestOrMemberRoute>} />
+    <Route path="/hat/:hatId" element={<GuestOrMemberRoute guest={<GuestHat/>}><HatPage /></GuestOrMemberRoute>} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 }
