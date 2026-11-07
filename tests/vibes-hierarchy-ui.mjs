@@ -196,6 +196,15 @@ try{
       }
       return respond({user:signedIn?self:null})
     }
+    if(url.pathname==='/api/showroom' && url.searchParams.get('action')==='guest_discovery')
+      return respond({mode:'vibes',posts:[{
+        id:postId,user_id:self.id,username:'creator',owner_full_name:'Creator Person',
+        body:'Shared post destination',media:[],likes:0,comments:0,shares:0,
+        created_at:'2026-10-30T12:00:00Z',
+      }],nextPage:null})
+    if(url.pathname==='/api/users/creator')return respond({user:{
+      id:self.id,username:'creator',fullName:'Creator Person',role:'talent',
+    },orbit:{score:0},portfolio:[],gallery:[],hats:{talent:[],client:[]}})
     if(url.pathname==='/api/vibes')return respond({posts:[{
       id:postId,author_id:self.id,username:'creator',full_name:'Creator Person',
       body:'Shared post destination',media:[],likes:0,replies:0,shares:0,
@@ -204,9 +213,16 @@ try{
     return respond({hats:[],items:[],notifications:[],count:0,threads:[]})
   })
   await guestPage.goto('http://127.0.0.1:'+port+'/vibes?post='+postId)
+  // Guests can inspect a moderated public Vibe without an account.
+  await guestPage.getByText('Shared post destination').waitFor()
+  assert.equal(new URL(guestPage.url()).pathname,'/vibes')
+  await guestPage.getByRole('button',{name:'Comment',exact:true}).click()
+  const gate=guestPage.getByRole('dialog')
+  await gate.getByRole('heading',{name:'Comment on Creator Person'}).waitFor()
+  await gate.getByRole('link',{name:'Log In'}).click()
   await guestPage.waitForURL(url=>url.pathname==='/auth')
   const next=new URL(guestPage.url()).searchParams.get('next')
-  assert.equal(next,'/vibes?post='+postId)
+  assert.match(next,/^\/guest-resume\?intent=comment&username=creator&hat=/)
   await guestPage.getByLabel('Email',{exact:true}).fill('studio@example.test')
   await guestPage.getByLabel('Password',{exact:true}).fill('password123')
   await guestPage.getByRole('button',{name:'Login — Own Your Spotlight'}).click()
