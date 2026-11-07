@@ -37,7 +37,7 @@ async function sourceEvidence(db,verb,sourceId){
 
 export async function getMilestoneSeals(userId){
   await requiredMilestoneSchema()
-  const {rows}=await query(`SELECT id,verb,source_id,client_id,talent_id,
+  const {rows}=await query(`SELECT id,verb,source_id,client_id,talent_id,created_by,
     client_signed_at,talent_signed_at,sealed_at,status,created_at
     FROM orbit_seals WHERE client_id=$1 OR talent_id=$1
     ORDER BY created_at DESC LIMIT 100`,[userId])
