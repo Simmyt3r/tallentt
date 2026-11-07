@@ -8,7 +8,8 @@ Admin Finance now has an explicit **Run read-only check** action. It compares th
 
 - **Unverified charge:** a billed receipt does not have exactly one successful wallet debit with the same user, reference and amount.
 - **Unverified refund:** a refunded receipt lacks exactly one matching successful wallet refund.
-- **Unexpected refund:** a wallet refund is present but its receipt remains marked charged.
+- **Unexpected refund:** a wallet refund is present but its receipt remains marked charged (even if the refund amount differs).
+- **Collection suppression:** Admin recorded collections exclude receipts with any successful same-reference wallet refund, even when their receipt state has not been updated. The audit marks these for investigation instead of overstating revenue.
 - **Orphan wallet charge/refund:** a successful billing journal entry has no matching current receipt (this may arise after legacy receipt updates; investigate before altering records).
 - All issue categories are counted. Admin sees up to 25 latest source-linked entries, with account, amount and reference to investigate. Issue counts are not a sum of naira and may overlap by underlying transaction.
 
