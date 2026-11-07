@@ -18,7 +18,7 @@ export default function GuestActionGate({intent,onClose}){
     like:'Like',save:'Save',share:'Share',comment:'Comment on',message:'Message',
   }[intent.intent]||'Connect with'
   const name=intent.name||intent.username
-  const details={intent:intent.intent,username:intent.username,hat:intent.hat}
+  const details={intent:intent.intent,username:intent.username,hat:intent.hat,resource:intent.resource||'hat'}
   return <div className="fixed inset-0 z-[100] grid place-items-center bg-black/60 p-4"
     onMouseDown={event=>{if(event.target===event.currentTarget)onClose?.()}}>
     <section role="dialog" aria-modal="true" aria-labelledby="guest-action-title"
