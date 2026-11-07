@@ -1,0 +1,61 @@
+name: Verified Orbit Milestones Gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/_lib/verifiedMilestones.js'
+      - 'api/_lib/qualifiedDiscovery.js'
+      - 'api/_lib/milestoneSeals.js'
+      - 'api/_lib/accountOrbit.js'
+      - 'api/_lib/showroomMediaScreening.js'
+      - 'api/_lib/bookingQr.js'
+      - 'api/_lib/bookingLifecycle.js'
+      - 'api/admin/index.js'
+      - 'api/escrows/index.js'
+      - 'api/hats/**'
+      - 'api/showroom/index.js'
+      - 'db/patch-orbit-verified-2026-11.sql'
+      - 'src/pages/MilestoneCenter.jsx'
+      - 'src/components/Showroom.jsx'
+      - 'src/components/AdminOrbitAndHatReview.jsx'
+      - 'tests/verified-milestones.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-milestones:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      VITE_APP_NAME: ChombuTar
+      VITE_APP_URL: https://example.com
+      VITE_CLOUDINARY_CLOUD_NAME: demo
+      VITE_CLOUDINARY_UPLOAD_PRESET: demo
+      VITE_CLOUDINARY_FOLDER: chombutar_hats
+      VITE_PAYSTACK_PUBLIC_KEY: pk_test_dummy
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Verify idempotent milestones and fraudulent proof rejection
+        run: node --test tests/verified-milestones.test.mjs tests/keepup-milestones.test.mjs
+      - run: npm run check:api
+      - run: npm run build
