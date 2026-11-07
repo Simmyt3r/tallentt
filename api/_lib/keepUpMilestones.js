@@ -30,7 +30,9 @@ export async function recordKeepUpTransition(db,actorId,subjectId,isFollowing){
   const last=history[0]||null
   let kind=null
   if(isFollowing){
-    if(!await eligibleTalent(db,subjectId))return {recorded:false}
+    // Existing credited followers can restore the previous point even if the
+    // Talent temporarily unpublishes; this never creates a new unlock.
+    if(!last && !await eligibleTalent(db,subjectId))return {recorded:false}
     if(!last)kind='award'
     else if(last.kind==='reverse')kind='restore'
   }else if(last && last.kind!=='reverse'){
