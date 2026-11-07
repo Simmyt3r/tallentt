@@ -12,7 +12,7 @@ Seven verbs in order: **Showcase → Discover → KeepUp → Book → Collab →
 |---|---|---|
 | M1 Showcase | Hat form, Showroom, Bento Feed visibility, Gallery | Validate required refined media, optional raw media, field order, editing and moderation in real user journeys |
 | M2 Discover | Search, Showroom, Bento Field; event/score infrastructure | Server-authoritative one-time qualified viewer–Talent pair ledger; explicit intentional click, active stay >5 seconds and real user action proof; rate limits, uniqueness and appeal policy |
-| M3 KeepUp | `subscriber_follows` + Associates follow/unfollow; **For You / Keeping Up** feeds and profile KeepUp action now implemented | Remaining: one-time historical Orbit award/reversal ledger, explicit fraud rules, discoverability checks and user acceptance |
+| M3 KeepUp | `subscriber_follows`, Associates follow/unfollow, **For You / Keeping Up** feeds and forward-only one-time milestone ledger | Remaining: migration activation, coordinated-account fraud/appeals policy, historical backfill approval, production acceptance and future Hat-cap enforcement |
 | M4 Book | Booking and escrow APIs, funded/released work, transaction and commission records | End-to-end real-user acceptance, deposit/refund/reversal reconciliation, delivered-work verification, checkout disclosure, dispute and payment-provider integration |
 | M5 Collab/Hire/Sponsor | Associates and employment/tracking foundation | Individually verifiable signed Seal types, completion/payment events, cancellation states, consent, fee policies and separate platform-charge event ledgers |
 | M6 Work Pass | Single signed Work Pass with distinct Talent/Client Orbit, completed jobs, salary evidence | Governed event ledger, qualification provenance, 1-decimal display, verified Discovery/KeepUp counts and Seal history, anti-fraud checks |
@@ -58,7 +58,7 @@ The owner's maximally unlocked Hats per milestone remains **10**. Earned Hats ap
 
 Maintain **For You / Discover** (broad discoverable posts, including unfamiliar Talent) and **Keeping Up** (posts from followed Talent). Do **not** replace the entire Vibes feed with followed accounts only. Both tabs require independent pagination, stable return position, moderation and privacy enforcement; direct links to visible posts should continue to work.
 
-**Implementation update:** The two feeds now use authenticated follow relationships and server-side filtering; search and pagination are isolated per tab, hidden posts remain excluded, and comments retain the feed return state. No KeepUp Orbit points or Hat-unlock credits are awarded yet. Followed-feed access requires the existing Associates & Inbox migration.
+**Implementation update:** The two feeds use authenticated follow relationships and server-side filtering; search and pagination are isolated per tab, hidden posts remain excluded, and comments retain the feed return state. With the new **Orbit milestones** migration applied, the first qualified, future KeepUp (active published Talent Hat) credits +1 to the Talent Orbit lane and records +3 *future-Hat unlock credits*. Un-KeepUp writes -1; refollow restores +1 but never awards another three slots. Existing follows are **not** backfilled. Legacy Orbit weights/earned-work evidence remain separate. Followed-feed access still requires the Associates & Inbox migration. **Hat creation limits do not yet consume these credits**; do not market expanded Hat capacity as active until a separate, grandfathering-safe quota release. Coordinated fake-account detection and appeals remain a launch gate.
 
 ### Booking and launch gate
 
@@ -90,3 +90,12 @@ Each stream must have a traceable transaction audit before it can move from *una
 - [ ] Admin shows individual fee incomes **then** correctly summed, explicitly partial totals; missing ledgers show unknown rather than zero; no customer money is included.
 - [ ] Commercial launch blocked until verified Book/escrow and other agreed milestones pass.
 - [ ] Legal Seal terms, signatures, cancellation, dispute and payout handling are reviewed.
+
+
+## KeepUp milestone release — migration and monitoring
+
+1. Apply `associates-2026-10` if necessary, then `orbit-milestones-2026-11` from **Admin → Database Migrations**. This release does not create or adjust financial transactions.
+2. One signed-in follower may claim an initial +1 / +3 credit per **eligible published Talent account**. Neither self-follows nor client-only profiles qualify. Account-pair database uniqueness and locked, atomic follow/unfollow operations prevent retry-based double claims.
+3. Current follower state and score are separate: the event history remains after unfollow, +1 is offset by -1, and a subsequent refollow restores +1 **without** repeating +3. Blocking immediately removes follows and posts matching reversals in the same transaction.
+4. No historical follows are automatically backfilled. Event source IDs, policy version, actor, subject and reversal references are retained. A separate migration and signed-off verification rules are required for historical migration.
+5. **Open launch risks:** account farms and coordinated multi-account follows remain possible without an identity/behavior abuse review and appeal mechanism. The +3 figures are **stored entitlement evidence only** until server-side Hat quota enforcement and legacy-owner grandfathering are implemented. No money is paid for KeepUp.
