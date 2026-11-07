@@ -52,12 +52,15 @@ export async function financeSummary(){
         (SELECT COUNT(*)::int FROM wallet_transactions wt
           WHERE wt.user_id=b.user_id AND wt.reference=b.reference
             AND wt.type='billing_charge' AND wt.status='success'
-            AND wt.amount=b.amount) AS debits
+            AND wt.amount=b.amount) AS debits,
+        (SELECT COUNT(*)::int FROM wallet_transactions wt
+          WHERE wt.user_id=b.user_id AND wt.reference='refund:'||b.reference
+            AND wt.type='billing_refund' AND wt.status='success') AS posted_refunds
       FROM billing_charge_events b
     ) SELECT kind,
-      COALESCE(SUM(amount::bigint) FILTER(WHERE status='charged' AND debits=1),0)::text AS charged_fees,
-      COUNT(*) FILTER(WHERE status='charged' AND debits=1)::int AS transactions,
-      COUNT(*) FILTER(WHERE status='charged' AND debits<>1)::int AS unmatched_charges
+      COALESCE(SUM(amount::bigint) FILTER(WHERE status='charged' AND debits=1 AND posted_refunds=0),0)::text AS charged_fees,
+      COUNT(*) FILTER(WHERE status='charged' AND debits=1 AND posted_refunds=0)::int AS transactions,
+      COUNT(*) FILTER(WHERE status='charged' AND (debits<>1 OR posted_refunds>0))::int AS unmatched_charges
       FROM verified GROUP BY kind`)
     billing=rows
   }
@@ -102,7 +105,7 @@ export async function financeSummary(){
     recognized_revenue:incomeTotals.earned_revenue,
     recognized_revenue_partial:true,
     net_profit:null,
-    warning:'Only charges with one matching successful wallet debit are counted in billing collections. Unmatched charges require Admin review; they are not assigned earned revenue. Recorded charges are partial, not bank-settled cash or net profit. Earned revenue currently includes source-linked live support fees and deal service charges after reversals. Subscription, salary tracking and verification await recognition/refund policy. Collab, Hire Seal and Sponsor Seal platform fees lack an approved event ledger; amounts are unknown, not zero. Escrow, sponsor-to-Talent funds, wallet deposits and payouts are never platform earnings. Taxes and processor costs are not reconciled.',
+    warning:'Only charges with one matching successful wallet debit are counted in billing collections. Unmatched or refunded-in-wallet-but-still-charged receipts require Admin review; they are excluded from collection totals. Recorded charges are partial, not bank-settled cash or net profit. Earned revenue currently includes source-linked live support fees and deal service charges after reversals. Subscription, salary tracking and verification await recognition/refund policy. Collab, Hire Seal and Sponsor Seal platform fees lack an approved event ledger; amounts are unknown, not zero. Escrow, sponsor-to-Talent funds, wallet deposits and payouts are never platform earnings. Taxes and processor costs are not reconciled.',
   }
 }
 export async function financeAudit({stream='live_support',cursor=null}={}){
@@ -152,7 +155,10 @@ async function billingChargeAudit({kind,cursor=null}={}){
       (SELECT COUNT(*)::int FROM wallet_transactions wt
         WHERE wt.user_id=b.user_id AND wt.reference=('refund:'||b.reference)
           AND wt.type='billing_refund' AND wt.status='success'
-          AND wt.amount=b.amount) AS matching_refunds
+          AND wt.amount=b.amount) AS matching_refunds,
+      (SELECT COUNT(*)::int FROM wallet_transactions wt
+        WHERE wt.user_id=b.user_id AND wt.reference=('refund:'||b.reference)
+          AND wt.type='billing_refund' AND wt.status='success') AS posted_refunds
     FROM billing_charge_events b LEFT JOIN users u ON u.id=b.user_id
     WHERE b.kind=$1
       AND ($2::uuid IS NULL OR (b.created_at,b.id)<(
@@ -163,7 +169,7 @@ async function billingChargeAudit({kind,cursor=null}={}){
     wallet_evidence:row.matching_debits===1
       ? (row.status==='refunded'
         ? (row.matching_refunds===1?'refunded_verified':'refund_unverified')
-        : 'charged_verified')
+        : (row.posted_refunds>0?'unexpected_refund':'charged_verified'))
       : 'charge_unverified',
   }))
   return {transactions,next_cursor:rows.length>25?rows[24].id:null,recorded:true}
