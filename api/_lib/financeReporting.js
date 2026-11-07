@@ -1,4 +1,8 @@
+import {summarizeRecordedIncome} from '../../shared/incomeTotals.js'
 import {query} from './db.js'
+
+// Financial reporting treats only source-linked platform fees as income.
+// A charge can exist before the service has been earned or the bank has settled it.
 
 // Financial reporting uses only actual database records, never balance
 // arithmetic or assumed escrow commissions. Read-only: no funds are moved.
@@ -46,35 +50,46 @@ export async function financeSummary(){
       WHERE status='charged' GROUP BY kind`)
     billing=rows
   }
-  const billingStream=(kind,name)=>(()=>{
+  const billingStream=(kind,name,verb)=>(()=>{
     const row=billing?.find(item=>item.kind===kind)
-    return {id:kind,name,source:'billing_charge_events',recorded:billing!==null,
+    return {id:kind,name,verb,source:'billing_charge_events',recognition:'pending',
+      recorded:billing!==null,
       inflow:billing!==null?(row?.charged_fees||'0'):null,transactions:billing!==null?(row?.transactions||0):null}
   })()
+  const incomeStreams=[
+    {id:'live_support',name:'Live support platform fees',verb:'Live',recognition:'earned',
+      source:'live_support_transactions',recorded:exists,
+      inflow:live?.accrued_fees??null,transactions:live?.transactions??null},
+    {id:'deal_fees',name:'Deal service charges (net of refunds)',verb:'Book',recognition:'earned',
+      source:'gig_fee_events',recorded:gig!==null,
+      inflow:gig?.accrued_fees??null,transactions:gig?.transactions??null},
+    billingStream('salary_tracking','Client salary tracking charges','Hire'),
+    billingStream('salary_tracking_talent','Talent salary tracking charges','Hire'),
+    billingStream('business_verification','Business verification review fees','Verification'),
+    billingStream('subscription','Subscription collections','Subscription'),
+    {id:'collab_fees',name:'Collaboration Seal platform fees',verb:'Collab',recognition:'pending',
+      source:'no approved fee-event ledger',recorded:false,inflow:null,transactions:null},
+    {id:'hire_fees',name:'Hire Seal platform fees (excluding tracking)',verb:'Hire',recognition:'pending',
+      source:'no approved fee-event ledger',recorded:false,inflow:null,transactions:null},
+    {id:'sponsor_fees',name:'Sponsor Seal platform fees (not sponsor-to-Talent payments)',verb:'Sponsor',recognition:'pending',
+      source:'no approved fee-event ledger',recorded:false,inflow:null,transactions:null},
+    {id:'other_income',name:'Other platform income',verb:'Other',recognition:'pending',
+      source:'no approved fee-event ledger',recorded:false,inflow:null,transactions:null},
+  ]
+  const incomeTotals=summarizeRecordedIncome(incomeStreams)
   return {
     currency:'NGN',
     liabilities:liability[0],
-    income_streams:[
-      {id:'live_support',name:'Live support platform fees',source:'live_support_transactions',
-        recorded:exists,inflow:live?.accrued_fees??null,transactions:live?.transactions??null},
-      {id:'deal_fees',name:'Deal service charges',source:'gig_fee_events',
-        recorded:gig!==null,inflow:gig?.accrued_fees??null,transactions:gig?.transactions??null},
-      billingStream('salary_tracking','Salary tracking charges (subject to confirmation)'),
-      billingStream('salary_tracking_talent','Talent-side salary tracking charges (subject to confirmation)'),
-      billingStream('business_verification','Business verification review fees'),
-      billingStream('subscription','Subscription collections (deferred-service accounting required)'),
-      {id:'sponsorships',name:'Sponsorship and other income',source:'not reconciled in this release',
-        recorded:false,inflow:null,transactions:null},
-    ],
+    income_streams:incomeStreams,
+    income_totals:incomeTotals,
     deal_commissions:{recorded:gig!==null,
       gross:gig!==null?(BigInt(gig.accrued_fees||0)+BigInt(gig.commission_reversals||0)).toString():null,
       reversed:gig!==null?(gig.commission_reversals||'0'):null,
       net:gig?.accrued_fees??null,deals:gig?.deals??null,unrecorded_deals:gig?.unrecorded_deals??null},
-    recognized_revenue: live!==null||gig!==null
-      ? (BigInt(live?.accrued_fees||0)+BigInt(gig?.accrued_fees||0)).toString() : null,
+    recognized_revenue:incomeTotals.earned_revenue,
     recognized_revenue_partial:true,
     net_profit:null,
-    warning:'Recognized revenue includes Live support and recorded deal service charges after refund reversals. Subscription collections are NOT counted as earned service revenue pending deferral policy. Salary and verification charges may be refundable or subject to recognition timing. No tax, settlement, processor-cost or net-profit reconciliation is implied.',
+    warning:'The recorded fee-charge total is partial and is not earned revenue, bank-settled cash or net profit. Earned revenue currently includes only source-linked live support fees and deal service charges after reversals. Subscription, salary-tracking and verification charges are shown separately pending recognition/refund policy. Collab, Hire Seal and Sponsor Seal platform fees lack an approved event ledger, and are NOT treated as zero or estimated income. Escrow, sponsor-to-Talent funds, wallet deposits and customer payouts are never platform earnings. Taxes and processor costs are not reconciled.',
   }
 }
 export async function financeAudit({stream='live_support',cursor=null}={}){

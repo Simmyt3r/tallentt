@@ -1,3 +1,4 @@
+import {classifyOrbitEvidence} from '../../shared/orbitEvidence.js'
 // Orbit measures observed account activity, not a guarantee of identity,
 // trustworthiness or suitability. Engagement likes and page views do not earn points.
 import {query,getClient} from './db.js'
@@ -39,6 +40,9 @@ const ratio=(count,unit)=>{
   const value=Number(count||0)
   return Number.isFinite(value)?Math.max(0,value)/unit:0
 }
+// Expose how much evidence belongs to delivered work, publishing and
+// foundational profile history without changing existing Orbit points.
+
 export function calculateOrbitScore(metrics,weights=ORBIT_DEFAULTS){
   validateOrbitWeights(weights)
   const normalized={
@@ -59,9 +63,10 @@ export function calculateOrbitScore(metrics,weights=ORBIT_DEFAULTS){
     const possible=filtered.reduce((n,f)=>n+f.possible,0)
     const earned=filtered.reduce((n,f)=>n+f.earned,0)
     return [role,{score:possible?Math.round(earned/possible*100):0,max:null,
-      factors:filtered}]
+      factors:filtered,evidence:classifyOrbitEvidence(filtered)}]
   }))
   return {score,max:null,factors,metrics,byRole:segmented,
+    evidence:classifyOrbitEvidence(factors),
     disclaimer:'An activity-based indicator, not identity verification or a guarantee of reliability.'}
 }
 

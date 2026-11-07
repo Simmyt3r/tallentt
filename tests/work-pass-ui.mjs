@@ -128,8 +128,8 @@ try{
     await workPass.getByRole('heading',{name:'Studio Designer'}).waitFor()
     assert.equal(await workPass.getByText('Gold Work Pass',{exact:true}).count(),1)
     const roles=workPass.getByRole('region',{name:'Separate talent and client Orbit scores'})
-    assert.equal(await roles.getByText('7',{exact:true}).count(),1)
-    assert.equal(await roles.getByText('3',{exact:true}).count(),1)
+    assert.equal(await roles.getByText('76.0',{exact:true}).count(),1)
+    assert.equal(await roles.getByText('31.0',{exact:true}).count(),1)
     assert.equal(await workPass.getByText('Orbit Score',{exact:true}).count(),0)
     assert.equal(await workPass.getByRole('button',{name:'Print card'}).isDisabled(),true)
     assert.equal(await workPass.getByText('Signed Work Pass',{exact:true}).count(),1)
@@ -207,9 +207,8 @@ try{
     await publicPhoto.waitFor({state:'detached'})
     assert.equal(await profileAvatar.isVisible(),true,'The profile remains in place after viewing the photo')
     await page.screenshot({path:'test-results/work-pass-profile-'+width+'.png',animations:'disabled'})
-    // The dropdown's Edit profile action deep-links into the existing editor.
-    await page.getByRole('button',{name:'Open profile menu'}).click()
-    await page.getByRole('navigation',{name:'Profile and account'}).getByRole('link',{name:'Edit profile'}).click()
+    // Editing begins on the owner's profile, not a duplicate dropdown link.
+    await page.getByRole('button',{name:'Edit Profile'}).click()
     await page.getByRole('heading',{name:'Edit Profile'}).waitFor()
     assert.equal(new URL(page.url()).searchParams.get('edit'),'1')
     await page.getByRole('button',{name:'Open profile menu'}).click()

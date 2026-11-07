@@ -6,17 +6,19 @@ import { fullOrbitScore } from '../src/lib/profileScore.js'
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8')
 
 test('full profile Orbit value preserves uncapped non-negative activity points', () => {
-  assert.equal(fullOrbitScore(0), 0)
-  assert.equal(fullOrbitScore(72), 72)
-  assert.equal(fullOrbitScore('88'), 88)
-  assert.equal(fullOrbitScore(100), 100)
-  assert.equal(fullOrbitScore(101), 101)
-  assert.equal(fullOrbitScore(-1), 0)
+  assert.equal(fullOrbitScore(0), '0.0')
+  assert.equal(fullOrbitScore(72), '72.0')
+  assert.equal(fullOrbitScore('88'), '88.0')
+  assert.equal(fullOrbitScore(100), '100.0')
+  assert.equal(fullOrbitScore(101), '101.0')
+  assert.equal(fullOrbitScore(12.35), '12.3')
+  assert.equal(fullOrbitScore(12.5), '12.5')
+  assert.equal(fullOrbitScore(-1), '0.0')
   assert.equal(fullOrbitScore(null), null)
   assert.equal(fullOrbitScore(undefined), null)
   assert.equal(fullOrbitScore(''), null)
   assert.equal(fullOrbitScore('invalid'), null)
-  assert.equal(fullOrbitScore(123456), 123456)
+  assert.equal(fullOrbitScore(123456), '123456.0')
 })
 
 test('own profile displays the full score on the same row as Edit Profile', () => {
