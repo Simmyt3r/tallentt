@@ -108,16 +108,16 @@ try{
     assert.equal(await page.getByRole('button', { name: 'Client', exact: true }).count(), 0)
     const quickActions = page.getByRole('navigation', { name: 'Quick actions' })
     const createAction = quickActions.getByRole('link', { name: 'Create Hat' })
-    const messagesAction = quickActions.getByRole('link', { name: 'Messages' })
+    const messagesAction = quickActions.getByRole('link', { name: 'Open Inbox' })
     const alertsAction = quickActions.getByRole('link', { name: /^Notifications/ })
-    const showroomSearch = page.getByRole('searchbox', { name: 'Search Showroom posts and creators' })
+    const showroomSearch = page.getByRole('textbox', { name: 'Search Showroom posts and creators' })
     await showroomSearch.waitFor()
     assert.equal(await quickActions.getByRole('link', { name: 'Search' }).count(), 0,
       'Showroom must expose exactly one search action')
     assert.equal(await createAction.isVisible(), width >= 640)
     assert.equal(await messagesAction.isVisible(), true)
     assert.equal(await alertsAction.isVisible(), true)
-    assert.equal(await page.getByRole('link', { name: 'Profile' }).isVisible(), true)
+    assert.equal(await page.getByRole('button', { name: 'Open profile menu' }).isVisible(), true)
     if (width < 768) {
       assert.equal(await page.getByRole('navigation', { name: 'Primary' })
         .getByRole('link', { name: 'My Hats' }).isVisible(), true)
@@ -142,16 +142,16 @@ try{
     for(const [path,label] of [
       ['/vibes','Search Vibes posts and people'],
       ['/my-hats','Search your Hats'],
-      ['/deals','Search loaded deal records'],
+      ['/deals','Search My Deals'],
     ]){
       await page.goto('http://127.0.0.1:5185'+path)
-      await page.getByRole('searchbox',{name:label}).waitFor()
-      assert.equal(await page.getByRole('searchbox').count(),1)
+      await page.getByRole('textbox',{name:label}).waitFor()
+      assert.equal(await page.getByRole('textbox',{name:label}).count(),1)
     }
     await page.goto('http://127.0.0.1:5185/showroom')
 
-    await quickActions.getByRole('link', { name: 'Messages' }).click()
-    await page.waitForURL('**/messages')
+    await messagesAction.click()
+    await page.waitForURL('**/inbox')
     // Every route has its own protected Layout. Re-enter a settled Home
     // before validating the next action, instead of racing a route remount.
     await page.goto('http://127.0.0.1:5185/showroom')
