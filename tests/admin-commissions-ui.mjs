@@ -55,7 +55,7 @@ try{
   await page.goto(`http://127.0.0.1:5182/${fixtureName}`)
   await page.getByRole('heading',{name:'Service charges by deal',exact:true}).waitFor()
   await page.getByRole('cell',{name:'Client: test_client Talent: test_talent'}).waitFor()
-  assert.equal(reconciliations,1)
+  assert.equal(reconciliations,0) // viewing Admin Finance is read-only
   assert.match(await page.getByRole('region',{name:'Deal service charge earnings'}).innerText(),/₦650/)
   await page.getByText('View fee records',{exact:true}).click()
   await page.getByText('sealed · 5%',{exact:true}).waitFor()
@@ -87,14 +87,28 @@ try{
   mode='normal'
   await page.getByRole('button',{name:'Retry',exact:true}).click()
   await page.getByText('Electrical repair',{exact:true}).waitFor()
+  // Refresh must never issue a write or invoke historical reconciliation.
   mode='sync_error'
   await page.getByRole('button',{name:'Refresh',exact:true}).click()
+  await page.getByText('Electrical repair',{exact:true}).waitFor()
+  assert.equal(reconciliations,0)
+  let consent=false
+  page.on('dialog',async dialog=>{if(consent)await dialog.accept();else await dialog.dismiss()})
+  await page.getByRole('button',{name:'Reconcile verified receipts'}).click()
+  assert.equal(reconciliations,0) // cancelled explicit confirmation
+  consent=true
+  await page.getByRole('button',{name:'Reconcile verified receipts'}).click()
   await page.getByRole('alert').filter({hasText:'Reconciliation unavailable'}).waitFor()
+  assert.equal(reconciliations,1)
   mode='normal'
+  await page.getByRole('button',{name:'Reconcile verified receipts'}).click()
+  await page.getByText('Verified receipt recovery complete: 0 service charges and 0 refund reversals.',{exact:false}).waitFor()
+  assert.equal(reconciliations,2)
   await page.getByRole('button',{name:'Refresh',exact:true}).click()
   await page.getByText('Electrical repair',{exact:true}).waitFor()
+  assert.equal(reconciliations,2)
   assert.deepEqual(errors,[])
-  console.log('Admin commission UI passed: mobile/desktop layout, fee details, pagination, Live fees, refresh, empty/unavailable states and retry.')
+  console.log('Admin commission UI passed: read-only refresh, explicit confirmed reconciliation, mobile/desktop, fee detail and pagination.')
 }finally{
   await browser?.close()
   await server.close()
