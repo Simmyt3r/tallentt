@@ -28,7 +28,7 @@ before(async()=>{
       [id,username,username+'@example.test'])
   }
   for(const [id,user,username] of [[sourceHat,ownerId,'mediaowner'],[otherHat,otherId,'mediaother']]){
-    await pool.query("INSERT INTO hats(id,user_id,hat_title,username,category) VALUES($1,$2,'Portfolio',$3,'Photography')",
+    await pool.query("INSERT INTO hats(id,user_id,hat_title,hat_name,username,category) VALUES($1,$2,'Portfolio','Portfolio',$3,'Photography')",
       [id,user,username])
   }
   for(const [hat,item,status] of [[sourceHat,asset,'passed'],[otherHat,forbidden,'passed']]){
