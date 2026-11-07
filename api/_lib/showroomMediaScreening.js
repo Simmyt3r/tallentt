@@ -3,6 +3,7 @@
 // for account suspensions: detections hold only the specific Showroom media.
 import { timingSafeEqual } from 'node:crypto'
 import { query, getClient } from './db.js'
+import {awardPublishedShowcase} from './verifiedMilestones.js'
 import { containsContactBypass } from './showroomEligibility.js'
 import { effectiveScreeningConfig } from './showroomScreeningConfig.js'
 import { startScreeningRun, finishScreeningRun } from './showroomScreeningOps.js'
@@ -142,7 +143,22 @@ export async function screenQueuedMedia({
             ? { status: 'held', reason: 'audio_requires_manual_review' }
             : await inspect(job, { cloud: config.cloudName, apiKey: config.visionKey })
         const written = await finalizeJob(job, finding.status, finding.reason, false)
-        if (written) result[finding.status === 'passed' ? 'passed' : 'held']++
+        if (written){
+          result[finding.status === 'passed' ? 'passed' : 'held']++
+          if(finding.status==='passed'){
+            // A Hat earns Showcase only after its final screened asset clears.
+            // A scoring issue must not undo the media moderation decision.
+            const scoreDb=await getClient()
+            try{
+              await scoreDb.query('BEGIN')
+              await awardPublishedShowcase(scoreDb,job.hat_id)
+              await scoreDb.query('COMMIT')
+            }catch(error){
+              await scoreDb.query('ROLLBACK').catch(()=>{})
+              console.error('Showcase milestone pending retry',error)
+            }finally{scoreDb.release()}
+          }
+        }
       } catch {
         const retry = Number(job.screening_attempts) < 3
         const written = await finalizeJob(job, retry ? 'pending' : 'held',
@@ -208,6 +224,7 @@ export async function decideMediaScreening(adminId, mediaId, decision) {
        VALUES ($1,'resolve_showroom_media','hat',$2,$3::jsonb)`,
       [adminId, rows[0].hat_id, JSON.stringify({ mediaId, decision })],
     )
+    if(decision==='approve')await awardPublishedShowcase(client,rows[0].hat_id)
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {})
