@@ -1,6 +1,6 @@
 // Path: src/components/BentoCardDetailModal.jsx
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Clock, BookOpen, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Eye } from 'lucide-react'
+import { Clock, BookOpen, Bookmark, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Eye } from 'lucide-react'
 import { api } from '../lib/api'
 import {useQualifiedDiscovery} from '../lib/useQualifiedDiscovery.js'
 import {
@@ -134,12 +134,17 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   // pointed at a different card.
   const [activeMediaIndex, setActiveMediaIndex] = useState(0)
   const [brokenMedia, setBrokenMedia] = useState(() => new Set())
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveNotice, setSaveNotice] = useState('')
   const markMediaBroken = useCallback((idx) => {
     setBrokenMedia((prev) => (prev.has(idx) ? prev : new Set(prev).add(idx)))
   }, [])
   useEffect(() => {
     setActiveMediaIndex(0)
     setBrokenMedia(new Set())
+    setSaved(false)
+    setSaveNotice('')
   }, [cardId])
 
   const { liked, liking, toggle: handleLike } = useLikeToggle({
@@ -148,6 +153,29 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
     count: hat?.likes,
     onHatChange,
   })
+
+  // The Save is an actual subscriber-owned database row, not a client
+  // flag used to invent Discovery credits.
+  useEffect(()=>{
+    if(!discovery.eligible||!cardId)return undefined
+    let current=true
+    api.getSavedHatStatus(cardId).then(result=>{
+      if(current)setSaved(Boolean(result.saved))
+    }).catch(()=>{})
+    return()=>{current=false}
+  },[cardId,discovery.eligible])
+
+  async function toggleSaved(){
+    if(!cardId||saving)return
+    setSaving(true);setSaveNotice('')
+    try{
+      const result=await api.saveHat(cardId,!saved)
+      setSaved(Boolean(result.saved))
+      setSaveNotice(result.saved?'Saved to your Hats.':'Removed from saved Hats.')
+      if(result.saved)void discovery.markEngagement()
+    }catch(error){setSaveNotice(error.message||'Could not save this Hat.')}
+    finally{setSaving(false)}
+  }
 
   const [viewCount, setViewCount] = useState(hat?.views || 0)
   const viewedRef = useRef(null)
