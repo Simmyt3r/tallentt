@@ -176,7 +176,7 @@ export default function WorkPass({username,onClose,compact=false}) {
               <p className="mt-1">Profile and account history: <strong>{data.roleOrbit?.[role]?.evidence?.profile_history?.points ?? '—'} pts</strong></p>
             </div>)}
           </div>
-          <p className="mt-2 text-[10px] text-[#5D647B]">These are evidence contributions under the current Orbit calibration; they are not additional points. Qualified Discovery, KeepUp and Seal milestones will require verified event records before activation.</p>
+          <p className="mt-2 text-[10px] text-[#5D647B]">These are evidence contributions under the current Orbit calibration, not extra points. Verified milestone events are recorded separately; non-qualified views and unfunded deals do not qualify.</p>
         </section>
         <div className="grid grid-cols-2 gap-2.5" aria-label="Verified Work Pass activity">
           <Stat icon={BriefcaseBusiness} title="Completed jobs" value={Number(data.completedJobs)||0} detail="Released deals"/>
