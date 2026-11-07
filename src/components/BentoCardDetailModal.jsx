@@ -354,7 +354,11 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
             shareTitle={titleLine}
             shareContext={`${listingLabel}: ${titleLine}`}
             liked={liked}
-            onToggleLike={handleLike}
+            onToggleLike={async()=>{
+              const next=await handleLike()
+              if(next===true)void discovery.markEngagement()
+            }}
+            onShareSuccess={()=>{void discovery.recordEvidence('share',{confirmed:true})}}
             likeDisabled={liking}
             onClose={onClose}
           />
@@ -411,7 +415,11 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
                       type="button"
                       aria-pressed={selected}
                       aria-label={`View ${m.type === 'video' ? 'video' : 'photo'} ${idx + 1} of ${mediaItems.length}`}
-                      onClick={() => setActiveMediaIndex(idx)}
+                      onClick={() => {
+                        setActiveMediaIndex(idx)
+                        if(idx===1&&discovery.eligible&&m.id)
+                          void discovery.recordEvidence('second_media',{media_id:m.id})
+                      }}
                       className={`relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border-[1.5px] transition ${
                         selected ? 'border-[#0A13E6]' : 'border-black/10 hover:border-black/30'
                       }`}
