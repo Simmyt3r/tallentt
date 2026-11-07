@@ -299,6 +299,16 @@ export default function TalentProfile() {
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 flex items-center gap-1">
               <Star size={11} className="text-amber-400 fill-amber-400" /> {Number(hat.rating || 0).toFixed(1)}
             </span>
+            {discovery.eligible&&<button type="button" onClick={toggleSaved}
+              disabled={saving} aria-pressed={saved} aria-label={saved?'Unsave Hat':'Save Hat'}
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 flex items-center gap-1">
+              <Bookmark size={11} className={saved?'fill-[#E8B447] text-amber-700':''}/>
+              {saved?'Saved':'Save'}
+            </button>}
+            <button type="button" onClick={handleShare} aria-label="Share this Hat"
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 flex items-center gap-1">
+              <Share2 size={11}/> Share
+            </button>
             <button
               type="button"
               onClick={handleLike}
@@ -311,6 +321,7 @@ export default function TalentProfile() {
               <Eye size={11} /> {viewCount}
             </span>
           </div>
+          {discoveryNotice&&<p role="status" className="text-[12px] text-[#0A13E6]">{discoveryNotice}</p>}
 
           {hat.skills?.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
