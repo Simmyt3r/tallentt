@@ -43,7 +43,7 @@ test('Range negotiation flow opens the proposal modal directly', async () => {
   assert.match(detail, /setNegotiationStep\('proposal'\)/)
   assert.doesNotMatch(detail, /NegotiationFeeNotice/)
   assert.match(detail, /<NegotiationProposalModal/)
-  assert.match(detail, /open=\{!isEntertainment && negotiationStep === 'proposal'\}/)
+  assert.match(detail, /open=\{negotiationStep === 'proposal'\}/)
   assert.match(detail, /onSubmit=\{handleProposalSubmit\}/)
 })
 
@@ -55,7 +55,7 @@ test('Showroom Range negotiation opens the proposal directly', async () => {
   assert.match(showroom, /setNegotiationStep\('proposal'\)/)
   assert.doesNotMatch(showroom, /NegotiationFeeNotice/)
   assert.match(showroom, /<NegotiationProposalModal/)
-  assert.match(showroom, /open=\{negotiationStep === 'proposal'\}/)
+  assert.match(showroom, /open=\{!isEntertainment && negotiationStep === 'proposal'\}/)
   assert.match(showroom, /await bookHat\(target, navigate, proposal\)/)
 })
 
