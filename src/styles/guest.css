@@ -1,0 +1,13 @@
+/* One landing stage shared by Showroom, Bento and Hits & Vibes. */
+.ct-guest-stage-control{display:grid;width:40px;height:40px;place-items:center;border-radius:999px;background:#fff9;border:1px solid #0002;transition:background .2s}
+.ct-guest-stage-control:hover{background:white}
+.ct-guest-stage-control:focus-visible,.ct-guest-slide a:focus-visible,.ct-guest-slide button:focus-visible{outline:3px solid #624500;outline-offset:2px}
+.ct-guest-slide{position:absolute;inset:0;overflow:hidden}
+.ct-guest-slide-in{animation:ctGuestEnter .62s cubic-bezier(.19,.7,.25,1) both}
+.ct-guest-slide-out{animation:ctGuestExit .62s cubic-bezier(.19,.7,.25,1) both;pointer-events:none}
+@keyframes ctGuestEnter{0%{transform:translateX(104%);opacity:.7}100%{transform:translateX(0);opacity:1}}
+@keyframes ctGuestExit{0%{transform:translateX(0);opacity:1}100%{transform:translateX(-104%);opacity:.65}}
+@media(prefers-reduced-motion:reduce){
+ .ct-guest-slide-in,.ct-guest-slide-out{animation:none}
+ .ct-guest-slide-out{display:none}
+}
