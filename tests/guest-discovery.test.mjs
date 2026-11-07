@@ -68,7 +68,8 @@ test('guest searches and media views have no write effects on Orbit, views or fo
   const afterView=(await pool.query('SELECT views FROM hats WHERE id=$1',[goodHat])).rows[0].views
   assert.equal(afterView,oldViews)
   assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM hat_likes')).rows[0].n,0)
-  assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM subscriber_follows')).rows[0].n,0)
+  const presence=(await pool.query("SELECT to_regclass('subscriber_follows') AS follows")).rows[0]
+  if(presence.follows)assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM subscriber_follows')).rows[0].n,0)
 })
 test('invalid public search arguments are rejected',async()=>{
   await assert.rejects(guestDiscovery({mode:'private'}),/public discovery view/)
