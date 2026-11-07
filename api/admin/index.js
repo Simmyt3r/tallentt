@@ -9,6 +9,7 @@ import { adminSalaryPrice } from '../_lib/salaryTrackingFees.js'
 import {resolveBroadcastAvailability} from '../_lib/liveTransport.js'
 import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
+import {adminDiscoveryQueue,adminDiscoveryDecision,revokeVerifiedAward} from '../_lib/qualifiedDiscovery.js'
 import { adminGalleryQueue, adminGalleryDecision } from '../_lib/showroomGallery.js'
 import { adminMigrationStatus, applyAdminMigration } from '../_lib/adminMigrations.js'
 import { adminSigningStatus, adminActivateSigning } from '../_lib/workPassSigning.js'
@@ -70,6 +71,7 @@ export default async function handler(req, res) {
       if (params.get('action') === 'user_erasure_preview') return json(res,200,await getUserErasurePreview(admin.id,params.get('user_id')))
       if (params.get('action') === 'user_erasure_media') return json(res,200,await mediaErasureStatus())
       if (params.get('action') === 'orbit_config') return json(res,200,await orbitAdminStatus())
+      if (params.get('action') === 'milestone_discovery_queue') return json(res,200,await adminDiscoveryQueue())
       if (params.get('action') === 'hat_data_reviews') return json(res,200,await newHatReviewQueue())
       if (params.get('action') === 'db_migrations') return json(res, 200, await adminMigrationStatus())
       if (params.get('action') === 'work_pass_signing') return json(res,200,await adminSigningStatus())
@@ -310,6 +312,8 @@ async function getDashboard() {
 }
 
 async function handleAdminAction(admin, body) {
+  if(body?.action==='milestone_discovery_decision')return adminDiscoveryDecision(admin.id,body)
+  if(body?.action==='milestone_revoke_award')return revokeVerifiedAward(admin.id,body)
   if(body?.action==='reconcile_commissions')return reconcileCommissionLedger(admin.id)
   if(body?.action==='salary_tracking_price')return adminSalaryPrice(admin.id,body)
   if(body?.action==='billing_plan_price')return adminPlanPrice(admin.id,body)
