@@ -8,6 +8,7 @@ import { showroomTextIssue } from '../_lib/showroomEligibility.js'
 import { newMediaScreeningStatus } from '../_lib/showroomMediaScreening.js'
 import { verifyNewHatMedia, claimHatMediaPermits } from '../_lib/hatMediaUpload.js'
 import { getHatPresentationMap, saveHatPresentation } from '../_lib/hatPresentation.js'
+import {awardPublishedShowcase} from '../_lib/verifiedMilestones.js'
 import { HAT_TYPES, DELIVERY_MODES, HAT_TITLE_MAX, HAT_DESCRIPTION_MAX, HAT_NAME_MAX, normalizePricing, normalizeAvailableDays, normalizeHiringDuration } from '../_lib/hatFields.js'
 import { createApplicationRequest, notifyApplicationState, respondApplicationDeal } from '../_lib/myDeals.js'
 
@@ -513,6 +514,7 @@ export default async function handler(req, res) {
             body.job_requirements != null ? body.job_requirements.trim() : null,
           ],
         )
+        await awardPublishedShowcase(client,id)
         await client.query('COMMIT')
       } catch (txErr) {
         await client.query('ROLLBACK').catch(() => {})
@@ -562,20 +564,30 @@ export default async function handler(req, res) {
         }
         // Check the current price type in the UPDATE itself so a concurrent
         // edit cannot publish a Range Hat without confirming the fee notice.
-        const { rows } = await query(
-          `UPDATE hats SET feed_visible = $1
-           WHERE id = $2 AND user_id = $3
-             AND ($1 = false OR price_type IS DISTINCT FROM 'range' OR $4 = true)
-           RETURNING id, feed_visible, price_type`,
-          [body.feed_visible, id, session.sub, body.negotiation_fee_confirmed === true],
-        )
-        if (!rows[0]) {
-          return json(res, 409, {
-            error: 'A negotiation fee applies. Confirm before showing this Hat in the feed.',
-            code: 'NEGOTIATION_FEE_CONFIRMATION_REQUIRED',
-          })
-        }
-        return json(res, 200, { hat: rows[0] })
+        const client=await getClient()
+        try {
+          await client.query('BEGIN')
+          const { rows } = await client.query(
+            `UPDATE hats SET feed_visible = $1
+             WHERE id = $2 AND user_id = $3
+               AND ($1 = false OR price_type IS DISTINCT FROM 'range' OR $4 = true)
+             RETURNING id, feed_visible, price_type`,
+            [body.feed_visible, id, session.sub, body.negotiation_fee_confirmed === true],
+          )
+          if (!rows[0]) {
+            await client.query('ROLLBACK')
+            return json(res, 409, {
+              error: 'A negotiation fee applies. Confirm before showing this Hat in the feed.',
+              code: 'NEGOTIATION_FEE_CONFIRMATION_REQUIRED',
+            })
+          }
+          if(body.feed_visible) await awardPublishedShowcase(client,id)
+          await client.query('COMMIT')
+          return json(res, 200, { hat: rows[0] })
+        } catch(error){
+          await client.query('ROLLBACK').catch(()=>{})
+          throw error
+        } finally{client.release()}
       } else if (body.action === 'view') {
         await query(`UPDATE hats SET views = views + 1 WHERE id = $1`, [id])
       } else if (body.action === 'like') {
