@@ -67,7 +67,7 @@ try{
  await page.getByText(/^awaiting funding$/i).waitFor()
  await page.goto(url+'?view=profile')
  await page.getByLabel('Orbit score 123456.0',{exact:true}).waitFor()
- await page.getByText('Orbit 123456.0',{exact:true}).waitFor()
+ await page.getByText('Orbit Score 123456.0',{exact:true}).waitFor()
  assert.doesNotMatch(await page.locator('body').innerText(),/\/100|0–9/)
  await mkdir('test-results',{recursive:true})
  for(const width of [320,390,768,1440]){
@@ -76,8 +76,8 @@ try{
  }
  await page.goto(url+'?view=workpass')
  const roles=page.getByRole('region',{name:'Separate talent and client Orbit scores'})
- await roles.getByText('123456',{exact:true}).waitFor()
- await roles.getByText('234567',{exact:true}).waitFor()
+ await roles.getByText('123456.0',{exact:true}).waitFor()
+ await roles.getByText('234567.0',{exact:true}).waitFor()
  assert.doesNotMatch(await roles.innerText(),/0–9|\/100/)
  for(const width of [320,390,768,1440]){
   await page.setViewportSize({width,height:1000})
