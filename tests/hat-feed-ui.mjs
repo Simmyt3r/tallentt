@@ -114,7 +114,8 @@ try {
     assert.equal(Math.round(scrollBox.y),Math.round(searchBox.y),
       'BentoField search should remain sticky during card scrolling')
     await page.goto('http://127.0.0.1:5181/my-hats')
-    await page.getByText('Fixed package',{exact:true}).waitFor()
+    // Grid uses the detailed Bento Card (Hat name); compact List uses title.
+    await page.getByText(mode==='grid'?'Fixed package':'Fixed editor',{exact:true}).first().waitFor()
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'My Hats Bento cards must fit mobile screens')
     hats[0].feed_visible=false
