@@ -269,7 +269,11 @@ test('suspicious new-account Discovery is held; appeal and admin approval are au
 })
 
 test('Collab Seal needs a completed paid job and both named parties before +3 per role',async()=>{
+  const options=await seals.getMilestoneSeals(clientId)
+  assert.ok(options.sources.some(item=>item.verb==='Collab'&&item.source_id===escrowId))
+  assert.equal((await seals.getMilestoneSeals(visitor)).sources.some(item=>item.source_id===escrowId),false)
   const first=await seals.milestoneSealAction(clientId,{action:'seal_create',verb:'Collab',source_id:escrowId})
+  assert.equal((await seals.getMilestoneSeals(clientId)).sources.some(item=>item.source_id===escrowId),false)
   assert.equal(first.status,'pending')
   await assert.rejects(seals.milestoneSealAction(visitor,{action:'seal_sign',seal_id:first.seal_id}),{status:404})
   const signed=await seals.milestoneSealAction(talent,{action:'seal_sign',seal_id:first.seal_id})
@@ -286,8 +290,12 @@ test('Hire Seal requires two-party accepted employment and a confirmed salary pe
     [clientId,talent,JSON.stringify({salary:60000,talent:'Art & Design',start_on:'2026-10-01',due_day:10})])
   hireId=rows[0].id
   await assert.rejects(seals.milestoneSealAction(clientId,{action:'seal_create',verb:'Hire',source_id:hireId}),{status:409})
+  assert.equal((await seals.getMilestoneSeals(clientId)).sources.some(item=>item.source_id===hireId),false)
   await pool.query(`INSERT INTO employment_salary_periods(agreement_id,month,due_on,paid_on,method,status,confirmed_at,received_on)
     VALUES($1,'2026-10','2026-10-10','2026-10-10','cash','confirmed',NOW(),'2026-10-10')`,[hireId])
+  const available=await seals.getMilestoneSeals(clientId)
+  assert.ok(available.sources.some(item=>item.verb==='Hire'&&item.source_id===hireId))
+  assert.equal((await seals.getMilestoneSeals(visitor)).sources.some(item=>item.source_id===hireId),false)
   const first=await seals.milestoneSealAction(clientId,{action:'seal_create',verb:'Hire',source_id:hireId})
   const done=await seals.milestoneSealAction(talent,{action:'seal_sign',seal_id:first.seal_id})
   assert.equal(done.status,'sealed')
@@ -299,9 +307,13 @@ test('Sponsor Seal never moves money; requires two successful reciprocal wallet 
     VALUES($1,$2,$3,1000) RETURNING id`,[clientId,talent,randomUUID()])
   transferId=rows[0].id
   await assert.rejects(seals.milestoneSealAction(clientId,{action:'seal_create',verb:'Sponsor',source_id:transferId}),{status:409})
+  assert.equal((await seals.getMilestoneSeals(clientId)).sources.some(item=>item.source_id===transferId),false)
   await pool.query(`INSERT INTO wallet_transactions(user_id,type,amount,balance_after,status,transfer_id)
     VALUES($1,'wallet_transfer_sent',1000,0,'success',$3),($2,'wallet_transfer_received',1000,1000,'success',$3)`,
     [clientId,talent,transferId])
+  const available=await seals.getMilestoneSeals(clientId)
+  assert.ok(available.sources.some(item=>item.verb==='Sponsor'&&item.source_id===transferId))
+  assert.equal((await seals.getMilestoneSeals(visitor)).sources.some(item=>item.source_id===transferId),false)
   const seal=await seals.milestoneSealAction(clientId,{action:'seal_create',verb:'Sponsor',source_id:transferId})
   const done=await seals.milestoneSealAction(talent,{action:'seal_sign',seal_id:seal.seal_id})
   assert.equal(done.status,'sealed')

@@ -1,8 +1,10 @@
 // Path: src/pages/TalentProfile.jsx
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Clock, Eye, Heart, MapPin, Send, Star } from 'lucide-react'
+import { ArrowLeft, BookOpen, Bookmark, Clock, Eye, Heart, MapPin, Send, Share2, Star } from 'lucide-react'
 import { api } from '../lib/api'
+import {shareContent} from '../lib/shareContent.js'
+import {useQualifiedDiscovery} from '../lib/useQualifiedDiscovery.js'
 import AvailabilityBadge from '../components/AvailabilityBadge'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromHat } from '../lib/profile.js'
@@ -52,6 +54,18 @@ export default function TalentProfile() {
   const [likeCount, setLikeCount] = useState(0)
   const [liking, setLiking] = useState(false)
   const [viewCount, setViewCount] = useState(0)
+  const [saved,setSaved]=useState(false)
+  const [saving,setSaving]=useState(false)
+  const [discoveryNotice,setDiscoveryNotice]=useState('')
+  const discovery=useQualifiedDiscovery({hatId:hat?.id,ownerId:hat?.user_id,role:hat?.role})
+
+  useEffect(()=>{
+    setSaved(false)
+    if(!discovery.eligible||!hat?.id)return undefined
+    let active=true
+    api.getSavedHatStatus(hat.id).then(r=>{if(active)setSaved(Boolean(r.saved))}).catch(()=>{})
+    return()=>{active=false}
+  },[hat?.id,discovery.eligible])
 
   useEffect(() => {
     let cancelled = false
@@ -88,12 +102,36 @@ export default function TalentProfile() {
     setLikeCount((c) => c + (next ? 1 : -1))
     try {
       await api.toggleLike(hatId)
+      if(next)void discovery.markEngagement()
     } catch (e) {
       setLiked(!next)
       setLikeCount((c) => c + (next ? -1 : 1))
     } finally {
       setLiking(false)
     }
+  }
+
+  async function toggleSaved(){
+    if(!hat?.id||saving)return
+    setSaving(true);setDiscoveryNotice('')
+    try{
+      const result=await api.saveHat(hat.id,!saved)
+      setSaved(Boolean(result.saved))
+      setDiscoveryNotice(result.saved?'Hat saved.':'Hat removed from saved.')
+      if(result.saved)void discovery.markEngagement()
+    }catch(e){setDiscoveryNotice(e.message||'Could not save Hat.')}
+    finally{setSaving(false)}
+  }
+
+  async function handleShare(){
+    if(!hat?.id)return
+    setDiscoveryNotice('')
+    try{
+      const result=await shareContent('/hat/'+encodeURIComponent(hat.id),hat.hat_title||'ChombuTar')
+      if(result==='copied')setDiscoveryNotice('Link copied.')
+      if(['copied','shared'].includes(result))
+        void discovery.recordEvidence('share',{confirmed:true})
+    }catch(e){setDiscoveryNotice(e.message||'Could not share this Hat.')}
   }
 
   async function handleBook() {
@@ -191,7 +229,11 @@ export default function TalentProfile() {
               <button
                 key={m.id || i}
                 type="button"
-                onClick={() => setActiveMedia(i)}
+                onClick={() => {
+                  setActiveMedia(i)
+                  if(i===1&&discovery.eligible&&m.id)
+                    void discovery.recordEvidence('second_media',{media_id:m.id})
+                }}
                 className={`relative w-16 h-16 rounded-[10px] overflow-hidden shrink-0 border-[1.5px] ${
                   i === activeMedia ? 'border-black' : 'border-black/10'
                 }`}
@@ -257,6 +299,16 @@ export default function TalentProfile() {
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 flex items-center gap-1">
               <Star size={11} className="text-amber-400 fill-amber-400" /> {Number(hat.rating || 0).toFixed(1)}
             </span>
+            {discovery.eligible&&<button type="button" onClick={toggleSaved}
+              disabled={saving} aria-pressed={saved} aria-label={saved?'Unsave Hat':'Save Hat'}
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 flex items-center gap-1">
+              <Bookmark size={11} className={saved?'fill-[#E8B447] text-amber-700':''}/>
+              {saved?'Saved':'Save'}
+            </button>}
+            <button type="button" onClick={handleShare} aria-label="Share this Hat"
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 flex items-center gap-1">
+              <Share2 size={11}/> Share
+            </button>
             <button
               type="button"
               onClick={handleLike}
@@ -269,6 +321,7 @@ export default function TalentProfile() {
               <Eye size={11} /> {viewCount}
             </span>
           </div>
+          {discoveryNotice&&<p role="status" className="text-[12px] text-[#0A13E6]">{discoveryNotice}</p>}
 
           {hat.skills?.length > 0 && (
             <div className="flex flex-wrap gap-1.5">

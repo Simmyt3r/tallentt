@@ -1,7 +1,8 @@
 // Path: src/components/BentoCardDetailModal.jsx
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Clock, BookOpen, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Eye } from 'lucide-react'
+import { Clock, BookOpen, Bookmark, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Eye } from 'lucide-react'
 import { api } from '../lib/api'
+import {useQualifiedDiscovery} from '../lib/useQualifiedDiscovery.js'
 import {
   HatOwnerHeader,  NegotiationProposalModal,
   formatAvailabilityWindow,
@@ -120,6 +121,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   }, [onClose])
 
   const cardId = hat?.id ?? null
+  const discovery=useQualifiedDiscovery({hatId:cardId,ownerId:hat?.user_id,role:hat?.role})
 
   const [detail, setDetail] = useState(null)
   // 'idle' (no id to fetch) | 'loading' | 'success' | 'error'
@@ -132,12 +134,17 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   // pointed at a different card.
   const [activeMediaIndex, setActiveMediaIndex] = useState(0)
   const [brokenMedia, setBrokenMedia] = useState(() => new Set())
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveNotice, setSaveNotice] = useState('')
   const markMediaBroken = useCallback((idx) => {
     setBrokenMedia((prev) => (prev.has(idx) ? prev : new Set(prev).add(idx)))
   }, [])
   useEffect(() => {
     setActiveMediaIndex(0)
     setBrokenMedia(new Set())
+    setSaved(false)
+    setSaveNotice('')
   }, [cardId])
 
   const { liked, liking, toggle: handleLike } = useLikeToggle({
@@ -146,6 +153,29 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
     count: hat?.likes,
     onHatChange,
   })
+
+  // The Save is an actual subscriber-owned database row, not a client
+  // flag used to invent Discovery credits.
+  useEffect(()=>{
+    if(!discovery.eligible||!cardId)return undefined
+    let current=true
+    api.getSavedHatStatus(cardId).then(result=>{
+      if(current)setSaved(Boolean(result.saved))
+    }).catch(()=>{})
+    return()=>{current=false}
+  },[cardId,discovery.eligible])
+
+  async function toggleSaved(){
+    if(!cardId||saving)return
+    setSaving(true);setSaveNotice('')
+    try{
+      const result=await api.saveHat(cardId,!saved)
+      setSaved(Boolean(result.saved))
+      setSaveNotice(result.saved?'Saved to your Hats.':'Removed from saved Hats.')
+      if(result.saved)void discovery.markEngagement()
+    }catch(error){setSaveNotice(error.message||'Could not save this Hat.')}
+    finally{setSaving(false)}
+  }
 
   const [viewCount, setViewCount] = useState(hat?.views || 0)
   const viewedRef = useRef(null)
@@ -225,7 +255,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const loaded = status === 'success' && detail
   const owner = loaded ? detail.owner : null
 
-  const isTalent = (owner?.role ?? hat.role) === 'talent'
+  const isTalent = hat.role === 'talent'
   // Both the feed's partial hat and the full detail carry the same shape:
   // an ordered array of { url, type, caption }, newest first (see
   // AddShowroomMedia's "prepend to front" comment). Drop entries with no
@@ -352,10 +382,24 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
             shareTitle={titleLine}
             shareContext={`${listingLabel}: ${titleLine}`}
             liked={liked}
-            onToggleLike={handleLike}
+            onToggleLike={async()=>{
+              const next=await handleLike()
+              if(next===true)void discovery.markEngagement()
+            }}
+            onShareSuccess={()=>{void discovery.recordEvidence('share',{confirmed:true})}}
             likeDisabled={liking}
             onClose={onClose}
           />
+
+          {discovery.eligible && <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={toggleSaved} disabled={saving}
+              aria-label={saved?'Unsave Hat':'Save Hat'} aria-pressed={saved}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-black/15 px-4 text-[12px] font-semibold disabled:opacity-50">
+              <Bookmark size={16} className={saved?'fill-[#E8B447] text-amber-700':''}/>
+              {saved?'Saved':'Save Hat'}
+            </button>
+            {saveNotice&&<span role="status" className="text-[11px] text-black/60">{saveNotice}</span>}
+          </div>}
 
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wide text-black/40">{listingLabel}</p>
@@ -409,7 +453,11 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
                       type="button"
                       aria-pressed={selected}
                       aria-label={`View ${m.type === 'video' ? 'video' : 'photo'} ${idx + 1} of ${mediaItems.length}`}
-                      onClick={() => setActiveMediaIndex(idx)}
+                      onClick={() => {
+                        setActiveMediaIndex(idx)
+                        if(idx===1&&discovery.eligible&&m.id)
+                          void discovery.recordEvidence('second_media',{media_id:m.id})
+                      }}
                       className={`relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border-[1.5px] transition ${
                         selected ? 'border-[#0A13E6]' : 'border-black/10 hover:border-black/30'
                       }`}

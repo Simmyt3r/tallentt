@@ -16,6 +16,8 @@ export default function MilestoneCenter(){
   const params=new URLSearchParams(location.search)
   const [verb,setVerb]=useState(VERBS.some(v=>v.value===params.get('verb'))?params.get('verb'):'Collab')
   const [source,setSource]=useState(params.get('source')||'')
+  const [selectedSource,setSelectedSource]=useState('')
+  const [eligibleSources,setEligibleSources]=useState([])
   const [allowance,setAllowance]=useState(null)
   const [orbit,setOrbit]=useState(null)
   const [seals,setSeals]=useState([])
@@ -31,6 +33,7 @@ export default function MilestoneCenter(){
     ])
     setAllowance(responses[0].status==='fulfilled'?responses[0].value:null)
     setSeals(responses[1].status==='fulfilled'?responses[1].value.seals||[]:[])
+    setEligibleSources(responses[1].status==='fulfilled'?responses[1].value.sources||[]:[])
     setCases(responses[2].status==='fulfilled'?responses[2].value.cases||[]:[])
     setOrbit(responses[3].status==='fulfilled'?responses[3].value:null)
     const failures=responses.filter(item=>item.status==='rejected')
@@ -45,6 +48,7 @@ export default function MilestoneCenter(){
       const result=await api.milestoneSealAction({action,...payload})
       setNotice(result.status==='sealed'?'Both parties confirmed. Verified points were recorded once.':
         result.status==='pending'?'Seal created. The other participant must confirm.':'Pending Seal cancelled.')
+      if(action==='seal_create'){setSelectedSource('');setSource('')}
       await refresh()
     }catch(e){setError(e.message||'Could not update this Seal.')}
     finally{setBusy('')}
@@ -64,6 +68,8 @@ export default function MilestoneCenter(){
     .filter(([verb])=>verb!=='Showcase')
     .reduce((sum,[,count])=>sum+Number(count||0),0)
   const showcaseMax=1+Math.floor(verifiedUnlocks/10)
+  const visibleSources=eligibleSources.filter(item=>item.verb===verb)
+  const sourceToSubmit=source.trim()||selectedSource
   const canSign=item=>item.status==='pending' &&
     ((item.client_id===user?.id&&!item.client_signed_at)||
      (item.talent_id===user?.id&&!item.talent_signed_at))
@@ -117,21 +123,38 @@ export default function MilestoneCenter(){
 
     <section className="space-y-3">
       <h2 className="text-[16px] font-bold">Request a verified Seal</h2>
-      <p className="text-[12px] text-black/60">Use the transaction or agreement ID visible in your Deal, Employment or Wallet history. Only named participants may confirm. No payment is taken by this screen.</p>
-      <form onSubmit={e=>{e.preventDefault();if(UUID.test(source.trim()))void submit('seal_create',{verb,source_id:source.trim()});else setError('Enter a valid source record ID.')}}
-        className="grid gap-3 sm:grid-cols-[1fr_1.4fr_auto] sm:items-end">
+      <p className="text-[12px] text-black/60">Choose a verified completed job, accepted employment or settled support transfer from your account. Only the actual participants can confirm a Seal; this screen never moves money.</p>
+      <form onSubmit={e=>{e.preventDefault();if(UUID.test(sourceToSubmit))void submit('seal_create',{verb,source_id:sourceToSubmit});else setError('Choose a verified record or enter its source ID.')}}
+        className="grid gap-3 sm:grid-cols-[1fr_1.8fr_auto] sm:items-end">
         <label className="space-y-1 text-[12px] font-semibold">
           <span>Milestone</span>
-          <select value={verb} onChange={e=>setVerb(e.target.value)} className="h-11 w-full rounded-xl border border-black/15 px-3">
+          <select value={verb} onChange={e=>{setVerb(e.target.value);setSelectedSource('');setSource('')}} className="h-11 w-full rounded-xl border border-black/15 px-3">
             {VERBS.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
         </label>
         <label className="space-y-1 text-[12px] font-semibold">
-          <span>Verified source ID</span>
-          <input value={source} onChange={e=>setSource(e.target.value)} maxLength={36} placeholder="Transaction / agreement UUID" className="h-11 w-full rounded-xl border border-black/15 px-3"/>
+          <span>Eligible verified transaction</span>
+          <select value={selectedSource} onChange={e=>{setSelectedSource(e.target.value);setSource('')}}
+            aria-label="Eligible verified transaction" className="h-11 w-full rounded-xl border border-black/15 px-3">
+            <option value="">{visibleSources.length?'Choose a completed transaction…':'No eligible records yet'}</option>
+            {visibleSources.map(item=><option key={item.source_id} value={item.source_id}>
+              {item.title||item.verb} · @{item.counterparty}
+              {item.occurred_at?' · '+new Date(item.occurred_at).toLocaleDateString('en-NG'):''}
+            </option>)}
+          </select>
         </label>
-        <button type="submit" disabled={!!busy} className="h-11 rounded-full bg-[#0A13E6] px-5 text-[12px] font-bold text-white disabled:opacity-50">Request Seal</button>
+        <button type="submit" disabled={!!busy||!sourceToSubmit} className="h-11 rounded-full bg-[#0A13E6] px-5 text-[12px] font-bold text-white disabled:opacity-50">Request Seal</button>
       </form>
+      <details className="text-[12px] text-black/60" open={undefined}>
+        <summary className="cursor-pointer font-semibold">Have a source ID instead?</summary>
+        <label className="mt-2 block max-w-md space-y-1">
+          <span className="block">Recorded transaction or agreement UUID</span>
+          <input value={source} onChange={e=>{setSource(e.target.value);setSelectedSource('')}}
+            maxLength={36} placeholder="Paste a source UUID"
+            aria-label="Manual verified source ID"
+            className="h-11 w-full rounded-xl border border-black/15 px-3"/>
+        </label>
+      </details>
       {!seals.length?<p className="py-3 text-[12px] text-black/50">No Seal requests recorded yet.</p>:
         <div className="divide-y divide-black/10">
           {seals.map(item=><article key={item.id} className="py-4 space-y-2">

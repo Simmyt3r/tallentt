@@ -183,7 +183,7 @@ async function buildCardDetail(hat, viewerId) {
       reference:hat.id,is_open:hat.active===true&&hat.availability===true},
     performance: {orbit,active_hats: Number(accountHats[0]?.active||0),total_hats:Number(accountHats[0]?.total||0),completed_jobs:Number(stats.completed_jobs||0),
       successful_hires:Number(stats.successful_hires||0),open_disputes:Number(stats.open_disputes||0)},
-    media: (hat.media || []).map((m) => ({ url: m.url, type: m.type, caption: m.caption || null })),
+    media: (hat.media || []).map((m) => ({ id: m.id, url: m.url, type: m.type, caption: m.caption || null, screening_status: m.screening_status })),
     tags: hat.skills || [],
     category: hat.category || null,
     hiring_duration: hat.hiring_duration || null,
