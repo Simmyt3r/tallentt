@@ -11,22 +11,23 @@ export function parseGuestResume(value){
   try {
     const url=new URL(value,ORIGIN)
     if(url.origin!==ORIGIN||url.pathname!=='/guest-resume'||url.hash)return null
-    if([...url.searchParams.keys()].some(key=>!['intent','username','hat'].includes(key)))return null
-    if(['intent','username','hat'].some(key=>url.searchParams.getAll(key).length>1))return null
-    const intent=url.searchParams.get('intent'),username=url.searchParams.get('username'),hat=url.searchParams.get('hat')
+    if([...url.searchParams.keys()].some(key=>!['intent','username','hat','resource'].includes(key)))return null
+    if(['intent','username','hat','resource'].some(key=>url.searchParams.getAll(key).length>1))return null
+    const intent=url.searchParams.get('intent'),username=url.searchParams.get('username'),hat=url.searchParams.get('hat'),resource=url.searchParams.get('resource')||'hat'
     if(!GUEST_INTENTS.includes(intent)||!USERNAME.test(username||''))return null
     if(hat&&!UUID.test(hat))return null
-    if(['book','save','like','share','comment'].includes(intent)&&!hat)return null
-    return {intent,username,hat:hat||null}
+    if(!['hat','vibe'].includes(resource)||resource==='vibe'&&!hat)return null
+    return {intent,username,hat:hat||null,resource}
   }catch{return null}
 }
 
-export function guestResumePath({intent,username,hat}={}){
+export function guestResumePath({intent,username,hat,resource='hat'}={}){
   if(!GUEST_INTENTS.includes(intent)||!USERNAME.test(String(username||'')))return null
   if(hat&&!UUID.test(String(hat)))return null
-  if(['book','save','like','share','comment'].includes(intent)&&!hat)return null
+  if(!['hat','vibe'].includes(resource)||resource==='vibe'&&!hat)return null
   const params=new URLSearchParams({intent,username})
   if(hat)params.set('hat',hat)
+  if(resource==='vibe')params.set('resource','vibe')
   return '/guest-resume?'+params.toString()
 }
 
