@@ -4,6 +4,7 @@ import { DEAL_WORK_STATUS_SQL } from '../../shared/dealWorkStatus.js'
 import {pendingVibesVideos,reviewVibesVideo} from '../_lib/vibesReview.js'
 import {reconcileCommissionLedger} from '../_lib/commissionLedger.js'
 import {financeSummary,financeAudit,financeLiabilityAudit} from '../_lib/financeReporting.js'
+import {financeIntegritySnapshot} from '../_lib/financeIntegrity.js'
 import { adminBillingStatus, adminPlanPrice, adminReviewBusiness } from '../_lib/billing.js'
 import { adminSalaryPrice } from '../_lib/salaryTrackingFees.js'
 import {resolveBroadcastAvailability} from '../_lib/liveTransport.js'
@@ -53,6 +54,7 @@ export default async function handler(req, res) {
         return json(res,200,await financeLiabilityAudit({kind:params.get('kind')||'escrow',cursor:params.get('cursor')}))
       if (params.get('action') === 'billing_admin') return json(res,200,await adminBillingStatus())
       if (params.get('action') === 'finance_summary') return json(res,200,await financeSummary())
+      if (params.get('action') === 'finance_integrity') return json(res,200,await financeIntegritySnapshot())
       if (params.get('action') === 'finance_audit')
         return json(res,200,await financeAudit({stream:params.get('stream')||'live_support',cursor:params.get('cursor')}))
       if (params.get('action') === 'vibes_video_review') return json(res,200,await pendingVibesVideos())

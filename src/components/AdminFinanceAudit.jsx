@@ -103,6 +103,7 @@ export default function AdminFinanceAudit({stream,onClose}){
               {item.wallet_evidence==='charged_verified'?'Matched wallet charge'
                 :item.wallet_evidence==='refunded_verified'?'Matched wallet charge and refund'
                 :item.wallet_evidence==='refund_unverified'?'Refund evidence missing or duplicated'
+                :item.wallet_evidence==='unexpected_refund'?'Wallet refund exists but receipt remains charged'
                 :'Wallet debit missing or duplicated'}
             </strong>
             <p className="mt-1 text-black/55">Matching debits: {item.matching_debits??'—'} · refunds: {item.matching_refunds??'—'}</p>

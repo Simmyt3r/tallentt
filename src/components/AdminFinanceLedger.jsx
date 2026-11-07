@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react'
 import {api} from '../lib/api.js'
 import AdminFinanceAudit from './AdminFinanceAudit.jsx'
+import AdminFinanceIntegrity from './AdminFinanceIntegrity.jsx'
 
 const money=value=>{
  if(value===null||value===undefined)return 'Not recorded'
@@ -101,6 +102,7 @@ export default function AdminFinanceLedger(){
           These categories must be reconciled with Paystack and bank settlement accounts before reporting total cash.
         </p>
       </section>
+      <AdminFinanceIntegrity />
       <section className="rounded-2xl border border-black/15 bg-white p-4" aria-label="Platform owner revenue">
         <h4 className="text-[14px] font-black">Platform owners' income account</h4>
         <p className="mt-1 text-[12px] text-black/60">
@@ -114,7 +116,7 @@ export default function AdminFinanceLedger(){
                 <p>{item.recorded
                   ?`${item.transactions} matched charge(s) · ${item.source} · ${item.recognition==='earned'?'earned':'recognition pending'}`
                   :'No approved fee ledger · amount unknown (not zero)'}</p>
-                {Number(item.unmatched_charges||0)>0&&<p className="mt-1 text-amber-800">{item.unmatched_charges} charge(s) lack exactly one matching wallet debit. Review audit; excluded from totals.</p>}
+                {Number(item.unmatched_charges||0)>0&&<p className="mt-1 text-amber-800">{item.unmatched_charges} charge(s) have missing/duplicate debit evidence or an unexpected wallet refund. Review audit; excluded from totals.</p>}
               </div>
             </div>
             <div className="flex items-center gap-3">
