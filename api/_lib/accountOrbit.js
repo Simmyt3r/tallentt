@@ -39,6 +39,21 @@ const ratio=(count,unit)=>{
   const value=Number(count||0)
   return Number.isFinite(value)?Math.max(0,value)/unit:0
 }
+// Expose how much evidence belongs to delivered work, publishing and
+// foundational profile history without changing existing Orbit points.
+export function classifyOrbitEvidence(factors){
+  const total=keys=>factors.filter(f=>keys.includes(f.key))
+    .reduce((score,f)=>score+f.earned,0)
+  return {
+    verified_work:{points:total(['completed_work','successful_hires']),
+      factors:factors.filter(f=>['completed_work','successful_hires'].includes(f.key)).map(f=>f.key)},
+    showcase_activity:{points:total(['contributions']),
+      factors:factors.filter(f=>f.key==='contributions').map(f=>f.key)},
+    profile_history:{points:total(['profile','verification','tenure']),
+      factors:factors.filter(f=>['profile','verification','tenure'].includes(f.key)).map(f=>f.key)},
+  }
+}
+
 export function calculateOrbitScore(metrics,weights=ORBIT_DEFAULTS){
   validateOrbitWeights(weights)
   const normalized={
@@ -59,9 +74,10 @@ export function calculateOrbitScore(metrics,weights=ORBIT_DEFAULTS){
     const possible=filtered.reduce((n,f)=>n+f.possible,0)
     const earned=filtered.reduce((n,f)=>n+f.earned,0)
     return [role,{score:possible?Math.round(earned/possible*100):0,max:null,
-      factors:filtered}]
+      factors:filtered,evidence:classifyOrbitEvidence(filtered)}]
   }))
   return {score,max:null,factors,metrics,byRole:segmented,
+    evidence:classifyOrbitEvidence(factors),
     disclaimer:'An activity-based indicator, not identity verification or a guarantee of reliability.'}
 }
 
