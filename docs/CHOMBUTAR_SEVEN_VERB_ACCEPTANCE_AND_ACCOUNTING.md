@@ -12,7 +12,7 @@ Seven verbs in order: **Showcase → Discover → KeepUp → Book → Collab →
 |---|---|---|
 | M1 Showcase | Hat form, Showroom, Bento Feed visibility, Gallery | Validate required refined media, optional raw media, field order, editing and moderation in real user journeys |
 | M2 Discover | Search, Showroom, Bento Field; event/score infrastructure | Server-authoritative one-time qualified viewer–Talent pair ledger; explicit intentional click, active stay >5 seconds and real user action proof; rate limits, uniqueness and appeal policy |
-| M3 KeepUp | `subscriber_follows` + Associates follow/unfollow and Vibes feed | Unified KeepUp label/placement, unique historical milestone awards, reversible current follower count and a separate Keeping Up feed alongside broad For You |
+| M3 KeepUp | `subscriber_follows` + Associates follow/unfollow; **For You / Keeping Up** feeds and profile KeepUp action now implemented | Remaining: one-time historical Orbit award/reversal ledger, explicit fraud rules, discoverability checks and user acceptance |
 | M4 Book | Booking and escrow APIs, funded/released work, transaction and commission records | End-to-end real-user acceptance, deposit/refund/reversal reconciliation, delivered-work verification, checkout disclosure, dispute and payment-provider integration |
 | M5 Collab/Hire/Sponsor | Associates and employment/tracking foundation | Individually verifiable signed Seal types, completion/payment events, cancellation states, consent, fee policies and separate platform-charge event ledgers |
 | M6 Work Pass | Single signed Work Pass with distinct Talent/Client Orbit, completed jobs, salary evidence | Governed event ledger, qualification provenance, 1-decimal display, verified Discovery/KeepUp counts and Seal history, anti-fraud checks |
@@ -57,6 +57,8 @@ The owner's maximally unlocked Hats per milestone remains **10**. Earned Hats ap
 ### Hits & Vibes feed decision
 
 Maintain **For You / Discover** (broad discoverable posts, including unfamiliar Talent) and **Keeping Up** (posts from followed Talent). Do **not** replace the entire Vibes feed with followed accounts only. Both tabs require independent pagination, stable return position, moderation and privacy enforcement; direct links to visible posts should continue to work.
+
+**Implementation update:** The two feeds now use authenticated follow relationships and server-side filtering; search and pagination are isolated per tab, hidden posts remain excluded, and comments retain the feed return state. No KeepUp Orbit points or Hat-unlock credits are awarded yet. Followed-feed access requires the existing Associates & Inbox migration.
 
 ### Booking and launch gate
 
