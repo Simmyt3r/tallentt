@@ -92,7 +92,7 @@ async function guestHats({view,search,city,username,id,page}){
   return {hats,nextPage:rows.length>NUMBER_OF_CARDS?page+1:null,mode:view}
 }
 
-async function guestVibes({search,page}){
+async function guestVibes({search,page,id}){
   const {rows:present}=await query("SELECT to_regclass('vibes_posts') AS present")
   if(!present[0]?.present)return {posts:[],nextPage:null,mode:'vibes'}
   const {rows}=await query(`SELECT p.id,p.author_id AS user_id,p.body,p.media,p.created_at,
@@ -102,8 +102,9 @@ async function guestVibes({search,page}){
    FROM vibes_posts p JOIN users u ON u.id=p.author_id
    WHERE p.deleted_at IS NULL AND p.moderation_status='visible' AND u.role IN ('talent','dual')
      AND ($1::text IS NULL OR p.body ILIKE '%'||$1||'%' OR u.username ILIKE '%'||$1||'%')
+     AND ($4::uuid IS NULL OR p.id=$4)
    ORDER BY p.created_at DESC,p.id DESC LIMIT $2 OFFSET $3`,
-   [search||null,NUMBER_OF_CARDS+1,Math.min(page,30)*NUMBER_OF_CARDS])
+   [search||null,NUMBER_OF_CARDS+1,Math.min(page,30)*NUMBER_OF_CARDS,id||null])
   const posts=rows.slice(0,NUMBER_OF_CARDS).map(row=>({
     id:row.id,user_id:row.user_id,username:row.username,
     owner_full_name:row.owner_full_name,owner_avatar:row.owner_avatar,
@@ -123,6 +124,6 @@ export async function guestDiscovery(params={}){
   if(!Number.isInteger(page)||page<0||page>30)throw fail(400,'Invalid discovery page.')
   if(username&&!USERNAME.test(username))throw fail(400,'Invalid Talent username.')
   if(id&&!UUID.test(id))throw fail(400,'Invalid Hat.')
-  if((username||id)&&view==='vibes')throw fail(400,'Invalid Vibes filter.')
-  return view==='vibes'?guestVibes({search,page}):guestHats({view,search,city,username,id,page})
+  if(username&&view==='vibes')throw fail(400,'Invalid Vibes filter.')
+  return view==='vibes'?guestVibes({search,page,id}):guestHats({view,search,city,username,id,page})
 }
