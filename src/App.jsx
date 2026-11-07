@@ -1,6 +1,6 @@
 // Path: src/App.jsx
 import { Component } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { useAuth } from './context/AuthContext.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import Landing from './pages/Landing.jsx'
@@ -76,6 +76,7 @@ function ProtectedRoute({ children }) {
   }
   return <Layout>{children}</Layout>
 }
+function GuestShowroomView(){const {postId}=useParams();return postId?<GuestHat/>:<GuestDiscovery mode="showroom"/>}
 function GuestOrMemberRoute({children,guest}) {
   const {user,loading}=useAuth()
   if(loading)return <FullPageSpinner />
@@ -112,7 +113,7 @@ export default function App() {
     <Route path="/chats" element={<LegacyInboxRedirect tab="associates" />} />
     <Route path="/negotiations" element={<ProtectedRoute><Negotiations /></ProtectedRoute>} />
     <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-    <Route path="/showroom/:postId?" element={<GuestOrMemberRoute guest={<GuestDiscovery mode="showroom"/>}><ShowroomPage /></GuestOrMemberRoute>} />
+    <Route path="/showroom/:postId?" element={<GuestOrMemberRoute guest={<GuestShowroomView/>}><ShowroomPage /></GuestOrMemberRoute>} />
     <Route path="/my-hats" element={<ProtectedRoute><MyHats /></ProtectedRoute>} />
     <Route path="/milestones" element={<ProtectedRoute><MilestoneCenter /></ProtectedRoute>} />
     <Route path="/create" element={<ProtectedRoute><HatForm /></ProtectedRoute>} />
