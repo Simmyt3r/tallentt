@@ -92,6 +92,8 @@ export default function Showroom() {
   const ioRef = useRef(null)
   const intersectingRef = useRef(new Set())
   const feedViewedRef = useRef(new Set())
+  const discoverySessionsRef = useRef(new Map())
+  const completedDiscoveriesRef = useRef(new Set())
   const modalViewedRef = useRef(new Set())
   const likingRef = useRef(new Set())
   const closingRef = useRef(false)
@@ -395,6 +397,22 @@ export default function Showroom() {
   }, [activeKey, modalOpen, patchHat])
 
   // ── engagement ────────────────────────────────────────────────────────
+  const completeDiscovery=useCallback(async id=>{
+    if(completedDiscoveriesRef.current.has(id)||document.hidden)return
+    const promise=discoverySessionsRef.current.get(id)
+    if(!promise)return
+    const session=await promise
+    if(!session?.session_id)return
+    try{
+      const result=await api.discoveryAction('discovery_complete',{session_id:session.session_id})
+      if(['awarded','held','rejected'].includes(result.status))completedDiscoveriesRef.current.add(id)
+    }catch(error){
+      // Viewing time and engagement are distinct prerequisites; a premature
+      // check is harmless and a later qualifying action can retry.
+      if(error?.status!==409&&error?.status!==410)console.warn('Discovery proof not completed',error)
+    }
+  },[])
+
   const toggleLike = useCallback(
     async (id) => {
       const hat = hatMapRef.current[id]
@@ -406,13 +424,14 @@ export default function Showroom() {
       try {
         if (hat.is_entertainment) await api.galleryAction('like_gallery',id)
         else await api.toggleLike(id)
+        if(next&&!hat.is_entertainment)void completeDiscovery(id)
       } catch {
         patchHat(id, { liked_by_me: !next, likes: prevLikes })
       } finally {
         likingRef.current.delete(id)
       }
     },
-    [patchHat],
+    [patchHat,completeDiscovery],
   )
 
   const notify = useCallback((message) => {
@@ -533,6 +552,35 @@ export default function Showroom() {
 
   const activeHat = postId ? hatMap[postId] || null : null
   const activeHatId = activeHat?.id
+  // Only an explicitly opened Talent detail can start Discovery. Passive
+  // scrolling, autoplay and the ordinary public view counter do not qualify.
+  // Dwell samples come from server time, and a recorded Like/KeepUp/second
+  // opened Hat is still required before any Orbit points are credited.
+  useEffect(()=>{
+    if(!modalOpen||!pageVisible||!activeHat||activeHat.is_entertainment||
+      activeHat.role!=='talent'||!user?.id||activeHat.user_id===user.id)return undefined
+    const id=activeHat.id
+    if(!discoverySessionsRef.current.has(id)){
+      discoverySessionsRef.current.set(id,
+        api.discoveryAction('discovery_open',{hat_id:id}).catch(()=>null))
+    }
+    let active=true
+    const ping=()=>{
+      if(document.hidden||!active||completedDiscoveriesRef.current.has(id))return
+      discoverySessionsRef.current.get(id)?.then(session=>{
+        if(active&&session?.session_id&&!document.hidden)
+          api.discoveryAction('discovery_heartbeat',{session_id:session.session_id,visible:true}).catch(()=>{})
+      })
+    }
+    const ticker=setInterval(ping,2800)
+    // If a recorded Like was made before the dwell threshold, try again
+    // after the necessary heartbeat samples. No automatic award for a view.
+    const finalCheck=setTimeout(()=>{
+      if(active&&hatMapRef.current[id]?.liked_by_me)void completeDiscovery(id)
+    },11800)
+    return()=>{active=false;clearInterval(ticker);clearTimeout(finalCheck)}
+  },[modalOpen,pageVisible,activeHatId,user?.id,completeDiscovery])
+
   let modalStatus = 'loading'
   if (activeHat) modalStatus = 'ready'
   else if (!loading && postState.id === postId && postState.state !== 'ready') modalStatus = postState.state
