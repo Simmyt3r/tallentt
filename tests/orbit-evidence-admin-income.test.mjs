@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
-import {summarizeRecordedIncome} from '../api/_lib/financeReporting.js'
-import {calculateOrbitScore} from '../api/_lib/accountOrbit.js'
+import {summarizeRecordedIncome} from '../shared/incomeTotals.js'
+import {classifyOrbitEvidence} from '../shared/orbitEvidence.js'
 import {fullOrbitScore} from '../src/lib/profileScore.js'
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8')
 
@@ -54,22 +54,21 @@ test('Refund reversals reduce net recorded service charges, not gross customer e
 })
 
 test('Orbit evidence separates verified completed transactions from publishing and account history',()=>{
- const result=calculateOrbitScore({
-  completedProfileFields:5,verifiedIdentity:true,completedWork:10,
-  successfulHires:4,activeDays:10,accountAgeDays:365
- })
- assert.ok(result.evidence.verified_work.points>0)
- assert.ok(result.evidence.showcase_activity.points>0)
- assert.ok(result.evidence.profile_history.points>0)
- assert.deepEqual(result.byRole.talent.evidence.verified_work.factors,['completed_work'])
- assert.deepEqual(result.byRole.client.evidence.verified_work.factors,['successful_hires'])
- assert.equal(result.byRole.talent.evidence.verified_work.points,
-   result.byRole.talent.factors.find(f=>f.key==='completed_work').earned)
- assert.equal(result.byRole.client.evidence.verified_work.points,
-   result.byRole.client.factors.find(f=>f.key==='successful_hires').earned)
- assert.equal(result.evidence.verified_work.points,
-   result.byRole.talent.evidence.verified_work.points+result.byRole.client.evidence.verified_work.points)
- assert.equal(fullOrbitScore(result.score),result.score.toFixed(1))
+ const base=[
+  {key:'profile',earned:15},{key:'verification',earned:20},
+  {key:'completed_work',earned:25},{key:'successful_hires',earned:20},
+  {key:'contributions',earned:10},{key:'tenure',earned:10},
+ ]
+ const talent=classifyOrbitEvidence(base.filter(f=>f.key!=='successful_hires'))
+ const client=classifyOrbitEvidence(base.filter(f=>f.key!=='completed_work'))
+ assert.deepEqual(talent.verified_work.factors,['completed_work'])
+ assert.deepEqual(client.verified_work.factors,['successful_hires'])
+ assert.equal(talent.verified_work.points,25)
+ assert.equal(client.verified_work.points,20)
+ assert.equal(talent.showcase_activity.points,10)
+ assert.equal(talent.profile_history.points,45)
+ assert.equal(classifyOrbitEvidence(base).verified_work.points,45)
+ assert.equal(fullOrbitScore(112.5),'112.5')
 })
 
 test('Admin ledger presents per-category income before separate totals and retains liabilities',()=>{
