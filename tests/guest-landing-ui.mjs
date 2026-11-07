@@ -83,6 +83,7 @@ try {
     await page.getByRole('heading',{name:'Create your spotlight'}).waitFor()
     await page.getByLabel('Full name').fill('Ziva')
     await page.getByLabel('Username',{exact:true}).fill('ziva_viewer')
+    await page.getByText('Available',{exact:true}).waitFor()
     await page.getByLabel('Email',{exact:true}).fill('ziva@example.test')
     await page.getByLabel('Password',{exact:true}).fill('hunter2026good')
     await page.getByLabel('Confirm password').fill('hunter2026good')
