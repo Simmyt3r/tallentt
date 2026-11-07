@@ -80,22 +80,15 @@ export default function AdminFinanceLedger(){
       <section className="rounded-2xl border border-black/15 bg-white p-4" aria-label="Platform owner revenue">
         <h4 className="text-[14px] font-black">Platform owners' income account</h4>
         <p className="mt-1 text-[12px] text-black/60">
-          Recognized, traceable income streams only. No deposits, escrow holdings, wallet top-ups, or user payouts are treated as profit.
+          Platform income is separated by activity and source. Recorded charges, earned revenue and customer funds are not the same figure.
         </p>
-        <div className="mt-4 rounded-xl bg-[#EEF0FF] p-4">
-          <p className="text-[11px] font-bold text-black/60">Auditable recorded platform fee inflows (partial)</p>
-          <p className="text-[25px] font-black text-[#0A13E6]">{money(summary.recognized_revenue)}</p>
-          <p className="mt-1 text-[11px] text-black/60">
-            Net profit: <strong>Not established</strong>. Costs, refunds, taxes and settlement are not yet reconciled.
-          </p>
-        </div>
         <div className="mt-3 divide-y divide-black/10">
           {streams.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
             <div>
-              <p className="text-[12px] font-bold">{item.name}</p>
+              <p className="text-[12px] font-bold">{item.verb&&<span className="mr-2 text-[#0A13E6]">{item.verb} ·</span>}{item.name}</p>
               <p className="text-[11px] text-black/45">{item.recorded
-                ?`${item.transactions} verifiable accrual(s) · ${item.source}`
-                :'No approved accrual source yet · not treated as zero revenue'}
+                ?`${item.transactions} source-linked charge(s) · ${item.source} · ${item.recognition==='earned'?'earned':'recognition pending'}`
+                :'No approved fee ledger · amount unknown (not zero)'}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -107,6 +100,24 @@ export default function AdminFinanceLedger(){
             </div>
           </div>)}
         </div>
+        <section aria-label="Platform income totals" className="mt-4 space-y-3 bg-[#EEF0FF] p-4">
+          <h5 className="text-[13px] font-black">Totals across the income streams above</h5>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <p className="text-[11px] font-semibold text-black/60">Total recorded platform fee charges (partial)</p>
+              <p className="mt-1 text-[20px] font-black tabular-nums text-[#0A13E6]">{money(summary.income_totals?.recorded_fee_charges)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold text-black/60">Of which: earned platform revenue</p>
+              <p className="mt-1 text-[20px] font-black tabular-nums">{money(summary.income_totals?.earned_revenue ?? summary.recognized_revenue)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold text-black/60">Charges pending revenue recognition</p>
+              <p className="mt-1 text-[20px] font-black tabular-nums">{money(summary.income_totals?.pending_recognition)}</p>
+            </div>
+          </div>
+          <p className="text-[11px] text-black/55">Partial totals from recorded platform fee events only; not verified bank settlement or net profit. Missing fee sources cannot be presumed to be ₦0.</p>
+        </section>
         <p className="mt-3 text-[11px] text-amber-800">{summary.warning}</p>
       </section>
     </>}
