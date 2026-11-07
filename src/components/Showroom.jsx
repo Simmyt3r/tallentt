@@ -94,6 +94,7 @@ export default function Showroom() {
   const feedViewedRef = useRef(new Set())
   const discoverySessionsRef = useRef(new Map())
   const completedDiscoveriesRef = useRef(new Set())
+  const discoveryProofRef = useRef(new Set())
   const modalViewedRef = useRef(new Set())
   const likingRef = useRef(new Set())
   const closingRef = useRef(false)
@@ -413,6 +414,37 @@ export default function Showroom() {
     }
   },[])
 
+  // Proofs are only submitted for a deliberately opened signed-in Hat.
+  // Server checks the active session, author, approved media and evidence.
+  const recordDiscoveryProof=useCallback(async (id,kind,extra={})=>{
+    if(document.hidden||completedDiscoveriesRef.current.has(id))return
+    const session=await discoverySessionsRef.current.get(id)
+    if(!session?.session_id)return
+    try{
+      await api.discoveryAction('discovery_evidence',{
+        session_id:session.session_id,kind,...extra,
+      })
+      discoveryProofRef.current.add(id)
+      void completeDiscovery(id)
+    }catch(error){
+      if(error?.status!==409&&error?.status!==410&&error?.status!==503)
+        console.warn('Discovery evidence could not be recorded',error)
+    }
+  },[completeDiscovery])
+
+  const handleSave=useCallback(async(id,saved)=>{
+    const result=await api.saveHat(id,saved)
+    if(result.saved){
+      discoveryProofRef.current.add(id)
+      void completeDiscovery(id)
+    }
+    return result
+  },[completeDiscovery])
+
+  const handleSecondMedia=useCallback((id,mediaId)=>{
+    void recordDiscoveryProof(id,'second_media',{media_id:mediaId})
+  },[recordDiscoveryProof])
+
   const toggleLike = useCallback(
     async (id) => {
       const hat = hatMapRef.current[id]
@@ -477,8 +509,10 @@ export default function Showroom() {
       const result = await shareShowroomPost({ id: hat.id, name: getPrimaryIdentity(identityFromHat(hat)) })
       if (result === 'copied') notify('Link copied')
       else if (result === 'failed') notify("Couldn't copy the link")
+      if(['copied','shared'].includes(result) && modalOpen && postId===hat.id && !hat.is_entertainment)
+        void recordDiscoveryProof(hat.id,'share',{confirmed:true})
     },
-    [notify],
+    [notify,modalOpen,postId,recordDiscoveryProof],
   )
 
   // ── the detail modal (driven by the URL) ──────────────────────────────
@@ -576,7 +610,7 @@ export default function Showroom() {
     // If a recorded Like was made before the dwell threshold, try again
     // after the necessary heartbeat samples. No automatic award for a view.
     const finalCheck=setTimeout(()=>{
-      if(active&&hatMapRef.current[id]?.liked_by_me)void completeDiscovery(id)
+      if(active&&(hatMapRef.current[id]?.liked_by_me||discoveryProofRef.current.has(id)))void completeDiscovery(id)
     },11800)
     return()=>{active=false;clearInterval(ticker);clearTimeout(finalCheck)}
   },[modalOpen,pageVisible,activeHatId,user?.id,completeDiscovery])
@@ -788,6 +822,8 @@ export default function Showroom() {
           onClose={closeDetail}
           onSelect={selectRelated}
           onLike={toggleLike}
+          onSave={handleSave}
+          onSecondMedia={handleSecondMedia}
           onShowLikes={user?.id&&activeHat?.user_id===user.id?setLikersHat:undefined}
           onShare={handleShare}
           onReport={user?.id && activeHat?.user_id !== user.id ? setReportHat : undefined}
