@@ -6,21 +6,6 @@ import { api } from '../lib/api.js'
 import { safeVibeReturnPath } from '../lib/vibeSharing.js'
 import '../styles/auth.css'
 
-const CATEGORIES = [
-  'Music',
-  'Dance',
-  'Comedy',
-  'Fashion',
-  'Acting',
-  'Modeling',
-  'Art & Design',
-  'Writing',
-  'Photography',
-  'Content Creation',
-  'Sports',
-  'Other',
-]
-
 const LEGAL = {
   terms: {
     title: 'Terms of Service',
@@ -58,7 +43,7 @@ export default function AuthPage() {
   const [username, setUsername] = useState('')
   const [userStatus, setUserStatus] = useState(null) // checking | available | taken | invalid
   const [email, setEmail] = useState('')
-  const [category, setCategory] = useState('')
+  const [role, setRole] = useState('talent')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -127,10 +112,6 @@ export default function AuthPage() {
       setError('Enter a valid email address.')
       return
     }
-    if (!category) {
-      setError('Select a talent category.')
-      return
-    }
     if (password.length < 8) {
       setError('Password must be at least 8 characters.')
       return
@@ -151,9 +132,9 @@ export default function AuthPage() {
         username: u,
         email: email.trim(),
         password,
-        role: 'dual',
+        role,
         country: 'Nigeria',
-        lga: category, // store category until dedicated column exists
+        // Do not invent or misuse the city/LGA. Location can be added on Profile.
       })
       setSuccess('Welcome! Claim your Bronze Work Pass.')
       setTimeout(() => navigate(nextVibe||'/profile', { replace: true }), 900)
@@ -302,19 +283,10 @@ export default function AuthPage() {
               </div>
 
               <div className="v9-field">
-                <label htmlFor="category">Talent category</label>
-                <select
-                  id="category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  required
-                >
-                  <option value="">Select category</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
+                <label htmlFor="role">I am a</label>
+                <select id="role" value={role} onChange={(e) => setRole(e.target.value)} required>
+                  <option value="talent">Talent — showcase my work</option>
+                  <option value="client">Client — find and hire talent</option>
                 </select>
               </div>
 
