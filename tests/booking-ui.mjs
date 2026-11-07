@@ -45,7 +45,7 @@ try {
       assert.ok(box.x >= 0 && box.x + box.width <= width, `${name} clipped at ${width}`)
     }
     if (mobile) await client.getByRole('button', { name: 'Close menu', exact: true }).click()
-    await client.getByRole('button',{name:'Open Inbox',exact:true}).waitFor()
+    await client.getByRole('link',{name:'Open Inbox',exact:true}).waitFor()
   }
   await client.setViewportSize({ width: 390, height: 844 })
   const messageHistory = client.getByRole('region', { name: 'Message history', exact: true })
