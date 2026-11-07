@@ -35,9 +35,12 @@ function GuestActions({hat,onGate,compact=false}){
 }
 export function GuestHatCard({hat,onGate,large=false}){
   return <article className={'overflow-hidden rounded-[22px] bg-white shadow-sm '+(large?'mx-auto w-full max-w-[780px]':'min-w-0')}>
-    <Link to={'/talent/'+encodeURIComponent(hat.id)} className={'block overflow-hidden bg-[#E9E5DB] '+(large?'h-[min(56vh,460px)]':'aspect-[5/3]')} aria-label={'View '+hat.hat_title}>
+    <div className={'relative overflow-hidden bg-[#E9E5DB] '+(large?'h-[min(56vh,460px)]':'aspect-[5/3]')}>
       <GuestMedia media={hat.media} className="h-full w-full"/>
-    </Link>
+      <Link to={'/talent/'+encodeURIComponent(hat.id)}
+        className="absolute bottom-3 right-3 rounded-full bg-white/95 px-3 py-2 text-[11px] font-bold shadow"
+        aria-label={'View '+hat.hat_title+' details'}>View details</Link>
+    </div>
     <div className="p-4 sm:p-5">
       <Link to={'/profile/'+encodeURIComponent(hat.username)} className="text-[12px] font-bold text-black/55 hover:underline">
         {hat.owner_full_name||hat.username} · ^{hat.username}
@@ -66,7 +69,7 @@ function VibePreview({post,onGate}){
     <p className="mt-3 text-[11px] text-black/55">❤ {post.likes} likes · {post.comments} comments</p>
     <div className="mt-2 flex flex-wrap gap-2">
       {['like','comment','share','keepup'].map(action=><button type="button" key={action}
-        onClick={()=>onGate({...info,intent:action,hat:action==='like'||action==='share'||action==='comment'?null:undefined})}
+        onClick={()=>onGate({...info,intent:action,hat:post.id,resource:'vibe'})}
         className="min-h-10 rounded-full border border-black/10 px-3 text-[12px] font-semibold">
         {action==='keepup'?'+ KeepUp':action==='comment'?'Comment':action[0].toUpperCase()+action.slice(1)}
       </button>)}
