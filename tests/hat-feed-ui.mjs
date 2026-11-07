@@ -129,7 +129,7 @@ try {
     await fixedSwitch().click()
     await fixedSwitch(true).waitFor()
     assert.equal(await page.getByRole('alertdialog').count(), 0, 'Fixed pricing needs no notice')
-    await rangeSwitch(true).click()
+    await rangeSwitch(false).click()
     failSave = true
     await page.getByRole('button', { name: 'Confirm and show' }).click()
     await page.getByRole('alertdialog').getByRole('alert').waitFor()
