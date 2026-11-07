@@ -8,6 +8,8 @@ const summary={deal_commissions:{recorded:true,gross:'1000',reversed:'350',net:'
   liabilities:{},recognized_revenue:'850',income_streams:[
     {id:'live_support',name:'Live support platform fees',recorded:true,transactions:1,inflow:'200'},
     {id:'deal_fees',name:'Deal commissions',recorded:true,transactions:2,inflow:'650'},
+    {id:'salary_tracking',name:'Client salary tracking',recorded:true,
+      transactions:1,inflow:'1000',recognition:'pending',unmatched_charges:1,source:'billing_charge_events'},
   ]}
 const deal={id:'11111111-1111-4111-8111-111111111111',deal_title:'Electrical repair',deal_amount:'10000',
   client_username:'test_client',talent_username:'test_talent',status:'refunded',work_status:'refunded',
@@ -43,6 +45,11 @@ try{
     }
     const params=new URL(route.request().url()).searchParams
     if(params.get('action')==='finance_summary')return route.fulfill({json:summary})
+    if(params.get('stream')==='salary_tracking')return route.fulfill({json:{recorded:true,next_cursor:null,transactions:[{
+      id:'billing-fee',source_id:'55555555-5555-4555-8555-555555555555',username:'biller',
+      created_at:deal.created_at,amount:1000,status:'charged',matching_debits:1,matching_refunds:0,
+      wallet_evidence:'charged_verified',reference:'salary-track:record',
+    }]}})
     if(params.get('stream')==='live_support')return route.fulfill({json:{recorded:true,next_cursor:null,transactions:[{
       id:'live-fee',created_at:deal.created_at,supporter_username:'live_supporter',talent_username:'live_talent',
       gross_amount:2000,platform_fee:200,net_amount:1800,
@@ -55,7 +62,7 @@ try{
   await page.goto(`http://127.0.0.1:5182/${fixtureName}`)
   await page.getByRole('heading',{name:'Service charges by deal',exact:true}).waitFor()
   await page.getByRole('cell',{name:'Client: test_client Talent: test_talent'}).waitFor()
-  assert.equal(reconciliations,1)
+  assert.equal(reconciliations,0) // viewing Admin Finance is read-only
   assert.match(await page.getByRole('region',{name:'Deal service charge earnings'}).innerText(),/₦650/)
   await page.getByText('View fee records',{exact:true}).click()
   await page.getByText('sealed · 5%',{exact:true}).waitFor()
@@ -76,6 +83,12 @@ try{
   await page.getByText('live_supporter / live_talent',{exact:true}).waitFor()
   await page.getByRole('button',{name:'Close audit',exact:true}).click()
   assert.equal(await page.getByRole('region',{name:'Platform fee accrual audit'}).count(),0)
+  await page.getByText('Client salary tracking',{exact:true}).waitFor()
+  await page.getByText(/1 charge\(s\) lack exactly one matching wallet debit/).waitFor()
+  await page.getByRole('button',{name:'Audit trail',exact:true}).last().click()
+  await page.getByRole('heading',{name:'Client salary tracking charge audit'}).waitFor()
+  await page.getByText('Matched wallet charge',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Close audit',exact:true}).click()
   await page.getByRole('button',{name:'View service charges by deal',exact:true}).click()
   await page.getByText('Electrical repair',{exact:true}).waitFor()
   for(const [next,text] of [['empty','No deal service charges recorded yet.'],['missing','Service charge records are unavailable. Apply the billing migration in Database Migrations.'],['error','Commission report temporarily unavailable']]){
@@ -87,14 +100,28 @@ try{
   mode='normal'
   await page.getByRole('button',{name:'Retry',exact:true}).click()
   await page.getByText('Electrical repair',{exact:true}).waitFor()
+  // Refresh must never issue a write or invoke historical reconciliation.
   mode='sync_error'
   await page.getByRole('button',{name:'Refresh',exact:true}).click()
+  await page.getByText('Electrical repair',{exact:true}).waitFor()
+  assert.equal(reconciliations,0)
+  let consent=false
+  page.on('dialog',async dialog=>{if(consent)await dialog.accept();else await dialog.dismiss()})
+  await page.getByRole('button',{name:'Reconcile verified receipts'}).click()
+  assert.equal(reconciliations,0) // cancelled explicit confirmation
+  consent=true
+  await page.getByRole('button',{name:'Reconcile verified receipts'}).click()
   await page.getByRole('alert').filter({hasText:'Reconciliation unavailable'}).waitFor()
+  assert.equal(reconciliations,1)
   mode='normal'
+  await page.getByRole('button',{name:'Reconcile verified receipts'}).click()
+  await page.getByText('Verified receipt recovery complete: 0 service charges and 0 refund reversals.',{exact:false}).waitFor()
+  assert.equal(reconciliations,2)
   await page.getByRole('button',{name:'Refresh',exact:true}).click()
   await page.getByText('Electrical repair',{exact:true}).waitFor()
+  assert.equal(reconciliations,2)
   assert.deepEqual(errors,[])
-  console.log('Admin commission UI passed: mobile/desktop layout, fee details, pagination, Live fees, refresh, empty/unavailable states and retry.')
+  console.log('Admin commission UI passed: read-only refresh, explicit confirmed reconciliation, mobile/desktop, fee detail and pagination.')
 }finally{
   await browser?.close()
   await server.close()

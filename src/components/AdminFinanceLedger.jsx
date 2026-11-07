@@ -9,14 +9,19 @@ const money=value=>{
 }
 export default function AdminFinanceLedger(){
   const [summary,setSummary]=useState(null)
-  const [stream,setStream]=useState(()=>new URLSearchParams(window.location.search).get('stream')==='live_support'?'live_support':'deal_fees')
+  const [stream,setStream]=useState(()=>{
+    const allowed=new Set(['live_support','deal_fees','salary_tracking',
+      'salary_tracking_talent','business_verification','subscription'])
+    const initial=new URLSearchParams(window.location.search).get('stream')
+    return allowed.has(initial)?initial:'deal_fees'
+  })
   const [auditVersion,setAuditVersion]=useState(0)
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
+  const [reconcileNotice,setReconcileNotice]=useState('')
   async function refresh(){
     setBusy(true);setError('')
     try{
-      await api.reconcileAdminCommissions()
       setSummary(await api.getAdminFinanceSummary())
       setAuditVersion(version=>version+1)
     }
@@ -24,6 +29,18 @@ export default function AdminFinanceLedger(){
     finally{setBusy(false)}
   }
   useEffect(()=>{refresh()},[])
+
+  async function reconcile(){
+    if(busy||!window.confirm('Reconcile only verified historical service-charge receipts? This writes audit receipts but does not debit wallets, change deal terms, or move funds.'))return
+    setBusy(true);setError('');setReconcileNotice('')
+    try{
+      const result=await api.reconcileAdminCommissions()
+      setSummary(await api.getAdminFinanceSummary())
+      setAuditVersion(version=>version+1)
+      setReconcileNotice(`Verified receipt recovery complete: ${Number(result.recovered_fees||0)} service charges and ${Number(result.recovered_refunds||0)} refund reversals. No customer balance was changed.`)
+    }catch(e){setError(e.message||'Receipt reconciliation failed.')}
+    finally{setBusy(false)}
+  }
   const liabilities=summary?.liabilities||{}
   const streams=summary?.income_streams||[]
   return <div className="space-y-4 p-4" aria-label="Escrow liability and platform earnings">
@@ -32,9 +49,16 @@ export default function AdminFinanceLedger(){
         <h3 className="text-[16px] font-black">Escrow liability & platform earnings</h3>
         <p className="text-[12px] text-black/55">Customer balances are never company income. Fees are shown separately from liabilities.</p>
       </div>
-      <button type="button" onClick={refresh} disabled={busy} className="min-h-10 rounded-full border border-black/20 px-4 text-[11px] font-bold">Refresh</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={reconcile} disabled={busy}
+          className="min-h-10 rounded-full border border-black/20 px-4 text-[11px] font-bold disabled:opacity-50">Reconcile verified receipts</button>
+        <button type="button" onClick={refresh} disabled={busy}
+          className="min-h-10 rounded-full border border-black/20 px-4 text-[11px] font-bold disabled:opacity-50">Refresh</button>
+      </div>
     </div>
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-[12px] text-red-700">{error}</p>}
+    {reconcileNotice&&<p role="status" className="text-[12px] text-black/65">{reconcileNotice}</p>}
+    <p className="text-[11px] text-black/55">Refresh is read-only. Receipt reconciliation requires a separate confirmed action; it records only matched historical fees and refund reversals, never new wallet deductions.</p>
     {!summary&&busy&&<p role="status" className="text-sm">Loading accounting records…</p>}
     {summary&&<>
       <section aria-label="Deal service charge earnings" className="rounded-2xl border border-[#0A13E6]/20 bg-[#EEF0FF] p-4">
@@ -86,14 +110,16 @@ export default function AdminFinanceLedger(){
           {streams.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
             <div>
               <p className="text-[12px] font-bold">{item.verb&&<span className="mr-2 text-[#0A13E6]">{item.verb} ·</span>}{item.name}</p>
-              <p className="text-[11px] text-black/45">{item.recorded
-                ?`${item.transactions} source-linked charge(s) · ${item.source} · ${item.recognition==='earned'?'earned':'recognition pending'}`
-                :'No approved fee ledger · amount unknown (not zero)'}
-              </p>
+              <div className="text-[11px] text-black/45">
+                <p>{item.recorded
+                  ?`${item.transactions} matched charge(s) · ${item.source} · ${item.recognition==='earned'?'earned':'recognition pending'}`
+                  :'No approved fee ledger · amount unknown (not zero)'}</p>
+                {Number(item.unmatched_charges||0)>0&&<p className="mt-1 text-amber-800">{item.unmatched_charges} charge(s) lack exactly one matching wallet debit. Review audit; excluded from totals.</p>}
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <strong className="text-[13px] tabular-nums">{money(item.inflow)}</strong>
-              {item.recorded&&['live_support','deal_fees'].includes(item.id)&&<button type="button" onClick={()=>setStream(item.id)}
+              {item.recorded&&['live_support','deal_fees','salary_tracking','salary_tracking_talent','business_verification','subscription'].includes(item.id)&&<button type="button" onClick={()=>setStream(item.id)}
                 className="inline-flex min-h-10 items-center rounded-full border border-[#0A13E6]/30 px-3 text-[11px] font-bold text-[#0A13E6]">
                 Audit trail
               </button>}
@@ -116,7 +142,7 @@ export default function AdminFinanceLedger(){
               <p className="mt-1 text-[20px] font-black tabular-nums">{money(summary.income_totals?.pending_recognition)}</p>
             </div>
           </div>
-          <p className="text-[11px] text-black/55">Partial totals from recorded platform fee events only; not verified bank settlement or net profit. Missing fee sources cannot be presumed to be ₦0.</p>
+          <p className="text-[11px] text-black/55">Partial totals from source-linked platform fee events. Billing charges missing their matching wallet debit are excluded. These are not verified bank settlements or net profit; absent fee ledgers cannot be presumed to be ₦0.</p>
           <p className="text-[11px] text-black/55">Net profit: <strong>Not established</strong>. Costs, taxes, refunds and settlements require reconciliation.</p>
         </section>
         <p className="mt-3 text-[11px] text-amber-800">{summary.warning}</p>
