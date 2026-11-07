@@ -111,6 +111,29 @@ export default function TalentProfile() {
     }
   }
 
+  async function toggleSaved(){
+    if(!hat?.id||saving)return
+    setSaving(true);setDiscoveryNotice('')
+    try{
+      const result=await api.saveHat(hat.id,!saved)
+      setSaved(Boolean(result.saved))
+      setDiscoveryNotice(result.saved?'Hat saved.':'Hat removed from saved.')
+      if(result.saved)void discovery.markEngagement()
+    }catch(e){setDiscoveryNotice(e.message||'Could not save Hat.')}
+    finally{setSaving(false)}
+  }
+
+  async function handleShare(){
+    if(!hat?.id)return
+    setDiscoveryNotice('')
+    try{
+      const result=await shareContent('/hat/'+encodeURIComponent(hat.id),hat.hat_title||'ChombuTar')
+      if(result==='copied')setDiscoveryNotice('Link copied.')
+      if(['copied','shared'].includes(result))
+        void discovery.recordEvidence('share',{confirmed:true})
+    }catch(e){setDiscoveryNotice(e.message||'Could not share this Hat.')}
+  }
+
   async function handleBook() {
     if (!hat) return
     setBooking(true)
@@ -206,7 +229,11 @@ export default function TalentProfile() {
               <button
                 key={m.id || i}
                 type="button"
-                onClick={() => setActiveMedia(i)}
+                onClick={() => {
+                  setActiveMedia(i)
+                  if(i===1&&discovery.eligible&&m.id)
+                    void discovery.recordEvidence('second_media',{media_id:m.id})
+                }}
                 className={`relative w-16 h-16 rounded-[10px] overflow-hidden shrink-0 border-[1.5px] ${
                   i === activeMedia ? 'border-black' : 'border-black/10'
                 }`}
