@@ -391,6 +391,16 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
             onClose={onClose}
           />
 
+          {discovery.eligible && <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={toggleSaved} disabled={saving}
+              aria-label={saved?'Unsave Hat':'Save Hat'} aria-pressed={saved}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-black/15 px-4 text-[12px] font-semibold disabled:opacity-50">
+              <Bookmark size={16} className={saved?'fill-[#E8B447] text-amber-700':''}/>
+              {saved?'Saved':'Save Hat'}
+            </button>
+            {saveNotice&&<span role="status" className="text-[11px] text-black/60">{saveNotice}</span>}
+          </div>}
+
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wide text-black/40">{listingLabel}</p>
             <h2 className="text-[19px] md:text-[20px] font-bold leading-snug break-words">{titleLine}</h2>
