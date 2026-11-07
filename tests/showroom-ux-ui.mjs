@@ -204,12 +204,12 @@ try{
     await open.click()
     await page.getByRole('heading',{name:'Choose how to post'}).waitFor()
     await page.keyboard.press('Escape')
-    await page.getByRole('heading',{name:'Pick a card'}).waitFor({state:'detached'})
+    await page.getByRole('heading',{name:'Choose how to post'}).waitFor({state:'detached'})
     assert.equal(await open.evaluate(el=>document.activeElement===el),true,
       'closing the dialog must restore keyboard focus')
     for(let round=1;round<=2;round++){
       await open.click()
-      await page.getByRole('heading',{name:'Pick a card'}).waitFor()
+      await page.getByRole('heading',{name:'Choose how to post'}).waitFor()
       await page.getByRole('button',{name:/Choose an existing Hat/}).click()
       await page.getByRole('button',{name:/Product photographer/}).click()
       await page.getByRole('heading',{name:'Add media'}).waitFor()
@@ -221,7 +221,7 @@ try{
       assert.equal(await post.isEnabled(),true,
         'submit must re-enable when modal is reopened')
       await post.click()
-      await page.getByRole('heading',{name:'Pick a card'}).waitFor({
+      await page.getByRole('heading',{name:'Choose how to post'}).waitFor({
         state:'detached',
       })
     }
