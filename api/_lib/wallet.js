@@ -61,19 +61,29 @@ export async function debitWallet(client, { userId, amount, type, reference = nu
 // can only ever be applied once — whichever of the client's callback or
 // the webhook sees it first wins, the other is a no-op.
 export async function applyVerifiedTopup({ userId, reference, txn }) {
-  const { rows: dupeRows } = await query(`SELECT id FROM wallet_transactions WHERE reference = $1`, [reference])
+  // Verified provider reference and wallet owner must match even for retries.
+  // A journal row for somebody else (or for a different operation) is never
+  // proof that this user's top-up has already been processed.
+  if (typeof reference !== 'string' || !reference.trim() || txn?.reference !== reference) {
+    throw Object.assign(new Error('Verified payment reference does not match the top-up.'), { status: 402 })
+  }
+  const metadataUserId = txn.metadata?.user_id ? String(txn.metadata.user_id) : null
+  if (!metadataUserId || metadataUserId !== String(userId)) {
+    throw Object.assign(new Error('This payment reference belongs to another wallet or has no wallet owner.'), { status: 409 })
+  }
+
+  const { rows: dupeRows } = await query(`SELECT user_id,type,status FROM wallet_transactions WHERE reference = $1`, [reference])
   if (dupeRows[0]) {
+    if (String(dupeRows[0].user_id) !== String(userId) ||
+      dupeRows[0].type !== 'topup' || dupeRows[0].status !== 'success') {
+      throw Object.assign(new Error('This payment reference is already in use.'), { status: 409 })
+    }
     return { alreadyProcessed: true, balance: await getWalletBalance(userId) }
   }
 
   const { rows: escrowRefRows } = await query(`SELECT id FROM escrows WHERE payment_reference = $1`, [reference])
   if (escrowRefRows[0]) {
     throw Object.assign(new Error('This payment reference is already linked to a booking.'), { status: 409 })
-  }
-
-  const metadataUserId = txn.metadata?.user_id ? String(txn.metadata.user_id) : null
-  if (metadataUserId && metadataUserId !== String(userId)) {
-    throw Object.assign(new Error('This payment reference belongs to another wallet.'), { status: 409 })
   }
   const isWalletTopup = txn.metadata?.wallet_topup === true || txn.metadata?.wallet_topup === 'true'
   if (!isWalletTopup) {
@@ -83,8 +93,11 @@ export async function applyVerifiedTopup({ userId, reference, txn }) {
   if (txn.status !== 'success') {
     throw Object.assign(new Error(`Payment was not successful (status: ${txn.status}).`), { status: 402 })
   }
-  if ((txn.currency || 'NGN') !== 'NGN') {
+  if (txn.currency !== 'NGN') {
     throw Object.assign(new Error('Unexpected payment currency.'), { status: 402 })
+  }
+  if (!Number.isSafeInteger(txn.amount) || txn.amount < 100) {
+    throw Object.assign(new Error('Paystack returned an invalid positive kobo amount.'), { status: 402 })
   }
 
   // Paystack reports amount in kobo. Card payments land exactly on the
@@ -99,11 +112,22 @@ export async function applyVerifiedTopup({ userId, reference, txn }) {
   // at least that much — paying less throws, paying more (the Paystack
   // fee case) is simply not credited, so nobody can ever be credited
   // more than they paid.
-  const paidNaira = Math.round(txn.amount / 100)
-  const requestedRaw = Number(txn.metadata?.intended_amount)
-  const grossAmount = Number.isFinite(requestedRaw) && requestedRaw > 0 ? Math.round(requestedRaw) : paidNaira
+  const paidNaira = Math.floor(txn.amount / 100)
+  const rawIntent = txn.metadata?.intended_amount
+  const hasIntent = rawIntent !== null && rawIntent !== undefined && rawIntent !== ''
+  const requestedNaira = Number(rawIntent)
+  // Never round a fractional intended amount into extra wallet credit.
+  if (hasIntent && (!Number.isSafeInteger(requestedNaira) || requestedNaira < 1)) {
+    throw Object.assign(new Error('Invalid requested wallet top-up amount.'), { status: 402 })
+  }
+  const grossAmount = hasIntent ? requestedNaira : paidNaira
+  if (!Number.isSafeInteger(grossAmount) || grossAmount < 1 || grossAmount > 2_147_483_647) {
+    throw Object.assign(new Error('Invalid wallet top-up amount.'), { status: 402 })
+  }
 
-  if (paidNaira < grossAmount) {
+  // Compare integer kobo before converting to whole-naira wallet units.
+  // For example, ₦99.50 must never satisfy an intended ₦100 top-up.
+  if (txn.amount < grossAmount * 100) {
     throw Object.assign(
       new Error(
         `Payment of ₦${paidNaira.toLocaleString()} is less than the requested top-up of ₦${grossAmount.toLocaleString()}.`,
@@ -130,7 +154,16 @@ export async function applyVerifiedTopup({ userId, reference, txn }) {
     // Lost a race against a concurrent call with the same reference —
     // the unique index on wallet_transactions.reference caught it.
     if (err.code === '23505') {
-      alreadyProcessed = true
+      // Reuse this connection after ROLLBACK. Asking the pool for another
+      // while still holding it can deadlock single-connection databases.
+      const {rows:existing}=await client.query(
+        'SELECT user_id,type,status FROM wallet_transactions WHERE reference=$1',[reference])
+      if (existing.length && String(existing[0].user_id)===String(userId) &&
+          existing[0].type==='topup' && existing[0].status==='success') {
+        alreadyProcessed = true
+      } else {
+        throw Object.assign(new Error('This payment reference is already in use.'),{status:409})
+      }
     } else {
       throw err
     }
