@@ -80,7 +80,9 @@ try {
   await talent.getByRole('button', { name: 'Accept booking', exact: true }).click()
   await talent.getByRole('button', { name: 'Accept booking', exact: true }).waitFor({state:'hidden'})
   await talent.goto('http://127.0.0.1:5179/deals?role=talent&tab=active')
-  await talent.getByRole('button', { name: /Active \(1\)/ }).waitFor()
+  // The fixture also contains a separate funded dispute example, so the
+  // Active total is not necessarily 1. Assert this particular accepted deal.
+  await talent.locator('a[href^="/deals/44444444-4444-4444-8444-444444444444"]').waitFor()
   await client.reload()
   await client.getByText(/Final agreed price:/).waitFor()
 
