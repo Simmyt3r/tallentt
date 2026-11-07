@@ -16,13 +16,18 @@ import { formatEngagementCount } from '../lib/engagementCount.js'
 // Retain the actual loaded feed, pagination and anchor before opening comments.
 // This is intentionally in-memory and disappears when the tab reloads/logs out.
 let feedReturnSnapshot=null
+function updateSavedFeedPosts(transform){
+  if(!feedReturnSnapshot?.feedPages)return
+  for(const mode of ['for_you','keeping_up']){
+    const page=feedReturnSnapshot.feedPages[mode]
+    if(page)feedReturnSnapshot.feedPages[mode]={...page,posts:transform(page.posts||[])}
+  }
+}
 export function updateVibeReturnSnapshot(postId,patch){
-  if(!feedReturnSnapshot)return
-  feedReturnSnapshot.posts=feedReturnSnapshot.posts.map(item=>item.id===postId?{...item,...patch}:item)
+  updateSavedFeedPosts(posts=>posts.map(item=>item.id===postId?{...item,...patch}:item))
 }
 export function discardVibeReturnSnapshot(postId){
-  if(!feedReturnSnapshot)return
-  feedReturnSnapshot.posts=feedReturnSnapshot.posts.filter(item=>item.id!==postId)
+  updateSavedFeedPosts(posts=>posts.filter(item=>item.id!==postId))
 }
 const MAX_PHOTOS = 10
 const MAX_POST_BYTES = 80 * 1024 * 1024
@@ -195,12 +200,21 @@ export default function Vibes() {
   const {user}=useAuth()
   const navigate=useNavigate()
   const [returnSnapshot]=useState(()=>{const saved=feedReturnSnapshot;feedReturnSnapshot=null;return saved?.userId===user?.id?saved:null})
-  const [params]=useSearchParams()
+  const [params,setParams]=useSearchParams()
   const specific=params.get('post')||null
-  const [posts,setPosts]=useState(()=>returnSnapshot?.posts||[])
-  const [cursor,setCursor]=useState(()=>returnSnapshot?.cursor||null)
+  const feedMode=!specific&&params.get('feed')==='keeping_up'?'keeping_up':'for_you'
+  // Each feed retains its own page, cursor and search/version for switching tabs.
+  const [feedPages,setFeedPages]=useState(()=>({
+    for_you:{posts:[],cursor:null,search:'',loaded:false,version:0},
+    keeping_up:{posts:[],cursor:null,search:'',loaded:false,version:0},
+    ...(returnSnapshot?.feedPages||{}),
+  }))
+  const activePage=feedPages[feedMode]
+  const posts=activePage.posts
+  const cursor=activePage.cursor
   const [loading,setLoading]=useState(!returnSnapshot)
-  const [paging,setPaging]=useState(false)
+  const [pagingMode,setPagingMode]=useState(null)
+  const paging=pagingMode===feedMode
   const [error,setError]=useState('')
   const [text,setText]=useState('')
   const [photos,setPhotos]=useState([])
@@ -215,7 +229,7 @@ export default function Vibes() {
 
   useEffect(()=>{const id=setTimeout(()=>setServerSearch(search.trim()),250);return()=>clearTimeout(id)},[search])
   useLayoutEffect(()=>{
-    if(!returnSnapshot||specific)return undefined
+    if(!returnSnapshot||specific||returnSnapshot.feedMode!==feedMode)return undefined
     let raf=0
     raf=requestAnimationFrame(()=>{
       const anchor=document.getElementById('vibe-feed-'+returnSnapshot.anchorId)
@@ -225,10 +239,10 @@ export default function Vibes() {
       }else window.scrollTo({top:returnSnapshot.scrollY,behavior:'instant'})
     })
     return()=>cancelAnimationFrame(raf)
-  },[returnSnapshot,specific])
+  },[returnSnapshot,specific,feedMode])
   function openFeedComments(postId){
     const anchor=document.getElementById('vibe-feed-'+postId)
-    feedReturnSnapshot={userId:user?.id,posts,cursor,search,serverSearch,scrollY:window.scrollY,
+    feedReturnSnapshot={userId:user?.id,feedPages,feedMode,search,serverSearch,scrollY:window.scrollY,
       anchorId:postId,anchorOffset:anchor?.getBoundingClientRect()?.top??0}
     navigate('/vibes/'+encodeURIComponent(postId)+'/comments',{state:{fromVibesFeed:true}})
   }
@@ -254,17 +268,34 @@ export default function Vibes() {
   useEffect(()=>{photosRef.current=photos},[photos])
   useEffect(()=>()=>photosRef.current.forEach(item=>URL.revokeObjectURL(item.preview)),[])
   useEffect(()=>{
-    if(returnSnapshot&&!specific&&feedTick===0&&serverSearch===returnSnapshot.serverSearch){
+    const cached=feedPages[feedMode]
+    if(!specific&&cached.loaded&&cached.search===serverSearch&&cached.version===feedTick){
+      setLoading(false);setError('')
       return undefined
     }
     let cancelled=false
     setLoading(true);setError('')
-    api.getVibes(null,specific,serverSearch).then(data=>{
-      if(!cancelled){setPosts(data.posts||[]);setCursor(data.nextCursor||null)}
+    api.getVibes(null,specific,serverSearch,feedMode).then(data=>{
+      if(cancelled)return
+      setFeedPages(current=>({...current,[feedMode]:{
+        posts:data.posts||[],cursor:data.nextCursor||null,loaded:true,
+        search:serverSearch,version:feedTick,
+      }}))
     }).catch(err=>{if(!cancelled)setError(err.message||'Could not load Vibes.')})
       .finally(()=>{if(!cancelled)setLoading(false)})
     return()=>{cancelled=true}
-  },[specific,feedTick,serverSearch])
+  },[specific,feedTick,serverSearch,feedMode])
+
+  function chooseFeed(next){
+    if(next===feedMode)return
+    setParams(previous=>{
+      const updated=new URLSearchParams(previous)
+      if(next==='keeping_up')updated.set('feed','keeping_up')
+      else updated.delete('feed')
+      updated.delete('post')
+      return updated
+    })
+  }
 
   function choosePhotos(e) {
     const files=[...e.target.files||[]]
@@ -320,20 +351,38 @@ export default function Vibes() {
     finally{setPublishing(false)}
   }
   async function older(){
-    if(!cursor||paging)return
-    setPaging(true)
+    if(!cursor||paging||loading)return
+    const mode=feedMode,queryText=serverSearch,pageVersion=feedTick
+    setPagingMode(mode)
     try{
-      const data=await api.getVibes(cursor,null,serverSearch)
-      setPosts(current=>[...current,...(data.posts||[]).filter(item=>!current.some(p=>p.id===item.id))])
-      setCursor(data.nextCursor||null)
-    }catch(err){setError(err.message||'Could not load more Vibes.')}
-    finally{setPaging(false)}
+      const data=await api.getVibes(cursor,null,queryText,mode)
+      setFeedPages(current=>{
+        const page=current[mode]
+        // A late page response must not overwrite another search or a refreshed list.
+        if(page.search!==queryText||page.version!==pageVersion||page.cursor!==cursor)return current
+        return {...current,[mode]:{...page,
+          posts:[...page.posts,...(data.posts||[]).filter(item=>!page.posts.some(p=>p.id===item.id))],
+          cursor:data.nextCursor||null,
+        }}
+      })
+    }catch(err){if(mode===feedMode)setError(err.message||'Could not load more Vibes.')}
+    finally{setPagingMode(current=>current===mode?null:current)}
   }
-  const change=(id,patch)=>setPosts(current=>current.map(p=>p.id===id?{...p,...patch}:p))
+  const updateCachedPosts=transform=>setFeedPages(current=>Object.fromEntries(
+    Object.entries(current).map(([key,page])=>[key,{...page,posts:transform(page.posts)}])
+  ))
+  const change=(id,patch)=>updateCachedPosts(items=>items.map(p=>p.id===id?{...p,...patch}:p))
   const textLimitExceeded = text.length > MAX_POST_CHARS
+  const feedReady=activePage.loaded&&activePage.search===serverSearch&&activePage.version===feedTick
+  const visible=feedReady&&!loading&&!error
   return <main className="mx-auto max-w-[660px] space-y-4 pb-10">
     <CompactPageHeader title="Hits & Vibes" searchValue={search} onSearchChange={setSearch}
       searchPlaceholder="Search Vibes…" searchLabel="Search Vibes posts and people"/>
+    {!specific&&<nav className="ct-filter-tabs gap-5 border-b-0 px-1" aria-label="Vibes feed filters">
+      {[['for_you','For You'],['keeping_up','Keeping Up']].map(([mode,label])=>
+        <button key={mode} type="button" className="ct-filter-tab min-h-10"
+          aria-pressed={feedMode===mode} onClick={()=>chooseFeed(mode)}>{label}</button>)}
+    </nav>}
     <form onSubmit={publish} aria-label="Create a Vibe" className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
       <div className="flex gap-3">
         <Avatar user={user}/>
@@ -387,22 +436,26 @@ export default function Vibes() {
       </div>
     </form>
     {specific&&<Link to="/vibes" className="block text-[12px] font-bold text-[#0A13E6]">← Back to all Vibes</Link>}
-    {loading&&<p role="status" className="py-10 text-center text-[13px] text-black/50">Loading the community feed…</p>}
-    {error&&<div role="alert" className="rounded-2xl border border-red-200 bg-white p-4 text-[12px] text-red-700">
+    {(loading||(!specific&&!feedReady))&&<p role="status" className="py-10 text-center text-[13px] text-black/50">Loading the community feed…</p>}
+    {error&&<div role="alert" className="bg-red-50 p-4 text-[12px] text-red-700">
       {error}<button type="button" onClick={()=>setFeedTick(current=>current+1)}
         className="ml-3 inline-flex items-center gap-1 underline"><RefreshCw size={14}/> Retry</button>
     </div>}
-    {!loading&&!error&&!posts.length&&<div className="rounded-2xl border border-black/10 bg-white p-12 text-center">
+    {visible&&!posts.length&&<div className="bg-white p-10 text-center">
       <MessageCircle size={26} className="mx-auto text-black/30"/>
-      <p className="mt-3 text-[14px] font-black">Nothing here yet</p>
-      <p className="mt-1 text-[12px] text-black/50">Start the conversation with your first Vibe.</p>
+      <p className="mt-3 text-[14px] font-black">{feedMode==='keeping_up'?'No updates from people you KeepUp with yet':'Nothing here yet'}</p>
+      <p className="mt-1 text-[12px] text-black/50">{feedMode==='keeping_up'
+        ? 'KeepUp with Talent from their profiles to see their public Vibes here.'
+        : 'Start the conversation with your first Vibe.'}</p>
+      {feedMode==='keeping_up'&&<button type="button" onClick={()=>chooseFeed('for_you')}
+        className="mt-3 min-h-11 px-3 text-[12px] font-bold text-[#0A13E6]">Explore For You</button>}
     </div>}
-    {posts.map(post=><div key={post.id} id={'vibe-feed-'+post.id}>
+    {visible&&posts.map(post=><div key={post.id} id={'vibe-feed-'+post.id}>
       <VibeCard post={post} me={user} onOpenComments={openFeedComments}
-        onChange={change} onDeleted={id=>setPosts(current=>current.filter(p=>p.id!==id))}/>
+        onChange={change} onDeleted={id=>updateCachedPosts(items=>items.filter(p=>p.id!==id))}/>
     </div>)}
-    {cursor&&!specific&&<button type="button" disabled={paging} onClick={older}
-      className="w-full min-h-11 rounded-xl border border-black/20 bg-white text-[12px] font-bold disabled:opacity-50">
+    {visible&&cursor&&!specific&&<button type="button" disabled={paging} onClick={older}
+      className="w-full min-h-11 bg-white text-[12px] font-bold disabled:opacity-50">
       {paging?'Loading…':'Load more Vibes'}
     </button>}
   </main>
