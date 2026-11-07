@@ -116,7 +116,7 @@ export default function AdminFinanceLedger(){
                 <p>{item.recorded
                   ?`${item.transactions} matched charge(s) · ${item.source} · ${item.recognition==='earned'?'earned':'recognition pending'}`
                   :'No approved fee ledger · amount unknown (not zero)'}</p>
-                {Number(item.unmatched_charges||0)>0&&<p className="mt-1 text-amber-800">{item.unmatched_charges} charge(s) lack exactly one matching wallet debit. Review audit; excluded from totals.</p>}
+                {Number(item.unmatched_charges||0)>0&&<p className="mt-1 text-amber-800">{item.unmatched_charges} charge(s) have missing/duplicate debit evidence or an unexpected wallet refund. Review audit; excluded from totals.</p>}
               </div>
             </div>
             <div className="flex items-center gap-3">
