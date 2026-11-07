@@ -154,7 +154,9 @@ export async function applyVerifiedTopup({ userId, reference, txn }) {
     // Lost a race against a concurrent call with the same reference —
     // the unique index on wallet_transactions.reference caught it.
     if (err.code === '23505') {
-      const {rows:existing}=await query(
+      // Reuse this connection after ROLLBACK. Asking the pool for another
+      // while still holding it can deadlock single-connection databases.
+      const {rows:existing}=await client.query(
         'SELECT user_id,type,status FROM wallet_transactions WHERE reference=$1',[reference])
       if (existing.length && String(existing[0].user_id)===String(userId) &&
           existing[0].type==='topup' && existing[0].status==='success') {
