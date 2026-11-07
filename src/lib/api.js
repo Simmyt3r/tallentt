@@ -131,6 +131,20 @@ export const api = {
   // instead, since that's already the freshest copy after an edit.
   getUserProfile: (username) => request(`/api/users/${encodeURIComponent(username)}`),
 
+  getHatAllowance: () => request('/api/hats?hat_allowance=1',{cache:'no-store'}),
+  discoveryAction: (action,payload={}) => request('/api/showroom',{
+    method:'POST',body:JSON.stringify({action,...payload}),
+  }),
+  getDiscoveryCases: () => request('/api/showroom?action=discovery_cases',{cache:'no-store'}),
+  getAdminDiscoveryQueue: () => request('/api/admin?action=milestone_discovery_queue',{cache:'no-store'}),
+  decideAdminDiscovery: (session_id,decision,reason) => request('/api/admin',{
+    method:'POST',body:JSON.stringify({action:'milestone_discovery_decision',session_id,decision,reason}),
+  }),
+  revokeMilestoneAward: (event_id,reason) => request('/api/admin',{
+    method:'POST',body:JSON.stringify({action:'milestone_revoke_award',event_id,reason}),
+  }),
+  getMilestoneSeals: () => request('/api/escrows?milestone_seals=1',{cache:'no-store'}),
+  milestoneSealAction: body => request('/api/escrows',{method:'POST',body:JSON.stringify(body)}),
   // Hats
   getHats: (params = {}) => {
     const q = new URLSearchParams(
