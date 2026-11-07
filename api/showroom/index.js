@@ -9,6 +9,7 @@ import { reportShowroomHat } from '../_lib/showroomReports.js'
 import { myShowroomModeration, submitShowroomAppeal } from '../_lib/showroomAppeals.js'
 import {discoveryAction,myDiscoveryCases} from '../_lib/qualifiedDiscovery.js'
 import { getHatPresentationMap } from '../_lib/hatPresentation.js'
+import {guestDiscovery} from '../_lib/guestDiscovery.js'
 import { authorizedScreeningWorker, screenQueuedMedia } from '../_lib/showroomMediaScreening.js'
 import {
   SHOWROOM_SQL_CONTACT_PATTERN,
@@ -68,6 +69,11 @@ export default async function handler(req, res) {
       return json(res, 200, await screenQueuedMedia())
     }
     const session = getSessionUser(req)
+    if(url.searchParams.get('action')==='guest_discovery'){
+      // Deliberately public, read-only and field-allowlisted. Do not invoke
+      // view recording or the verified Discovery reward engine here.
+      return json(res,200,await guestDiscovery(Object.fromEntries(url.searchParams)))
+    }
     if(url.searchParams.get('action')==='discovery_cases'){
       if(!session?.sub)return json(res,401,{error:'Sign in to review your Discovery cases.'})
       return json(res,200,await myDiscoveryCases(session.sub))
