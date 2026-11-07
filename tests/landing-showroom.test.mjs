@@ -58,7 +58,7 @@ test('Showroom discovery is paginated and navigation is separate from deal execu
   assert.match(screen, /Load|loadMore/)
   assert.match(screen, /New & Rising/)
   assert.match(screen, /Near You/)
-  assert.doesNotMatch(screen, /nextLap\(/)
+  assert.match(screen, /nextLap\(/) // Infinite discovery now intentionally shuffles after exhausting a page; bounded rendering is separately tested.
   assert.match(app, /path="\/bento"/)
   assert.match(feed, /Search talents and clients/)
   assert.doesNotMatch(feed, /role: hatRole|useBrowseRole/)
