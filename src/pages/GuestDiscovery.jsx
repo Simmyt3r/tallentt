@@ -78,6 +78,8 @@ function VibePreview({post,onGate}){
 }
 
 export default function GuestDiscovery({mode='showroom'}){
+  const [urlParams]=useSearchParams()
+  const publicPost=mode==='vibes'?urlParams.get('post'):null
   const [search,setSearch]=useState('')
   const [city,setCity]=useState('')
   const [term,setTerm]=useState('')
@@ -92,17 +94,17 @@ export default function GuestDiscovery({mode='showroom'}){
   useEffect(()=>{
     let disposed=false
     setItems([]);setPage(0);setNextPage(null);setLoading(true);setError('')
-    api.getGuestDiscovery({mode,search:term,city:mode==='vibes'?'':city,page:0})
+    api.getGuestDiscovery({mode,search:term,city:mode==='vibes'?'':city,id:publicPost||undefined,page:0})
       .then(data=>{if(disposed)return;setItems(mode==='vibes'?data.posts||[]:data.hats||[]);setNextPage(data.nextPage)})
       .catch(err=>{if(!disposed)setError(err.message||'Could not open public discovery.')})
       .finally(()=>{if(!disposed)setLoading(false)})
     return()=>{disposed=true}
-  },[mode,term,city])
+  },[mode,term,city,publicPost])
   async function more(){
     if(nextPage==null||moreLoading)return
     setMoreLoading(true);setError('')
     try{
-      const data=await api.getGuestDiscovery({mode,search:term,city:mode==='vibes'?'':city,page:nextPage})
+      const data=await api.getGuestDiscovery({mode,search:term,city:mode==='vibes'?'':city,id:publicPost||undefined,page:nextPage})
       const moreItems=mode==='vibes'?data.posts||[]:data.hats||[]
       setItems(old=>{const ids=new Set(old.map(i=>i.id));return [...old,...moreItems.filter(i=>!ids.has(i.id))]})
       setPage(nextPage);setNextPage(data.nextPage)
