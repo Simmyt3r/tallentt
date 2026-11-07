@@ -16,6 +16,13 @@ export default function AdminFinanceAudit({stream,onClose}){
   const [busy,setBusy]=useState(true)
   const [error,setError]=useState('')
   const deals=stream==='deal_fees'
+  const billing=['salary_tracking','salary_tracking_talent','business_verification','subscription'].includes(stream)
+  const billingNames={
+    salary_tracking:'Client salary tracking',
+    salary_tracking_talent:'Talent salary tracking',
+    business_verification:'Business verification',
+    subscription:'Subscriptions',
+  }
   useEffect(()=>{
     let cancelled=false
     setBusy(true);setError('')
@@ -29,7 +36,7 @@ export default function AdminFinanceAudit({stream,onClose}){
   },[stream,page])
   return <section className="min-w-0 rounded-2xl border border-black/15 bg-white p-4" aria-label="Platform fee accrual audit" aria-busy={busy}>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <h4 className="text-[14px] font-black">{deals?'Service charges by deal':'Live support fee audit trail'}</h4>
+      <h4 className="text-[14px] font-black">{deals?'Service charges by deal':billing?(billingNames[stream]+' charge audit'):'Live support fee audit trail'}</h4>
       <button type="button" onClick={onClose} className="rounded-full border border-black/20 px-3 py-2 text-[11px]">Close audit</button>
     </div>
     {error&&<div role="alert" className="mt-3 text-[12px] text-red-700">
@@ -75,6 +82,33 @@ export default function AdminFinanceAudit({stream,onClose}){
             </div>}
           </details>}</td>
         </tr>)}</tbody>
+      </table>:billing?<table className="w-full min-w-[720px] text-left text-[11px]">
+        <caption className="sr-only">Source-linked billing charges with verified wallet debit and refund evidence</caption>
+        <thead><tr className="border-b border-black/15">
+          {['Recorded','Subscriber','Source record','Charge','Status','Wallet evidence'].map(title=>
+            <th key={title} scope="col" className="p-2">{title}</th>)}
+        </tr></thead>
+        <tbody>{rows.map(item=><tr key={item.id} className="border-b border-black/10 align-top">
+          <td className="p-2">{date(item.created_at)}</td>
+          <td className="p-2">{item.username||'Unavailable'}</td>
+          <td className="max-w-56 break-all p-2">
+            <p className="font-mono">{item.source_id}</p>
+            <p className="mt-1 text-black/45">Receipt {item.id}</p>
+          </td>
+          <td className="p-2 font-semibold tabular-nums">{money(item.amount)}</td>
+          <td className="p-2 capitalize">{label(item.status)}{item.refunded_at&&<p className="mt-1 text-black/50">Refunded {date(item.refunded_at)}</p>}</td>
+          <td className="p-2">
+            <strong className={item.wallet_evidence==='charged_verified'||item.wallet_evidence==='refunded_verified'
+              ?'text-green-700':'text-amber-800'}>
+              {item.wallet_evidence==='charged_verified'?'Matched wallet charge'
+                :item.wallet_evidence==='refunded_verified'?'Matched wallet charge and refund'
+                :item.wallet_evidence==='refund_unverified'?'Refund evidence missing or duplicated'
+                :'Wallet debit missing or duplicated'}
+            </strong>
+            <p className="mt-1 text-black/55">Matching debits: {item.matching_debits??'—'} · refunds: {item.matching_refunds??'—'}</p>
+            <p className="mt-1 break-all font-mono text-black/55">{item.reference}</p>
+          </td>
+        </tr>)}</tbody>
       </table>:<table className="w-full min-w-[620px] text-left text-[11px]">
         <thead><tr className="border-b border-black/15">
           {['Recorded','Source reference','Supporter / Talent','Gross','Platform fee','Talent net'].map(title=><th key={title} scope="col" className="p-2">{title}</th>)}
@@ -89,9 +123,9 @@ export default function AdminFinanceAudit({stream,onClose}){
         </tr>)}</tbody>
       </table>}
     </div>
-    {!busy&&!error&&!recorded&&<p className="p-3 text-[12px] text-amber-800">Service charge records are unavailable. Apply the billing migration in Database Migrations.</p>}
-    {!busy&&!error&&recorded&&!rows.length&&<p className="p-3 text-[12px] text-black/50">{deals?'No deal service charges recorded yet.':'No posted, successful accruals found.'}</p>}
+    {!busy&&!error&&!recorded&&<p className="p-3 text-[12px] text-amber-800">{billing?'Billing charge records are unavailable. Apply the Monetization migration in Admin.':'Service charge records are unavailable. Apply the billing migration in Database Migrations.'}</p>}
+    {!busy&&!error&&recorded&&!rows.length&&<p className="p-3 text-[12px] text-black/50">{deals?'No deal service charges recorded yet.':billing?'No billing receipts in this category.':'No posted, successful accruals found.'}</p>}
     {cursor&&<button type="button" disabled={busy||Boolean(error)} onClick={()=>setPage({cursor,attempt:0})}
-      className="mt-3 min-h-10 rounded-full border border-black/20 px-4 py-2 text-[12px] font-bold">{deals?'Load older deals':'Load older accruals'}</button>}
+      className="mt-3 min-h-10 rounded-full border border-black/20 px-4 py-2 text-[12px] font-bold">{deals?'Load older deals':billing?'Load older billing receipts':'Load older accruals'}</button>}
   </section>
 }
