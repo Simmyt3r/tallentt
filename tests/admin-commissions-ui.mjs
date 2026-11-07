@@ -96,7 +96,7 @@ try{
   await page.getByRole('button',{name:'Close audit',exact:true}).click()
   assert.equal(await page.getByRole('region',{name:'Platform fee accrual audit'}).count(),0)
   await page.getByText('Client salary tracking',{exact:true}).waitFor()
-  await page.getByText(/1 charge\(s\) lack exactly one matching wallet debit/).waitFor()
+  await page.getByText(/1 charge\(s\) have missing\/duplicate debit evidence or an unexpected wallet refund/).waitFor()
   await page.getByRole('button',{name:'Audit trail',exact:true}).last().click()
   await page.getByRole('heading',{name:'Client salary tracking charge audit'}).waitFor()
   await page.getByText('Matched wallet charge',{exact:true}).waitFor()
