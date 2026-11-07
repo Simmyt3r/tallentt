@@ -9,6 +9,8 @@ export default function AdminOrbitAndHatReview(){
   const [weights,setWeights]=useState({})
   const [hats,setHats]=useState([])
   const [notes,setNotes]=useState({})
+  const [discoveryCases,setDiscoveryCases]=useState([])
+  const [discoveryNotes,setDiscoveryNotes]=useState({})
   const [busy,setBusy]=useState('')
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
@@ -16,9 +18,11 @@ export default function AdminOrbitAndHatReview(){
   const refresh=useCallback(async()=>{
     setLoading(true);setError('')
     try{
-      const [orbit,reviews]=await Promise.all([api.getAdminOrbitConfig(),api.getAdminHatReviews()])
+      const [orbit,reviews,discovery]=await Promise.all([api.getAdminOrbitConfig(),api.getAdminHatReviews(),
+        api.getAdminDiscoveryQueue().catch(()=>({cases:[]}))])
       setConfig(orbit);setWeights(orbit.weights)
       setHats(reviews.hats||[])
+      setDiscoveryCases(discovery.cases||[])
     }catch(err){setError(err.message||'Review data unavailable. Check database migrations.')}
     finally{setLoading(false)}
   },[])
@@ -43,6 +47,17 @@ export default function AdminOrbitAndHatReview(){
     }catch(err){setError(err.message||'Review could not be saved.')}
     finally{setBusy('')}
   }
+  async function decideDiscovery(item,decision){
+    const reason=(discoveryNotes[item.id]||'').trim()
+    if(reason.length<12){setError('Explain the Discovery decision in at least 12 characters.');return}
+    setBusy(item.id);setError('');setNotice('')
+    try{
+      await api.decideAdminDiscovery(item.id,decision,reason)
+      setNotice('Discovery '+(decision==='approve'?'approved':'rejected')+' with an auditable decision.')
+      await refresh()
+    }catch(err){setError(err.message||'Could not decide this Discovery.')}
+    finally{setBusy('')}
+  }
   const pending=hats.filter(h=>!h.decision)
   const reviewed=hats.filter(h=>h.decision)
   return <section className="space-y-4">
@@ -55,6 +70,8 @@ export default function AdminOrbitAndHatReview(){
         className="ct-filter-tab">
         New Hat data ({pending.length})
       </button>
+      <button type="button" onClick={()=>setTab('discoveries')} aria-pressed={tab==='discoveries'}
+        className="ct-filter-tab">Discovery reviews ({discoveryCases.length})</button>
       <button type="button" onClick={()=>setTab('weights')} aria-pressed={tab==='weights'}
         className="ct-filter-tab">
         <SlidersHorizontal className="mr-1 inline-block" size={15}/> Orbit configuration
@@ -84,6 +101,33 @@ export default function AdminOrbitAndHatReview(){
         <p className={`text-[13px] font-black ${total===100?'text-green-800':'text-red-700'}`}>Weight total: {total}/100</p>
         <button type="button" disabled={Boolean(busy)||total!==100}
           onClick={saveWeights} className="min-h-11 rounded-full bg-[#0A13E6] px-6 text-[12px] font-bold text-white disabled:opacity-40">Save Orbit configuration</button>
+      </section>}
+    {!loading&&tab==='discoveries'&&
+      <section className="space-y-3">
+        <p className="text-[12px] text-black/60">Review qualified, server-timed Discovery evidence held for unusual account activity. Approval does not bypass the one-time viewer–Talent rule. Appeals and reasons stay in the audit ledger.</p>
+        {!discoveryCases.length&&<p className="text-[12px] text-black/50">No Discovery cases currently need review.</p>}
+        {discoveryCases.map(item=><article key={item.id} className="space-y-2 border-b border-black/10 py-3">
+          <div className="flex flex-wrap justify-between gap-2">
+            <p className="text-[13px] font-bold">@{item.viewer_username} → @{item.talent_username}</p>
+            <span className="text-[11px] capitalize">{item.state} · {item.proof_kind||'No proof'}</span>
+          </div>
+          <p className="text-[12px] text-black/60">{item.fraud_reason||'No fraud reason provided'}</p>
+          {item.appeal&&<p className="text-[12px] text-black/70">Appeal: {item.appeal}</p>}
+          <p className="text-[11px] text-black/50">Dwell samples: {item.heartbeat_count||0} · Case {item.id}</p>
+          <textarea value={discoveryNotes[item.id]||''} rows={2} maxLength={1000}
+            onChange={e=>setDiscoveryNotes(old=>({...old,[item.id]:e.target.value}))}
+            aria-label={`Decision reason for ${item.viewer_username}`}
+            placeholder="Audit decision and supporting evidence (at least 12 characters)"
+            className="w-full rounded-xl border border-black/15 p-3 text-[12px]"/>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={!!busy||!item.proof_kind}
+              onClick={()=>decideDiscovery(item,'approve')}
+              className="min-h-10 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white disabled:opacity-50">Approve evidence</button>
+            <button type="button" disabled={!!busy}
+              onClick={()=>decideDiscovery(item,'reject')}
+              className="min-h-10 rounded-full border border-red-200 px-4 text-[12px] font-bold text-red-700 disabled:opacity-50">Reject claim</button>
+          </div>
+        </article>)}
       </section>}
     {!loading&&tab==='reviews'&&
       <div className="space-y-3">
