@@ -205,11 +205,21 @@ export function GuestHat(){
 
 export function GuestWorkPass(){
   const {username}=useParams()
-  const [data,setData]=useState(null),[error,setError]=useState('')
-  useEffect(()=>{let disposed=false;api.getWorkPass(username)
-    .then(value=>{if(!disposed)setData(value)})
-    .catch(e=>{if(!disposed)setError(e.message)})
-    return()=>{disposed=true}},[username])
+  const [data,setData]=useState(null),[error,setError]=useState(''),[social,setSocial]=useState(null)
+  useEffect(()=>{
+    let disposed=false
+    Promise.all([api.getWorkPass(username),api.getGuestDiscovery({mode:'showroom',username})])
+      .then(([value,preview])=>{
+        if(disposed)return
+        setData(value)
+        if(preview.hats?.length)setSocial(preview.hats[0])
+        else api.getGuestDiscovery({mode:'bento',username})
+          .then(next=>{if(!disposed)setSocial(next.hats?.[0]||null)})
+          .catch(()=>{})
+      })
+      .catch(e=>{if(!disposed)setError(e.message)})
+    return()=>{disposed=true}
+  },[username])
   if(error)return <p role="alert" className="py-10 text-red-700">{error}</p>
   if(!data)return <p role="status" className="py-10">Loading public Work Pass…</p>
   return <div className="mx-auto max-w-[560px] space-y-4">
@@ -222,6 +232,7 @@ export function GuestWorkPass(){
         {[
           ['Orbit',data.orbit],['Talent Orbit',data.roleOrbit?.talent],['Client Orbit',data.roleOrbit?.client],
           ['Completed jobs',data.completedJobs],['Successful hires',data.successfulHires],
+          ['Discovery',social?.discovery_count],['KeepUp',social?.keepup_count],
         ].map(([label,value])=><div className="rounded-xl bg-white/10 p-3" key={label}><p className="text-[11px] text-white/60">{label}</p><p className="text-[20px] font-black">{typeof value==='object'&&value!==null?(value.score??'—'):(value??'—')}</p></div>)}
       </div>
     </div>
