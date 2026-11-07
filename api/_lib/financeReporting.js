@@ -44,17 +44,30 @@ export async function financeSummary(){
     }
   }
   if(tables[0]?.billing_fees){
-    const {rows}=await query(`SELECT kind,
-      COALESCE(SUM(amount::bigint),0)::text AS charged_fees,
-      COUNT(*)::int AS transactions FROM billing_charge_events
-      WHERE status='charged' GROUP BY kind`)
+    // Only call a charge *recorded* when exactly one successful matching
+    // wallet debit exists. A missing/double debit is an Admin exception,
+    // not provable platform income. Refunded charges are excluded here.
+    const {rows}=await query(`WITH verified AS (
+      SELECT b.kind,b.amount,b.status,
+        (SELECT COUNT(*)::int FROM wallet_transactions wt
+          WHERE wt.user_id=b.user_id AND wt.reference=b.reference
+            AND wt.type='billing_charge' AND wt.status='success'
+            AND wt.amount=b.amount) AS debits
+      FROM billing_charge_events b
+    ) SELECT kind,
+      COALESCE(SUM(amount::bigint) FILTER(WHERE status='charged' AND debits=1),0)::text AS charged_fees,
+      COUNT(*) FILTER(WHERE status='charged' AND debits=1)::int AS transactions,
+      COUNT(*) FILTER(WHERE status='charged' AND debits<>1)::int AS unmatched_charges
+      FROM verified GROUP BY kind`)
     billing=rows
   }
   const billingStream=(kind,name,verb)=>(()=>{
     const row=billing?.find(item=>item.kind===kind)
     return {id:kind,name,verb,source:'billing_charge_events',recognition:'pending',
       recorded:billing!==null,
-      inflow:billing!==null?(row?.charged_fees||'0'):null,transactions:billing!==null?(row?.transactions||0):null}
+      inflow:billing!==null?(row?.charged_fees||'0'):null,
+      transactions:billing!==null?(row?.transactions||0):null,
+      unmatched_charges:billing!==null?(row?.unmatched_charges||0):null}
   })()
   const incomeStreams=[
     {id:'live_support',name:'Live support platform fees',verb:'Live',recognition:'earned',
@@ -89,11 +102,12 @@ export async function financeSummary(){
     recognized_revenue:incomeTotals.earned_revenue,
     recognized_revenue_partial:true,
     net_profit:null,
-    warning:'The recorded fee-charge total is partial and is not earned revenue, bank-settled cash or net profit. Earned revenue currently includes only source-linked live support fees and deal service charges after reversals. Subscription, salary-tracking and verification charges are shown separately pending recognition/refund policy. Collab, Hire Seal and Sponsor Seal platform fees lack an approved event ledger, and are NOT treated as zero or estimated income. Escrow, sponsor-to-Talent funds, wallet deposits and customer payouts are never platform earnings. Taxes and processor costs are not reconciled.',
+    warning:'Only charges with one matching successful wallet debit are counted in billing collections. Unmatched charges require Admin review; they are not assigned earned revenue. Recorded charges are partial, not bank-settled cash or net profit. Earned revenue currently includes source-linked live support fees and deal service charges after reversals. Subscription, salary tracking and verification await recognition/refund policy. Collab, Hire Seal and Sponsor Seal platform fees lack an approved event ledger; amounts are unknown, not zero. Escrow, sponsor-to-Talent funds, wallet deposits and payouts are never platform earnings. Taxes and processor costs are not reconciled.',
   }
 }
 export async function financeAudit({stream='live_support',cursor=null}={}){
   if(stream==='deal_fees')return dealCommissionAudit({cursor})
+  if(BILLING_AUDIT_KINDS.has(stream))return billingChargeAudit({kind:stream,cursor})
   if(stream!=='live_support')
     throw Object.assign(new Error('An accrual audit is not yet available for this income stream.'),{status:400})
   const {rows:found}=await query("SELECT to_regclass('live_support_transactions') AS present")
@@ -115,6 +129,45 @@ export async function financeAudit({stream='live_support',cursor=null}={}){
     recorded:true}
 }
 
+
+const BILLING_AUDIT_KINDS=new Set([
+  'salary_tracking','salary_tracking_talent','business_verification','subscription',
+])
+
+// Read-only source reconciliation; never treats a charged row alone as
+// proof of collection, and never conflates wallet debits with bank cash.
+async function billingChargeAudit({kind,cursor=null}={}){
+  if(!BILLING_AUDIT_KINDS.has(kind))
+    throw Object.assign(new Error('Invalid billing category.'),{status:400})
+  if(cursor&&!AUDIT_UUID.test(cursor))
+    throw Object.assign(new Error('Invalid audit cursor.'),{status:400})
+  const {rows:found}=await query("SELECT to_regclass('billing_charge_events') AS present")
+  if(!found[0]?.present)return {transactions:[],next_cursor:null,recorded:false}
+  const {rows}=await query(`SELECT b.id,b.user_id,b.kind,b.source_id,b.amount,b.status,
+      b.reference,b.created_at,b.refunded_at,u.username,
+      (SELECT COUNT(*)::int FROM wallet_transactions wt
+        WHERE wt.user_id=b.user_id AND wt.reference=b.reference
+          AND wt.type='billing_charge' AND wt.status='success'
+          AND wt.amount=b.amount) AS matching_debits,
+      (SELECT COUNT(*)::int FROM wallet_transactions wt
+        WHERE wt.user_id=b.user_id AND wt.reference=('refund:'||b.reference)
+          AND wt.type='billing_refund' AND wt.status='success'
+          AND wt.amount=b.amount) AS matching_refunds
+    FROM billing_charge_events b LEFT JOIN users u ON u.id=b.user_id
+    WHERE b.kind=$1
+      AND ($2::uuid IS NULL OR (b.created_at,b.id)<(
+        SELECT created_at,id FROM billing_charge_events WHERE id=$2 AND kind=$1))
+    ORDER BY b.created_at DESC,b.id DESC LIMIT 26`,[kind,cursor])
+  const transactions=rows.slice(0,25).map(row=>({
+    ...row,
+    wallet_evidence:row.matching_debits===1
+      ? (row.status==='refunded'
+        ? (row.matching_refunds===1?'refunded_verified':'refund_unverified')
+        : 'charged_verified')
+      : 'charge_unverified',
+  }))
+  return {transactions,next_cursor:rows.length>25?rows[24].id:null,recorded:true}
+}
 
 const LIABILITY_AUDIT_TYPES=new Set(['escrow','wallet','pending_payout'])
 const AUDIT_UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i
