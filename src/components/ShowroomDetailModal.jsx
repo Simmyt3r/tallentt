@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookOpen, Clock, Eye, Flag, Heart, MapPin, Play, Share2, Trash2, X } from 'lucide-react'
+import { BookOpen, Bookmark, Clock, Eye, Flag, Heart, MapPin, Play, Share2, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 import { useBackdropClose, useDialog, useScrollLock } from '../lib/dialog'
@@ -94,6 +94,8 @@ export default function ShowroomDetailModal({
   onClose,
   onSelect,
   onLike,
+  onSave,
+  onSecondMedia,
   onShowLikes,
   onShare,
   onReport,
@@ -113,6 +115,9 @@ export default function ShowroomDetailModal({
   const [checking, setChecking] = useState(false)
   const [bookCandidate, setBookCandidate] = useState(null)
   const [detailData,setDetailData]=useState(null)
+  const [mediaIndex,setMediaIndex]=useState(0)
+  const [saved,setSaved]=useState(false)
+  const [saving,setSaving]=useState(false)
   const checkingRef = useRef(false) // synchronous guard: state alone can't stop clicks in the same tick
 
   useScrollLock()
@@ -123,14 +128,17 @@ export default function ShowroomDetailModal({
   const hatId = hat?.id
   useEffect(() => {
     setAspect(null)
+    setMediaIndex(0)
+    setSaved(false)
     setNegotiationStep(null)
     setBookCandidate(null)
     bodyRef.current?.scrollTo?.(0, 0)
     mainRef.current?.scrollTo?.(0, 0)
   }, [hatId])
 
-  const media = hat?.media?.[0]
-  const caption = media?.caption || hat?.motto || ''
+  const mediaItems=Array.isArray(hat?.media)?hat.media.filter(item=>item?.url):[]
+  const media=mediaItems[Math.min(mediaIndex,Math.max(0,mediaItems.length-1))]
+  const caption=media?.caption||hat?.motto||''
   const location = hat ? [hat.lga, hat.country].filter(Boolean).join(', ') : ''
   const isEntertainment = Boolean(hat?.is_entertainment)
   const availabilityWindow = hat && !isEntertainment ? formatAvailabilityWindow(hat) : ''
@@ -138,6 +146,29 @@ export default function ShowroomDetailModal({
   const owner = identityFromHat(hat)
   const ownerName = getPrimaryIdentity(owner)
   const hasRelated = related.length > 0
+  useEffect(()=>{
+    if(!hatId||isOwn||isEntertainment||!onSave)return undefined
+    let active=true
+    api.getSavedHatStatus(hatId).then(data=>{if(active)setSaved(Boolean(data.saved))}).catch(()=>{})
+    return()=>{active=false}
+  },[hatId,isOwn,isEntertainment,onSave])
+
+  async function toggleSaved(){
+    if(!hatId||saving||!onSave)return
+    setSaving(true)
+    try{
+      const result=await onSave(hatId,!saved)
+      setSaved(Boolean(result.saved))
+      onNotify?.(result.saved?'Saved to your Hats.':'Removed from saved Hats.')
+    }catch(error){onNotify?.(error.message||'Could not update your saved Hats.')}
+    finally{setSaving(false)}
+  }
+  function selectMedia(index){
+    setMediaIndex(index)
+    setAspect(null)
+    if(index===1&&!isOwn&&!isEntertainment&&mediaItems[index]?.id)
+      onSecondMedia?.(hatId,mediaItems[index].id)
+  }
   // The same source of truth drives the public Showroom and Bento detail
   // panels. Entertainment posts have no job application surface.
   useEffect(()=>{
@@ -272,6 +303,20 @@ export default function ShowroomDetailModal({
                     width={1600}
                   />
                 </div>
+                {mediaItems.length>1 && <div role="group" aria-label="Showroom media selection"
+                  className="flex max-w-full gap-2 overflow-x-auto border-b border-black/10 p-2">
+                  {mediaItems.map((asset,index)=><button key={asset.id||index} type="button"
+                    aria-label={'View media '+(index+1)+' of '+mediaItems.length}
+                    aria-pressed={index===mediaIndex}
+                    onClick={()=>selectMedia(index)}
+                    className={'h-14 w-16 shrink-0 overflow-hidden rounded-lg border-2 '+(index===mediaIndex?'border-[#0A13E6]':'border-transparent')}>
+                    {asset.type==='video'
+                      ? <img src={cldVideoPoster(asset.url,{w:112,h:96})} alt="" className="h-full w-full object-cover"/>
+                      : asset.type==='image'
+                        ? <img src={cldImage(asset.url,{w:112,h:96})} alt="" className="h-full w-full object-cover"/>
+                        : <span className="grid h-full w-full place-items-center bg-black text-white text-[11px]">Audio</span>}
+                  </button>)}
+                </div>}
 
                 <div className="sr-actions flex items-center gap-0.5 px-2 md:px-3 border-b border-black/10">
                   <button
@@ -284,6 +329,12 @@ export default function ShowroomDetailModal({
                     <Heart size={18} className={hat.liked_by_me ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} aria-hidden="true" />
                     <span>{hat.likes > 0 ? hat.likes : 'Like'}</span>
                   </button>
+                  {!isOwn && !isEntertainment && onSave && <button type="button" onClick={toggleSaved}
+                    disabled={saving} aria-pressed={saved} aria-label={saved?'Unsave Hat':'Save Hat'}
+                    className={iconBtn}>
+                    <Bookmark size={18} className={saved?'fill-[#E8B447] text-amber-700':''} aria-hidden="true"/>
+                    <span>{saved?'Saved':'Save'}</span>
+                  </button>}
                   {isOwn && onShowLikes && <button type="button" onClick={()=>onShowLikes(hat)}
                     aria-label="See who liked your Showroom post"
                     className={`${iconBtn} text-[#0A13E6]`}>Liked by</button>}
