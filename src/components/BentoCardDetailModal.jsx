@@ -225,7 +225,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const loaded = status === 'success' && detail
   const owner = loaded ? detail.owner : null
 
-  const isTalent = (owner?.role ?? hat.role) === 'talent'
+  const isTalent = hat.role === 'talent'
   // Both the feed's partial hat and the full detail carry the same shape:
   // an ordered array of { url, type, caption }, newest first (see
   // AddShowroomMedia's "prepend to front" comment). Drop entries with no
