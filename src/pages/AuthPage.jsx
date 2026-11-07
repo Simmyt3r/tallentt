@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api } from '../lib/api.js'
-import { safeVibeReturnPath } from '../lib/vibeSharing.js'
+import {safeAuthReturnPath,parseGuestResume} from '../lib/guestIntent.js'
 import '../styles/auth.css'
 
 const LEGAL = {
@@ -28,10 +28,14 @@ const LEGAL = {
 export default function AuthPage() {
   const { login, register } = useAuth()
   const navigate = useNavigate()
-  const nextVibe=safeVibeReturnPath(new URLSearchParams(window.location.search).get('next'))
+  const nextVibe=safeAuthReturnPath(new URLSearchParams(window.location.search).get('next'))
+  const returningTo=parseGuestResume(nextVibe)
 
   const [recoveryToken, setRecoveryToken] = useState(() => new URLSearchParams(window.location.search).get('reset') || '')
-  const [mode, setMode] = useState(() => new URLSearchParams(window.location.search).has('reset') ? 'reset' : 'login') // signup | login | forgot | reset
+  const [mode, setMode] = useState(() => {
+    const params=new URLSearchParams(window.location.search)
+    return params.has('reset')?'reset':params.get('mode')==='signup'?'signup':'login'
+  }) // signup | login | forgot | reset
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -136,7 +140,7 @@ export default function AuthPage() {
         country: 'Nigeria',
         // Do not invent or misuse the city/LGA. Location can be added on Profile.
       })
-      setSuccess('Welcome! Claim your Bronze Work Pass.')
+      setSuccess(returningTo?`Welcome! You are back with ^${returningTo.username}.`:'Welcome! Claim your Bronze Work Pass.')
       setTimeout(() => navigate(nextVibe||'/profile', { replace: true }), 900)
     } catch (err) {
       setError(err.message || 'Could not create account.')
@@ -156,7 +160,7 @@ export default function AuthPage() {
     setSubmitting(true)
     try {
       await login({ email: loginId.trim(), password: loginPass })
-      setSuccess('Welcome back — you are signed in.')
+      setSuccess(returningTo?`Welcome back! Returning to ^${returningTo.username}.`:'Welcome back — you are signed in.')
       setTimeout(() => navigate(nextVibe||'/', { replace: true }), 700)
     } catch (err) {
       setError(err.message || 'Could not sign in.')

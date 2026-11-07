@@ -213,6 +213,15 @@ export const api = {
   getShowroomLikers: (postId,kind,page=0) => request('/api/showroom?'+new URLSearchParams({
     action:'likers',post_id:postId,kind,page:String(page),
   }),{cache:'no-store'}),
+  getGuestDiscovery: (options = {}) => request('/api/showroom?'+new URLSearchParams({
+    action:'guest_discovery',
+    mode:options.mode||'showroom',
+    ...(options.search?{search:options.search}:{}),
+    ...(options.city?{city:options.city}:{}),
+    ...(options.username?{username:options.username}:{}),
+    ...(options.id?{id:options.id}:{}),
+    ...(Number.isInteger(options.page)&&options.page>0?{page:String(options.page)}:{}),
+  }),{cache:'no-store'}),
   getShowroom: (options = {}) => {
     const params = new URLSearchParams()
     for (const key of ['view', 'category', 'search', 'cursor']) {
