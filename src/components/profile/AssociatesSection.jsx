@@ -19,7 +19,7 @@ export default function AssociatesSection({ data, isOwner, onRefresh }) {
     setBusy(action+other_id);setError('');setNotice('')
     try {
       await api.associateAction({ action, other_id })
-      setNotice('Your professional network has been updated.')
+      setNotice(action==='associate_follow'?'You are now Keeping Up with this subscriber.':action==='associate_unfollow'?'You stopped Keeping Up with this subscriber.':'Your professional network has been updated.')
       await onRefresh()
     } catch (e) { setError(e.message || 'Could not update this connection.') }
     finally { setBusy('') }
@@ -27,18 +27,22 @@ export default function AssociatesSection({ data, isOwner, onRefresh }) {
   const relation=data.relation
   const other=data.user_id
   const accepted=relation?.status==='accepted'
-  return <section className="space-y-4" aria-label="Associates and subscribers">
+  return <section className="space-y-4" aria-label="Associates and Keeping Up">
     <div className="rounded-2xl border border-black/10 bg-white p-4">
       <h2 className="text-[15px] font-black">Professional Associates</h2>
       <p className="mt-1 text-[12px] text-black/55">
-        Mutual invitations require acceptance. Subscribers follow posts without requiring approval.
+        Mutual invitations require acceptance. KeepUp is a one-way choice to see a subscriber's public Hits & Vibes without requiring approval.
         A vouch is another person's opinion, not identity verification or proof of completed work.
       </p>
       {!isOwner && <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" disabled={Boolean(busy)} onClick={()=>act(data.following?'associate_unfollow':'associate_follow',other)}
+        <button type="button" disabled={Boolean(busy)} aria-pressed={Boolean(data.following)}
+          onClick={()=>act(data.following?'associate_unfollow':'associate_follow',other)}
           className="min-h-10 rounded-full border border-[#0A13E6] px-4 text-[12px] font-bold text-[#0A13E6] disabled:opacity-50">
-          {data.following?'Unsubscribe':'Subscribe to Hits & Vibes'}
+          {data.following?'Stop Keeping Up':'KeepUp'}
         </button>
+        {data.following&&<Link to="/vibes?feed=keeping_up" className="inline-flex min-h-10 items-center px-3 text-[12px] font-bold text-[#0A13E6] hover:underline">
+          View Keeping Up
+        </Link>}
         {!relation || ['removed','declined'].includes(relation.status)
           ? <button type="button" disabled={Boolean(busy)} onClick={()=>act('associate_request',other)}
             className="min-h-10 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white disabled:opacity-50">Request Associate</button>

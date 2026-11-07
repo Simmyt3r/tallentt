@@ -24,6 +24,10 @@ try {
     const user={id:'11111111-1111-4111-8111-111111111111',
       username:'studio',full_name:'Studio',role:'dual'}
     const postId='22222222-2222-4222-8222-222222222222'
+    const keptPost={id:'44444444-4444-4444-8444-444444444444',
+      author_id:'55555555-5555-4555-8555-555555555555',
+      username:'kept_talent',full_name:'Kept Up Talent',created_at:'2026-10-14T12:02:00Z',
+      body:'Kept-up Talent update',media:[]}
     let posts=[],comments=[],likes=0,liked=false
     let published=false
     await page.route('**/api/**',async route=>{
@@ -38,8 +42,14 @@ try {
       if(url.pathname==='/api/vibes') {
         if(route.request().method()==='GET' && url.searchParams.has('comments'))
           return send({comments,nextCursor:null})
-        if(route.request().method()==='GET')
-          return send({posts:posts.map(p=>({...p,likes,liked_by_me:liked,replies:comments.length})),nextCursor:null})
+        if(route.request().method()==='GET'){
+          const mode=url.searchParams.get('feed')==='keeping_up'?'keeping_up':'for_you'
+          const search=(url.searchParams.get('search')||'').toLowerCase()
+          const source=mode==='keeping_up'?[keptPost]:posts
+          return send({posts:source.filter(p=>(p.body||'').toLowerCase().includes(search))
+            .map(p=>({...p,likes:mode==='for_you'?likes:0,liked_by_me:mode==='for_you'?liked:false,
+              replies:mode==='for_you'?comments.length:0})),nextCursor:null,feed:mode})
+        }
         if(body.action==='publish'){
           published=true
           posts=[{id:postId,author_id:user.id,username:'studio',full_name:'Studio',
@@ -72,6 +82,12 @@ try {
     assert.equal(await page.getByText('Nothing here yet').count(),1)
     assert.doesNotMatch(await page.locator('main').last().innerText(),/(^|\n)\s*}\s*($|\n)/,'No stray JSX brace in an empty feed')
     assert.equal(await page.getByRole('textbox',{name:'Search Vibes posts and people'}).count(),1)
+    const filters=page.getByRole('navigation',{name:'Vibes feed filters'})
+    const forYou=filters.getByRole('button',{name:'For You'})
+    const keepingUp=filters.getByRole('button',{name:'Keeping Up'})
+    assert.equal(await forYou.getAttribute('aria-pressed'),'true')
+    assert.equal(await keepingUp.getAttribute('aria-pressed'),'false')
+    assert.equal(await filters.evaluate(node=>getComputedStyle(node).borderBottomWidth),'0px')
     const vibeComposer=page.getByRole('textbox',{name:'Say something…'})
     const centeredHint=page.locator('form[aria-label="Create a Vibe"] span[aria-hidden="true"]')
       .filter({hasText:'Say something…'})
@@ -85,6 +101,18 @@ try {
     await page.getByText('First Vibe!').waitFor()
     assert.doesNotMatch(await page.locator('main').last().innerText(),/(^|\n)\s*}\s*($|\n)/,'No stray JSX brace after feed posts')
     assert.equal(published,true)
+    await keepingUp.click()
+    await page.getByText('Kept-up Talent update').waitFor()
+    assert.equal(new URL(page.url()).searchParams.get('feed'),'keeping_up')
+    assert.equal(await page.getByText('First Vibe!').count(),0)
+    assert.equal(await keepingUp.getAttribute('aria-pressed'),'true')
+    await page.getByRole('textbox',{name:'Search Vibes posts and people'}).fill('nothing here')
+    await page.getByText('No updates from people you KeepUp with yet').waitFor()
+    await page.getByRole('button',{name:'Explore For You'}).click()
+    await page.getByRole('textbox',{name:'Search Vibes posts and people'}).fill('')
+    await page.getByText('First Vibe!').waitFor()
+    assert.equal(new URL(page.url()).searchParams.has('feed'),false)
+    assert.equal(await forYou.getAttribute('aria-pressed'),'true')
     await page.getByRole('button',{name:'Like Vibe'}).click()
     await page.getByRole('button',{name:'Unlike Vibe'}).waitFor()
     // The reply composer is not embedded in the feed; comments have a
@@ -95,9 +123,10 @@ try {
     await page.getByRole('textbox',{name:'Write a reply'}).fill('Hello!')
     await page.getByRole('button',{name:'Send reply'}).click()
     await page.getByText('Hello!').waitFor()
-    const input=page.getByRole('textbox',{name:'Write a reply'})
-    const reply=page.getByText('Hello!')
-    assert.ok((await input.boundingBox()).y>(await reply.boundingBox()).y,'Replies should appear above composer')
+    const replies=page.locator('[aria-label="Comments list"]')
+    await replies.getByText('Hello!',{exact:true}).waitFor()
+    assert.equal(await replies.evaluate(node=>node.nextElementSibling?.tagName),'FORM',
+      'Reply composer must follow the scrollable comments list')
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'Vibes must not horizontally overflow on '+width+'px')
     assert.deepEqual(errors,[])

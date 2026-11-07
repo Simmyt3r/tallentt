@@ -167,9 +167,10 @@ export const api = {
   }),
   getVibeModerationStatus: (postId) => request(`/api/vibes?moderation_status=${encodeURIComponent(postId)}`,{cache:'no-store'})
     .then(result=>{if(result.status==='visible')clearRouteCache();return result}),
-  getVibes: (before, post, search = '') => request(`/api/vibes?${new URLSearchParams({
-    ...(before ? { before } : {}), ...(post ? { post } : {}),...(search ? {search} : {}),
-  })}`),
+  getVibes: (before, post, search = '', feed = 'for_you') => request(`/api/vibes?${new URLSearchParams({
+    ...(before ? { before } : {}), ...(post ? { post } : {}), ...(search ? {search} : {}),
+    ...(!post && feed==='keeping_up' ? {feed:'keeping_up'} : {}),
+  })}`,{cache:'no-store'}),
   getVibeReplies: (postId, before, parentId=null) => request(`/api/vibes?${new URLSearchParams({
     comments: postId, ...(before ? { before } : {}), ...(parentId ? {parent_id:parentId} : {}),
   })}`,{cache:'no-store'}),

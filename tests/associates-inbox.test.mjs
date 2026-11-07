@@ -59,3 +59,14 @@ test('legacy chat deep-links preserve original thread identifiers',()=>{
   assert.match(app,/path="\/messages"/)
   assert.match(app,/path="\/chats"/)
 })
+
+test('KeepUp action reuses one-way subscribers and links to the followed Vibes feed',()=>{
+  const section=read('src/components/profile/AssociatesSection.jsx')
+  assert.match(section,/aria-label="Associates and Keeping Up"/)
+  assert.match(section,/action==='associate_follow'/)
+  assert.match(section,/onClick=\{\(\)=>act\(data\.following\?'associate_unfollow':'associate_follow',other\)\}/)
+  assert.match(section,/\{data\.following\?'Stop Keeping Up':'KeepUp'\}/)
+  assert.match(section,/aria-pressed=\{Boolean\(data\.following\)\}/)
+  assert.match(section,/to="\/vibes\?feed=keeping_up"/)
+  assert.doesNotMatch(section,/Subscribe to Hits & Vibes|Unsubscribe/)
+})
