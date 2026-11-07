@@ -21,7 +21,10 @@ export async function financeIntegritySnapshot(){
       (SELECT COUNT(*)::int FROM wallet_transactions wt
        WHERE wt.user_id=b.user_id AND wt.reference='refund:'||b.reference
          AND wt.type='billing_refund' AND wt.status='success'
-         AND wt.amount=b.amount) AS refund_matches
+         AND wt.amount=b.amount) AS refund_matches,
+      (SELECT COUNT(*)::int FROM wallet_transactions wt
+       WHERE wt.user_id=b.user_id AND wt.reference='refund:'||b.reference
+         AND wt.type='billing_refund' AND wt.status='success') AS posted_refunds
     FROM billing_charge_events b
   ), findings AS (
     SELECT 'charge_unverified'::text AS issue,id AS record_id,user_id,kind,
@@ -32,7 +35,7 @@ export async function financeIntegritySnapshot(){
       FROM receipt_checks WHERE status='refunded' AND refund_matches<>1
     UNION ALL
     SELECT 'unexpected_refund',id,user_id,kind,source_id,amount,reference,status,created_at
-      FROM receipt_checks WHERE status='charged' AND refund_matches>0
+      FROM receipt_checks WHERE status='charged' AND posted_refunds>0
     UNION ALL
     SELECT 'orphan_wallet_charge',wt.id,wt.user_id,'wallet_journal',NULL::uuid,
       wt.amount,wt.reference,NULL::text,wt.created_at
