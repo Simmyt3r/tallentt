@@ -4,6 +4,11 @@ on:
     branches: [main]
     paths:
       - 'api/_lib/associates.js'
+      - 'api/_lib/keepUpMilestones.js'
+      - 'api/_lib/accountOrbit.js'
+      - 'api/_lib/adminMigrations.js'
+      - 'db/patch-orbit-milestones-2026-11.sql'
+      - 'tests/keepup-milestones.test.mjs'
       - 'api/_lib/communityChats.js'
       - 'api/escrows/index.js'
       - 'src/pages/Inbox.jsx'
@@ -31,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Test Associates and Inbox invariants
-        run: node --test tests/associates-inbox.test.mjs
+        run: node --test tests/associates-inbox.test.mjs tests/keepup-milestones.test.mjs
       - name: Check API syntax
         run: npm run check:api
       - name: Build PWA
