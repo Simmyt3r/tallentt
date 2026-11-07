@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Clock, BookOpen, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Eye } from 'lucide-react'
 import { api } from '../lib/api'
+import {useQualifiedDiscovery} from '../lib/useQualifiedDiscovery.js'
 import {
   HatOwnerHeader,  NegotiationProposalModal,
   formatAvailabilityWindow,
@@ -120,6 +121,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   }, [onClose])
 
   const cardId = hat?.id ?? null
+  const discovery=useQualifiedDiscovery({hatId:cardId,ownerId:hat?.user_id,role:hat?.role})
 
   const [detail, setDetail] = useState(null)
   // 'idle' (no id to fetch) | 'loading' | 'success' | 'error'
