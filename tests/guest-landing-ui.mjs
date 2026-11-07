@@ -86,7 +86,7 @@ try {
     await page.getByText('Available',{exact:true}).waitFor()
     await page.getByLabel('Email',{exact:true}).fill('ziva@example.test')
     await page.getByLabel('Password',{exact:true}).fill('hunter2026good')
-    await page.getByLabel('Confirm password').fill('hunter2026good')
+    await page.locator('#confirm').fill('hunter2026good')
     await page.getByRole('checkbox').check()
     await page.getByRole('button',{name:/Create Account/}).click()
     await page.waitForURL('**/profile/amaka_guest?welcome=1&keepup=1')
