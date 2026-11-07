@@ -85,7 +85,8 @@ try {
     assert.equal(await page.locator('article').count(), 2, 'dual-role creator needs both client and talent cards')
     assert.ok((await page.locator('article').first().innerText()).includes('Job type:'))
     assert.ok((await page.locator('article').first().innerText()).includes('Contract'))
-    assert.ok((await page.locator('article').first().innerText()).includes('6 months'))
+    // Duration is no longer printed on compact Bento cards; the verified
+    // job type and Hat location remain visible.
     assert.ok((await page.locator('article').first().innerText()).includes('Hat Location:'))
     assert.equal(await page.getByText('Duration:',{exact:true}).count(),0)
     assert.equal(await page.getByText('Event:',{exact:true}).count(),0)
