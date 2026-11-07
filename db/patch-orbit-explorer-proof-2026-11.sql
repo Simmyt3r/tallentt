@@ -44,7 +44,9 @@ CREATE TABLE IF NOT EXISTS orbit_discovery_proof_events (
   id BIGSERIAL PRIMARY KEY,
   session_id UUID NOT NULL REFERENCES orbit_discovery_sessions(id) ON DELETE CASCADE,
   kind TEXT NOT NULL CHECK (kind IN ('share','second_media')),
-  media_id UUID REFERENCES hat_media(id) ON DELETE SET NULL,
+  -- Immutable reference: later media deletion must never block the owner
+  -- or erase the historical asset ID used as proof.
+  media_id UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(session_id,kind),
   CONSTRAINT orbit_discovery_proof_media CHECK (
