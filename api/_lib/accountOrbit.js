@@ -4,6 +4,7 @@ import {classifyOrbitEvidence} from '../../shared/orbitEvidence.js'
 import {query,getClient} from './db.js'
 import {notifyUser} from './notifications.js'
 import {keepUpOrbitSummary} from './keepUpMilestones.js'
+import {milestoneOrbitSummary} from './verifiedMilestones.js'
 
 export const ORBIT_DEFAULTS=Object.freeze({
   profile:15, verification:20, completed_work:25,
@@ -106,15 +107,27 @@ export async function accountOrbit(userId){
     accountAgeDays:Math.max(0,Math.floor((Date.now()-new Date(owner.created_at).getTime())/86400000)),
   }
   const orbit=calculateOrbitScore(metrics,await orbitWeights())
-  const keepUp=await keepUpOrbitSummary(userId)
-  // Add verified, one-time milestone points on top of the existing six-factor
-  // activity model. Only the Talent lane earns a follower-related milestone.
-  const bonus=Number(keepUp.points||0)
+  const [keepUp,verified]=await Promise.all([
+    keepUpOrbitSummary(userId),milestoneOrbitSummary(userId),
+  ])
+  const bonus=Number(keepUp.points||0)+Number(verified.points||0)
   orbit.score=Math.round((orbit.score+bonus)*10)/10
-  orbit.byRole.talent.score=Math.round((orbit.byRole.talent.score+bonus)*10)/10
-  orbit.evidence.showcase_activity.points+=bonus
-  orbit.byRole.talent.evidence.showcase_activity.points+=bonus
-  orbit.milestones={keep_up:keepUp}
+  orbit.byRole.talent.score=Math.round((orbit.byRole.talent.score+
+    Number(keepUp.points||0)+Number(verified.talent_points||0))*10)/10
+  orbit.byRole.client.score=Math.round((orbit.byRole.client.score+
+    Number(verified.client_points||0))*10)/10
+  const isSocial=(verb)=>verb==='Discover'||verb==='Showcase'
+  const earned=(lane,predicate)=>verified.by_verb.filter(r=>r.lane===lane&&predicate(r.verb))
+    .reduce((n,r)=>n+Number(r.points||0),0)
+  const social=earned('talent',isSocial)+Number(keepUp.points||0)
+  const workTalent=earned('talent',v=>!isSocial(v))
+  const workClient=earned('client',v=>!isSocial(v))
+  orbit.evidence.showcase_activity.points+=social
+  orbit.evidence.verified_work.points+=workTalent+workClient
+  orbit.byRole.talent.evidence.showcase_activity.points+=social
+  orbit.byRole.talent.evidence.verified_work.points+=workTalent
+  orbit.byRole.client.evidence.verified_work.points+=workClient
+  orbit.milestones={keep_up:keepUp,verified}
   return orbit
 }
 
