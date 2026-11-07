@@ -65,7 +65,6 @@ export default async function handler(req, res) {
         return json(res,200,await hatAllowance(session.sub))
       }
       const url = new URL(req.url, `http://${req.headers.host}`)
-      const session = getSessionUser(req)
       const role = url.searchParams.get('role')
 
       if (url.searchParams.get('my_reviews') === '1') {
