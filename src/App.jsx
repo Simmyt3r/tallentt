@@ -105,6 +105,7 @@ export default function App() {
     <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
     <Route path="/showroom/:postId?" element={<ProtectedRoute><ShowroomPage /></ProtectedRoute>} />
     <Route path="/my-hats" element={<ProtectedRoute><MyHats /></ProtectedRoute>} />
+    <Route path="/milestones" element={<ProtectedRoute><MilestoneCenter /></ProtectedRoute>} />
     <Route path="/create" element={<ProtectedRoute><HatForm /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="/profile/:username" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
