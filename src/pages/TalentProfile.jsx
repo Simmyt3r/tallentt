@@ -1,8 +1,10 @@
 // Path: src/pages/TalentProfile.jsx
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Clock, Eye, Heart, MapPin, Send, Star } from 'lucide-react'
+import { ArrowLeft, BookOpen, Bookmark, Clock, Eye, Heart, MapPin, Send, Share2, Star } from 'lucide-react'
 import { api } from '../lib/api'
+import {shareContent} from '../lib/shareContent.js'
+import {useQualifiedDiscovery} from '../lib/useQualifiedDiscovery.js'
 import AvailabilityBadge from '../components/AvailabilityBadge'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromHat } from '../lib/profile.js'
@@ -52,6 +54,18 @@ export default function TalentProfile() {
   const [likeCount, setLikeCount] = useState(0)
   const [liking, setLiking] = useState(false)
   const [viewCount, setViewCount] = useState(0)
+  const [saved,setSaved]=useState(false)
+  const [saving,setSaving]=useState(false)
+  const [discoveryNotice,setDiscoveryNotice]=useState('')
+  const discovery=useQualifiedDiscovery({hatId:hat?.id,ownerId:hat?.user_id,role:hat?.role})
+
+  useEffect(()=>{
+    setSaved(false)
+    if(!discovery.eligible||!hat?.id)return undefined
+    let active=true
+    api.getSavedHatStatus(hat.id).then(r=>{if(active)setSaved(Boolean(r.saved))}).catch(()=>{})
+    return()=>{active=false}
+  },[hat?.id,discovery.eligible])
 
   useEffect(() => {
     let cancelled = false
@@ -88,6 +102,7 @@ export default function TalentProfile() {
     setLikeCount((c) => c + (next ? 1 : -1))
     try {
       await api.toggleLike(hatId)
+      if(next)void discovery.markEngagement()
     } catch (e) {
       setLiked(!next)
       setLikeCount((c) => c + (next ? -1 : 1))
