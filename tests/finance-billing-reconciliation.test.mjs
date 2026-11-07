@@ -29,6 +29,7 @@ before(async()=>{
     ['talent_verified',talent,'salary_tracking_talent',500,'charged',true,false],
     ['client_unmatched',client,'salary_tracking',200,'charged',false,false],
     ['subscription',client,'subscription',2500,'charged',true,false],
+    ['subscription_refunded_unposted',client,'subscription',800,'charged',true,true],
     ['verification_refund',talent,'business_verification',3000,'refunded',true,true],
     ['verification_failed_refund',client,'business_verification',3500,'refunded',true,false],
   ]){
@@ -57,6 +58,8 @@ test('partial finance totals include only wallet-backed, still-charged source re
   assert.equal(stream('salary_tracking').unmatched_charges,1)
   assert.equal(stream('salary_tracking_talent').inflow,'500')
   assert.equal(stream('subscription').inflow,'2500')
+  assert.equal(stream('subscription').transactions,1)
+  assert.equal(stream('subscription').unmatched_charges,1,'posted refunds exclude stale charged receipts from collection totals')
   assert.equal(stream('business_verification').inflow,'0')
   assert.equal(summary.income_totals.pending_recognition,'4000')
   assert.equal(summary.income_totals.recorded_fee_charges,'4000')
@@ -75,6 +78,8 @@ test('billing audit exposes matched, unmatched and refunded receipts without cha
   assert.equal(verified.matching_debits,1)
   assert.equal(unverified.wallet_evidence,'charge_unverified')
   assert.equal(unverified.matching_debits,0)
+  const subscriptions=await financeAudit({stream:'subscription'})
+  assert.equal(subscriptions.transactions.find(r=>r.id===receipts.subscription_refunded_unposted).wallet_evidence,'unexpected_refund')
   const refunds=await financeAudit({stream:'business_verification'})
   assert.equal(refunds.transactions.find(r=>r.id===receipts.verification_refund).wallet_evidence,'refunded_verified')
   assert.equal(refunds.transactions.find(r=>r.id===receipts.verification_failed_refund).wallet_evidence,'refund_unverified')
