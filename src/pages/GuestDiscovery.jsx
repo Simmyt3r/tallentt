@@ -27,7 +27,7 @@ function GuestActions({hat,onGate,compact=false}){
   const gate=intent=>onGate({intent,...info})
   return <div className={'flex flex-wrap items-center gap-2 '+(compact?'mt-2':'mt-4')}>
     <button type="button" onClick={()=>gate('keepup')} className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-[#E8B447] px-4 text-[12px] font-extrabold text-black"><UserRoundPlus size={16}/>+ KeepUp</button>
-    <button type="button" onClick={()=>gate('book')} className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-black/20 px-3 text-[12px] font-bold"><BriefcaseBusiness size={15}/>Book</button>
+    {!hat.is_entertainment&&<button type="button" onClick={()=>gate('book')} className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-black/20 px-3 text-[12px] font-bold"><BriefcaseBusiness size={15}/>Book</button>}
     <button type="button" onClick={()=>gate('like')} aria-label={'Like '+hat.hat_title} className="grid h-10 w-10 place-items-center rounded-full border border-black/10"><Heart size={16}/></button>
     <button type="button" onClick={()=>gate('share')} aria-label={'Share '+hat.hat_title} className="grid h-10 w-10 place-items-center rounded-full border border-black/10"><Share2 size={16}/></button>
     {!compact&&<button type="button" onClick={()=>gate('save')} aria-label={'Save '+hat.hat_title} className="grid h-10 w-10 place-items-center rounded-full border border-black/10"><Bookmark size={16}/></button>}
@@ -143,7 +143,8 @@ export default function GuestDiscovery({mode='showroom'}){
 }
 
 export function GuestHat(){
-  const {hatId}=useParams()
+  const {hatId,postId}=useParams()
+  const targetId=hatId||postId
   const [hat,setHat]=useState(null),[loading,setLoading]=useState(true),[error,setError]=useState('')
   const [index,setIndex]=useState(0),[gate,setGate]=useState(null)
   const navigate=useNavigate()
@@ -152,14 +153,21 @@ export function GuestHat(){
     setLoading(true);setError('')
     ;(async()=>{
       try{
-        const a=await api.getGuestDiscovery({mode:'showroom',id:hatId})
-        const result=a.hats?.[0]||(await api.getGuestDiscovery({mode:'bento',id:hatId})).hats?.[0]
+        const a=await api.getGuestDiscovery({mode:'showroom',id:targetId})
+        let result=a.hats?.[0]||(await api.getGuestDiscovery({mode:'bento',id:targetId})).hats?.[0]
+        if(!result&&postId){
+          // Independent public gallery posts also use /showroom/:postId.
+          const {post}=await api.getGalleryPost(postId)
+          result={...post,hat_title:post.media?.[0]?.caption||'Creative showcase',
+            hat_name:'Creative showcase',is_entertainment:true,
+            orbit_score:null,discovery_count:null,keepup_count:null,rate:null,currency:'NGN'}
+        }
         if(!cancelled){if(!result)throw new Error('This Hat is not public.');setHat(result)}
       }catch(e){if(!cancelled)setError(e.message||'Could not load this Hat.')}
       finally{if(!cancelled)setLoading(false)}
     })()
     return()=>{cancelled=true}
-  },[hatId])
+  },[targetId])
   if(loading)return <p role="status" className="py-20 text-center">Loading public Hat…</p>
   if(error||!hat)return <p role="alert" className="py-20 text-center text-red-700">{error||'Hat not found.'}</p>
   const media=hat.media||[],current=media[index],info={username:hat.username,hat:hat.id,name:hat.owner_full_name||hat.username}
@@ -184,7 +192,7 @@ export function GuestHat(){
         {hat.motto&&<p className="text-[14px] text-black/70">{hat.motto}</p>}
         <GuestActions hat={hat} onGate={setGate}/>
         <div className="flex flex-wrap gap-2">
-          {['collab','hire','sponsor','message'].map(intent=><button type="button" key={intent} onClick={()=>setGate({...info,intent})}
+          {(hat.is_entertainment?['message']:['collab','hire','sponsor','message']).map(intent=><button type="button" key={intent} onClick={()=>setGate({...info,intent})}
             className="min-h-10 rounded-full border border-black/10 px-4 text-[12px] font-semibold">
             {intent==='collab'?'Collab':intent[0].toUpperCase()+intent.slice(1)}
           </button>)}
