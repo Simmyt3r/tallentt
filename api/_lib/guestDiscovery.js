@@ -8,7 +8,7 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]
 const USERNAME=/^[a-z0-9._-]{3,30}$/i
 const fail=(status,message)=>Object.assign(new Error(message),{status})
 const text=(value,max)=>String(value||'').trim().slice(0,max)
-const NUMBER_OF_CARDS=24
+const NUMBER_OF_CARDS=12
 const displayScore=async id=>{
   try {
     const result=await accountOrbit(id)
