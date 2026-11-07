@@ -66,8 +66,8 @@ try{
  await page.getByRole('button',{name:'Overview',exact:true}).click()
  await page.getByText(/^awaiting funding$/i).waitFor()
  await page.goto(url+'?view=profile')
- await page.getByLabel('Orbit score 123456',{exact:true}).waitFor()
- await page.getByText('Orbit 123456',{exact:true}).waitFor()
+ await page.getByLabel('Orbit score 123456.0',{exact:true}).waitFor()
+ await page.getByText('Orbit 123456.0',{exact:true}).waitFor()
  assert.doesNotMatch(await page.locator('body').innerText(),/\/100|0–9/)
  await mkdir('test-results',{recursive:true})
  for(const width of [320,390,768,1440]){
