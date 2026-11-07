@@ -281,16 +281,26 @@ async function feed(userId,url) {
   const before=url.searchParams.get('before')
   const specific=url.searchParams.get('post')
   const search=String(url.searchParams.get('search')||'').trim().slice(0,100)
-  if((before && !validId(before))||(specific && !validId(specific))) throw bad(400,'Invalid Vibes cursor.')
+  const feedMode=url.searchParams.get('feed')||'for_you'
+  if(!['for_you','keeping_up'].includes(feedMode))throw bad(400,'Unknown Vibes feed.')
+  if((before && !validId(before))||(specific && !validId(specific)))throw bad(400,'Invalid Vibes cursor.')
+  // A direct post link is always resolved independently of the viewer's feed.
+  // Never use a caller-supplied follower_id: authentication decides the scope.
+  const onlyFollowing=feedMode==='keeping_up'&&!specific
+  if(onlyFollowing){
+    const {rows:installed}=await query("SELECT to_regclass('subscriber_follows') AS follows")
+    if(!installed[0]?.follows)throw bad(503,'Keeping Up requires the Associates & Inbox migration in Admin.')
+  }
   const {rows}=await query(
     (await publicPostSql())+` AND ($2::uuid IS NULL OR p.id=$2)
     AND ($3::uuid IS NULL OR (p.created_at,p.id) <
        (SELECT created_at,id FROM vibes_posts WHERE id=$3))
     AND ($4::text IS NULL OR p.body ILIKE '%'||$4||'%' OR u.username ILIKE '%'||$4||'%' OR u.full_name ILIKE '%'||$4||'%')
+    ${onlyFollowing?'AND EXISTS (SELECT 1 FROM subscriber_follows sf WHERE sf.follower_id=$1 AND sf.followed_id=p.author_id)':''}
     ORDER BY p.created_at DESC,p.id DESC LIMIT 21`,
     [userId,specific||null,before||null,search||null],
   )
-  return {posts:rows.slice(0,20),nextCursor:rows.length>20?rows[19].id:null}
+  return {posts:rows.slice(0,20),nextCursor:rows.length>20?rows[19].id:null,feed:onlyFollowing?'keeping_up':'for_you'}
 }
 
 async function threadsInstalled() {
