@@ -110,11 +110,12 @@ export default function AdminFinanceLedger(){
           {streams.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
             <div>
               <p className="text-[12px] font-bold">{item.verb&&<span className="mr-2 text-[#0A13E6]">{item.verb} ·</span>}{item.name}</p>
-              <p className="text-[11px] text-black/45">{item.recorded
-                ?`${item.transactions} matched charge(s) · ${item.source} · ${item.recognition==='earned'?'earned':'recognition pending'}`
-                :'No approved fee ledger · amount unknown (not zero)'}
-              {Number(item.unmatched_charges||0)>0&&<p className="mt-1 text-amber-800">{item.unmatched_charges} charge(s) lack exactly one matching wallet debit. Review audit; excluded from totals.</p>}
-              </p>
+              <div className="text-[11px] text-black/45">
+                <p>{item.recorded
+                  ?`${item.transactions} matched charge(s) · ${item.source} · ${item.recognition==='earned'?'earned':'recognition pending'}`
+                  :'No approved fee ledger · amount unknown (not zero)'}</p>
+                {Number(item.unmatched_charges||0)>0&&<p className="mt-1 text-amber-800">{item.unmatched_charges} charge(s) lack exactly one matching wallet debit. Review audit; excluded from totals.</p>}
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <strong className="text-[13px] tabular-nums">{money(item.inflow)}</strong>
