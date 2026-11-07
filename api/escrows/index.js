@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {employmentGet,employmentAction} from '../_lib/employment.js'
+import {getMilestoneSeals,milestoneSealAction} from '../_lib/milestoneSeals.js'
 import {hideInboxThread} from '../_lib/inboxHidden.js'
 import {getDealAgreement,verifyAgreementToken} from '../_lib/dealAgreement.js'
 import {cancelUnfundedDeal} from '../_lib/dealCancellation.js'
@@ -38,6 +39,7 @@ export default async function handler(req, res) {
       if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
       const url = new URL(req.url, `http://${req.headers.host}`)
+      if(url.searchParams.get('milestone_seals')==='1')return json(res,200,await getMilestoneSeals(session.sub))
       if(url.searchParams.has('deal_agreement'))return json(res,200,await getDealAgreement(session.sub,url.searchParams.get('deal_agreement')))
       if(url.searchParams.get('billing')==='1')return json(res,200,await billingOverview(session.sub))
       if(url.searchParams.has('review_jobs'))return json(res,200,await reviewJobs(session.sub,url.searchParams.get('review_jobs')))
@@ -170,6 +172,7 @@ export default async function handler(req, res) {
 
     const body = await readBody(req)
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'A JSON object is required.' })
+    if(['seal_create','seal_sign','seal_cancel'].includes(body.action))return json(res,200,await milestoneSealAction(session.sub,body))
     if(body.action==='cancel_unfunded_deal')return json(res,200,await cancelUnfundedDeal(session.sub,body.deal_id,body.reason))
     if(body.action==='billing_subscribe')return json(res,200,await buySubscription(session.sub,body))
     if(body.action==='billing_verify_business')return json(res,200,await requestBusinessVerification(session.sub,body))
