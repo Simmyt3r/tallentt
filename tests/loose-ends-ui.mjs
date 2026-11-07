@@ -98,7 +98,7 @@ try {
     // Switch mode while an older API call is still running.
     await page.goto('http://127.0.0.1:5186/deals?role=talent&tab=incoming')
     await talentRequested
-    await page.getByRole('button', { name: 'Client Mode' }).click()
+    await page.getByRole('navigation', { name: 'Deal role modes' }).getByRole('button', { name: /Client/ }).click()
     await page.getByText('Client-only job').waitFor()
     await delay(1050)
     assert.equal(await page.getByText('Talent-only job').count(), 0,
@@ -115,7 +115,8 @@ try {
       const url = new URL(request.url())
       return url.pathname === '/api/auth' && url.searchParams.get('action') === 'notifications' && url.searchParams.get('search') === 'Recent'
     })
-    await page.getByRole('searchbox', { name: 'Search all notifications' }).fill('Recent')
+    await page.getByRole('button', { name: 'Search notifications' }).click()
+    await page.getByRole('textbox', { name: 'Search selected notification category' }).fill('Recent')
     await filteredRequest
     await page.getByText('Recent notice').waitFor()
     notificationRefresh = true
