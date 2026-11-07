@@ -6,6 +6,7 @@ import {dispatchStoredNotifications} from './pushNotifications.js'
 import {debitWallet,creditWallet} from './wallet.js'
 import {salaryTrackingQuote} from '../../shared/monetization.js'
 import {salaryTrackingPrices,fixedSalaryQuote,collectTrackingSide,refundTrackingSides} from './salaryTrackingFees.js'
+import {salaryPeriodStatements} from './salaryPeriodStatements.js'
 
 const fail=(status,message)=>Object.assign(new Error(message),{status})
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i
@@ -81,6 +82,14 @@ export async function employmentGet(userId,params){
           contributions.some(p=>p.side==='client'&&p.status==='paid')&&
           contributions.some(p=>p.side==='talent'&&p.status==='paid'),
       }
+    }
+  }
+  if(periods.length){
+    const statements=await salaryPeriodStatements(agreementId)
+    for(const period of periods)period.trackingStatement={
+      available:statements.available,
+      entries:statements.byPeriod[period.id]||[],
+      note:statements.note,
     }
   }
   const {rows:messages}=await query(`SELECT m.*,r.body AS reply_body FROM employment_messages m
