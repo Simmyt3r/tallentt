@@ -45,6 +45,13 @@ try{
     }
     const params=new URL(route.request().url()).searchParams
     if(params.get('action')==='finance_summary')return route.fulfill({json:summary})
+    if(params.get('action')==='finance_integrity')return route.fulfill({json:{
+      recorded:true,total_exceptions:2,sample_limited:false,gateway_settlement:{status:'unverified',records_checked:false},
+      counts:[{issue:'charge_unverified',count:1},{issue:'orphan_wallet_refund',count:1}],
+      sample:[{issue:'charge_unverified',record_id:'integrity-record',kind:'salary_tracking',
+        username:'affected_client',amount:1000,reference:'integrity:record',occurred_at:deal.created_at}],
+      note:'Read-only internal journal review; settlement is not verified.',
+    }})
     if(params.get('stream')==='salary_tracking')return route.fulfill({json:{recorded:true,next_cursor:null,transactions:[{
       id:'billing-fee',source_id:'55555555-5555-4555-8555-555555555555',username:'biller',
       created_at:deal.created_at,amount:1000,status:'charged',matching_debits:1,matching_refunds:0,
@@ -64,6 +71,11 @@ try{
   await page.getByRole('cell',{name:'Client: test_client Talent: test_talent'}).waitFor()
   assert.equal(reconciliations,0) // viewing Admin Finance is read-only
   assert.match(await page.getByRole('region',{name:'Deal service charge earnings'}).innerText(),/₦650/)
+  await page.getByRole('button',{name:'Run read-only check',exact:true}).click()
+  await page.getByText('2 potential billing-journal issue(s) require review.',{exact:true}).waitFor()
+  await page.getByText('affected_client',{exact:true}).waitFor()
+  await page.getByText(/Bank \/ Paystack settlement:/).waitFor()
+  assert.equal(reconciliations,0)
   await page.getByText('View fee records',{exact:true}).click()
   await page.getByText('sealed · 5%',{exact:true}).waitFor()
   await page.getByText('Service charge reversal: ₦350',{exact:true}).waitFor()
