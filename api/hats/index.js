@@ -1,7 +1,7 @@
 // Path: api/hats/index.js
 import { query, getClient } from '../_lib/db.js'
 import { associateVouchCounts } from '../_lib/associates.js'
-import {hatAllowance,enforceHatAllowance,awardPublishedShowcase} from '../_lib/verifiedMilestones.js'
+import {hatAllowance,enforceHatAllowance,awardPublishedShowcase,verifiedMilestonesReady} from '../_lib/verifiedMilestones.js'
 import {onlinePresenceExpression} from '../_lib/onlinePresence.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
@@ -417,7 +417,10 @@ export default async function handler(req, res) {
       let hat
       try {
         await client.query('BEGIN')
-        await enforceHatAllowance(client,session.sub)
+        // Deploy-safe sequencing: until Admin installs the new ledger,
+        // keep legacy Hat creation operational. Once present, the quota
+        // enforcement becomes mandatory and transactional.
+        if(await verifiedMilestonesReady(client))await enforceHatAllowance(client,session.sub)
       const { rows } = await client.query(
         `INSERT INTO hats (
           user_id, hat_title, hat_name, username, verified_name, is_verified, category, skills,
