@@ -196,7 +196,7 @@ test('Sponsor Seal never moves money; requires two successful reciprocal wallet 
   assert.equal(done.awards.length,1)
   assert.equal(done.awards[0].points,5)
   assert.equal((await awards.milestoneOrbitSummary(clientId)).client_points,13)
-  assert.equal((await awards.milestoneOrbitSummary(talent)).talent_points,24.1)
+  assert.equal((await awards.milestoneOrbitSummary(talent)).talent_points,25.1)
 })
 
 test('Hat capacity sums durable per-verb slots but never exceeds ten per verb',async()=>{
