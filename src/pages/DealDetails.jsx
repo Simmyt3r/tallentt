@@ -260,6 +260,35 @@ export default function DealDetails() {
             </div>
           </section>
 
+          {!thread.is_client && thread.request_kind !== 'application' &&
+            thread.status === 'not_funded' && !thread.contacts_unlocked && (
+            <section aria-label="Respond to booking request" className="border-t border-black/10 py-4">
+              <h2 className="text-[14px] font-black">Booking request</h2>
+              <p className="mt-1 text-[12px] text-black/65">
+                Review the requested work before accepting. The client can fund escrow only
+                after acceptance. Do not begin work before funding and the Start QR.
+              </p>
+              {fundingBlocked && (
+                <p className="mt-2 text-[12px] font-semibold text-amber-800">
+                  Agree the current price in Negotiation Center before accepting.
+                  <Link to={`/negotiations?escrow=${thread.id}`} className="ml-1 underline">Review proposal</Link>
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" disabled={busy || fundingBlocked}
+                  onClick={() => { void run(() => api.respondToBooking(thread.id, 'accepted')).catch(() => {}) }}
+                  className="min-h-11 rounded-full bg-[#0A13E6] px-5 text-[12px] font-bold text-white disabled:opacity-40">
+                  Accept booking
+                </button>
+                <button type="button" disabled={busy}
+                  onClick={() => { void run(() => api.respondToBooking(thread.id, 'rejected')).catch(() => {}) }}
+                  className="min-h-11 rounded-full border border-black/15 px-5 text-[12px] font-bold disabled:opacity-40">
+                  Decline booking
+                </button>
+              </div>
+            </section>
+          )}
+
           {['secured', 'released', 'refunded', 'cancelled'].includes(thread.status) && (
             <BookingProgress
               key={thread.id}
