@@ -250,6 +250,6 @@ test('Bento flier uses only eligible Hat media while preserving identity and Vie
     media: [{ ...poster, screening_status: 'held' }] }, showFeedAction: true }))
   assert.doesNotMatch(blocked, /own-approved-flier\.jpg/,
     'held artwork must not render into Bento')
-  assert.match(blocked, /Available:/,
-    'held or missing artwork falls back to the original card')
+  assert.match(blocked, /Rate:/,
+    'held or missing artwork falls back to the priced original card')
 })
