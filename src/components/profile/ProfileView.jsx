@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {useAuth} from '../../context/AuthContext.jsx'
-import { publicTalentCard } from '../../../api/_lib/talentCard.js'
+import { publicTalentCard } from '../../../shared/talentCard.js'
 import { talentGroups, talentPortfolio, resolveTalent } from '../../lib/talentCard.js'
 import { api } from '../../lib/api.js'
 import AssociatesSection from './AssociatesSection.jsx'

@@ -133,7 +133,7 @@ test('BentoCard keeps its compact card and links the identity to the profile, no
   assert.equal(links.find((l) => l.part === 'username').text, '^simeon')
   assert.doesNotMatch(html, /\/talent\//)
   assert.doesNotMatch(html, /<img[^>]*(?:hat_media|showroom)/) // still text-only
-  for (const kept of ['Moments, kept.', 'Hats:', 'Available:', 'Time:', '3 jobs', 'Gwagwalada']) {
+  for (const kept of ['Moments, kept.', 'Hats:', 'Rate:', 'Time:', '3 jobs', 'Gwagwalada']) {
     assert.ok(html.includes(kept), `BentoCard still shows "${kept}"`)
   }
 })
@@ -250,6 +250,6 @@ test('Bento flier uses only eligible Hat media while preserving identity and Vie
     media: [{ ...poster, screening_status: 'held' }] }, showFeedAction: true }))
   assert.doesNotMatch(blocked, /own-approved-flier\.jpg/,
     'held artwork must not render into Bento')
-  assert.match(blocked, /Available:/,
-    'held or missing artwork falls back to the original card')
+  assert.match(blocked, /Rate:/,
+    'held or missing artwork falls back to the priced original card')
 })

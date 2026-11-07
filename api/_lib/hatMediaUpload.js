@@ -114,7 +114,7 @@ export async function verifyNewHatMedia(userId, mediaList, previousMedia = [], {
             AND deleted_at IS NULL LIMIT 1`,[userId,m.public_id,m.url,m.type])
         if(gallery.length) continue
       }
-      throw bad(422,'Archived media is unavailable or does not belong to your account.')
+      throw bad(422,'Archived media is unavailable or does not belong to your account. Use the secure uploader for new media.')
     }
     if (!validUUID(m.upload_id)) throw bad(422,'New media must be uploaded through the secure uploader.')
     const {rows} = await query(

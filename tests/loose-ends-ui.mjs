@@ -98,7 +98,7 @@ try {
     // Switch mode while an older API call is still running.
     await page.goto('http://127.0.0.1:5186/deals?role=talent&tab=incoming')
     await talentRequested
-    await page.getByRole('button', { name: 'Client Mode' }).click()
+    await page.getByRole('navigation', { name: 'Deal role modes' }).getByRole('button', { name: /Client/ }).click()
     await page.getByText('Client-only job').waitFor()
     await delay(1050)
     assert.equal(await page.getByText('Talent-only job').count(), 0,
@@ -111,18 +111,26 @@ try {
     await page.getByText('Recent notice').waitFor()
     await page.getByRole('button', { name: /Load older/ }).click()
     await page.getByText('Older notice').waitFor()
-    const filteredRequest = page.waitForRequest((request) => {
-      const url = new URL(request.url())
-      return url.pathname === '/api/auth' && url.searchParams.get('action') === 'notifications' && url.searchParams.get('search') === 'Recent'
-    })
-    await page.getByRole('searchbox', { name: 'Search all notifications' }).fill('Recent')
-    await filteredRequest
-    await page.getByText('Recent notice').waitFor()
+    // While the same list/filter is active, a push refresh should merge the
+    // newly fetched page with already-paginated older records.
     notificationRefresh = true
     await page.evaluate(() => window.dispatchEvent(new Event('push:notification')))
     await page.getByText('Latest notice').waitFor()
     assert.equal(await page.getByText('Older notice').count(), 1,
       'push updates must not wipe out older loaded notifications')
+
+    // Changing the server-side search is a different result set. It should
+    // intentionally reset older pages from the previous unfiltered query.
+    const filteredRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url())
+      return url.pathname === '/api/auth' && url.searchParams.get('action') === 'notifications' && url.searchParams.get('search') === 'Latest'
+    })
+    await page.getByRole('button', { name: 'Search notifications' }).click()
+    await page.getByRole('textbox', { name: 'Search selected notification category' }).fill('Latest')
+    await filteredRequest
+    await page.getByText('Latest notice').waitFor()
+    assert.equal(await page.getByText('Older notice').count(), 0,
+      'a new search must not retain unrelated pages from the old filter')
 
     // A failed Live API call must show a retryable error, not "Nobody is live".
     await page.goto('http://127.0.0.1:5186/live')

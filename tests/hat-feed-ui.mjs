@@ -51,11 +51,11 @@ try {
       }
       return respond({})
     })
-    const rangeSwitch = () => page.getByRole('switch', { name: 'Show Range package in feed', exact: true })
-    const fixedSwitch = () => page.getByRole('switch', { name: 'Show Fixed package in feed', exact: true })
+    const rangeSwitch = (shown=false) => page.getByRole('button', { name: shown ? 'Hide Range package from BentoField' : 'Show Range package in BentoField', exact: true })
+    const fixedSwitch = (shown=false) => page.getByRole('button', { name: shown ? 'Hide Fixed package from BentoField' : 'Show Fixed package in BentoField', exact: true })
     await page.goto('http://127.0.0.1:5181/my-hats')
     await rangeSwitch().waitFor()
-    assert.equal(await rangeSwitch().getAttribute('aria-checked'), 'false')
+    assert.equal(await rangeSwitch().getAttribute('aria-pressed'), 'false')
     await rangeSwitch().click()
     await page.getByRole('alertdialog', { name: 'A negotiation fee applies' }).waitFor()
     assert.equal(writes, 0, 'opening the notice must not publish')
@@ -67,9 +67,9 @@ try {
     assert.equal(writes, 0)
     await rangeSwitch().click()
     await page.getByRole('button', { name: 'Confirm and show' }).click()
-    await page.getByRole('switch', { name: 'Show Range package in feed', checked: true }).waitFor()
+    await rangeSwitch(true).waitFor()
     await page.reload()
-    await page.getByRole('switch', { name: 'Show Range package in feed', checked: true }).waitFor()
+    await rangeSwitch(true).waitFor()
     await page.screenshot({ path: `test-results/hat-feed-${mode}-${width}.png`, fullPage: true })
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     // Same account, different Hat roles: both must have their own card.
@@ -85,12 +85,13 @@ try {
     assert.equal(await page.locator('article').count(), 2, 'dual-role creator needs both client and talent cards')
     assert.ok((await page.locator('article').first().innerText()).includes('Job type:'))
     assert.ok((await page.locator('article').first().innerText()).includes('Contract'))
-    assert.ok((await page.locator('article').first().innerText()).includes('6 months'))
+    // Duration is no longer printed on compact Bento cards; the verified
+    // job type and Hat location remain visible.
     assert.ok((await page.locator('article').first().innerText()).includes('Hat Location:'))
     assert.equal(await page.getByText('Duration:',{exact:true}).count(),0)
     assert.equal(await page.getByText('Event:',{exact:true}).count(),0)
     assert.equal(await page.getByText('/hour',{exact:false}).count() > 0,true,'range price must display pay unit')
-    assert.equal(await page.getByRole('searchbox',{name:'Search BentoField talents and client Hats'}).count(),1)
+    assert.equal(await page.getByRole('textbox',{name:'Search BentoField talents and client Hats'}).count(),1)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
 
     // One subscriber with simultaneous services needs two distinct decisions,
@@ -106,38 +107,39 @@ try {
     assert.ok((await rangeCard.innerText()).includes('/hour'))
     await page.getByRole('button',{name:'+1 More',exact:true}).first().click()
     await page.getByText('Other independently bookable Hats').first().waitFor()
-    const search=page.getByRole('searchbox',{name:'Search BentoField talents and client Hats'})
+    const search=page.getByRole('textbox',{name:'Search BentoField talents and client Hats'})
     const searchBox=await search.boundingBox()
     await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight))
     const scrollBox=await search.boundingBox()
     assert.equal(Math.round(scrollBox.y),Math.round(searchBox.y),
       'BentoField search should remain sticky during card scrolling')
     await page.goto('http://127.0.0.1:5181/my-hats')
-    await page.getByText('Fixed package',{exact:true}).waitFor()
+    // Grid uses the detailed Bento Card (Hat name); compact List uses title.
+    await page.getByText(mode==='grid'?'Fixed package':'Fixed editor',{exact:true}).first().waitFor()
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'My Hats Bento cards must fit mobile screens')
     hats[0].feed_visible=false
     hats.pop()
     await page.goto('http://127.0.0.1:5181/my-hats')
-    await rangeSwitch().click()
-    await page.getByRole('switch', { name: 'Show Range package in feed', checked: false }).waitFor()
+    await rangeSwitch(true).click()
+    await rangeSwitch(false).waitFor()
     failSave = true
     await fixedSwitch().click()
     await page.getByRole('alert').filter({ hasText: 'Save failed' }).waitFor()
-    assert.equal(await fixedSwitch().getAttribute('aria-checked'), 'false')
+    assert.equal(await fixedSwitch().getAttribute('aria-pressed'), 'false')
     failSave = false
     await fixedSwitch().click()
-    await page.getByRole('switch', { name: 'Show Fixed package in feed', checked: true }).waitFor()
+    await fixedSwitch(true).waitFor()
     assert.equal(await page.getByRole('alertdialog').count(), 0, 'Fixed pricing needs no notice')
-    await rangeSwitch().click()
+    await rangeSwitch(false).click()
     failSave = true
     await page.getByRole('button', { name: 'Confirm and show' }).click()
     await page.getByRole('alertdialog').getByRole('alert').waitFor()
-    assert.equal(await rangeSwitch().getAttribute('aria-checked'), 'false')
+    assert.equal(await rangeSwitch().getAttribute('aria-pressed'), 'false')
     await page.screenshot({ path: `test-results/hat-feed-notice-${width}.png` })
     failSave = false
     await page.getByRole('button', { name: 'Confirm and show' }).click()
-    await page.getByRole('switch', { name: 'Show Range package in feed', checked: true }).waitFor()
+    await rangeSwitch(true).waitFor()
     assert.deepEqual(errors, [])
     await context.close()
   }

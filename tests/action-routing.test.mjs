@@ -55,7 +55,7 @@ test('Showroom Range negotiation opens the proposal directly', async () => {
   assert.match(showroom, /setNegotiationStep\('proposal'\)/)
   assert.doesNotMatch(showroom, /NegotiationFeeNotice/)
   assert.match(showroom, /<NegotiationProposalModal/)
-  assert.match(showroom, /open=\{negotiationStep === 'proposal'\}/)
+  assert.match(showroom, /open=\{!isEntertainment && negotiationStep === 'proposal'\}/)
   assert.match(showroom, /await bookHat\(target, navigate, proposal\)/)
 })
 

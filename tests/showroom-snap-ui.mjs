@@ -34,8 +34,11 @@ try{
     await optOutPageToursForFixture(context)
     const page=await context.newPage()
     page.setDefaultTimeout(20000)
-    const errors=[]
+    const errors=[],failedRequests=[],failedResponses=[],consoleErrors=[]
     page.on('pageerror',e=>errors.push(e.message))
+    page.on('requestfailed',req=>failedRequests.push({url:req.url(),reason:req.failure()?.errorText}))
+    page.on('response',response=>{if(response.status()>=400)failedResponses.push({url:response.url(),status:response.status()})})
+    page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text())})
     // Prevent an unreachable external payment SDK from blocking the offline
     // browser fixture before the ChombuTar React app can mount.
     await page.route('https://js.paystack.co/v1/inline.js',route=>route.fulfill({
@@ -59,7 +62,7 @@ try{
       if(url.pathname==='/api/escrows')return send({conversations:[],nextCursor:null,counts:{}})
       return send({hats:[],items:[],notifications:[],count:0})
     })
-    await page.goto('http://127.0.0.1:'+port+'/showroom')
+    const navigation=await page.goto('http://127.0.0.1:'+port+'/showroom',{waitUntil:'domcontentloaded'})
     const feed=page.getByRole('region',{name:'Showroom full-screen posts'})
     try { await feed.waitFor({timeout:45000}) }
     catch (error) {
@@ -67,6 +70,10 @@ try{
         url:page.url(),
         body:(await page.locator('body').innerText().catch(()=>''))?.slice(0,1500),
         pageErrors:errors,
+        navigationStatus:navigation?.status(), documentLength:(await page.content().catch(()=>''))?.length,
+        documentPreview:(await page.content().catch(()=>''))?.slice(0,850),
+        failedRequests:failedRequests.slice(0,15),failedResponses:failedResponses.slice(0,15),
+        consoleErrors:consoleErrors.slice(0,15),
       })
       await page.screenshot({path:'test-results/showroom-render-error-'+width+'.png'}).catch(()=>{})
       throw error

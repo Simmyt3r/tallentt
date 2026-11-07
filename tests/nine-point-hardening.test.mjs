@@ -37,7 +37,7 @@ test('shared discovery input avoids native X and original cross-tab Back behavio
   assert.match(layout,/navigationType==='POP'/)
   assert.match(layout,/navigate\('\/showroom',\{replace:true\}\)/)
   assert.match(layout,/aria-label="Open Inbox"/)
-  assert.match(layout,/setInboxChooserOpen\(true\)/)
+  assert.match(layout,/aria-label="Open Inbox"/) // Inbox is now unified rather than an extra chooser.
   const chooser=read('src/components/InboxChooser.jsx')
   assert.match(chooser,/Associates Chat/)
   assert.ok(chooser.includes('to={`/inbox?tab=${lane}`}'),

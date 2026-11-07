@@ -21,11 +21,11 @@ try {
   const client = await clientContext.newPage()
   const talent = await talentContext.newPage()
   const dealCard = (page, escrowId = '44444444-4444-4444-8444-444444444444') => page.locator('article').filter({
-    has: page.locator(`a[href="/messages?escrow=${escrowId}"]`),
+    has: page.locator(`a[href^="/deals/${escrowId}"]`),
   })
   for (const page of [client, talent]) page.on('pageerror', (err) => errors.push(err.message))
   await client.goto('http://127.0.0.1:5179/api/__test/session?role=client')
-  await client.getByRole('heading', { name: 'Deals Chat', exact: true }).waitFor()
+  await client.getByRole('heading', { name: 'Chats', exact: true }).waitFor()
   await client.screenshot({ path: 'test-results/messaging-desktop.png', fullPage: true })
   for (const width of [320, 390, 768, 1280, 1440]) {
     await client.setViewportSize({ width, height: 1000 })
@@ -38,13 +38,14 @@ try {
       await client.getByRole('button', { name: 'Open menu', exact: true }).click()
       await client.waitForTimeout(250) // let the 200ms slide-in transition settle before measuring
     }
-    for (const name of ['Deals Chat', 'Wallet', 'Admin']) {
+    for (const name of ['Wallet', 'Admin']) {
       const link = client.getByRole('link', { name, exact: true }).first()
       assert.equal(await link.isVisible(), true, `${name} missing at ${width}`)
       const box = await link.boundingBox()
       assert.ok(box.x >= 0 && box.x + box.width <= width, `${name} clipped at ${width}`)
     }
     if (mobile) await client.getByRole('button', { name: 'Close menu', exact: true }).click()
+    await client.getByRole('link',{name:'Open Inbox',exact:true}).waitFor()
   }
   await client.setViewportSize({ width: 390, height: 844 })
   const messageHistory = client.getByRole('region', { name: 'Message history', exact: true })
@@ -73,8 +74,15 @@ try {
   await talent.getByText(/Final agreed price:/).waitFor()
   await talent.goto('http://127.0.0.1:5179/deals?role=talent&tab=incoming')
   await talent.getByRole('heading', { name: 'My Deals', exact: true }).waitFor()
-  await talent.getByRole('button', { name: 'Accept', exact: true }).click()
-  await talent.getByRole('button', { name: /Active \(1\)/ }).waitFor()
+  // Grid and List show clean View details links; the signed-in Talent
+  // accepts inside Deal Details, not with crowded card-level buttons.
+  await talent.getByRole('link', { name: /View details/ }).first().click()
+  await talent.getByRole('button', { name: 'Accept booking', exact: true }).click()
+  await talent.getByRole('button', { name: 'Accept booking', exact: true }).waitFor({state:'hidden'})
+  await talent.goto('http://127.0.0.1:5179/deals?role=talent&tab=active')
+  // The fixture also contains a separate funded dispute example, so the
+  // Active total is not necessarily 1. Assert this particular accepted deal.
+  await talent.locator('a[href^="/deals/44444444-4444-4444-8444-444444444444"]').waitFor()
   await client.reload()
   await client.getByText(/Final agreed price:/).waitFor()
 
@@ -140,7 +148,7 @@ try {
 
   await client.goto('http://127.0.0.1:5179/deals?role=client&tab=history')
   const completedDeal = dealCard(client)
-  await completedDeal.getByRole('link', { name: /View record/ }).waitFor()
+  await completedDeal.getByRole('link', { name: /View details/ }).waitFor()
   await talent.goto('http://127.0.0.1:5179/messages?escrow=44444444-4444-4444-8444-444444444444')
   await talent.getByText('Completed', { exact: true }).first().waitFor()
   await client.goto('http://127.0.0.1:5179/messages?escrow=44444444-4444-4444-8444-444444444444')

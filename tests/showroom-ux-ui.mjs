@@ -108,19 +108,25 @@ try{
     assert.equal(await page.getByRole('button', { name: 'Client', exact: true }).count(), 0)
     const quickActions = page.getByRole('navigation', { name: 'Quick actions' })
     const createAction = quickActions.getByRole('link', { name: 'Create Hat' })
-    const messagesAction = quickActions.getByRole('link', { name: 'Messages' })
+    const messagesAction = quickActions.getByRole('link', { name: 'Open Inbox' })
     const alertsAction = quickActions.getByRole('link', { name: /^Notifications/ })
-    const showroomSearch = page.getByRole('searchbox', { name: 'Search Showroom posts and creators' })
+    const showroomSearch = page.getByRole('textbox', { name: 'Search Showroom posts and creators' })
     await showroomSearch.waitFor()
     assert.equal(await quickActions.getByRole('link', { name: 'Search' }).count(), 0,
       'Showroom must expose exactly one search action')
     assert.equal(await createAction.isVisible(), width >= 640)
     assert.equal(await messagesAction.isVisible(), true)
     assert.equal(await alertsAction.isVisible(), true)
-    assert.equal(await page.getByRole('link', { name: 'Profile' }).isVisible(), true)
+    assert.equal(await page.getByRole('button', { name: 'Open profile menu' }).isVisible(), true)
     if (width < 768) {
+      // Mobile bottom navigation intentionally reserves the final slot for Work Pass.
+      // My Hats remains available in the full navigation drawer.
       assert.equal(await page.getByRole('navigation', { name: 'Primary' })
+        .getByRole('button', { name: 'Open my Work Pass' }).isVisible(), true)
+      await page.getByRole('button', { name: 'Open menu' }).click()
+      assert.equal(await page.getByRole('dialog', { name: 'Navigation' })
         .getByRole('link', { name: 'My Hats' }).isVisible(), true)
+      await page.getByRole('button', { name: 'Close menu' }).click()
       await page.setViewportSize({ width: 320, height: 880 })
       assert.equal(await createAction.isVisible(), false)
       assert.equal(await showroomSearch.isVisible(), true)
@@ -142,16 +148,16 @@ try{
     for(const [path,label] of [
       ['/vibes','Search Vibes posts and people'],
       ['/my-hats','Search your Hats'],
-      ['/deals','Search loaded deal records'],
+      ['/deals','Search My Deals'],
     ]){
       await page.goto('http://127.0.0.1:5185'+path)
-      await page.getByRole('searchbox',{name:label}).waitFor()
-      assert.equal(await page.getByRole('searchbox').count(),1)
+      await page.getByRole('textbox',{name:label}).waitFor()
+      assert.equal(await page.getByRole('textbox',{name:label}).count(),1)
     }
     await page.goto('http://127.0.0.1:5185/showroom')
 
-    await quickActions.getByRole('link', { name: 'Messages' }).click()
-    await page.waitForURL('**/messages')
+    await messagesAction.click()
+    await page.waitForURL('**/inbox')
     // Every route has its own protected Layout. Re-enter a settled Home
     // before validating the next action, instead of racing a route remount.
     await page.goto('http://127.0.0.1:5185/showroom')
@@ -198,12 +204,12 @@ try{
     await open.click()
     await page.getByRole('heading',{name:'Choose how to post'}).waitFor()
     await page.keyboard.press('Escape')
-    await page.getByRole('heading',{name:'Pick a card'}).waitFor({state:'detached'})
+    await page.getByRole('heading',{name:'Choose how to post'}).waitFor({state:'detached'})
     assert.equal(await open.evaluate(el=>document.activeElement===el),true,
       'closing the dialog must restore keyboard focus')
     for(let round=1;round<=2;round++){
       await open.click()
-      await page.getByRole('heading',{name:'Pick a card'}).waitFor()
+      await page.getByRole('heading',{name:'Choose how to post'}).waitFor()
       await page.getByRole('button',{name:/Choose an existing Hat/}).click()
       await page.getByRole('button',{name:/Product photographer/}).click()
       await page.getByRole('heading',{name:'Add media'}).waitFor()
@@ -215,7 +221,7 @@ try{
       assert.equal(await post.isEnabled(),true,
         'submit must re-enable when modal is reopened')
       await post.click()
-      await page.getByRole('heading',{name:'Pick a card'}).waitFor({
+      await page.getByRole('heading',{name:'Choose how to post'}).waitFor({
         state:'detached',
       })
     }

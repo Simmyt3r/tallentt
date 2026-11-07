@@ -51,7 +51,7 @@ try {
     // The toggle alone counts as an unsaved change.
     await toggle().click()
     if (width < 768) await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Bento', exact: true }).click()
-    else await page.getByRole('link', { name: 'ChombuTar home', exact: true }).click()
+    else await page.getByRole('link', { name: 'ChombuTar home', exact: true }).last().click()
     await page.getByRole('alertdialog', { name: 'Discard changes?' }).waitFor()
     await page.getByRole('button', { name: 'Stay', exact: true }).click()
     await fillForm()
