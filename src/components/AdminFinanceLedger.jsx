@@ -117,6 +117,7 @@ export default function AdminFinanceLedger(){
             </div>
           </div>
           <p className="text-[11px] text-black/55">Partial totals from recorded platform fee events only; not verified bank settlement or net profit. Missing fee sources cannot be presumed to be ₦0.</p>
+          <p className="text-[11px] text-black/55">Net profit: <strong>Not established</strong>. Costs, taxes, refunds and settlements require reconciliation.</p>
         </section>
         <p className="mt-3 text-[11px] text-amber-800">{summary.warning}</p>
       </section>
