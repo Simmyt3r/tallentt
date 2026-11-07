@@ -1,6 +1,6 @@
 // Path: src/pages/PublicProfile.jsx
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import ProfileView from '../components/profile/ProfileView.jsx'
@@ -9,6 +9,7 @@ import CompactPageHeader from '../components/CompactPageHeader.jsx'
 
 export default function PublicProfile() {
   const { username } = useParams()
+  const [params]=useSearchParams()
   const { user } = useAuth()
   const [status, setStatus] = useState('loading') // loading | not-found | ready
   const [profile, setProfile] = useState(null)
@@ -62,6 +63,10 @@ export default function PublicProfile() {
   return (
     <>
       <CompactPageHeader title={isOwnUsername ? 'My Profile' : 'Profile'} showSearch={!isOwnUsername}/>
+      {params.get('welcome')==='1'&&status==='ready'&&<p role="status" className="mb-3 rounded-2xl bg-[#FFF2D2] p-4 text-[13px] font-bold text-black/80">
+        Welcome! You are back with {profileUser?.fullName||profileUser?.username||username}.
+        {params.get('keepup')==='1'&&<span className="ml-2 font-black text-green-800">✓ Keeping Up</span>}
+      </p>}
       <ProfileView
         key={username}
         status={status}
