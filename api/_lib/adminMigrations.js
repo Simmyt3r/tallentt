@@ -8,6 +8,9 @@ import { query, getClient } from './db.js'
 const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
+  {id:'orbit-explorer-proof-2026-11',title:'Explorer rewards and evidence-backed Discovery actions',
+   description:'After Verified Orbit. Adds first-pair Explorer +1, durable Save actions, shared link proof, and second approved media evidence for genuine Discovery. No historical awards or funds.',
+   path:new URL('../../db/patch-orbit-explorer-proof-2026-11.sql',import.meta.url)},
   {id:'orbit-verified-2026-11',title:'Qualified Discovery, verifiable Seals and Hat capacity',description:'After Orbit KeepUp, applies forward-only verified events, active-stay Discovery fraud holds and appeals, two-party source-verified commercial Seals, and grandfathered server-authoritative Hat quotas. No wallet changes.',path:new URL('../../db/patch-orbit-verified-2026-11.sql',import.meta.url)},
   {id:'orbit-milestones-2026-11',title:'KeepUp Orbit milestone audit ledger',description:'Apply after Associates. Begins forward-only, first-pair KeepUp point and three future-Hat unlock credits. Unfollow reverses points; repeat follows never mint unlock credits. No historical backfill.',path:new URL('../../db/patch-orbit-milestones-2026-11.sql',import.meta.url)},
   {id:'test-completed-commissions-2026-11',title:'TEST DATA: deduct commission on two completed deals',description:'User-authorized test adjustment only: Software developer ₦500,000 → ₦25,000 commission; Music ₦58,000 → ₦2,900 commission. Total ₦27,900 from the talent test wallets. Restricted to these exact completed deal IDs, checks prior payouts and balances, records receipts, and cannot deduct twice.',path:new URL('../../db/patch-test-completed-commissions-2026-11.sql',import.meta.url)},

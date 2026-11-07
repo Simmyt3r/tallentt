@@ -116,16 +116,18 @@ export async function accountOrbit(userId){
     Number(keepUp.points||0)+Number(verified.talent_points||0))*10)/10
   orbit.byRole.client.score=Math.round((orbit.byRole.client.score+
     Number(verified.client_points||0))*10)/10
-  const isSocial=(verb)=>verb==='Discover'||verb==='Showcase'
+  const isSocial=(verb)=>verb==='Discover'||verb==='Explorer'||verb==='Showcase'
   const earned=(lane,predicate)=>verified.by_verb.filter(r=>r.lane===lane&&predicate(r.verb))
     .reduce((n,r)=>n+Number(r.points||0),0)
-  const social=earned('talent',isSocial)+Number(keepUp.points||0)
+  const socialTalent=earned('talent',isSocial)+Number(keepUp.points||0)
+  const socialClient=earned('client',isSocial)
   const workTalent=earned('talent',v=>!isSocial(v))
   const workClient=earned('client',v=>!isSocial(v))
-  orbit.evidence.showcase_activity.points+=social
+  orbit.evidence.showcase_activity.points+=socialTalent+socialClient
   orbit.evidence.verified_work.points+=workTalent+workClient
-  orbit.byRole.talent.evidence.showcase_activity.points+=social
+  orbit.byRole.talent.evidence.showcase_activity.points+=socialTalent
   orbit.byRole.talent.evidence.verified_work.points+=workTalent
+  orbit.byRole.client.evidence.showcase_activity.points+=socialClient
   orbit.byRole.client.evidence.verified_work.points+=workClient
   orbit.milestones={keep_up:keepUp,verified}
   return orbit

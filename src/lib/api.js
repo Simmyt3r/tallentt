@@ -135,6 +135,10 @@ export const api = {
   discoveryAction: (action,payload={}) => request('/api/showroom',{
     method:'POST',body:JSON.stringify({action,...payload}),
   }),
+  getSavedHatStatus: hat_id=>request('/api/showroom?'+new URLSearchParams({action:'saved_hat',hat_id}),{cache:'no-store'}),
+  saveHat: (hat_id,saved)=>request('/api/showroom',{
+    method:'POST',body:JSON.stringify({action:'save_hat',hat_id,saved}),
+  }),
   getDiscoveryCases: () => request('/api/showroom?action=discovery_cases',{cache:'no-store'}),
   getAdminDiscoveryQueue: () => request('/api/admin?action=milestone_discovery_queue',{cache:'no-store'}),
   decideAdminDiscovery: (session_id,decision,reason) => request('/api/admin',{

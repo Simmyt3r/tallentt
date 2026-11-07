@@ -14,15 +14,78 @@ const appealText=text=>{
   return v
 }
 
+// The Step-3 schema is required before ANY new qualified Discovery is
+// processed. Otherwise a Talent could be credited while the discoverer's
+// matching Explorer reward is silently omitted.
+async function requiredOrbitProofSchema(db){
+  const {rows}=await db.query("SELECT to_regclass('orbit_discovery_proof_events') AS proofs, to_regclass('orbit_saved_hats') AS saves")
+  if(!rows[0]?.proofs||!rows[0]?.saves)throw bad(503,'Apply Orbit Explorer & Proof in Admin before qualifying Discovery.')
+}
+
+// Both awards use the same immutable session source and one transaction.
+// Lock the pair in UUID order first, preventing reversed Discovery sessions
+// from deadlocking while each user is credited.
+async function awardDiscoveryPair(db,session){
+  await db.query('SELECT id FROM users WHERE id IN ($1,$2) ORDER BY id FOR UPDATE',[session.viewer_id,session.talent_id])
+  const talent=await awardVerifiedMilestone(db,{
+    actorId:session.viewer_id,subjectId:session.talent_id,
+    beneficiaryId:session.talent_id,lane:'talent',verb:'Discover',sourceId:session.id,
+  })
+  if(!talent.recorded)return {recorded:false,talent}
+  const explorer=await awardVerifiedMilestone(db,{
+    actorId:session.viewer_id,subjectId:session.talent_id,
+    beneficiaryId:session.viewer_id,lane:'client',verb:'Explorer',sourceId:session.id,
+  })
+  if(!explorer.recorded)throw bad(409,'Explorer credit could not be recorded alongside Discovery. Retry or contact Admin.')
+  return {...talent,explorer:{points:explorer.points,event_id:explorer.event_id}}
+}
+
+// An actual saved Hat is a durable, reversible user collection entry.
+// Recording a Save never itself awards Orbit; it is only one possible proof.
+export async function saveTalentHat(userId,body){
+  if(!valid(userId)||!valid(body?.hat_id)||typeof body?.saved!=='boolean')
+    throw bad(400,'Choose a valid Hat and Save setting.')
+  const client=await getClient()
+  try {
+    await client.query('BEGIN')
+    await requiredMilestoneSchema(client)
+    await requiredOrbitProofSchema(client)
+    if(body.saved){
+      const {rows}=await client.query(`SELECT h.id FROM hats h JOIN users u ON u.id=h.user_id
+        WHERE h.id=$1 AND h.role='talent' AND h.active=TRUE AND h.feed_visible=TRUE
+          AND u.role IN ('talent','dual') AND h.user_id<>$2
+          AND EXISTS(SELECT 1 FROM hat_media m WHERE m.hat_id=h.id AND m.screening_status IN ('legacy','passed'))
+          AND NOT EXISTS(SELECT 1 FROM hat_media m WHERE m.hat_id=h.id
+            AND m.screening_status IN ('pending','processing','held','rejected'))
+          AND NOT EXISTS(SELECT 1 FROM showroom_review_state sr WHERE sr.hat_id=h.id AND sr.status IN ('flagged','restricted'))`,
+        [body.hat_id,userId])
+      if(!rows.length)throw bad(403,'Only an approved public Talent Hat can be saved.')
+      await client.query('INSERT INTO orbit_saved_hats(user_id,hat_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[userId,body.hat_id])
+    }else await client.query('DELETE FROM orbit_saved_hats WHERE user_id=$1 AND hat_id=$2',[userId,body.hat_id])
+    await client.query('COMMIT')
+    return {saved:body.saved}
+  } catch(error){await client.query('ROLLBACK').catch(()=>{});throw error}
+  finally{client.release()}
+}
+
+export async function savedTalentHatStatus(userId,hatId){
+  if(!valid(userId)||!valid(hatId))throw bad(400,'Choose a valid saved Hat.')
+  await requiredMilestoneSchema()
+  await requiredOrbitProofSchema({query})
+  const {rows}=await query('SELECT 1 FROM orbit_saved_hats WHERE user_id=$1 AND hat_id=$2',[userId,hatId])
+  return {saved:rows.length>0}
+}
+
 export async function discoveryAction(actorId,body){
   if(!valid(actorId))throw bad(401,'Sign in before claiming Discovery.')
   const action=String(body?.action||'')
-  if(!['discovery_open','discovery_heartbeat','discovery_complete','discovery_appeal'].includes(action))
+  if(!['discovery_open','discovery_heartbeat','discovery_complete','discovery_appeal','discovery_evidence'].includes(action))
     throw bad(400,'Invalid Discovery action.')
   const client=await getClient()
   try{
     await client.query('BEGIN')
     await requiredMilestoneSchema(client)
+    await requiredOrbitProofSchema(client)
     if(action==='discovery_open'){
       if(!valid(body.hat_id))throw bad(400,'Choose a visible Talent Hat.')
       const {rows:eligible}=await client.query(`SELECT h.id,h.user_id FROM hats h JOIN users u ON u.id=h.user_id
@@ -72,6 +135,27 @@ export async function discoveryAction(actorId,body){
       return {status:session.state,alreadyProcessed:true}
     }
     if(new Date(session.expires_at).getTime()<=Date.now())throw bad(410,'This Discovery session expired. Open the Hat again.')
+    if(action==='discovery_evidence'){
+      const kind=String(body.kind||'')
+      if(!['share','second_media'].includes(kind))throw bad(400,'Choose a supported Discovery proof.')
+      if(kind==='share' && body.confirmed!==true)
+        throw bad(400,'A successful device share or copied link is required.')
+      let mediaId=null
+      if(kind==='second_media'){
+        if(!valid(body.media_id))throw bad(400,'Choose a valid second media asset.')
+        const {rows}=await client.query(`SELECT id FROM hat_media
+          WHERE hat_id=$1 AND screening_status IN ('legacy','passed')
+            AND type IN ('image','video','audio') ORDER BY created_at,id LIMIT 2`,[session.hat_id])
+        if(rows.length<2||rows[1].id!==body.media_id)
+          throw bad(400,'Only a deliberately opened second approved media asset qualifies.')
+        mediaId=body.media_id
+      }
+      const {rowCount}=await client.query(`INSERT INTO orbit_discovery_proof_events(session_id,kind,media_id)
+        VALUES($1,$2,$3) ON CONFLICT(session_id,kind) DO NOTHING`,
+        [session.id,kind,mediaId])
+      await client.query('COMMIT')
+      return {recorded:rowCount>0,kind}
+    }
     if(action==='discovery_heartbeat'){
       // The client-supplied visibility flag is a prerequisite, NOT trusted
       // evidence on its own. Only server timestamps and real action records
@@ -92,10 +176,19 @@ export async function discoveryAction(actorId,body){
       EXISTS(SELECT 1 FROM hat_likes l WHERE l.hat_id=$1 AND l.user_id=$2 AND l.created_at>=$3) AS liked,
       EXISTS(SELECT 1 FROM subscriber_follows f WHERE f.followed_id=$4 AND f.follower_id=$2 AND f.created_at>=$3) AS followed,
       EXISTS(SELECT 1 FROM orbit_discovery_sessions s WHERE s.viewer_id=$2 AND s.talent_id=$4
-        AND s.hat_id<>$1 AND s.opened_at>$3) AS second_hat`,
-      [session.hat_id,actorId,session.opened_at,session.talent_id])
-    const proof=actions[0].liked?'hat_like':actions[0].followed?'keepup':actions[0].second_hat?'second_hat':null
-    if(!proof)throw bad(409,'Like the Hat, KeepUp with the Talent or open another Hat from this Talent to qualify.')
+        AND s.hat_id<>$1 AND s.opened_at>$3) AS second_hat,
+      EXISTS(SELECT 1 FROM orbit_saved_hats saved
+        WHERE saved.user_id=$2 AND saved.hat_id=$1 AND saved.created_at>=$3) AS saved,
+      EXISTS(SELECT 1 FROM orbit_discovery_proof_events pe
+        WHERE pe.session_id=$5 AND pe.kind='share' AND pe.created_at>=$3) AS shared,
+      EXISTS(SELECT 1 FROM orbit_discovery_proof_events pe
+        WHERE pe.session_id=$5 AND pe.kind='second_media' AND pe.created_at>=$3) AS second_media`,
+      [session.hat_id,actorId,session.opened_at,session.talent_id,session.id])
+    const proof=actions[0].liked?'hat_like'
+      :actions[0].followed?'keepup':actions[0].saved?'save'
+      :actions[0].shared?'share':actions[0].second_media?'second_media'
+      :actions[0].second_hat?'second_hat':null
+    if(!proof)throw bad(409,'Like, KeepUp, Save, Share or open a second approved media/Hat to qualify.')
     const {rows:dwell}=await client.query(`SELECT
       NOW()-opened_at>=INTERVAL '5 seconds' AS elapsed,
       heartbeat_count>=2 AND first_heartbeat_at IS NOT NULL
@@ -119,8 +212,7 @@ export async function discoveryAction(actorId,body){
       await client.query('COMMIT')
       return {status:'held',review_required:true}
     }
-    const award=await awardVerifiedMilestone(client,{actorId,subjectId:session.talent_id,
-      beneficiaryId:session.talent_id,lane:'talent',verb:'Discover',sourceId:session.id})
+    const award=await awardDiscoveryPair(client,session)
     if(award.recorded){
       await client.query(`UPDATE orbit_discovery_sessions SET state='awarded',proof_kind=$2 WHERE id=$1`,[session.id,proof])
     }else{
@@ -173,8 +265,8 @@ export async function adminDiscoveryDecision(adminId,body){
     if(!session||!['held','rejected'].includes(session.state)||!session.proof_kind)
       throw bad(409,'This Discovery is not a reviewed, evidence-backed case.')
     if(body.decision==='approve'){
-      const award=await awardVerifiedMilestone(client,{actorId:session.viewer_id,subjectId:session.talent_id,
-        beneficiaryId:session.talent_id,lane:'talent',verb:'Discover',sourceId:session.id})
+      await requiredOrbitProofSchema(client)
+      const award=await awardDiscoveryPair(client,session)
       if(!award.recorded)throw bad(409,'A different Discovery already used this viewer–Talent pair.')
     }
     await client.query(`UPDATE orbit_discovery_sessions
@@ -202,6 +294,16 @@ export async function revokeVerifiedAward(adminId,body){
     const {rows}=await client.query('SELECT * FROM orbit_verified_events WHERE id=$1 FOR UPDATE',[body.event_id])
     if(!rows[0]||rows[0].status!=='verified')throw bad(409,'No active milestone event to revoke.')
     await client.query("UPDATE orbit_verified_events SET status='revoked' WHERE id=$1",[body.event_id])
+    if(rows[0].verb==='Discover'){
+      // Revoke the discoverer's matching Explorer point with the source-linked
+      // Talent credit. Do not leave a reward for a fraudulent Discovery.
+      const {rows:mirrors}=await client.query(`UPDATE orbit_verified_events SET status='revoked'
+        WHERE verb='Explorer' AND source_type='discovery' AND source_id=$1
+          AND actor_id=$2 AND subject_id=$3 AND status='verified'
+        RETURNING id`,[rows[0].source_id,rows[0].actor_id,rows[0].subject_id])
+      for(const event of mirrors)await client.query(`INSERT INTO orbit_milestone_decisions
+        (admin_id,event_id,action,reason) VALUES($1,$2,'revoke_award',$3)`,[adminId,event.id,reason])
+    }
     await client.query(`INSERT INTO orbit_milestone_decisions(admin_id,event_id,action,reason)
       VALUES($1,$2,'revoke_award',$3)`,[adminId,body.event_id,reason])
     await client.query('COMMIT')
