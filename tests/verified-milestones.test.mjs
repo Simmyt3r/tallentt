@@ -91,7 +91,7 @@ test('published cleared Showcase awards +0.1 once without automatically unlockin
 
 test('Book credits only after recorded released work, and retries cannot duplicate it',async()=>{
   const fake=await pool.query(`INSERT INTO escrows(hat_id,client_id,talent_id,amount,status,work_status)
-    VALUES($1,$2,$3,25000,'not_funded','awaiting_start') RETURNING id`,[hatId,clientId,talent])
+    VALUES($1,$2,$3,25000,'secured','awaiting_start') RETURNING id`,[hatId,clientId,talent])
   const dbClient=await pool.connect()
   try{
     await dbClient.query('BEGIN')
