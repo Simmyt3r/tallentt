@@ -17,6 +17,7 @@ export default function MilestoneCenter(){
   const [verb,setVerb]=useState(VERBS.some(v=>v.value===params.get('verb'))?params.get('verb'):'Collab')
   const [source,setSource]=useState(params.get('source')||'')
   const [allowance,setAllowance]=useState(null)
+  const [orbit,setOrbit]=useState(null)
   const [seals,setSeals]=useState([])
   const [cases,setCases]=useState([])
   const [appealNotes,setAppealNotes]=useState({})
@@ -26,11 +27,12 @@ export default function MilestoneCenter(){
   const [notice,setNotice]=useState('')
   const refresh=useCallback(async()=>{
     const responses=await Promise.allSettled([
-      api.getHatAllowance(),api.getMilestoneSeals(),api.getDiscoveryCases(),
+      api.getHatAllowance(),api.getMilestoneSeals(),api.getDiscoveryCases(),api.getMyOrbitScore(),
     ])
     setAllowance(responses[0].status==='fulfilled'?responses[0].value:null)
     setSeals(responses[1].status==='fulfilled'?responses[1].value.seals||[]:[])
     setCases(responses[2].status==='fulfilled'?responses[2].value.cases||[]:[])
+    setOrbit(responses[3].status==='fulfilled'?responses[3].value:null)
     const failures=responses.filter(item=>item.status==='rejected')
     if(failures.length) setError(failures[0].reason?.message||'Milestones need a database upgrade.')
     else setError('')
@@ -56,6 +58,12 @@ export default function MilestoneCenter(){
     }catch(e){setError(e.message||'Could not submit appeal.')}
     finally{setBusy('')}
   }
+  const byVerb=orbit?.milestones?.verified?.by_verb||[]
+  const scored=verb=>byVerb.filter(item=>item.verb===verb).reduce((total,item)=>total+Number(item.points||0),0)
+  const verifiedUnlocks=Object.entries(allowance?.credits||{})
+    .filter(([verb])=>verb!=='Showcase')
+    .reduce((sum,[,count])=>sum+Number(count||0),0)
+  const showcaseMax=1+Math.floor(verifiedUnlocks/10)
   const canSign=item=>item.status==='pending' &&
     ((item.client_id===user?.id&&!item.client_signed_at)||
      (item.talent_id===user?.id&&!item.talent_signed_at))
@@ -83,6 +91,27 @@ export default function MilestoneCenter(){
       <p className="text-[12px] text-black/55">
         Your pre-migration Hats are preserved. Each milestone contributes at most ten additional lifetime slots.
         Revoked or disputed rewards cannot generate new slots. <Link to="/my-hats" className="font-semibold text-[#0A13E6]">Manage my Hats</Link>
+      </p>
+    </section>}
+
+    {orbit&&<section className="space-y-3" aria-label="Seven Verbs Orbit evidence">
+      <h2 className="text-[16px] font-bold">My verified Orbit milestones</h2>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          {name:'Explorer',points:scored('Explorer'),note:'You discovered verified Talent'},
+          {name:'Discover',points:scored('Discover'),note:'Qualified first-time discovery of your work'},
+          {name:'Showcase',points:scored('Showcase'),note:'Published approved Hats'},
+          {name:'KeepUp',points:Number(orbit.milestones?.keep_up?.points||0),note:'Your active first-time followers'},
+        ].map(item=><div key={item.name} className="rounded-xl border border-black/10 bg-white p-3">
+          <p className="text-[11px] font-bold text-black/60">{item.name}</p>
+          <p className="mt-1 text-[22px] font-black tabular-nums">+{item.points.toFixed(1)}</p>
+          <p className="mt-1 text-[11px] text-black/45">{item.note}</p>
+        </div>)}
+      </div>
+      <p className="text-[12px] text-black/60">
+        Showcase: {scored('Showcase').toFixed(1)} of {showcaseMax.toFixed(1)} points across
+        {showcaseMax===1?' your current ten-Hat entitlement cycle':` ${showcaseMax} completed ten-Hat entitlement cycles`}.
+        Explorer earns +1 for a first-time qualified discovery; it is not an eighth commercial verb or a cash payout.
       </p>
     </section>}
 
