@@ -43,7 +43,7 @@ test('Range negotiation flow opens the proposal modal directly', async () => {
   assert.match(detail, /setNegotiationStep\('proposal'\)/)
   assert.doesNotMatch(detail, /NegotiationFeeNotice/)
   assert.match(detail, /<NegotiationProposalModal/)
-  assert.match(detail, /open=\{negotiationStep === 'proposal'\}/)
+  assert.match(detail, /open=\{!isEntertainment && negotiationStep === 'proposal'\}/)
   assert.match(detail, /onSubmit=\{handleProposalSubmit\}/)
 })
 
