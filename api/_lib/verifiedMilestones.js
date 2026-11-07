@@ -10,6 +10,9 @@ export const MILESTONE_POLICY=Object.freeze({
   Hire:{points:10,slots:10,source:'employment'},
   Sponsor:{points:5,slots:10,source:'wallet_transfer'},
 })
+// Explorer belongs to the discoverer, but is not an eighth Seven-Verbs
+// milestone and never unlocks extra Hat slots.
+const EXPLORER_BONUS=Object.freeze({points:1,slots:0,source:'discovery'})
 const verbs=Object.keys(MILESTONE_POLICY)
 const missing=()=>Object.assign(new Error('Apply the Verified Orbit milestones migration in Admin first.'),{status:503})
 
@@ -22,7 +25,7 @@ export async function requiredMilestoneSchema(db={query}){
 }
 
 export async function awardVerifiedMilestone(db,{actorId,subjectId,beneficiaryId,lane,verb,sourceId}){
-  const policy=MILESTONE_POLICY[verb]
+  const policy=verb==='Explorer'?EXPLORER_BONUS:MILESTONE_POLICY[verb]
   if(!policy||!['talent','client'].includes(lane)||!actorId||!subjectId||!beneficiaryId||!sourceId)
     throw new TypeError('Invalid trusted milestone source.')
   if(!await verifiedMilestonesReady(db))return {recorded:false,available:false}
@@ -33,6 +36,22 @@ export async function awardVerifiedMilestone(db,{actorId,subjectId,beneficiaryId
     WHERE verb=$1 AND beneficiary_id=$2 AND source_type=$3 AND source_id=$4`,
     [verb,beneficiaryId,policy.source,sourceId])
   if(previous.length)return {recorded:false,alreadyRecorded:true}
+  if(verb==='Showcase'){
+    // One Showcase cycle = the first ten baseline Hat slots, plus one
+    // additional ten-slot tranche for every ten verified unlock credits.
+    // Partial unlocks permit their Hat creations but do not reset the +1.0
+    // Showcase ceiling. Count revoked rows too to prevent revoke/re-award
+    // farming. Caller already holds this subscriber's row lock.
+    const allowance=await hatAllowance(beneficiaryId,db)
+    const unlocked=Object.entries(allowance.credits)
+      .filter(([key])=>key!=='Showcase')
+      .reduce((sum,[,count])=>sum+Number(count||0),0)
+    const maxAwards=10*(1+Math.floor(unlocked/10))
+    const {rows:spent}=await db.query(`SELECT COUNT(*)::int AS n FROM orbit_verified_events
+      WHERE beneficiary_id=$1 AND verb='Showcase'`,[beneficiaryId])
+    if(Number(spent[0]?.n||0)>=maxAwards)
+      return {recorded:false,reason:'Showcase cycle cap reached',max_points:maxAwards/10}
+  }
   // The same actor–Talent pair receives promotional unlocks only once per
   // verb; later completed paid jobs still earn independently documented points.
   const {rows:priorPair}=await db.query(`SELECT 1 FROM orbit_verified_events
