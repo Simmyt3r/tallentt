@@ -123,9 +123,10 @@ try {
     await page.getByRole('textbox',{name:'Write a reply'}).fill('Hello!')
     await page.getByRole('button',{name:'Send reply'}).click()
     await page.getByText('Hello!').waitFor()
-    const input=page.getByRole('textbox',{name:'Write a reply'})
-    const reply=page.getByText('Hello!')
-    assert.ok((await input.boundingBox()).y>(await reply.boundingBox()).y,'Replies should appear above composer')
+    const replies=page.locator('[aria-label="Comments list"]')
+    await replies.getByText('Hello!',{exact:true}).waitFor()
+    assert.equal(await replies.evaluate(node=>node.nextElementSibling?.tagName),'FORM',
+      'Reply composer must follow the scrollable comments list')
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,
       'Vibes must not horizontally overflow on '+width+'px')
     assert.deepEqual(errors,[])
