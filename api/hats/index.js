@@ -1,6 +1,7 @@
 // Path: api/hats/index.js
 import { query, getClient } from '../_lib/db.js'
 import { associateVouchCounts } from '../_lib/associates.js'
+import {hatAllowance,enforceHatAllowance,awardPublishedShowcase,verifiedMilestonesReady} from '../_lib/verifiedMilestones.js'
 import {onlinePresenceExpression} from '../_lib/onlinePresence.js'
 import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
@@ -57,8 +58,13 @@ async function attachMedia(hats, viewerId = null) {
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
-      const url = new URL(req.url, `http://${req.headers.host}`)
       const session = getSessionUser(req)
+      const requested = new URL(req.url,`http://${req.headers.host}`).searchParams
+      if(requested.get('hat_allowance')==='1'){
+        if(!session?.sub)return json(res,401,{error:'Sign in to see your Hat allowance.'})
+        return json(res,200,await hatAllowance(session.sub))
+      }
+      const url = new URL(req.url, `http://${req.headers.host}`)
       const role = url.searchParams.get('role')
 
       if (url.searchParams.get('my_reviews') === '1') {
@@ -130,8 +136,7 @@ export default async function handler(req, res) {
       // Folded into this same function (Vercel Hobby's 12-function cap)
       // rather than a dedicated /api/applications endpoint.
       if (url.searchParams.get('applied') === '1') {
-        const session = getSessionUser(req)
-        if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
+          if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
         try {
           const { rows } = await query(
             `SELECT a.id as application_id, a.status, a.message, a.created_at as applied_at,
@@ -412,6 +417,10 @@ export default async function handler(req, res) {
       let hat
       try {
         await client.query('BEGIN')
+        // Deploy-safe sequencing: until Admin installs the new ledger,
+        // keep legacy Hat creation operational. Once present, the quota
+        // enforcement becomes mandatory and transactional.
+        if(await verifiedMilestonesReady(client))await enforceHatAllowance(client,session.sub)
       const { rows } = await client.query(
         `INSERT INTO hats (
           user_id, hat_title, hat_name, username, verified_name, is_verified, category, skills,
@@ -464,6 +473,7 @@ export default async function handler(req, res) {
         )
       }
 
+      await awardPublishedShowcase(client,hat.id)
       await client.query('COMMIT')
       } catch (error) {
         await client.query('ROLLBACK').catch(() => {})
@@ -473,7 +483,7 @@ export default async function handler(req, res) {
       return json(res, 201, { hat: withMedia[0] })
     } catch (err) {
       console.error(err)
-      return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to create hat' })
+      return json(res, err.status || 500, { error: err.status ? err.message : 'Failed to create hat', ...(err.code?{code:err.code}:{}) })
     }
   }
 

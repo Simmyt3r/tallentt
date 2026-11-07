@@ -136,6 +136,7 @@ export default function MyHats() {
               <List size={16} />
             </button>
           </div>
+          <Link to="/milestones" className="inline-flex h-10 items-center rounded-full px-3 text-[12px] font-semibold text-[#0A13E6]">Hat slots &amp; milestones</Link>
           <Link
             to="/create"
             className="h-10 px-5 rounded-full bg-[#0A13E6] text-white text-[13px] font-semibold border-[1.5px] border-black shadow-[0_4px_12px_rgba(10,19,230,0.25)] hover:bg-black transition flex items-center"

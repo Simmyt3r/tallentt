@@ -3,6 +3,7 @@ import { getClient, query } from './db.js'
 import { bookingError, requireAmount, requireBookingId } from './bookingRules.js'
 import { creditWallet } from './wallet.js'
 import { bookGigRelease } from './gigFees.js'
+import {awardCompletedBooking} from './verifiedMilestones.js'
 import {gigReleaseFee} from '../../shared/monetization.js'
 import { emitMyDealsEvent } from './myDeals.js'
 import { dispatchStoredNotifications } from './pushNotifications.js'
@@ -230,6 +231,7 @@ export async function redeemBookingQr(userId, escrowId, token) {
            work_version = work_version + 1, messages_updated_at = NOW() WHERE id = $1 RETURNING *`,
       stage === 'start' ? [escrowId, amount] : [escrowId],
     )
+    if(stage==='completion')await awardCompletedBooking(client,escrowId)
     await client.query('UPDATE booking_qr_tokens SET consumed_at = NOW() WHERE escrow_id = $1 AND stage = $2', [escrowId, stage])
     await client.query(
       `INSERT INTO booking_events (escrow_id, actor_id, action, note, expected_version, client_token)

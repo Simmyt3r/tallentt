@@ -7,6 +7,7 @@ import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { reportShowroomHat } from '../_lib/showroomReports.js'
 import { myShowroomModeration, submitShowroomAppeal } from '../_lib/showroomAppeals.js'
+import {discoveryAction,myDiscoveryCases} from '../_lib/qualifiedDiscovery.js'
 import { getHatPresentationMap } from '../_lib/hatPresentation.js'
 import { authorizedScreeningWorker, screenQueuedMedia } from '../_lib/showroomMediaScreening.js'
 import {
@@ -26,6 +27,7 @@ export default async function handler(req, res) {
       const session = getSessionUser(req)
       if (!session?.sub) return json(res, 401, { error: 'Sign in to report a listing.' })
       const body = await readBody(req)
+      if (String(body?.action||'').startsWith('discovery_')) return json(res,200,await discoveryAction(session.sub,body))
       if (body?.action === 'gallery_sign') return json(res,200,await signGalleryUpload(session.sub,body))
       if (body?.action === 'gallery_publish') return json(res,201,await publishGallery(session.sub,body))
       if (['delete_gallery','like_gallery','report_gallery','view_gallery'].includes(body?.action))
@@ -66,6 +68,10 @@ export default async function handler(req, res) {
       return json(res, 200, await screenQueuedMedia())
     }
     const session = getSessionUser(req)
+    if(url.searchParams.get('action')==='discovery_cases'){
+      if(!session?.sub)return json(res,401,{error:'Sign in to review your Discovery cases.'})
+      return json(res,200,await myDiscoveryCases(session.sub))
+    }
     if (url.searchParams.get('action') === 'likers') {
       if (!session?.sub) return json(res,401,{error:'Sign in to view likes on your posts.'})
       return json(res,200,await getShowroomLikers(session.sub,{

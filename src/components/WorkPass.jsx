@@ -176,7 +176,7 @@ export default function WorkPass({username,onClose,compact=false}) {
               <p className="mt-1">Profile and account history: <strong>{data.roleOrbit?.[role]?.evidence?.profile_history?.points ?? '—'} pts</strong></p>
             </div>)}
           </div>
-          <p className="mt-2 text-[10px] text-[#5D647B]">These are evidence contributions under the current Orbit calibration; they are not additional points. Qualified Discovery, KeepUp and Seal milestones will require verified event records before activation.</p>
+          <p className="mt-2 text-[10px] text-[#5D647B]">These are evidence contributions under the current Orbit calibration, not extra points. Verified milestone events are recorded separately; non-qualified views and unfunded deals do not qualify.</p>
         </section>
         <div className="grid grid-cols-2 gap-2.5" aria-label="Verified Work Pass activity">
           <Stat icon={BriefcaseBusiness} title="Completed jobs" value={Number(data.completedJobs)||0} detail="Released deals"/>
@@ -213,6 +213,7 @@ export default function WorkPass({username,onClose,compact=false}) {
     </div>}
     {data&&isOwner&&compact&&owner?.role!=='client'&&<WorkPassRobots robots={data.robots||[]} onCreated={robot=>setData(current=>({...current,robots:[robot,...(current.robots||[])]}))}/>}
     {data&&<div className="workpass-actions mt-3 flex flex-wrap gap-2" aria-label="Work Pass actions">
+      {isOwner&&<Link to="/milestones" onClick={onClose} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold">My milestones &amp; Seals</Link>}
       <button type="button" onClick={share} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[11px] font-black text-white hover:bg-[#080fb8]"><Share2 size={15}/> Share profile</button>
       <button type="button" onClick={flex} disabled={exporting} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold text-[#17203C] disabled:opacity-60"><Download size={15}/>{exporting?'Creating story…':'Flex My Work Pass'}</button>
       {!isOwner&&<Link to={'/profile/'+encodeURIComponent(owner?.username||username)} onClick={onClose} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-[11px] font-bold"><UserRound size={15}/> View profile</Link>}
