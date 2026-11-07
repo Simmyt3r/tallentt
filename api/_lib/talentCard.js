@@ -25,18 +25,7 @@ export function normalizeTalentCard(value) {
   return {mainTalent, workModes: [...new Set(workModes)], availability, featuredMedia, salary: {visibility, tier, min, max}}
 }
 
-// An explicit projection: private values must never reach a public response.
-export function publicTalentCard(value = {}) {
-  const salary = value?.salary || {}
-  return {
-    mainTalent: value?.mainTalent || '', workModes: value?.workModes || [],
-    availability: value?.availability || 'not-specified', featuredMedia: value?.featuredMedia || [],
-    salary: salary.visibility === 'range'
-      ? {visibility: 'range', min: salary.min, max: salary.max}
-      : salary.visibility === 'tier' ? {visibility: 'tier', tier: salary.tier}
-        : {visibility: 'private'},
-  }
-}
+export { publicTalentCard } from '../../shared/talentCard.js'
 
 export async function validateTalentCardOwnership(client, userId, card) {
   if (card.mainTalent) {
