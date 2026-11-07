@@ -88,18 +88,24 @@ test('new media must have user-owned unexpired permit and authoritative Cloudina
   await assert.rejects(upload.verifyNewHatMedia(alice,[body],[],{fetchImpl:view({...asset,bytes:22e6})}),/does not match/)
   await assert.rejects(upload.verifyNewHatMedia(alice,[body],[],{fetchImpl:view({...asset,type:'private'})}),/does not match/)
   const client=await pool.connect()
+  const hatId=randomUUID()
   try{
     await client.query('BEGIN')
-    const hatId=randomUUID()
     await client.query(`INSERT INTO hats (id,user_id,username,hat_title,hat_name,category,role)
       VALUES ($1,$2,'uploadalice','Photographer','Portraits','Film','talent')`,[hatId,alice])
     await upload.claimHatMediaPermits(client,alice,hatId,verified)
     await client.query('COMMIT')
-    await assert.rejects(upload.verifyNewHatMedia(alice,[body],[],{fetchImpl:view(asset)}),/authorization has expired/)
-    await client.query('BEGIN')
-    await assert.rejects(upload.claimHatMediaPermits(client,alice,hatId,verified),/already used/)
-    await client.query('ROLLBACK')
   }finally{client.release()}
+  // Release the transaction connection before calling verifyNewHatMedia,
+  // which correctly goes through the pool. PGlite has only one connection.
+  // Keeping it checked out deadlocks test-only DBs and cancels the suite.
+  await assert.rejects(upload.verifyNewHatMedia(alice,[body],[],{fetchImpl:view(asset)}),/authorization has expired/)
+  const retry=await pool.connect()
+  try{
+    await retry.query('BEGIN')
+    await assert.rejects(upload.claimHatMediaPermits(retry,alice,hatId,verified),/already used/)
+    await retry.query('ROLLBACK')
+  }finally{retry.release()}
 })
 
 test('an audio upload stays audio in the UI but is verified as a Cloudinary video asset',async()=>{
