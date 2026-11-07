@@ -7,7 +7,7 @@ import { getSessionUser } from '../_lib/auth.js'
 import { json, methodNotAllowed, readBody } from '../_lib/http.js'
 import { reportShowroomHat } from '../_lib/showroomReports.js'
 import { myShowroomModeration, submitShowroomAppeal } from '../_lib/showroomAppeals.js'
-import {discoveryAction,myDiscoveryCases} from '../_lib/qualifiedDiscovery.js'
+import {discoveryAction,myDiscoveryCases,saveTalentHat,savedTalentHatStatus} from '../_lib/qualifiedDiscovery.js'
 import { getHatPresentationMap } from '../_lib/hatPresentation.js'
 import {guestDiscovery} from '../_lib/guestDiscovery.js'
 import { authorizedScreeningWorker, screenQueuedMedia } from '../_lib/showroomMediaScreening.js'
@@ -28,6 +28,7 @@ export default async function handler(req, res) {
       const session = getSessionUser(req)
       if (!session?.sub) return json(res, 401, { error: 'Sign in to report a listing.' })
       const body = await readBody(req)
+      if (body?.action === 'save_hat') return json(res,200,await saveTalentHat(session.sub,body))
       if (String(body?.action||'').startsWith('discovery_')) return json(res,200,await discoveryAction(session.sub,body))
       if (body?.action === 'gallery_sign') return json(res,200,await signGalleryUpload(session.sub,body))
       if (body?.action === 'gallery_publish') return json(res,201,await publishGallery(session.sub,body))
@@ -73,6 +74,10 @@ export default async function handler(req, res) {
       // Deliberately public, read-only and field-allowlisted. Do not invoke
       // view recording or the verified Discovery reward engine here.
       return json(res,200,await guestDiscovery(Object.fromEntries(url.searchParams)))
+    }
+    if(url.searchParams.get('action')==='saved_hat'){
+      if(!session?.sub)return json(res,401,{error:'Sign in to view your saved Hats.'})
+      return json(res,200,await savedTalentHatStatus(session.sub,url.searchParams.get('hat_id')))
     }
     if(url.searchParams.get('action')==='discovery_cases'){
       if(!session?.sub)return json(res,401,{error:'Sign in to review your Discovery cases.'})
