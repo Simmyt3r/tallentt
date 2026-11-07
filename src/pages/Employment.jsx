@@ -119,7 +119,7 @@ const statementStatus={
   refund_review:'Review · refund mismatch',
   records_disagree:'Review · billing records disagree',
 }
-function MonthlyTrackingStatement({statement,month}){
+export function MonthlyTrackingStatement({statement,month}){
   if(!statement?.available)return null
   return <details className="rounded-xl bg-black/[0.035] px-3 py-3 text-[11px]" aria-label={'Monthly tracking statement for '+month}>
     <summary className="min-h-8 cursor-pointer font-bold">View monthly tracking fee statement</summary>
