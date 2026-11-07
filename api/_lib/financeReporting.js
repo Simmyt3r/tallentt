@@ -105,7 +105,7 @@ export async function financeSummary(){
     recognized_revenue:incomeTotals.earned_revenue,
     recognized_revenue_partial:true,
     net_profit:null,
-    warning:'Only charges with one matching successful wallet debit are counted in billing collections. Unmatched or refunded-in-wallet-but-still-charged receipts require Admin review; they are excluded from collection totals. Recorded charges are partial, not bank-settled cash or net profit. Earned revenue currently includes source-linked live support fees and deal service charges after reversals. Subscription, salary tracking and verification await recognition/refund policy. Collab, Hire Seal and Sponsor Seal platform fees lack an approved event ledger; amounts are unknown, not zero. Escrow, sponsor-to-Talent funds, wallet deposits and payouts are never platform earnings. Taxes and processor costs are not reconciled.',
+    warning:'Only charges with one matching successful wallet debit are counted in billing collections. Unmatched charges and receipts refunded in the wallet but still marked charged require Admin review; they are excluded from collection totals. Recorded charges are partial, not bank-settled cash or net profit. Earned revenue currently includes source-linked live support fees and deal service charges after reversals. Subscription, salary tracking and verification await recognition/refund policy. Collab, Hire Seal and Sponsor Seal platform fees lack an approved event ledger; amounts are unknown, not zero. Escrow, sponsor-to-Talent funds, wallet deposits and payouts are never platform earnings. Taxes and processor costs are not reconciled.',
   }
 }
 export async function financeAudit({stream='live_support',cursor=null}={}){
