@@ -119,8 +119,14 @@ try{
     assert.equal(await alertsAction.isVisible(), true)
     assert.equal(await page.getByRole('button', { name: 'Open profile menu' }).isVisible(), true)
     if (width < 768) {
+      // Mobile bottom navigation intentionally reserves the final slot for Work Pass.
+      // My Hats remains available in the full navigation drawer.
       assert.equal(await page.getByRole('navigation', { name: 'Primary' })
+        .getByRole('button', { name: 'Open my Work Pass' }).isVisible(), true)
+      await page.getByRole('button', { name: 'Open menu' }).click()
+      assert.equal(await page.getByRole('dialog', { name: 'Navigation' })
         .getByRole('link', { name: 'My Hats' }).isVisible(), true)
+      await page.getByRole('button', { name: 'Close menu' }).click()
       await page.setViewportSize({ width: 320, height: 880 })
       assert.equal(await createAction.isVisible(), false)
       assert.equal(await showroomSearch.isVisible(), true)
