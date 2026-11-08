@@ -39,7 +39,7 @@ export default function AdminPaystackReferenceReview(){
         <span>Transaction reference</span>
         <input aria-label="Paystack transaction reference" className="tw-input w-full" value={reference}
           onChange={e=>{setReference(e.target.value);setResult(null)}} required
-          minLength={8} maxLength={160} pattern="[A-Za-z0-9_.=\\-]{8,160}"
+          minLength={8} maxLength={160} pattern="[A-Za-z0-9_.=-]{8,160}"
           autoCapitalize="none" spellCheck={false} autoComplete="off"
           placeholder="Paste Paystack reference"/>
       </label>
