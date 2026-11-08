@@ -17,15 +17,29 @@ function getSecretKey() {
 // Never trust a reference or amount reported by the browser alone.
 // Returns Paystack's transaction object: { status, amount (kobo),
 // currency, reference, customer, ... }.
+// An unavailable verification provider is a transient processing failure:
+// Paystack should resend its signed webhook instead of losing the payment.
+function verificationUnavailable(reason){
+  return Object.assign(new Error(reason),{status:503,retryable:true,code:'PAYSTACK_VERIFY_UNAVAILABLE'})
+}
 export async function verifyPaystackTransaction(reference) {
-  const res = await fetch(`${PAYSTACK_BASE}/transaction/verify/${encodeURIComponent(reference)}`, {
-    headers: { Authorization: `Bearer ${getSecretKey()}` },
-  })
-  const data = await res.json().catch(() => null)
-  if (!res.ok || !data?.status) {
-    throw new Error(data?.message || 'Could not verify payment with Paystack.')
+  if(typeof reference!=='string'||!reference.trim()||reference.length>200)
+    throw Object.assign(new Error('A valid payment reference is required.'),{status:400})
+  let res
+  try{
+    res=await fetch(`${PAYSTACK_BASE}/transaction/verify/${encodeURIComponent(reference)}`,{
+      headers:{Authorization:`Bearer ${getSecretKey()}`},
+      signal:AbortSignal.timeout(8000),
+    })
+  }catch(err){
+    throw verificationUnavailable('Paystack verification is temporarily unavailable.')
   }
-  return data.data
+  let payload
+  try{payload=await res.json()}catch{throw verificationUnavailable('Paystack verification returned an unreadable response.')}
+  if(!res.ok||payload?.status!==true||!payload?.data||typeof payload.data!=='object'){
+    throw verificationUnavailable('Paystack could not verify this payment yet.')
+  }
+  return payload.data
 }
 
 // Nigerian NUBAN banks Paystack supports — used to populate the bank
@@ -116,4 +130,27 @@ export function verifyPaystackWebhookSignature(rawBody, signature) {
   const a = Buffer.from(expected, 'utf8')
   const b = Buffer.from(String(signature), 'utf8')
   return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+
+// Paystack-Signature signs `timestamp.rawBody` with the whsec_ webhook
+// signing secret. Support the older X-Paystack-Signature during migration.
+// Never fall back to a legacy header when the newer one is invalid.
+export function verifyPaystackSignedWebhook(rawBody,{newSignature,legacySignature}={},nowMs=Date.now()){
+  if(newSignature!==undefined&&newSignature!==null){
+    const secret=process.env.PAYSTACK_WEBHOOK_SECRET||process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET
+    if(!secret||!secret.startsWith('whsec_')||typeof newSignature!=='string')return false
+    const parts=newSignature.split(',').map(x=>x.trim())
+    const timestamps=parts.filter(x=>x.startsWith('t='))
+    if(timestamps.length!==1||!/^t=[0-9]{10,12}$/.test(timestamps[0]))return false
+    const timestamp=Number(timestamps[0].slice(2))
+    if(!Number.isSafeInteger(timestamp)||Math.abs(Math.trunc(nowMs/1000)-timestamp)>300)return false
+    const expected=crypto.createHmac('sha512',secret)
+      .update(Buffer.concat([Buffer.from(timestamp+'.'),Buffer.from(rawBody)])).digest('hex')
+    const target=Buffer.from(expected,'hex')
+    return parts.some(part=>{
+      const match=/^v1=whk_[A-Za-z0-9_-]+:([a-f0-9]{128})$/.exec(part)
+      return Boolean(match)&&crypto.timingSafeEqual(target,Buffer.from(match[1],'hex'))
+    })
+  }
+  return verifyPaystackWebhookSignature(rawBody,legacySignature)
 }
