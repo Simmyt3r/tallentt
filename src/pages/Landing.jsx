@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from 'react'
 import {Link} from 'react-router-dom'
-import {ArrowLeft,ArrowRight,Pause,Play,ArrowUpRight} from 'lucide-react'
+import {ArrowLeft,ArrowRight,Pause,Play,ArrowUpRight,Sparkles,Compass,ShieldCheck} from 'lucide-react'
 import {api} from '../lib/api.js'
 import GuestActionGate from '../components/GuestActionGate.jsx'
 import {CountLabel,formatGuestPrice} from './GuestDiscovery.jsx'
@@ -25,7 +25,7 @@ function LandingPanel({mode,data,onKeepUp}){
   const hats=data.showroom||[],bento=data.bento||[],vibes=data.vibes||[]
   if(mode==='showroom'){
     const item=hats[0]
-    return <div className="mx-auto h-full max-w-[570px] overflow-hidden rounded-[22px] bg-white shadow-xl">
+    return <div className="ct-showcase-card mx-auto h-full max-w-[570px] overflow-hidden rounded-[22px] bg-white shadow-xl">
       <div className="h-[60%] overflow-hidden"><IntroMedia item={item}/></div>
       <div className="space-y-1 px-5 py-4">
         {item?<><div className="flex items-center justify-between gap-3"><p className="text-[14px] font-black">{item.owner_full_name||item.username}</p><span className="rounded-full bg-[#E8B447] px-2.5 py-1 text-[10px] font-bold">Trending</span></div>
@@ -38,8 +38,8 @@ function LandingPanel({mode,data,onKeepUp}){
       </div>
     </div>
   }
-  if(mode==='bento')return <div className="mx-auto grid h-full max-w-[730px] grid-cols-2 gap-3 overflow-y-auto sm:gap-4">
-    {bento.length?bento.slice(0,4).map((item,i)=><article key={item.id} className="min-w-0 overflow-hidden rounded-[18px] bg-white shadow-sm">
+  if(mode==='bento')return <div className="ct-bento-grid mx-auto grid h-full max-w-[730px] grid-cols-2 gap-3 overflow-y-auto sm:gap-4">
+    {bento.length?bento.slice(0,4).map((item,i)=><article key={item.id} className="ct-bento-card min-w-0 overflow-hidden rounded-[18px] bg-white shadow-sm">
       <div className="h-[40%] min-h-[76px] overflow-hidden"><IntroMedia item={item}/></div>
       <div className="p-3">
         <p className="text-[10px] font-black text-amber-900">#{i+1} · Orbit {item.orbit_score??'—'}</p>
@@ -51,7 +51,7 @@ function LandingPanel({mode,data,onKeepUp}){
       </div>
     </article>):<div className="col-span-2 grid place-items-center rounded-xl bg-white/80 p-7 text-center text-[13px] text-black/60">Published Bento cards will appear here as Talent join.</div>}
   </div>
-  return <div className="mx-auto h-full max-w-[650px] space-y-3 overflow-y-auto rounded-[22px] bg-white/90 p-4 shadow-sm sm:p-6">
+  return <div className="ct-vibes-feed mx-auto h-full max-w-[650px] space-y-3 overflow-y-auto rounded-[22px] bg-white/90 p-4 shadow-sm sm:p-6">
     {vibes.length?vibes.slice(0,3).map((post,i)=><article key={post.id} className="rounded-xl border border-black/10 bg-white px-4 py-3">
       <div className="flex items-center justify-between gap-2">
         <Link to={'/profile/'+encodeURIComponent(post.username)} className="text-[13px] font-black">{post.owner_full_name||post.username}</Link>
@@ -95,25 +95,25 @@ export default function Landing(){
     })
     return()=>{cancelled=true;clearTimeout(transition.current)}
   },[])
-  return <div className="min-h-screen bg-[#F7F3EB] text-black">
-    <main className="mx-auto max-w-[1050px] px-4 pb-16 pt-8 sm:px-6 sm:pt-12">
-      <div className="mb-7 flex items-center justify-center">
-        <img src="/logo.png" alt="ChombuTar logo" className="h-16 w-16 rounded-full object-cover sm:h-20 sm:w-20"/>
+  return <div className="ct-landing min-h-screen text-white">
+    <main className="ct-landing-main relative mx-auto max-w-[1120px] px-4 pb-20 pt-7 sm:px-6 sm:pt-10">
+      <div className="ct-landing-brand mb-12 flex items-center justify-between gap-3 sm:mb-16">
+        <Link to="/" aria-label="ChombuTar home" className="flex items-center gap-3"><img src="/logo.png" alt="" className="h-11 w-11 rounded-full object-cover sm:h-12 sm:w-12"/><span className="text-[19px] font-black tracking-tight">Chombu<span className="text-[#F4C66C]">Tar</span></span></Link>
+        <span className="ct-landing-brand-tag"><span className="ct-live-dot"/>Made for real talent</span>
       </div>
-      <section aria-label="What Chombotar is" className="mb-12 text-center">
-        <h1 className="text-[31px] font-black tracking-tight sm:text-[54px]">What is Chombotar</h1>
-        <p className="mx-auto mt-4 max-w-[720px] text-[15px] leading-7 text-black/65 sm:text-[18px]">
-          A platform where Talents are showcased, discovered, kept up with, sponsored, hired and collaborated with.
-        </p>
+      <section aria-label="What Chombotar is" className="ct-landing-hero mb-12 text-center sm:mb-16">
+        <p className="ct-hero-eyebrow"><Sparkles size={14} aria-hidden="true"/> A new way to discover talent</p>
+        <h1 className="ct-hero-title">What is <span>Chombotar?</span></h1>
+        <p className="ct-hero-copy mx-auto mt-5 max-w-[690px] text-[15px] leading-7 sm:text-[19px] sm:leading-8">A platform where Talents are showcased, discovered, kept up with, sponsored, hired and collaborated with.</p>
       </section>
-      <section aria-label="Discover ChombuTar" className="space-y-3">
+      <section aria-label="Discover ChombuTar" className="ct-landing-discovery space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[12px] font-extrabold text-black/65">Across Nigeria · Trending by latest Orbit score</p>
-          <p className="text-[11px] font-semibold text-black/40">Public, moderated Talent previews</p>
+          <p className="ct-location-label"><Compass size={15} aria-hidden="true"/> Across Nigeria <span>·</span> Trending by latest Orbit score</p>
+          <p className="ct-trust-label"><ShieldCheck size={14} aria-hidden="true"/> Public, moderated previews</p>
         </div>
-        <div className="overflow-hidden rounded-[28px] border border-black/10 bg-gradient-to-br from-[#DCE6EC] via-[#F5DFC1] to-[#D7B874] p-3 shadow-lg sm:p-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-[13px] font-black">{PANEL_NAMES[active]}</span>
+        <div className="ct-landing-stage-shell overflow-hidden rounded-[28px] p-3 sm:p-5">
+          <div className="ct-stage-top mb-4 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3"><span className="ct-stage-index">0{active+1} / 03</span><span className="ct-stage-name truncate">{PANEL_NAMES[active]}</span></div>
             <div className="flex gap-2">
               <button type="button" aria-label="Previous panel" className="ct-guest-stage-control" onClick={()=>move(active-1)}><ArrowLeft size={18}/></button>
               <button type="button" aria-label={paused?'Play panels':'Pause panels'} aria-pressed={paused} className="ct-guest-stage-control" onClick={()=>setPaused(p=>!p)}>
@@ -129,14 +129,16 @@ export default function Landing(){
           </div>
           <div className="mt-3 flex items-center justify-center gap-2" aria-label="Landing stage panels">
             {MODES.map((mode,i)=><button type="button" key={mode} aria-label={'Show '+PANEL_NAMES[i]} aria-pressed={active===i}
-              onClick={()=>move(i)} className={'h-2.5 rounded-full transition-all '+(active===i?'w-8 bg-black':'w-2.5 bg-black/25')}/>)}
+              onClick={()=>move(i)} className={'h-2.5 rounded-full transition-all '+(active===i?'w-8 bg-[#F4C66C]':'w-2.5 bg-white/30')}/>)}
           </div>
         </div>
-        <p className="pt-2 text-center text-[12px] font-semibold text-black/55">{CAPTIONS[active]}</p>
+        <p className="ct-panel-caption pt-2 text-center text-[13px] font-medium">{CAPTIONS[active]}</p>
       </section>
-      <section aria-label="Get started" className="mt-10 flex flex-col items-center gap-3">
-        <Link to="/showroom" className="inline-flex min-h-[58px] w-full max-w-[350px] items-center justify-center gap-3 rounded-full bg-[#E8B447] px-8 text-[17px] font-black shadow-[0_7px_0_#9B722D] transition-transform hover:-translate-y-0.5">Enter Showroom <ArrowRight size={20}/></Link>
-        <Link to="/auth?mode=signup" className="mt-2 text-[13px] font-bold text-black/60 underline underline-offset-4">Sign Up / Log In</Link>
+      <section aria-label="Get started" className="ct-landing-cta mt-12 flex flex-col items-center gap-3 text-center sm:mt-14">
+        <p className="ct-cta-kicker">Your next discovery starts here</p>
+        <Link to="/showroom" className="ct-enter-button inline-flex min-h-[60px] w-full max-w-[350px] items-center justify-center gap-3 rounded-full px-8 text-[17px] font-black">Enter Showroom <ArrowRight size={20}/></Link>
+        <p className="ct-cta-note">Explore freely. Sign up only when you are ready to connect.</p>
+        <Link to="/auth?mode=signup" className="ct-auth-link mt-1 text-[13px] font-bold underline underline-offset-4">Sign Up / Log In</Link>
       </section>
     </main>
     <GuestActionGate intent={gate} onClose={()=>setGate(null)}/>
