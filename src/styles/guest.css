@@ -36,7 +36,7 @@
 .ct-landing .ct-guest-stage-control{width:40px;height:40px;flex-shrink:0;background:rgba(255,255,255,.07);color:#fff;border:1px solid rgba(255,255,255,.15)}
 .ct-landing .ct-guest-stage-control:hover{background:rgba(244,198,108,.16);border-color:rgba(244,198,108,.45)}
 .ct-landing .ct-guest-stage-control:focus-visible,.ct-landing a:focus-visible,.ct-landing button:focus-visible{outline:3px solid #f4c66c;outline-offset:3px}
-.ct-landing .ct-guest-stage{border-radius:20px;background:linear-gradient(135deg,#ebdfcc,#b9c8d0);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.ct-landing .ct-guest-stage{color:#142037;border-radius:20px;background:linear-gradient(135deg,#ebdfcc,#b9c8d0);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
 .ct-landing .ct-showcase-card{box-shadow:0 12px 48px rgba(16,28,44,.24)}
 .ct-landing .ct-bento-card{transition:transform .25s ease,box-shadow .25s ease;border:1px solid rgba(15,23,42,.07)}
 .ct-landing .ct-bento-card:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(16,28,44,.16)}
