@@ -128,7 +128,10 @@ test('temporary PostgreSQL failure rolls back and leaves signed webhook eligible
   const reference='webhook_db_retry_'+randomUUID(),event=payload(reference)
   providerSuccess(reference)
   const before=await balance(),n=await credits()
-  await pool.query("ALTER TABLE wallet_transactions ADD CONSTRAINT reject_webhook_test CHECK (type <> 'topup')")
+  // Target only this new reference; previous successful top-ups must stay
+  // valid when the failure-injection constraint is installed.
+  await pool.query(`ALTER TABLE wallet_transactions ADD CONSTRAINT reject_webhook_test
+    CHECK (reference <> '${reference}')`)
   try{
     const failed=await post(event)
     assert.equal(failed.status,503)
