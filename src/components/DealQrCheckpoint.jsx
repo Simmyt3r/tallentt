@@ -101,8 +101,29 @@ export default function DealQrCheckpoint({booking,role,onComplete,compact=false}
     camera.current?.stop();setScanning(false);setBusy('image');setError('')
     try{
       const {BrowserQRCodeReader}=await import('@zxing/browser')
-      const result=await new BrowserQRCodeReader().decodeFromImageUrl(src)
-      if(currentScope.current===requestScope)await redeem(result.getText())
+      const reader=new BrowserQRCodeReader()
+      let token
+      try{
+        token=(await reader.decodeFromImageUrl(src)).getText()
+      }catch{
+        // Some browsers intermittently fail to decode a freshly uploaded
+        // object URL. Decode the same image bytes through a canvas as a
+        // second independent ZXing path. Never accept the received token
+        // or release escrow merely because an image upload occurred.
+        const bitmap=await createImageBitmap(file)
+        try{
+          if(!bitmap.width||!bitmap.height)throw new Error('Empty QR image.')
+          const scale=Math.min(1,1400/Math.max(bitmap.width,bitmap.height))
+          const canvas=document.createElement('canvas')
+          canvas.width=Math.max(1,Math.round(bitmap.width*scale))
+          canvas.height=Math.max(1,Math.round(bitmap.height*scale))
+          const context=canvas.getContext('2d',{willReadFrequently:true})
+          if(!context)throw new Error('Image canvas unavailable.')
+          context.drawImage(bitmap,0,0,canvas.width,canvas.height)
+          token=reader.decodeFromCanvas(canvas).getText()
+        }finally{bitmap.close?.()}
+      }
+      if(currentScope.current===requestScope)await redeem(token)
     }catch{if(currentScope.current===requestScope)setError('No readable payment QR was found. Try a clearer image or enter the code.')}
     finally{URL.revokeObjectURL(src);if(currentScope.current===requestScope)setBusy('')}
   }
