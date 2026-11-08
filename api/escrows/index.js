@@ -14,7 +14,7 @@ import {getContentPrivacy,updateContentPrivacy,assertShowroomInquiryAllowed} fro
 import { getSessionUser } from '../_lib/auth.js'
 import { billingOverview, buySubscription, requestBusinessVerification } from '../_lib/billing.js'
 import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
-import { verifyPaystackWebhookSignature, verifyPaystackTransaction, initiateTransfer } from '../_lib/paystack.js'
+import { verifyPaystackSignedWebhook, verifyPaystackTransaction, initiateTransfer } from '../_lib/paystack.js'
 import { getWalletBalance, creditWallet, debitWallet, applyVerifiedTopup } from '../_lib/wallet.js'
 import {findWalletRecipient,transferWalletBalance} from '../_lib/walletPeerTransfers.js'
 import { applyVerifiedLegacyBookingCharge } from '../_lib/bookingCheckout.js'
@@ -156,14 +156,15 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return methodNotAllowed(res, ['POST'])
 
-  // Paystack webhook — point Paystack's dashboard at this same URL
-  // (https://chombutar.vercel.app/api/escrows). Distinguished from the
-  // app's own POSTs purely by the signature header, which only Paystack
-  // sends. Folded in here rather than a dedicated /api/webhooks/paystack
-  // endpoint (Vercel Hobby's 12-function cap).
-  const signature = req.headers['x-paystack-signature']
-  if (signature) {
-    return handlePaystackWebhook(req, res, signature)
+  // Accept Paystack's current timestamped signature and the legacy HMAC
+  // header while accounts migrate. The webhook shares this function with
+  // authenticated application POSTs to stay inside serverless limits.
+  const signatures={
+    newSignature:req.headers['paystack-signature'],
+    legacySignature:req.headers['x-paystack-signature'],
+  }
+  if(signatures.newSignature!==undefined||signatures.legacySignature!==undefined){
+    return handlePaystackWebhook(req,res,signatures)
   }
 
   try {
@@ -299,8 +300,10 @@ async function handleTopup(res, session, body) {
   try {
     txn = await verifyPaystackTransaction(reference)
   } catch (err) {
-    console.error('Paystack verification failed (topup):', err)
-    return json(res, 402, { error: err.message || 'Could not verify payment.' })
+    console.error('Paystack verification failed (topup):',err)
+    return json(res,err.retryable===true?503:(err.status||402),{
+      error:err.retryable===true?'Payment verification is temporarily unavailable. Please retry.':(err.message||'Could not verify payment.'),
+    })
   }
 
   try {
@@ -311,7 +314,8 @@ async function handleTopup(res, session, body) {
     })
     return json(res, 200, { balance, amount, alreadyProcessed, serviceFee, platformFee, vat, grossAmount })
   } catch (err) {
-    return json(res, err.status || 402, { error: err.message })
+    if(!err.status||err.status>=500)console.error('Wallet top-up application failure:',err)
+    return json(res,err.status||503,{error:err.status&&err.status<500?err.message:'Unable to apply top-up temporarily. Please retry.'})
   }
 }
 
@@ -398,10 +402,9 @@ async function refundFailedWithdrawal(userId, reference, amount) {
 // A legacy escrow_id is accepted solely for cached clients that started a
 // checkout before the wallet-only rollout; that charge is posted to the
 // wallet ledger first and the escrow is then funded from wallet atomically.
-async function handlePaystackWebhook(req, res, signature) {
-  const rawBody = await readRawBody(req)
-
-  if (!verifyPaystackWebhookSignature(rawBody, signature)) {
+async function handlePaystackWebhook(req,res,signatures){
+  const rawBody=await readRawBody(req)
+  if(!verifyPaystackSignedWebhook(rawBody,signatures)){
     console.error('Paystack webhook: signature mismatch — rejecting')
     return json(res, 401, { error: 'Invalid signature' })
   }
@@ -413,9 +416,9 @@ async function handlePaystackWebhook(req, res, signature) {
     return json(res, 400, { error: 'Invalid payload' })
   }
 
-  // Acknowledge everything we don't act on with 200 — Paystack retries
-  // non-2xx responses, and neither "wrong event type" nor a downstream
-  // business-logic mismatch is something a retry would fix.
+  // Non-payment events are acknowledged. The signed charge.success event
+  // below is acknowledged only after payment verification and wallet posting
+  // succeed, or when a permanent validation mismatch is identified.
   if (event?.event !== 'charge.success') {
     return json(res, 200, { received: true })
   }
@@ -444,11 +447,20 @@ async function handlePaystackWebhook(req, res, signature) {
         txn,
       })
     }
-  } catch (err) {
-    // Logged for manual reconciliation, not retried — a payload that
-    // fails validation now (amount mismatch, wrong currency, etc.) will
-    // fail identically on every retry.
-    console.error('Paystack webhook: failed to apply payment', { escrowId, walletUserId, reference: data.reference }, err)
+  } catch(err){
+    console.error('Paystack webhook: failed to apply payment',{
+      escrowId,walletUserId,reference:data.reference,retryable:err?.retryable===true,
+    },err)
+    // An unavailable Paystack verifier, DB outage or unexpected internal
+    // error must not return 200: Paystack would consider the event delivered
+    // and stop retrying. Permanent amount/owner/currency mismatches remain
+    // rejected and logged for manual finance reconciliation.
+    const retry=err?.retryable===true||!Number.isInteger(err?.status)||err.status>=500
+    if(retry){
+      res.setHeader('Retry-After','60')
+      return json(res,503,{error:'Temporary payment-processing failure. Please retry delivery.'})
+    }
+    return json(res,200,{received:true,processed:false})
   }
-  return json(res, 200, { received: true })
+  return json(res,200,{received:true,processed:true})
 }
