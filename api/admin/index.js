@@ -5,6 +5,7 @@ import {pendingVibesVideos,reviewVibesVideo} from '../_lib/vibesReview.js'
 import {reconcileCommissionLedger} from '../_lib/commissionLedger.js'
 import {financeSummary,financeAudit,financeLiabilityAudit} from '../_lib/financeReporting.js'
 import {financeIntegritySnapshot} from '../_lib/financeIntegrity.js'
+import {financePaystackReferenceReview} from '../_lib/financePaystackReview.js'
 import { adminBillingStatus, adminPlanPrice, adminReviewBusiness } from '../_lib/billing.js'
 import { adminSalaryPrice } from '../_lib/salaryTrackingFees.js'
 import {resolveBroadcastAvailability} from '../_lib/liveTransport.js'
@@ -314,6 +315,7 @@ async function getDashboard() {
 }
 
 async function handleAdminAction(admin, body) {
+  if(body?.action==='finance_paystack_reference')return financePaystackReferenceReview(body.reference)
   if(body?.action==='milestone_discovery_decision')return adminDiscoveryDecision(admin.id,body)
   if(body?.action==='milestone_revoke_award')return revokeVerifiedAward(admin.id,body)
   if(body?.action==='reconcile_commissions')return reconcileCommissionLedger(admin.id)
