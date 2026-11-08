@@ -95,10 +95,10 @@ export default function Landing(){
     })
     return()=>{cancelled=true;clearTimeout(transition.current)}
   },[])
-  return <div className="ct-landing min-h-screen text-white">
+  return <div className="ct-landing min-h-screen text-black">
     <main className="ct-landing-main relative mx-auto max-w-[1120px] px-4 pb-20 pt-7 sm:px-6 sm:pt-10">
       <div className="ct-landing-brand mb-12 flex items-center justify-between gap-3 sm:mb-16">
-        <Link to="/" aria-label="ChombuTar home" className="flex items-center gap-3"><img src="/logo.png" alt="" className="h-11 w-11 rounded-full object-cover sm:h-12 sm:w-12"/><span className="text-[19px] font-black tracking-tight">Chombu<span className="text-[#F4C66C]">Tar</span></span></Link>
+        <Link to="/" aria-label="ChombuTar home" className="flex items-center gap-3"><img src="/logo.png" alt="" className="h-11 w-11 rounded-full object-cover sm:h-12 sm:w-12"/><span className="text-[19px] font-black tracking-tight">Chombu<span className="text-[#0A13E6]">Tar</span></span></Link>
         <span className="ct-landing-brand-tag"><span className="ct-live-dot"/>Made for real talent</span>
       </div>
       <section aria-label="What Chombotar is" className="ct-landing-hero mb-12 text-center sm:mb-16">
@@ -129,7 +129,7 @@ export default function Landing(){
           </div>
           <div className="mt-3 flex items-center justify-center gap-2" aria-label="Landing stage panels">
             {MODES.map((mode,i)=><button type="button" key={mode} aria-label={'Show '+PANEL_NAMES[i]} aria-pressed={active===i}
-              onClick={()=>move(i)} className={'h-2.5 rounded-full transition-all '+(active===i?'w-8 bg-[#F4C66C]':'w-2.5 bg-white/30')}/>)}
+              onClick={()=>move(i)} className={'h-2.5 rounded-full transition-all '+(active===i?'w-8 bg-[#0A13E6]':'w-2.5 bg-[#0A13E6]/20')}/>)}
           </div>
         </div>
         <p className="ct-panel-caption pt-2 text-center text-[13px] font-medium">{CAPTIONS[active]}</p>
