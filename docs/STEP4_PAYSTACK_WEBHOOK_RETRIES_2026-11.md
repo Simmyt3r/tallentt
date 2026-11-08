@@ -33,3 +33,10 @@ An internally verified Paystack transaction and posted wallet journal are **not*
 - Staging: webhook pointing to the test endpoint, signed test Paystack callbacks and duplicate delivery. Check that responses return 503 for transient failures and 200 after successful application. **No live-money experiments.**
 
 Paystack documentation: https://paystack.com/docs/payments/webhooks/ and https://paystack.com/docs/api/transaction/.
+
+
+## QR image acceptance hardening
+
+The Browser QR completion test surfaced an intermittent ZXing image-URL decode failure when a valid generated PNG was uploaded. The scanner now attempts a second ZXing decode using the same uploaded image pixels on a bounded canvas (maximum dimension 1400 px) if image-URL decoding fails. No other payment token is substituted: both paths must extract the actual QR text before server-side, participant-scoped token redemption.
+
+The existing `tests/deal-payments-qr-ui.mjs` covers the real saved QR image path and 30/70 release after work approval. Server-side integration tests separately cover invalid/expired/replaced codes, wrong participants, concurrent redemption, rollback and dispute handling. Both paths must pass before merging.
