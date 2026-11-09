@@ -2,6 +2,7 @@
 -- Requires patch-ad-finance-foundation-2026-11.sql.
 -- Does not enable billing, paid activation or wallet mutations.
 BEGIN;
+ALTER TABLE ad_advertisers ADD COLUMN IF NOT EXISTS review_note TEXT;
 ALTER TABLE ad_campaigns ADD COLUMN IF NOT EXISTS request_key UUID;
 ALTER TABLE ad_campaigns ADD COLUMN IF NOT EXISTS reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE ad_campaigns ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
