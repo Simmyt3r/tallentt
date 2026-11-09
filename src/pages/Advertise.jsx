@@ -45,7 +45,7 @@ export default function Advertise(){
     catch(e){setAssets(prev=>({...prev,[id]:{error:e.message}}))}
   }
   return <div className="mx-auto max-w-5xl space-y-6 pb-12">
-    <CompactPageHeader title="Advertise on ChombuTar"/>
+    <CompactPageHeader title="Advertise on ChombuTar" showSearch={false}/>
     <p className="text-sm text-black/65">Prepare campaigns and request approval. Pricing, funding and live advertising are not enabled yet.</p>
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     {notice&&<p role="status" className="rounded-xl bg-blue-50 p-4 text-sm text-blue-800">{notice}</p>}
