@@ -3,6 +3,7 @@ import {api} from '../lib/api.js'
 import AdminFinanceAudit from './AdminFinanceAudit.jsx'
 import AdminFinanceIntegrity from './AdminFinanceIntegrity.jsx'
 import AdminPaystackReferenceReview from './AdminPaystackReferenceReview.jsx'
+import AdminAdSettlementReview from './AdminAdSettlementReview.jsx'
 
 const money=value=>{
  if(value===null||value===undefined)return 'Not recorded'
@@ -104,6 +105,7 @@ export default function AdminFinanceLedger(){
         </p>
       </section>
       <AdminFinanceIntegrity />
+      <AdminAdSettlementReview />
       <AdminPaystackReferenceReview />
       <section className="rounded-2xl border border-black/15 bg-white p-4" aria-label="Platform owner revenue">
         <h4 className="text-[14px] font-black">Platform owners' income account</h4>
