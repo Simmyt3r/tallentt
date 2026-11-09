@@ -20,7 +20,7 @@ const hat={id:hatId,user_id:talentId,username:'amaka_guest',owner_full_name:'Ama
   orbit_score:8.5,discovery_count:12,keepup_count:9,
   media:[{url:'/logo.png',type:'image',caption:'Fine Hat'}]}
 const vibe={id:vibeId,user_id:talentId,username:'amaka_guest',owner_full_name:'Amaka',
-  body:'New fine hat finished today.',media:[],created_at:'2026-11-07T11:00:00Z',likes:2,comments:1}
+  body:'New fine hat finished today.',media:[{url:'/logo.png',type:'image'},{url:'/fixture-vibe.mp4',type:'video'}],created_at:'2026-11-07T11:00:00Z',likes:2,comments:1}
 let browser
 try {
   await vite.listen()
@@ -72,6 +72,13 @@ try {
     await page.getByText('Bento Feed — Talent cards ranked by their latest Orbit.').waitFor()
     await page.getByRole('button',{name:'Show Hits & Vibes'}).click()
     await page.getByText('Hits & Vibes — New public work from Talent you can KeepUp with.').waitFor()
+    const vibePreview=page.locator('.ct-vibes-feed article').first()
+    await vibePreview.locator('img[src="/logo.png"]').waitFor()
+    const vibeVideo=vibePreview.locator('video[src="/fixture-vibe.mp4"]')
+    await vibeVideo.waitFor()
+    assert.equal(await vibeVideo.getAttribute('controls'),'','landing Vibes video must have playback controls')
+    assert.equal(await vibePreview.locator('.ct-landing-vibe-media').count(),1,'Vibes media appears with its post')
+
     await page.getByRole('link',{name:/Enter Showroom/}).click()
     await page.getByRole('heading',{name:'Guest Showroom'}).waitFor()
     assert.equal(mutationActions.length,0,'guest landing and Showroom cannot mutate state')

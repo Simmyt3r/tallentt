@@ -51,15 +51,23 @@ function LandingPanel({mode,data,onKeepUp}){
       </div>
     </article>):<div className="col-span-2 grid place-items-center rounded-xl bg-white/80 p-7 text-center text-[13px] text-black/60">Published Bento cards will appear here as Talent join.</div>}
   </div>
-  return <div className="ct-vibes-feed mx-auto h-full max-w-[650px] space-y-3 overflow-y-auto rounded-[22px] bg-white/90 p-4 shadow-sm sm:p-6">
-    {vibes.length?vibes.slice(0,3).map((post,i)=><article key={post.id} className="rounded-xl border border-black/10 bg-white px-4 py-3">
-      <div className="flex items-center justify-between gap-2">
-        <Link to={'/profile/'+encodeURIComponent(post.username)} className="text-[13px] font-black">{post.owner_full_name||post.username}</Link>
-        <span className="text-[10px] text-black/40">{new Date(post.created_at).toLocaleDateString('en-NG')}</span>
-      </div>
-      <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-black/70">{post.body||'New work from Talent'}</p>
-      <p className="mt-2 text-[11px] text-black/45">❤ {post.likes} · {post.comments} comments</p>
-    </article>):<div className="grid h-full place-items-center rounded-xl bg-white p-6 text-[13px] text-black/55">Public Talent updates will appear here when shared.</div>}
+  return <div className="ct-vibes-feed mx-auto h-full max-w-[650px] space-y-3 overflow-y-auto rounded-[22px] bg-white/90 p-3 shadow-sm sm:p-5">
+    {vibes.length?vibes.slice(0,3).map(post=>{
+      const media=(Array.isArray(post.media)?post.media:[]).filter(item=>item?.url&&['image','video'].includes(item.type)).slice(0,2)
+      return <article key={post.id} className="overflow-hidden rounded-[18px] border border-black/10 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-2 px-4 pt-3">
+          <Link to={'/profile/'+encodeURIComponent(post.username)} className="truncate text-[13px] font-black text-[#0A13E6] hover:underline">{post.owner_full_name||post.username}</Link>
+          <span className="shrink-0 text-[10px] text-black/45">{new Date(post.created_at).toLocaleDateString('en-NG')}</span>
+        </div>
+        {media.length>0&&<div className={'ct-landing-vibe-media mt-3 grid gap-1 '+(media.length>1?'grid-cols-2':'grid-cols-1')}>
+          {media.map((item,index)=>item.type==='video'
+            ?<video key={index} className="h-full w-full bg-black object-contain" src={item.url} controls playsInline preload="metadata" aria-label={'Video by '+(post.owner_full_name||post.username)}/>
+            :<img key={index} className="h-full w-full object-cover" src={item.url} loading="lazy" alt={'Published image '+(index+1)+' by '+(post.owner_full_name||post.username)}/>)}
+        </div>}
+        {post.body&&<p className="mt-3 line-clamp-2 break-words px-4 text-[13px] leading-relaxed text-black/70">{post.body}</p>}
+        <p className="px-4 pb-3 pt-3 text-[11px] font-medium text-black/50">❤ {post.likes??0} · {post.comments??0} comments</p>
+      </article>
+    }):<div className="grid h-full place-items-center rounded-xl bg-white p-6 text-[13px] text-black/55">Public Talent updates will appear here when shared.</div>}
   </div>
 }
 export default function Landing(){
