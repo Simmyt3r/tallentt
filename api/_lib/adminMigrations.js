@@ -8,6 +8,9 @@ import { query, getClient } from './db.js'
 const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
+  {id:'ad-finance-foundation-2026-11',title:'Advertising campaign financial foundation (inactive)',
+   description:'Adds isolated advertiser, campaign, immutable pricing-term, evidence, liability and allocation tables. No existing wallet/deal data changes and no payouts or campaign activation.',
+   path:new URL('../../db/patch-ad-finance-foundation-2026-11.sql',import.meta.url)},
   {id:'orbit-explorer-proof-2026-11',title:'Explorer rewards and evidence-backed Discovery actions',
    description:'After Verified Orbit. Adds first-pair Explorer +1, durable Save actions, shared link proof, and second approved media evidence for genuine Discovery. No historical awards or funds.',
    path:new URL('../../db/patch-orbit-explorer-proof-2026-11.sql',import.meta.url)},
