@@ -21,23 +21,23 @@ export default function Advertise(){
   async function execute(body,label){
     if(busy)return
     setBusy(true);setError('');setNotice('')
-    try{await api.advertisingAction(body);setNotice(label);await load()}
-    catch(e){setError(e.message||'Request failed.')}
+    try{await api.advertisingAction(body);setNotice(label);await load();return true}
+    catch(e){setError(e.message||'Request failed.');return false}
     finally{setBusy(false)}
   }
   async function create(event){
     event.preventDefault()
     if(!selected){setError('Register your advertiser first.');return}
     const previousKey=key
-    try{
-      await execute({action:'ad_create',advertiser_id:selected,request_key:previousKey,...draft},'Draft campaign saved.')
+    if(await execute({action:'ad_create',advertiser_id:selected,request_key:previousKey,...draft},'Draft campaign saved.')){
       setKey(newKey());setDraft(empty)
-    }catch{/* execute displays errors */}
+    }
   }
   async function addCreative(event){
     event.preventDefault()
-    await execute({action:'ad_creative_add',...media},'Creative submitted for review.')
-    setMedia(x=>({...x,media_url:'',caption:''}))
+    if(await execute({action:'ad_creative_add',...media},'Creative saved for review.')){
+      setMedia(x=>({...x,media_url:'',caption:''}))
+    }
   }
   async function openCreatives(id){
     try{setAssets(prev=>({...prev,[id]:{loading:true}}))
