@@ -12,6 +12,7 @@ import {communityChatsGet,communityChatsAction} from '../_lib/communityChats.js'
 import {associatesGet,associatesAction} from '../_lib/associates.js'
 import {getContentPrivacy,updateContentPrivacy,assertShowroomInquiryAllowed} from '../_lib/contentPrivacy.js'
 import { getSessionUser } from '../_lib/auth.js'
+import {advertisingGet,advertisingCreatives,advertisingAction} from '../_lib/adCampaigns.js'
 import { billingOverview, buySubscription, requestBusinessVerification } from '../_lib/billing.js'
 import { json, methodNotAllowed, readBody, readRawBody } from '../_lib/http.js'
 import { verifyPaystackSignedWebhook, verifyPaystackTransaction, initiateTransfer } from '../_lib/paystack.js'
@@ -39,6 +40,8 @@ export default async function handler(req, res) {
       if (!session?.sub) return json(res, 401, { error: 'Unauthorized' })
 
       const url = new URL(req.url, `http://${req.headers.host}`)
+      if(url.searchParams.get('advertising')==='1')return json(res,200,await advertisingGet(session.sub))
+      if(url.searchParams.get('ad_creatives'))return json(res,200,await advertisingCreatives(session.sub,url.searchParams.get('ad_creatives')))
       if(url.searchParams.get('milestone_seals')==='1')return json(res,200,await getMilestoneSeals(session.sub))
       if(url.searchParams.has('deal_agreement'))return json(res,200,await getDealAgreement(session.sub,url.searchParams.get('deal_agreement')))
       if(url.searchParams.get('billing')==='1')return json(res,200,await billingOverview(session.sub))
@@ -173,6 +176,7 @@ export default async function handler(req, res) {
 
     const body = await readBody(req)
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json(res, 400, { error: 'A JSON object is required.' })
+    if(['ad_register','ad_create','ad_edit','ad_creative_add','ad_submit'].includes(body.action))return json(res,200,await advertisingAction(session.sub,body))
     if(['seal_create','seal_sign','seal_cancel'].includes(body.action))return json(res,200,await milestoneSealAction(session.sub,body))
     if(body.action==='cancel_unfunded_deal')return json(res,200,await cancelUnfundedDeal(session.sub,body.deal_id,body.reason))
     if(body.action==='billing_subscribe')return json(res,200,await buySubscription(session.sub,body))

@@ -10,6 +10,7 @@ import {
   ArrowLeftRight,
   Scale,
   Radio,
+  Megaphone,
 } from 'lucide-react'
 
 export const NAV_PRIMARY = [
@@ -23,6 +24,7 @@ export const NAV_PRIMARY = [
 ]
 
 export const NAV_SECONDARY = [
+  { to: '/advertise', icon: Megaphone, label: 'Advertise' },
   { to: '/negotiations', icon: ArrowLeftRight, label: 'Negotiation Center' },
   { to: '/wallet', icon: WalletIcon, label: 'Wallet' },
   { to: '/disputes', icon: Scale, label: 'Dispute Center' },
