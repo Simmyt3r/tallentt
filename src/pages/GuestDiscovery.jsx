@@ -3,6 +3,7 @@ import {Link,useNavigate,useParams,useSearchParams} from 'react-router-dom'
 import {ArrowLeft,ArrowRight,Bookmark,Heart,MessageCircle,Share2,UserRoundPlus,MapPin,Eye,BriefcaseBusiness} from 'lucide-react'
 import {api} from '../lib/api.js'
 import GuestActionGate from '../components/GuestActionGate.jsx'
+import SponsoredHatSlot from '../components/SponsoredHatSlot.jsx'
 
 export function formatGuestPrice(hat){
   const money=n=>Number.isFinite(Number(n))?new Intl.NumberFormat('en-NG',{style:'currency',currency:hat.currency||'NGN',maximumFractionDigits:0}).format(Number(n)):null
@@ -56,6 +57,7 @@ export function GuestHatCard({hat,onGate,large=false}){
         <CountLabel label="KeepUp" value={hat.keepup_count}/>
       </div>
       <GuestActions hat={hat} onGate={onGate} compact={!large}/>
+      {!hat.is_entertainment&&<SponsoredHatSlot hatId={hat.id} ownerId={hat.user_id} compact={!large}/>}
     </div>
   </article>
 }
@@ -193,6 +195,7 @@ export function GuestHat(){
         </div>
         {hat.motto&&<p className="text-[14px] text-black/70">{hat.motto}</p>}
         <GuestActions hat={hat} onGate={setGate}/>
+        {!hat.is_entertainment&&<SponsoredHatSlot hatId={hat.id} ownerId={hat.user_id}/>}
         <div className="flex flex-wrap gap-2">
           {(hat.is_entertainment?['message']:['collab','hire','sponsor','message']).map(intent=><button type="button" key={intent} onClick={()=>setGate({...info,intent})}
             className="min-h-10 rounded-full border border-black/10 px-4 text-[12px] font-semibold">

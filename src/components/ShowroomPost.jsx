@@ -6,6 +6,7 @@ import AvailabilityBadge from './AvailabilityBadge'
 import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
 import RoleCardBadge from './RoleCardBadge'
+import SponsoredHatSlot from './SponsoredHatSlot.jsx'
 
 // True when a clamped paragraph is actually cut off, so "More" only shows
 // when there is something more to read. Re-measured on resize because the
@@ -205,6 +206,7 @@ function ShowroomPost({
           )}
         </UserIdentity>
       </div>
+      {!hat.is_entertainment&&hat.role==='talent'&&<SponsoredHatSlot hatId={hat.id} ownerId={hat.user_id} compact/>}
     </article>
   )
 }

@@ -3,6 +3,7 @@ import {useNavigate} from 'react-router-dom'
 import {Bell,BookOpen,Eye,EyeOff,HardDriveDownload,LockKeyhole,Settings2,ShieldCheck,SlidersHorizontal,Wallet} from 'lucide-react'
 import {useAuth} from '../context/AuthContext.jsx'
 import PushNotificationSettings from '../components/PushNotificationSettings.jsx'
+import AdParticipationControls from '../components/AdParticipationControls.jsx'
 import {api} from '../lib/api.js'
 import {clearSavedVideos,getSavedVideoSummary} from '../lib/offlineVideo.js'
 import {restartPageTours} from '../lib/pageTour.js'
@@ -170,6 +171,7 @@ export default function Settings(){
           <option value="nobody">Only me</option>
         </select>
       </div>
+      <AdParticipationControls/>
       {!loadingPrivacy&&!content.installed&&<p role="status" className="text-[11px] text-amber-800">
         An administrator must apply the Subscriber Content Privacy migration to enable Showroom and Vibes restrictions.
       </p>}
