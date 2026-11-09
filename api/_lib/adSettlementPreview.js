@@ -54,9 +54,10 @@ export async function adminAdvertisingSettlementPreview(campaignId){
       budget_cap_naira::text AS budget_cap_naira,minimum_billable_units,
       platform_bps,talent_bps,explorer_bps,approved_at,accepted_at
       FROM ad_campaign_terms WHERE campaign_id=$1 ORDER BY version DESC LIMIT 5`,[campaignId]),
-    query(`SELECT COALESCE(SUM(amount_naira),0)::text AS verified_funding,
-      COUNT(*) FILTER (WHERE status='verified')::int AS verified_receipts
-      FROM ad_funding_receipts WHERE campaign_id=$1 AND status='verified' AND verified_at IS NOT NULL`,[campaignId]),
+    query(`SELECT COALESCE(SUM(amount_naira) FILTER(
+        WHERE verified_at<=COALESCE($2::timestamptz,now())),0)::text AS verified_funding,
+      COUNT(*) FILTER (WHERE verified_at<=COALESCE($2::timestamptz,now()))::int AS verified_receipts
+      FROM ad_funding_receipts WHERE campaign_id=$1 AND status='verified' AND verified_at IS NOT NULL`,[campaignId,start]),
     query(`SELECT terms_id,event_type,COUNT(*)::text AS units
       FROM ad_billable_events WHERE campaign_id=$1 AND verified_at IS NOT NULL
         AND invalidated_at IS NULL
@@ -101,6 +102,8 @@ export async function adminAdvertisingSettlementPreview(campaignId){
   const {rows:detach}=await query(`SELECT COUNT(*)::int AS detached FROM ad_hat_placements WHERE campaign_id=$1 AND state='detached'`,[campaignId])
   if(detach[0]?.detached>0)blockers.push('Detached placements require an agreed earnings adjustment.')
   const term=accepted.length===1?accepted[0]:null
+  if(term&&start&&(new Date(term.approved_at)>start||new Date(term.accepted_at)>start))
+    blockers.push('Commercial pricing was not approved and accepted before campaign commencement.')
   const verifiedFunding=toBig(funding[0]?.verified_funding)
   let candidateEarned=null,preview=null,eligibleUnits=null
   if(term){
