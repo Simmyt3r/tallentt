@@ -75,7 +75,9 @@ test('Admin click automatically provisions storage and activates real ECDSA sign
   assert.equal(pass.signatureStatus,'signed')
   assert.equal(pass.keyId,first)
   assert.equal(validateToken(pass.token,publicData),true)
-  assert.equal(validateToken(pass.token.slice(0,-2)+'aa',publicData),false)
+  const parts=pass.token.split('.')
+  parts[2]=(parts[2][0]==='A'?'B':'A')+parts[2].slice(1)
+  assert.equal(validateToken(parts.join('.'),publicData),false)
   const duplicate=await adminRequest({method:'POST',body:{action:'activate_work_pass_signing'}})
   assert.equal(duplicate.status,409)
   const {rows:audit}=await pool.query(`SELECT COUNT(*)::int AS count
