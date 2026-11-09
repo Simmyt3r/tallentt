@@ -58,6 +58,10 @@ export async function request(path,options={}){
 }
 
 export const api = {
+  getSponsoredPlacements: ids => request('/api/hats?ad_slots='+encodeURIComponent(ids.join(',')),{cache:'no-store'}),
+  getTalentAdvertisingPolicy: () => request('/api/escrows?ad_policy=1',{cache:'no-store'}),
+  acceptTalentAdPolicy: version => request('/api/escrows',{method:'POST',body:JSON.stringify({action:'ad_policy_accept',policy_version:version,agree:true})}),
+  detachSponsoredPlacement: placement_id => request('/api/escrows',{method:'POST',body:JSON.stringify({action:'ad_detach',placement_id})}),
   getMyAdvertising: () => request('/api/escrows?advertising=1',{cache:'no-store'}),
   getMyAdCreatives: id => request('/api/escrows?ad_creatives='+encodeURIComponent(id),{cache:'no-store'}),
   advertisingAction: body => request('/api/escrows',{method:'POST',body:JSON.stringify(body)}),
