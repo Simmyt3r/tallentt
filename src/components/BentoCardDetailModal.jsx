@@ -15,6 +15,7 @@ import { cldImage, cldVideo, cldVideoPoster } from '../lib/cloudinary'
 import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import UserIdentity from './UserIdentity'
 import CardOwnerHatDetails from './CardOwnerHatDetails.jsx'
+import SponsoredHatSlot from './SponsoredHatSlot.jsx'
 
 // Publication date, shared by the feed's `created_at` and the detail
 // API's `created_at` — same underlying column either way.
@@ -519,6 +520,7 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
           <CardOwnerHatDetails detail={loaded ? detail : null} hat={hat}/>
 
           <EscrowBadge hat={hat} escrow={escrow} />
+          {hat.role==='talent'&&<SponsoredHatSlot hatId={hat.id} ownerId={hat.user_id}/>}
 
           <div className="sticky bottom-0 -mx-4 md:-mx-5 -mb-4 md:-mb-5 px-4 md:px-5 py-3 bg-white border-t-[1.5px] border-black/10 flex gap-2">
             <button
