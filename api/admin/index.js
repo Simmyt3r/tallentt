@@ -8,6 +8,7 @@ import {financeIntegritySnapshot} from '../_lib/financeIntegrity.js'
 import {financePaystackReferenceReview} from '../_lib/financePaystackReview.js'
 import { adminBillingStatus, adminPlanPrice, adminReviewBusiness } from '../_lib/billing.js'
 import { adminSalaryPrice } from '../_lib/salaryTrackingFees.js'
+import {adminAdvertisingQueue,adminAdvertisingReview} from '../_lib/adCampaigns.js'
 import {resolveBroadcastAvailability} from '../_lib/liveTransport.js'
 import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
@@ -53,6 +54,7 @@ export default async function handler(req, res) {
       const params = new URL(req.url, `http://${req.headers.host}`).searchParams
       if (params.get('action') === 'finance_liability_audit')
         return json(res,200,await financeLiabilityAudit({kind:params.get('kind')||'escrow',cursor:params.get('cursor')}))
+      if (params.get('action') === 'ad_review_queue')return json(res,200,await adminAdvertisingQueue())
       if (params.get('action') === 'billing_admin') return json(res,200,await adminBillingStatus())
       if (params.get('action') === 'finance_summary') return json(res,200,await financeSummary())
       if (params.get('action') === 'finance_integrity') return json(res,200,await financeIntegritySnapshot())
@@ -114,6 +116,7 @@ export default async function handler(req, res) {
     }
 
     try {
+      if(body?.action==='ad_review')return json(res,200,await adminAdvertisingReview(admin.id,body))
       const result = await handleAdminAction(admin, body)
       return json(res, 200, result)
     } catch (err) {
