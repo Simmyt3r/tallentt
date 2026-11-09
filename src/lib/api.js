@@ -58,6 +58,11 @@ export async function request(path,options={}){
 }
 
 export const api = {
+  getMyAdvertising: () => request('/api/escrows?advertising=1',{cache:'no-store'}),
+  getMyAdCreatives: id => request('/api/escrows?ad_creatives='+encodeURIComponent(id),{cache:'no-store'}),
+  advertisingAction: body => request('/api/escrows',{method:'POST',body:JSON.stringify(body)}),
+  getAdReviewQueue: () => request('/api/admin?action=ad_review_queue',{cache:'no-store'}),
+  adminAdReview: body => request('/api/admin',{method:'POST',body:JSON.stringify({action:'ad_review',...body})}),
   // Auth — one consolidated endpoint (api/auth/index.js). Was six separate
   // files (login/logout/me/register/username-check/profile) until that
   // put the deployment over Vercel Hobby's 12-function cap; see the
