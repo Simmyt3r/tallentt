@@ -36,12 +36,14 @@ export async function advertisingAction(userId,body){
   if(body.action==='ad_register'){
     const name=validateAdvertiserName(body.legal_name)
     const {rows}=await query(`WITH added AS (
-      INSERT INTO ad_advertisers(owner_id,legal_name) VALUES($1,$2)
+      INSERT INTO ad_advertisers(owner_id,legal_name)
+      SELECT $1,$2 WHERE (SELECT COUNT(*) FROM ad_advertisers WHERE owner_id=$1)<3
       ON CONFLICT DO NOTHING RETURNING id
     ) SELECT id FROM added UNION ALL
     SELECT id FROM ad_advertisers WHERE owner_id=$1 AND lower(btrim(legal_name))=lower($2)
     LIMIT 1`,[userId,name])
-    return {advertiser_id:rows[0]?.id,status:'pending'}
+    if(!rows.length)throw fail(409,'Advertiser already exists or the registration limit was reached.')
+    return {advertiser_id:rows[0].id,status:'pending'}
   }
   if(body.action==='ad_create'){
     const data=validateCampaignDraft(body)
@@ -50,6 +52,7 @@ export async function advertisingAction(userId,body){
       INSERT INTO ad_campaigns(advertiser_id,title,target_location,target_work_type,request_key)
       SELECT id,$3,$4,$5,$6 FROM ad_advertisers
       WHERE id=$1 AND owner_id=$2 AND status IN ('pending','approved')
+        AND (SELECT COUNT(*) FROM ad_campaigns WHERE advertiser_id=$1)<30
       ON CONFLICT DO NOTHING RETURNING id
     ) SELECT id FROM added UNION ALL
     SELECT c.id FROM ad_campaigns c JOIN ad_advertisers a ON a.id=c.advertiser_id
@@ -70,12 +73,13 @@ export async function advertisingAction(userId,body){
   }
   if(body.action==='ad_creative_add'){
     const id=requireId(body.campaign_id)
-    const data=validateCreative(body,process.env.CLOUDINARY_CLOUD_NAME)
+    const data=validateCreative(body,(process.env.CLOUDINARY_CLOUD_NAME||process.env.VITE_CLOUDINARY_CLOUD_NAME))
     const {rows}=await query(`WITH added AS (
       INSERT INTO ad_creatives(campaign_id,media_type,media_url,caption)
       SELECT c.id,$3,$4,$5 FROM ad_campaigns c
       JOIN ad_advertisers a ON a.id=c.advertiser_id
       WHERE c.id=$1 AND a.owner_id=$2 AND c.state='draft'
+        AND (SELECT COUNT(*) FROM ad_creatives WHERE campaign_id=$1)<5
       ON CONFLICT DO NOTHING RETURNING id
     ) SELECT id FROM added UNION ALL
     SELECT cr.id FROM ad_creatives cr JOIN ad_campaigns c ON c.id=cr.campaign_id
