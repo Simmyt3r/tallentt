@@ -7,6 +7,7 @@ import BentoCardDetailModal from './BentoCardDetailModal'
 import UserIdentity from './UserIdentity'
 import RoleCardBadge from './RoleCardBadge'
 import WorkPassDrawer from './WorkPassDrawer.jsx'
+import SponsoredHatSlot from './SponsoredHatSlot.jsx'
 import {workPassTier,workPassAccent} from '../../shared/workPass.js'
 import { identityFromHat } from '../lib/profile.js'
 import { getHatAccent, getShowroomTemplate } from '../lib/hatPresentation.js'
@@ -234,6 +235,7 @@ export default function BentoCard({ hat, onBook, onApply, escrow, onHatChange, f
             </button>
           )}
         </div>
+        {isTalent&&<SponsoredHatSlot hatId={hat.id} ownerId={hat.user_id}/>}
         {shareMessage&&<p role="status" className="mt-1 text-[11px] text-[#0A13E6]">{shareMessage}</p>}
       </article>
 
