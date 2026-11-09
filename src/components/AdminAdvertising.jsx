@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react'
 import {api} from '../lib/api.js'
+import AdminAdSettlementReview from './AdminAdSettlementReview.jsx'
 
 const sections=[
   {kind:'advertiser',key:'advertisers',heading:'Advertiser verification'},
@@ -32,6 +33,7 @@ export default function AdminAdvertising(){
     {error&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{error}</p>}
     {notice&&<p role="status" className="rounded-lg bg-blue-50 p-3 text-xs text-blue-800">{notice}</p>}
     {!queue&&!error&&<p role="status" className="text-xs">Loading advertising reviews…</p>}
+    <AdminAdSettlementReview/>
     {sections.map(section=><section key={section.kind} className="space-y-3">
       <h3 className="text-sm font-black">{section.heading}</h3>
       {(queue?.[section.key]||[]).length===0?<p className="text-xs text-black/50">No pending items.</p>:queue[section.key].map(item=><article key={item.id} className="space-y-2 rounded-xl border border-black/10 bg-white p-4">
