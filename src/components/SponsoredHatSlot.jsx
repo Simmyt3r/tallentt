@@ -49,7 +49,7 @@ export default function SponsoredHatSlot({hatId,ownerId,compact=false}){
   const isOwner=Boolean(user?.id&&ownerId&&user.id===ownerId)
   async function detach(){
     if(busy)return
-    if(!window.confirm('Detach this sponsored advert from your Hat? This does not affect existing work or previously earned revenue.'))return
+    if(!window.confirm('Detach this sponsored advert from your Hat? This stops future display. Any earning adjustment follows the campaign terms.'))return
     setBusy(true);setError('')
     try{await api.detachSponsoredPlacement(placement.id);setPlacement(null)}
     catch(e){setError(e.message||'Could not detach this advertisement.')}
