@@ -34,6 +34,7 @@ import AdminShowroomReports from '../components/AdminShowroomReports.jsx'
 import AdminShowroomGallery from '../components/AdminShowroomGallery.jsx'
 import AdminVibesVideoReview from '../components/AdminVibesVideoReview.jsx'
 import AdminFinanceLedger from '../components/AdminFinanceLedger.jsx'
+import AdminAdvertising from '../components/AdminAdvertising.jsx'
 import AdminShowroomConfig from '../components/AdminShowroomConfig.jsx'
 import UserIdentity from '../components/UserIdentity'
 import { identityFromHat, identityFromRow, resolveIdentity } from '../lib/profile.js'
@@ -43,6 +44,7 @@ const SECTIONS = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'deals', label: 'Deals & Escrow', icon: Handshake },
   { id: 'finance', label: 'Finance', icon: Wallet },
+  { id: 'advertising', label: 'Advertising Review', icon: Activity },
   { id: 'billing', label: 'Membership & Verification', icon: BadgeCheck },
   { id: 'disputes', label: 'Disputes', icon: Gavel },
   { id: 'hats', label: 'Hats', icon: Briefcase },
@@ -283,6 +285,7 @@ export default function Admin() {
               </>}
               {tab === 'deals' && <EscrowsTable rows={filtered} busy={busy} runAction={runAction} />}
               {tab === 'billing' && <AdminBilling />}
+               {tab === 'advertising' && <AdminAdvertising />}
               {tab === 'finance' && <>
                 <AdminFinanceLedger/>
                 <div className="border-t border-black/10 p-4">
