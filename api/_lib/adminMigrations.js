@@ -8,6 +8,9 @@ import { query, getClient } from './db.js'
 const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
+  {id:'ad-campaign-management-2026-11',title:'Advertiser and campaign editorial review (inactive)',
+   description:'Requires Advertising Financial Foundation. Adds draft idempotency, creative metadata and review audit history; no billing or automatic campaign activation.',
+   path:new URL('../../db/patch-ad-campaign-management-2026-11.sql',import.meta.url)},
   {id:'ad-finance-foundation-2026-11',title:'Advertising campaign financial foundation (inactive)',
    description:'Adds isolated advertiser, campaign, immutable pricing-term, evidence, liability and allocation tables. No existing wallet/deal data changes and no payouts or campaign activation.',
    path:new URL('../../db/patch-ad-finance-foundation-2026-11.sql',import.meta.url)},
