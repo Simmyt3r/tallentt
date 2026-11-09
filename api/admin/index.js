@@ -9,6 +9,7 @@ import {financePaystackReferenceReview} from '../_lib/financePaystackReview.js'
 import { adminBillingStatus, adminPlanPrice, adminReviewBusiness } from '../_lib/billing.js'
 import { adminSalaryPrice } from '../_lib/salaryTrackingFees.js'
 import {adminAdvertisingQueue,adminAdvertisingReview} from '../_lib/adCampaigns.js'
+import {adminAdvertisingSettlementOverview,adminAdvertisingSettlementPreview} from '../_lib/adSettlementPreview.js'
 import {resolveBroadcastAvailability} from '../_lib/liveTransport.js'
 import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
@@ -55,6 +56,8 @@ export default async function handler(req, res) {
       if (params.get('action') === 'finance_liability_audit')
         return json(res,200,await financeLiabilityAudit({kind:params.get('kind')||'escrow',cursor:params.get('cursor')}))
       if (params.get('action') === 'ad_review_queue')return json(res,200,await adminAdvertisingQueue())
+      if (params.get('action') === 'ad_settlement_overview')return json(res,200,await adminAdvertisingSettlementOverview())
+      if (params.get('action') === 'ad_settlement_preview')return json(res,200,await adminAdvertisingSettlementPreview(params.get('campaign_id')))
       if (params.get('action') === 'billing_admin') return json(res,200,await adminBillingStatus())
       if (params.get('action') === 'finance_summary') return json(res,200,await financeSummary())
       if (params.get('action') === 'finance_integrity') return json(res,200,await financeIntegritySnapshot())
