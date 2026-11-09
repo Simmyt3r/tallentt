@@ -2,7 +2,7 @@
 // clicks or wallet activity are recorded by this component.
 import {useEffect,useState} from 'react'
 import {api} from '../lib/api.js'
-import {useAuth} from '../context/AuthContext.jsx'
+import {useOptionalAuth} from '../context/AuthContext.jsx'
 
 const pending=new Map()
 let scheduled=false
@@ -28,7 +28,7 @@ function fetchPlacement(id){
   })
 }
 export default function SponsoredHatSlot({hatId,ownerId,compact=false}){
-  const {user}=useAuth()
+  const user=useOptionalAuth()?.user
   const [placement,setPlacement]=useState(null)
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
