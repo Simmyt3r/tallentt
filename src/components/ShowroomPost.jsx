@@ -7,6 +7,7 @@ import ShowroomMedia from './ShowroomMedia'
 import UserIdentity from './UserIdentity'
 import RoleCardBadge from './RoleCardBadge'
 import SponsoredHatSlot from './SponsoredHatSlot.jsx'
+import ShowroomVideoAd from './ShowroomVideoAd.jsx'
 
 // True when a clamped paragraph is actually cut off, so "More" only shows
 // when there is something more to read. Re-measured on resize because the
@@ -39,6 +40,9 @@ function ShowroomPost({
   hat,
   postKey,
   playing,
+  videoAd,
+  onVideoAdDismiss,
+  onVideoAdStarted,
   muted,
   onMutedChange,
   onLike,
@@ -97,7 +101,9 @@ function ShowroomPost({
           onMutedChange={onMutedChange}
           onOpen={() => onView(hat.id)}
         />
-        {isVideo && <button type="button" onClick={() => onView(hat.id)}
+        {videoAd&&<ShowroomVideoAd key={videoAd.id} ad={videoAd}
+          onDismiss={onVideoAdDismiss} onStarted={onVideoAdStarted}/>}
+        {isVideo && !videoAd && <button type="button" onClick={() => onView(hat.id)}
           className="absolute right-3 top-14 z-20 flex items-start justify-end focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           aria-label={`View details for ${ownerName}'s video`}>
           <span className="inline-flex min-h-10 items-center rounded-full border border-white/20 bg-black/75 px-3 text-[11px] font-bold text-white">
