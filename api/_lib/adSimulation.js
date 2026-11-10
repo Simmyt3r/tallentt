@@ -47,7 +47,7 @@ export async function adminAdSimulationDetail(simulationId,db={query}){
     can_settle:false,can_post_wallet:false,can_authorize_payment:false}
 }
 export async function createAdminAdSimulation(adminId,campaignId,confirmation,
-  {clientFactory=getClient}={}){
+  {clientFactory=getClient,previewFactory=adminAdvertisingSettlementPreview}={}){
   validId(adminId);validId(campaignId)
   if(!simulationWritable())throw bad(403,'Simulation snapshots are enabled on approved preview deployments only.')
   if(confirmation!=='SIMULATE '+campaignId)throw bad(400,'Confirm the exact simulation action.')
@@ -60,7 +60,7 @@ export async function createAdminAdSimulation(adminId,campaignId,confirmation,
     await requiredSchema(client)
     const {rows:campaign}=await client.query('SELECT id FROM ad_campaigns WHERE id=$1 FOR UPDATE',[campaignId])
     if(!campaign.length)throw bad(404,'Advertising campaign not found.')
-    const preflight=await adminAdvertisingSettlementPreview(campaignId,client)
+    const preflight=await previewFactory(campaignId,client)
     if(!preflight.preview)throw bad(409,'Campaign has no agreed pricing to simulate.')
     const {snapshot,fingerprint,lines}=buildAdSimulationSnapshot(preflight)
     const {rows:exists}=await client.query('SELECT id,revision FROM ad_settlement_simulations WHERE campaign_id=$1 AND fingerprint=$2',
