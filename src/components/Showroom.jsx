@@ -757,6 +757,7 @@ export default function Showroom() {
                 postKey={it.key}
                 hat={hat}
                 playing={it.key === activeKey && !modalOpen && pageVisible && sponsoredVideo?.postKey!==it.key}
+                showSponsoredBanner={view!=='top12'}
                 videoAd={it.key===activeKey&&!modalOpen&&pageVisible&&view!=='top12'&&sponsoredVideo?.postKey===it.key?sponsoredVideo.ad:null}
                 onVideoAdDismiss={onSponsorVideoDismiss}
                 onVideoAdStarted={onSponsorVideoStarted}
