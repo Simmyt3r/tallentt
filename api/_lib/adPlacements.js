@@ -66,6 +66,64 @@ export async function publicSponsoredSlots(rawIds){
   return {placements,enabled:true}
 }
 
+// Release E is a *preview-only* creative endpoint, independent of actual
+// delivery. No counted impressions, money, Orbit or tracking events.
+export const videoPreviewEnabled=()=>deliveryEnabled()
+  &&process.env.CHOMBUTAR_AD_VIDEO_DELIVERY_ENABLED==='true'
+  &&process.env.VERCEL_ENV==='preview'
+
+export async function publicShowroomVideoSlots(rawIds){
+  if(!videoPreviewEnabled())return {placements:{},enabled:false,billable:false}
+  const ids=String(rawIds||'').split(',').filter(Boolean)
+  if(!ids.length||ids.length>20||ids.some(id=>!UUID.test(id))||new Set(ids).size!==ids.length)
+    throw fail(400,'Provide 1–20 unique Showroom Hat identifiers.')
+  if(!await readAvailable())return {placements:{},enabled:false,billable:false}
+  const cloud=process.env.CLOUDINARY_CLOUD_NAME||process.env.VITE_CLOUDINARY_CLOUD_NAME
+  if(!cloud)return {placements:{},enabled:false,billable:false}
+  const {trustedShowroomVideoUrl}=await import('../../shared/showroomAdPolicy.js')
+  const {rows}=await query(`SELECT p.id AS placement_id,p.hat_id,p.ends_at,
+      a.legal_name AS sponsor_name,cr.media_url AS video_url,cr.caption
+    FROM ad_hat_placements p
+    JOIN hats h ON h.id=p.hat_id
+    JOIN ad_campaigns c ON c.id=p.campaign_id
+    JOIN ad_advertisers a ON a.id=c.advertiser_id
+    JOIN ad_creatives cr ON cr.id=p.creative_id AND cr.campaign_id=c.id
+    JOIN ad_talent_ad_policy policy ON policy.user_id=h.user_id
+    WHERE p.hat_id=ANY($1::uuid[])
+      AND h.active=TRUE AND h.role='talent' AND h.feed_visible=TRUE
+      AND c.delivery_enabled=TRUE AND c.state='active'
+      AND c.start_at<=now() AND c.end_at>now()
+      AND c.end_at<=c.start_at+INTERVAL '30 days'
+      AND a.status='approved'
+      AND p.state='active' AND p.starts_at<=now() AND p.ends_at>now()
+      AND cr.state='approved' AND cr.media_type='video'
+      AND policy.policy_version=$2 AND policy.accepted_at IS NOT NULL
+      AND EXISTS (SELECT 1 FROM ad_campaign_terms terms
+        WHERE terms.campaign_id=c.id AND terms.approved_at IS NOT NULL
+        AND terms.accepted_at IS NOT NULL
+        AND (SELECT COUNT(*) FROM ad_campaign_terms t2
+          WHERE t2.campaign_id=c.id AND t2.approved_at IS NOT NULL AND t2.accepted_at IS NOT NULL)=1
+        AND (SELECT COALESCE(SUM(f.amount_naira),0) FROM ad_funding_receipts f
+          WHERE f.campaign_id=c.id AND f.status='verified' AND f.verified_at IS NOT NULL)>=terms.budget_cap_naira)
+      AND EXISTS (SELECT 1 FROM hat_media m WHERE m.hat_id=h.id
+        AND m.screening_status IN ('legacy','passed'))
+    ORDER BY p.hat_id,p.id LIMIT 80`,[ids,VERSION])
+  const grouped=new Map()
+  for(const row of rows){
+    if(!trustedShowroomVideoUrl(row.video_url,cloud))continue
+    const list=grouped.get(row.hat_id)||[]
+    list.push(row);grouped.set(row.hat_id,list)
+  }
+  const placements={}
+  for(const [id,candidates] of grouped){
+    const pick=candidates[randomInt(candidates.length)]
+    placements[id]={id:pick.placement_id,hat_id:id,
+      sponsor_name:pick.sponsor_name,video_url:pick.video_url,
+      caption:pick.caption||'',ends_at:pick.ends_at}
+  }
+  return {placements,enabled:true,billable:false}
+}
+
 export async function talentAdvertisingPolicy(userId){
   if(!await readAvailable())return {available:false,accepted:false,policy_version:VERSION,active:[]}
   const [{rows:accounts},{rows:policies},{rows:placements}]=await Promise.all([
