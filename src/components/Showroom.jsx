@@ -12,6 +12,7 @@ import ShowroomPost from './ShowroomPost'
 import ShowroomReportDialog from './ShowroomReportDialog.jsx'
 import ShowroomLikersDialog from './ShowroomLikersDialog.jsx'
 import { shareSignedWorkPassVideo } from '../lib/workPassVideoShare.js'
+import {canOfferShowroomAd,SHOWROOM_AD_POLICY} from '../../shared/showroomAdPolicy.js'
 
 // How many posts are kept mounted above/below the ones on screen, and how far
 // ahead of the last visible post the endless sequence is topped up.
@@ -19,6 +20,14 @@ const BUFFER = 2
 const PRELOAD = 5
 
 const keyToId = (key) => key.slice(0, key.indexOf('~'))
+const VIDEO_AD_SESSION_KEY='chombutar-showroom-preview-ad-count-v1'
+function sessionAdCount(){
+  if(typeof sessionStorage==='undefined')return 0
+  try{const n=Number(sessionStorage.getItem(VIDEO_AD_SESSION_KEY)||0)
+    return Number.isInteger(n)?Math.min(SHOWROOM_AD_POLICY.maximumAdsPerSession,Math.max(0,n)):0
+  }catch{return 0}
+}
+
 
 // Showroom — each card fills a dedicated scroll-snap viewport.
 // Paging continues until API results are exhausted, then a shuffled lap of
@@ -72,6 +81,9 @@ export default function Showroom() {
   const [toast, setToast] = useState('')
   const [pageVisible, setPageVisible] = useState(() => !document.hidden)
   const [activeKey, setActiveKey] = useState(null)
+  const [sponsoredVideo,setSponsoredVideo]=useState(null)
+  const adVisitsRef=useRef({seen:new Set(),attempted:new Set(),started:new Set(),shownCount:sessionAdCount(),lastShownAt:0})
+  const videoAdLookupDisabledRef=useRef(false)
 
   // ── endless sequence + windowing ────────────────────────────────────────
   const [seq, setSeq] = useState([]) // [{ key, id }] — ids only, tiny
@@ -384,6 +396,48 @@ export default function Showroom() {
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [])
+
+  // Release E: Showroom-only, nonbillable sponsor previews. Never alter the
+  // Showroom sequence, rank, Orbit events, view counters or cash accounting.
+  // A manual swipe always dismisses the ad; Top 12 and search never show it.
+  useEffect(()=>{
+    if(!activeKey||modalOpen||!pageVisible||view==='top12')setSponsoredVideo(null)
+    else setSponsoredVideo(current=>current&&current.postKey!==activeKey?null:current)
+  },[activeKey,modalOpen,pageVisible,view])
+  useEffect(()=>{
+    if(!activeKey||modalOpen||!pageVisible||sponsoredVideo)return undefined
+    const id=keyToId(activeKey)
+    const hat=hatMapRef.current[id]
+    if(!hat)return undefined
+    const session=adVisitsRef.current
+    session.seen.add(id)
+    if(!canOfferShowroomAd({enabled:!videoAdLookupDisabledRef.current,view,
+      hasSearch:!!serverSearch,postCount:session.seen.size,shownCount:session.shownCount,
+      lastShownAt:session.lastShownAt,hasActiveAd:Boolean(sponsoredVideo),
+      hasDialog:modalOpen,isVisible:pageVisible,
+      eligibleHat:hat.role==='talent'&&!hat.is_entertainment&&hat.active!==false,
+      alreadyAttempted:session.attempted.has(id)}))return undefined
+    session.attempted.add(id)
+    let cancelled=false
+    api.getShowroomVideoAd(id).then(data=>{
+      if(cancelled)return
+      if(!data?.enabled){videoAdLookupDisabledRef.current=true;return}
+      const candidate=data.placements?.[id]
+      if(candidate?.hat_id===id&&candidate.video_url&&Date.parse(candidate.ends_at)>Date.now()){
+        setSponsoredVideo({postKey:activeKey,ad:candidate})
+      }
+    }).catch(()=>{})
+    return()=>{cancelled=true}
+  },[activeKey,modalOpen,pageVisible,sponsoredVideo,view,serverSearch])
+  const onSponsorVideoStarted=useCallback(id=>{
+    const tracker=adVisitsRef.current
+    if(tracker.started.has(id))return
+    tracker.started.add(id)
+    tracker.shownCount=Math.min(SHOWROOM_AD_POLICY.maximumAdsPerSession,tracker.shownCount+1)
+    tracker.lastShownAt=tracker.seen.size
+    try{sessionStorage.setItem(VIDEO_AD_SESSION_KEY,String(tracker.shownCount))}catch{/* browser storage unavailable */}
+  },[])
+  const onSponsorVideoDismiss=useCallback(()=>setSponsoredVideo(null),[])
 
   // One view per hat per visit for the feed (video posts, as before).
   useEffect(() => {
@@ -702,7 +756,10 @@ export default function Showroom() {
                 key={it.key}
                 postKey={it.key}
                 hat={hat}
-                playing={it.key === activeKey && !modalOpen && pageVisible}
+                playing={it.key === activeKey && !modalOpen && pageVisible && sponsoredVideo?.postKey!==it.key}
+                videoAd={it.key===activeKey&&!modalOpen&&pageVisible&&view!=='top12'&&sponsoredVideo?.postKey===it.key?sponsoredVideo.ad:null}
+                onVideoAdDismiss={onSponsorVideoDismiss}
+                onVideoAdStarted={onSponsorVideoStarted}
                 muted={muted}
                 onMutedChange={setMuted}
                 onLike={toggleLike}
