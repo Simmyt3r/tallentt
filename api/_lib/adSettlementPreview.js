@@ -6,8 +6,8 @@ import {simulateVerifiedRewards} from '../../shared/adRewardPreview.js'
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const bad=(status,message)=>Object.assign(new Error(message),{status})
 const toBig=value=>BigInt(String(value||0))
-async function available(){
-  const {rows}=await query(`SELECT
+async function available(db={query}){
+  const {rows}=await db.query(`SELECT
     to_regclass('ad_campaigns') AS campaigns,
     to_regclass('ad_campaign_terms') AS terms,
     to_regclass('ad_billable_events') AS billables,
@@ -19,10 +19,10 @@ async function available(){
   const required=Object.values(rows[0]||{})
   return required.every(Boolean)
 }
-export async function adminAdvertisingSettlementOverview(){
-  if(!await available())return {available:false,campaigns:[],payouts_enabled:false,
+export async function adminAdvertisingSettlementOverview(db={query}){
+  if(!await available(db))return {available:false,campaigns:[],payouts_enabled:false,
     note:'Apply approved advertising and verified Discovery migrations in staging before previewing.'}
-  const {rows}=await query(`SELECT c.id,c.title,c.state,c.start_at,c.end_at,a.legal_name AS advertiser,
+  const {rows}=await db.query(`SELECT c.id,c.title,c.state,c.start_at,c.end_at,a.legal_name AS advertiser,
     (SELECT COUNT(DISTINCT h.user_id)::int FROM ad_hat_placements p JOIN hats h ON h.id=p.hat_id
       WHERE p.campaign_id=c.id AND p.state IN ('reserved','active','expired')) AS talent_count,
     (SELECT COUNT(*)::int FROM ad_hat_placements p WHERE p.campaign_id=c.id AND p.state='detached') AS detached_count
@@ -31,10 +31,10 @@ export async function adminAdvertisingSettlementOverview(){
   return {available:true,campaigns:rows,payouts_enabled:false,
     note:'Candidate previews are not earnings, wallet liabilities or approved payouts.'}
 }
-export async function adminAdvertisingSettlementPreview(campaignId){
+export async function adminAdvertisingSettlementPreview(campaignId,db={query}){
   if(!UUID.test(String(campaignId||'')))throw bad(400,'Select a valid advertising campaign.')
-  if(!await available())throw bad(503,'Advertising or qualified Discovery migrations are unavailable.')
-  const {rows:campaigns}=await query(`SELECT c.id,c.title,c.state,c.start_at,c.end_at,
+  if(!await available(db))throw bad(503,'Advertising or qualified Discovery migrations are unavailable.')
+  const {rows:campaigns}=await db.query(`SELECT c.id,c.title,c.state,c.start_at,c.end_at,
     c.currency,a.legal_name AS advertiser,c.delivery_enabled
     FROM ad_campaigns c JOIN ad_advertisers a ON a.id=c.advertiser_id WHERE c.id=$1`,[campaignId])
   const campaign=campaigns[0]
@@ -50,28 +50,28 @@ export async function adminAdvertisingSettlementPreview(campaignId){
   if(!['verifying','settled'].includes(campaign.state))
     blockers.push('The campaign is not in the verification/settlement state.')
   const [{rows:terms},{rows:funding},{rows:billables},{rows:talents},{rows:discovery}]=await Promise.all([
-    query(`SELECT id,version,metric,unit_price_naira::text AS unit_price_naira,
+    db.query(`SELECT id,version,metric,unit_price_naira::text AS unit_price_naira,
       budget_cap_naira::text AS budget_cap_naira,minimum_billable_units,
       platform_bps,talent_bps,explorer_bps,approved_at,accepted_at
       FROM ad_campaign_terms WHERE campaign_id=$1 ORDER BY version DESC LIMIT 5`,[campaignId]),
-    query(`SELECT COALESCE(SUM(amount_naira) FILTER(
+    db.query(`SELECT COALESCE(SUM(amount_naira) FILTER(
         WHERE verified_at<=COALESCE($2::timestamptz,now())),0)::text AS verified_funding,
       COUNT(*) FILTER (WHERE verified_at<=COALESCE($2::timestamptz,now()))::int AS verified_receipts
       FROM ad_funding_receipts WHERE campaign_id=$1 AND status='verified' AND verified_at IS NOT NULL`,[campaignId,start]),
-    query(`SELECT terms_id,event_type,COUNT(*)::text AS units
+    db.query(`SELECT terms_id,event_type,COUNT(*)::text AS units
       FROM ad_billable_events WHERE campaign_id=$1 AND verified_at IS NOT NULL
         AND invalidated_at IS NULL
         AND ($2::timestamptz IS NULL OR created_at >= $2)
         AND ($3::timestamptz IS NULL OR created_at < $3)
       GROUP BY terms_id,event_type`,[campaignId,start,end]),
-    query(`SELECT h.user_id AS talent_id,COUNT(*)::int AS hat_count
+    db.query(`SELECT h.user_id AS talent_id,COUNT(*)::int AS hat_count
       FROM ad_hat_placements p JOIN hats h ON h.id=p.hat_id
       JOIN ad_talent_ad_policy policy ON policy.user_id=h.user_id
       WHERE p.campaign_id=$1 AND h.role='talent'
         AND p.state IN ('reserved','active','expired')
         AND policy.accepted_at<=COALESCE($2::timestamptz,now())
       GROUP BY h.user_id ORDER BY h.user_id LIMIT 101`,[campaignId,start]),
-    query(`WITH selected AS (
+    db.query(`WITH selected AS (
       SELECT DISTINCT h.user_id AS talent_id FROM ad_hat_placements p
       JOIN hats h ON h.id=p.hat_id
       JOIN ad_talent_ad_policy policy ON policy.user_id=h.user_id
@@ -99,7 +99,7 @@ export async function adminAdvertisingSettlementPreview(campaignId){
   if(accepted.length!==1)blockers.push('Exactly one approved and accepted campaign pricing version is required.')
   if(talents.length>100)blockers.push('Campaign selection exceeds the original 100-Talent limit.')
   if(talents.length<10)blockers.push('Fewer than ten eligible participating Talents are selected.')
-  const {rows:detach}=await query(`SELECT COUNT(*)::int AS detached FROM ad_hat_placements WHERE campaign_id=$1 AND state='detached'`,[campaignId])
+  const {rows:detach}=await db.query(`SELECT COUNT(*)::int AS detached FROM ad_hat_placements WHERE campaign_id=$1 AND state='detached'`,[campaignId])
   if(detach[0]?.detached>0)blockers.push('Detached placements require an agreed earnings adjustment.')
   const term=accepted.length===1?accepted[0]:null
   if(term&&start&&(new Date(term.approved_at)>start||new Date(term.accepted_at)>start))

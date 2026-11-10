@@ -10,6 +10,7 @@ import { adminBillingStatus, adminPlanPrice, adminReviewBusiness } from '../_lib
 import { adminSalaryPrice } from '../_lib/salaryTrackingFees.js'
 import {adminAdvertisingQueue,adminAdvertisingReview} from '../_lib/adCampaigns.js'
 import {adminAdvertisingSettlementOverview,adminAdvertisingSettlementPreview} from '../_lib/adSettlementPreview.js'
+import {adminAdSimulationList,adminAdSimulationDetail,createAdminAdSimulation,reviewAdminAdSimulation} from '../_lib/adSimulation.js'
 import {resolveBroadcastAvailability} from '../_lib/liveTransport.js'
 import {getUserErasurePreview,eraseSubscriber,mediaErasureStatus,processErasureMediaQueue} from '../_lib/adminUserErasure.js'
 import {orbitAdminStatus,saveOrbitWeights,newHatReviewQueue,reviewHatData} from '../_lib/accountOrbit.js'
@@ -58,6 +59,8 @@ export default async function handler(req, res) {
       if (params.get('action') === 'ad_review_queue')return json(res,200,await adminAdvertisingQueue())
       if (params.get('action') === 'ad_settlement_overview')return json(res,200,await adminAdvertisingSettlementOverview())
       if (params.get('action') === 'ad_settlement_preview')return json(res,200,await adminAdvertisingSettlementPreview(params.get('campaign_id')))
+      if (params.get('action') === 'ad_simulation_list')return json(res,200,await adminAdSimulationList(params.get('campaign_id')))
+      if (params.get('action') === 'ad_simulation_detail')return json(res,200,await adminAdSimulationDetail(params.get('simulation_id')))
       if (params.get('action') === 'billing_admin') return json(res,200,await adminBillingStatus())
       if (params.get('action') === 'finance_summary') return json(res,200,await financeSummary())
       if (params.get('action') === 'finance_integrity') return json(res,200,await financeIntegritySnapshot())
@@ -120,6 +123,8 @@ export default async function handler(req, res) {
 
     try {
       if(body?.action==='ad_review')return json(res,200,await adminAdvertisingReview(admin.id,body))
+      if(body?.action==='ad_simulation_create')return json(res,200,await createAdminAdSimulation(admin.id,body.campaign_id,body.confirmation))
+      if(body?.action==='ad_simulation_review')return json(res,200,await reviewAdminAdSimulation(admin.id,body.simulation_id,body.decision,body.note))
       const result = await handleAdminAction(admin, body)
       return json(res, 200, result)
     } catch (err) {
