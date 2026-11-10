@@ -58,6 +58,10 @@ export async function request(path,options={}){
 }
 
 export const api = {
+  getAdSimulations: campaignId => request('/api/admin?action=ad_simulation_list&campaign_id='+encodeURIComponent(campaignId),{cache:'no-store'}),
+  getAdSimulationDetail: simulationId => request('/api/admin?action=ad_simulation_detail&simulation_id='+encodeURIComponent(simulationId),{cache:'no-store'}),
+  simulateAdSettlement: campaignId => request('/api/admin',{method:'POST',body:JSON.stringify({action:'ad_simulation_create',campaign_id:campaignId,confirmation:'SIMULATE '+campaignId})}),
+  reviewAdSimulation: (simulationId,decision,note) => request('/api/admin',{method:'POST',body:JSON.stringify({action:'ad_simulation_review',simulation_id:simulationId,decision,note})}),
   getAdSettlementOverview: () => request('/api/admin?action=ad_settlement_overview',{cache:'no-store'}),
   getAdSettlementPreview: campaignId => request('/api/admin?action=ad_settlement_preview&campaign_id='+encodeURIComponent(campaignId),{cache:'no-store'}),
   getSponsoredPlacements: ids => request('/api/hats?ad_slots='+encodeURIComponent(ids.join(',')),{cache:'no-store'}),
