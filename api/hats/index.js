@@ -4,7 +4,7 @@ import { associateVouchCounts } from '../_lib/associates.js'
 import {hatAllowance,enforceHatAllowance,awardPublishedShowcase,verifiedMilestonesReady} from '../_lib/verifiedMilestones.js'
 import {onlinePresenceExpression} from '../_lib/onlinePresence.js'
 import { getSessionUser } from '../_lib/auth.js'
-import {publicSponsoredSlots} from '../_lib/adPlacements.js'
+import {publicSponsoredSlots,publicShowroomVideoSlots} from '../_lib/adPlacements.js'
 import { json, methodNotAllowed, readBody, isVerifiedName } from '../_lib/http.js'
 import { computeOrbitScore } from '../_lib/orbitScore.js'
 import { getHatPresentationMap } from '../_lib/hatPresentation.js'
@@ -66,6 +66,7 @@ export default async function handler(req, res) {
         return json(res,200,await hatAllowance(session.sub))
       }
       const url = new URL(req.url, `http://${req.headers.host}`)
+      if(url.searchParams.has('ad_video_slots')) return json(res,200,await publicShowroomVideoSlots(url.searchParams.get('ad_video_slots')))
       if(url.searchParams.has('ad_slots')) return json(res,200,await publicSponsoredSlots(url.searchParams.get('ad_slots')))
       const role = url.searchParams.get('role')
 
