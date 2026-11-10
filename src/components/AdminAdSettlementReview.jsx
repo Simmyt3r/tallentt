@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react'
 import {api} from '../lib/api.js'
+import AdminAdSimulationControls from './AdminAdSimulationControls.jsx'
 
 const naira=value=>{
   if(value===null||value===undefined)return 'Not established'
@@ -75,6 +76,7 @@ export default function AdminAdSettlementReview(){
       </div>
       <p className="text-[11px] leading-5 text-black/60">{preview.qualification_policy}</p>
       <p className="text-[11px] leading-5 text-black/60">{preview.warning}</p>
+      <AdminAdSimulationControls campaignId={campaign} preview={preview}/>
       {preview.preview?.explorer?.recipients?.length>0&&<p className="text-xs text-black/60">
         Candidate Explorer recipients: {preview.preview.explorer.recipients.length} distinct users across {preview.preview.explorer.slots.length} verified eligibility slots. Individual payouts are intentionally disabled.
       </p>}
