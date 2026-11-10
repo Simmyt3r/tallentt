@@ -58,6 +58,7 @@ export async function request(path,options={}){
 }
 
 export const api = {
+  getShowroomVideoAd: hatId => request('/api/hats?ad_video_slots='+encodeURIComponent(hatId),{cache:'no-store'}),
   getAdSimulations: campaignId => request('/api/admin?action=ad_simulation_list&campaign_id='+encodeURIComponent(campaignId),{cache:'no-store'}),
   getAdSimulationDetail: simulationId => request('/api/admin?action=ad_simulation_detail&simulation_id='+encodeURIComponent(simulationId),{cache:'no-store'}),
   simulateAdSettlement: campaignId => request('/api/admin',{method:'POST',body:JSON.stringify({action:'ad_simulation_create',campaign_id:campaignId,confirmation:'SIMULATE '+campaignId})}),
