@@ -41,6 +41,7 @@ function ShowroomPost({
   postKey,
   playing,
   videoAd,
+  showSponsoredBanner=true,
   onVideoAdDismiss,
   onVideoAdStarted,
   muted,
@@ -212,7 +213,7 @@ function ShowroomPost({
           )}
         </UserIdentity>
       </div>
-      {!hat.is_entertainment&&hat.role==='talent'&&<SponsoredHatSlot hatId={hat.id} ownerId={hat.user_id} compact/>}
+      {showSponsoredBanner&&!hat.is_entertainment&&hat.role==='talent'&&<SponsoredHatSlot hatId={hat.id} ownerId={hat.user_id} compact/>}
     </article>
   )
 }
