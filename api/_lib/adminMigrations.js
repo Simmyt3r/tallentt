@@ -8,6 +8,9 @@ import { query, getClient } from './db.js'
 const bad = (status, message) => Object.assign(new Error(message), { status })
 
 export const MIGRATION_CATALOG = Object.freeze([
+  {id:'ad-settlement-simulation-2026-11',title:'Advertising settlement simulation audit (inactive)',
+   description:'After advertising A, B, C. Immutable test-only snapshots, exact candidate allocations and review holds. Preview-only write flag; no wallet, revenue or real payout changes.',
+   path:new URL('../../db/patch-ad-settlement-simulation-2026-11.sql',import.meta.url)},
   {id:'ad-sponsored-slots-2026-11',title:'Sponsor banner slots and Talent detachment (inactive)',
    description:'After Release B. Adds explicit Talent ad-policy acceptance, bounded placements and detach auditing; serving disabled by default and no wallet writes.',
    path:new URL('../../db/patch-ad-sponsored-slots-2026-11.sql',import.meta.url)},
