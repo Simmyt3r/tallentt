@@ -11,7 +11,10 @@ const readAvailable=async()=> {
   const {rows}=await query("SELECT to_regclass('ad_hat_placements') AS placements,to_regclass('ad_talent_ad_policy') AS policies,to_regclass('ad_campaign_terms') AS terms")
   return Boolean(rows[0]?.placements && rows[0]?.policies && rows[0]?.terms)
 }
+// Release F: even an inadvertently enabled legacy delivery flag cannot
+// expose unmetered/unreconciled adverts to real production visitors.
 export const deliveryEnabled=()=>process.env.CHOMBUTAR_AD_DELIVERY_ENABLED==='true'
+  && process.env.VERCEL_ENV==='preview'
 
 export async function publicSponsoredSlots(rawIds){
   // Never record views, clicks, ad delivery or Orbit on this read.
