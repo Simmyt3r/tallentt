@@ -58,6 +58,7 @@ export async function request(path,options={}){
 }
 
 export const api = {
+  getAdPilotReadiness: () => request('/api/admin?action=ad_pilot_readiness',{cache:'no-store'}),
   getShowroomVideoAd: hatId => request('/api/hats?ad_video_slots='+encodeURIComponent(hatId),{cache:'no-store'}),
   getAdSimulations: campaignId => request('/api/admin?action=ad_simulation_list&campaign_id='+encodeURIComponent(campaignId),{cache:'no-store'}),
   getAdSimulationDetail: simulationId => request('/api/admin?action=ad_simulation_detail&simulation_id='+encodeURIComponent(simulationId),{cache:'no-store'}),
