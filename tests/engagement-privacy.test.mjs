@@ -12,6 +12,6 @@ test('public and non-owner hat projections omit raw counters and internal feed r
 test('public Orbit summary keeps credibility score, never exposes Discover or Explorer event breakdown',()=>{
  const orbit={score:30,byRole:{talent:{score:10},client:{score:20}},
     milestones:{verified:{by_verb:[{verb:'Discover',events:12},{verb:'Explorer',events:9}]}}}
- assert.deepEqual(publicOrbitSummary(orbit),{score:30,byRole:orbit.byRole})
+ assert.deepEqual(publicOrbitSummary(orbit),{score:30,max:null,byRole:{talent:{score:10,max:null},client:{score:20,max:null}},disclaimer:undefined})
  assert.equal(publicOrbitSummary(null),null)
 })

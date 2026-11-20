@@ -13,5 +13,5 @@ Owner request: maximum ten Discoveries per day, and Discoveries should expire.
 ## Tests
 Daily limit, previous-day reset, revoked records consuming quota, simultaneous completions, Admin approval, and exact reward expiry boundary with historical evidence retained.
 
-## Separate pending work
-Public views/Discovery counts and discoverer identities require end-to-end frontend and API privacy changes. This patch does not implement that visibility policy. Existing live advertising and payouts remain disabled.
+## Public privacy
+Public view/Discovery counters and individual Orbit milestone breakdowns are removed from audited Hat, guest, Showroom and profile responses. Work Pass public QR claims omit role evidence breakdowns; previous QR claims may contain old information until expiry. Hat owner-only view values and private milestone access remain available. Showroom pagination is authenticated-encrypted using SHOWROOM_CURSOR_SECRET or the existing JWT_SECRET (legacy cursors require refreshing). Internal rankings, tracking, and Admin evidence remain. Public Orbit and KeepUp totals and ranking order remain visible per existing policy and can still hint at popularity; previously downloaded data cannot be recalled. Existing live advertising and payouts remain disabled.

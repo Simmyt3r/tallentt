@@ -36,9 +36,14 @@ test('Showroom keyset cursor rejects invalid and round-trips valid values', () =
     created_at: '2026-10-11T07:00:00.000Z',
     id: '11111111-1111-4111-8111-111111111111',
   }
-  const cursor = encodeShowroomCursor(item)
-  assert.deepEqual(decodeShowroomCursor(cursor), { score: 52, date: item.created_at, id: item.id })
-  assert.throws(() => decodeShowroomCursor('invalid'), /Invalid Showroom/)
+  const secret = 'test-only-showroom-cursor-key-2026'
+  const cursor = encodeShowroomCursor(item,secret)
+  assert.deepEqual(decodeShowroomCursor(cursor,secret), { score: 52, date: item.created_at, id: item.id })
+  assert.throws(() => decodeShowroomCursor('invalid',secret), /Invalid Showroom/)
+  assert.throws(() => decodeShowroomCursor(cursor,'different-test-secret'), /Invalid Showroom/)
+  assert.throws(() => decodeShowroomCursor('v2.'+(cursor[3]==='A'?'B':'A')+cursor.slice(4),secret), /Invalid Showroom/)
+  assert.throws(() => JSON.parse(Buffer.from(cursor.slice(3),'base64url').toString('utf8')))
+  assert.notEqual(encodeShowroomCursor(item,secret),cursor)
 })
 
 test('Showroom discovery is paginated and navigation is separate from deal execution', async () => {

@@ -9,6 +9,10 @@ export function redactHatEngagement(hat,{own=false}={}){
 }
 export function publicOrbitSummary(orbit){
   if(!orbit)return orbit
-  const {milestones,...summary}=orbit
-  return summary
+  return {score:orbit.score,max:orbit.max??null,
+    byRole:publicRoleOrbit(orbit.byRole),
+    disclaimer:orbit.disclaimer}
+}
+export function publicRoleOrbit(roles){
+  return Object.fromEntries(Object.entries(roles||{}).map(([role,detail])=>[role,{score:detail.score,max:detail.max??null}]))
 }

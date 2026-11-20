@@ -2,6 +2,7 @@
 // server-only ECDSA signatures. Never trust scores or evidence supplied by a client.
 import { query, getClient } from './db.js'
 import { accountOrbit } from './accountOrbit.js'
+import { publicRoleOrbit } from './engagementPrivacy.js'
 import { trackingPeriodsPaid } from './salaryTrackingFees.js'
 import { workPassPrintEligibility } from './workPassPrint.js'
 import { signedHatMediaEnabled, verifyNewHatMedia, claimHatMediaPermits } from './hatMediaUpload.js'
@@ -74,10 +75,12 @@ export async function getWorkPass(username, viewerId=null) {
     tier,roleTiers,completedJobs,successfulHires,orbit,roleOrbit,paidTrackingMonths,
     issuedAt:Math.floor(Date.now()/1000),expiresAt:Math.floor(Date.now()/1000)+7*86400,
   }
+  // Claims can be decoded by anyone who scans the QR. Never sign private breakdowns.
+  claim.roleOrbit=publicRoleOrbit(roleOrbit)
   const {token,keyId}=await signWorkPassClaim(claim)
   return {user:{username:user.username,name:user.full_name,role:user.role,avatarUrl:user.avatar_url,
       skills:user.skills||[],industry:user.industry||[],headline:user.headline},
-    tier,roleTiers,orbit,roleOrbit,paidTrackingMonths,completedJobs,successfulHires,rating:null,ratingCount:0,
+    tier,roleTiers,orbit,roleOrbit:viewerId===user.id?roleOrbit:claim.roleOrbit,paidTrackingMonths,completedJobs,successfulHires,rating:null,ratingCount:0,
     ...(viewerId===user.id?{printEligibility}:{}),
     claim,token,keyId,
     signatureStatus:token?'signed':'not_configured',disclaimer:WORK_PASS_DISCLAIMER,
