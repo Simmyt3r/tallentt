@@ -8,6 +8,22 @@ import {requiredMilestoneSchema,awardVerifiedMilestone} from './verifiedMileston
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const valid=v=>UUID.test(String(v||''))
 const bad=(status,message)=>Object.assign(new Error(message),{status})
+
+// The daily ceiling applies to qualified awards, not browsing. Use Nigeria's
+// calendar day and count revoked awards too, so revocation never restores quota.
+export const DAILY_DISCOVERY_LIMIT=10
+export async function dailyDiscoveryQuota(db,viewerId){
+  const {rows}=await db.query(`SELECT COUNT(*)::int AS used FROM orbit_verified_events
+    WHERE actor_id=$1 AND verb='Discover'
+      AND created_at >= (date_trunc('day',CURRENT_TIMESTAMP AT TIME ZONE 'Africa/Lagos') AT TIME ZONE 'Africa/Lagos')
+      AND created_at < ((date_trunc('day',CURRENT_TIMESTAMP AT TIME ZONE 'Africa/Lagos')+INTERVAL '1 day') AT TIME ZONE 'Africa/Lagos')`,[viewerId])
+  const used=Number(rows[0]?.used||0)
+  return {limit:DAILY_DISCOVERY_LIMIT,used,remaining:Math.max(0,DAILY_DISCOVERY_LIMIT-used)}
+}
+async function requireDiscoveryQuota(db,viewerId){
+  const quota=await dailyDiscoveryQuota(db,viewerId)
+  if(quota.remaining===0)throw bad(429,'Daily Discovery limit reached (10). You can still browse Hats. New Discoveries resume tomorrow, Nigeria time.')
+}
 const appealText=text=>{
   const v=typeof text==='string'?text.trim():''
   if(v.length<20||v.length>1000)throw bad(400,'Explain your appeal in 20–1,000 characters.')
@@ -27,6 +43,8 @@ async function requiredOrbitProofSchema(db){
 // from deadlocking while each user is credited.
 async function awardDiscoveryPair(db,session){
   await db.query('SELECT id FROM users WHERE id IN ($1,$2) ORDER BY id FOR UPDATE',[session.viewer_id,session.talent_id])
+  // Recheck under the viewer mutex, including the manual Admin approval path.
+  await requireDiscoveryQuota(db,session.viewer_id)
   const talent=await awardVerifiedMilestone(db,{
     actorId:session.viewer_id,subjectId:session.talent_id,
     beneficiaryId:session.talent_id,lane:'talent',verb:'Discover',sourceId:session.id,
@@ -101,6 +119,7 @@ export async function discoveryAction(actorId,body){
       const talentId=eligible[0].user_id
       const {rows:already}=await client.query("SELECT 1 FROM orbit_verified_events WHERE verb='Discover' AND actor_id=$1 AND subject_id=$2",[actorId,talentId])
       if(already.length){await client.query('COMMIT');return {alreadyQualified:true}}
+      await requireDiscoveryQuota(client,actorId)
       const {rows:rate}=await client.query(`SELECT COUNT(*)::int AS total,
         COUNT(*) FILTER(WHERE opened_at>NOW()-INTERVAL '1 hour')::int AS hourly
         FROM orbit_discovery_sessions WHERE viewer_id=$1 AND opened_at>NOW()-INTERVAL '24 hours'`,[actorId])
@@ -170,6 +189,7 @@ export async function discoveryAction(actorId,body){
       await client.query('COMMIT')
       return {accepted:updated.length>0,heartbeats:updated[0]?.heartbeat_count||session.heartbeat_count}
     }
+    await requireDiscoveryQuota(client,actorId)
     // Verification of engagement actions is based on recorded account-scoped
     // database facts AFTER the explicit open. No client proof kind is trusted.
     const {rows:actions}=await client.query(`SELECT
