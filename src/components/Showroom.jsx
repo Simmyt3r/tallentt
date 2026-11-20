@@ -446,7 +446,6 @@ export default function Showroom() {
     const hat = hatMapRef.current[id]
     if (!hat || hat.media?.[0]?.type !== 'video' || feedViewedRef.current.has(id)) return
     feedViewedRef.current.add(id)
-    patchHat(id, { views: (hat.views || 0) + 1 })
     if (hat.is_entertainment) api.galleryAction('view_gallery',id).catch(() => {})
     else api.recordView(id).catch(() => {})
   }, [activeKey, modalOpen, patchHat])
@@ -682,7 +681,6 @@ export default function Showroom() {
     const hat = hatMapRef.current[postId]
     if (!hat || modalViewedRef.current.has(postId)) return
     modalViewedRef.current.add(postId)
-    patchHat(postId, { views: (hat.views || 0) + 1 })
     if (hat.is_entertainment) api.galleryAction('view_gallery',postId).catch(() => {})
     else api.recordView(postId).catch(() => {})
   }, [postId, activeHatId, patchHat])

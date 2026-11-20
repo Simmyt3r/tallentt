@@ -1,5 +1,6 @@
 // Path: api/hats/index.js
 import { query, getClient } from '../_lib/db.js'
+import { redactHatEngagement } from '../_lib/engagementPrivacy.js'
 import { associateVouchCounts } from '../_lib/associates.js'
 import {hatAllowance,enforceHatAllowance,awardPublishedShowcase,verifiedMilestonesReady} from '../_lib/verifiedMilestones.js'
 import {onlinePresenceExpression} from '../_lib/onlinePresence.js'
@@ -280,7 +281,7 @@ export default async function handler(req, res) {
       )
       const vouchCounts=await associateVouchCounts(rows.map(h=>h.user_id))
       const mediaHats=await attachMedia(rows, session?.sub)
-      return json(res, 200, { hats: mediaHats.map(h=>({...h,associate_vouch_count:vouchCounts[h.user_id]||0})) })
+      return json(res, 200, { hats: mediaHats.map(h=>({...redactHatEngagement(h,{own:session?.sub===h.user_id}),associate_vouch_count:vouchCounts[h.user_id]||0})) })
     } catch (err) {
       console.error(err)
       return json(res, 500, { error: 'Failed to fetch hats' })

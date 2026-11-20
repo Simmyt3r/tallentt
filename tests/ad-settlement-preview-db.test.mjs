@@ -60,6 +60,15 @@ test('admin preview reads only mutually verified Discovery/Explorer evidence and
     assert.ok(result.blockers.length>0)
     assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM ad_reward_allocations')).rows[0].n,0)
     assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM ad_campaign_settlements')).rows[0].n,0)
+    // Eligibility expires precisely at the campaign start boundary; old
+    // awards remain verified history and cannot be awarded a second time.
+    const expiryBoundary=new Date(start.getTime()-30*86400*1000).toISOString()
+    await db.query('UPDATE orbit_verified_events SET created_at=$2 WHERE source_id=$1',[session,expiryBoundary])
+    const expired=await adminAdvertisingSettlementPreview(campaign)
+    assert.equal(expired.qualified_discovery_slots,0)
+    assert.equal(expired.preview.explorer.unallocated,'30000')
+    assert.equal((await db.query("SELECT COUNT(*)::int AS n FROM orbit_verified_events WHERE source_id=$1 AND status='verified'",[session])).rows[0].n,2)
+    await db.query('UPDATE orbit_verified_events SET created_at=$2 WHERE source_id=$1',[session,before.toISOString()])
     await db.query("UPDATE orbit_verified_events SET status='revoked' WHERE verb='Explorer' AND source_id=$1",[session])
     const updated=await adminAdvertisingSettlementPreview(campaign)
     assert.equal(updated.qualified_discovery_slots,0)

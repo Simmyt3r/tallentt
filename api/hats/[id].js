@@ -1,4 +1,5 @@
 import { query, getClient } from '../_lib/db.js'
+import { redactHatEngagement, publicOrbitSummary } from '../_lib/engagementPrivacy.js'
 import {onlinePresenceExpression} from '../_lib/onlinePresence.js'
 import {accountOrbit} from '../_lib/accountOrbit.js'
 import { getSessionUser } from '../_lib/auth.js'
@@ -78,7 +79,7 @@ async function getHat(id, viewerId) {
   }
   const presentations = await getHatPresentationMap([id])
   return {
-    ...rows[0],
+    ...redactHatEngagement(rows[0],{own:viewerId===rows[0].user_id}),
     media,
     bento_accent: presentations[id]?.accent || 'electric',
     showroom_template: presentations[id]?.template || 'minimal',
@@ -163,7 +164,7 @@ async function buildCardDetail(hat, viewerId) {
   const {rows:accountHats}=await query(`SELECT COUNT(*)::int AS total,
     COUNT(*) FILTER (WHERE active=TRUE)::int AS active
     FROM hats WHERE user_id=$1`,[hat.user_id])
-  const orbit=await accountOrbit(hat.user_id).catch(()=>null)
+  const orbit=publicOrbitSummary(await accountOrbit(hat.user_id).catch(()=>null))
 
   return {
     id: hat.id,

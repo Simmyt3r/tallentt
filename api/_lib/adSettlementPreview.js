@@ -3,6 +3,9 @@
 import {query} from './db.js'
 import {simulateVerifiedRewards} from '../../shared/adRewardPreview.js'
 
+// Owner-confirmed advertising reward eligibility period.
+export const DISCOVERY_REWARD_VALID_DAYS=30
+
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const bad=(status,message)=>Object.assign(new Error(message),{status})
 const toBig=value=>BigInt(String(value||0))
@@ -41,7 +44,7 @@ export async function adminAdvertisingSettlementPreview(campaignId,db={query}){
   if(!campaign)throw bad(404,'Advertising campaign not found.')
   const blockers=['Payout approvals and refund rules are not yet configured.',
     'Provider funding verification and billing-event ingestion are not independently reconciled.',
-    'Early-Discovery window, detached Talent treatment and unused pool disposition require owner approval.']
+    'Detached Talent treatment and unused pool disposition require owner approval.']
   const start=campaign.start_at?new Date(campaign.start_at):null
   const end=campaign.end_at?new Date(campaign.end_at):null
   const complete=Boolean(start&&end&&Number.isFinite(start.getTime())&&Number.isFinite(end.getTime())
@@ -90,10 +93,11 @@ export async function adminAdvertisingSettlementPreview(campaignId,db={query}){
         AND x.subject_id=s.talent_id AND x.beneficiary_id=s.viewer_id
       WHERE s.state='awarded' AND s.viewer_id<>s.talent_id
         AND $2::timestamptz IS NOT NULL
-        AND e.created_at >= $2::timestamptz-INTERVAL '30 days'
+        -- Expiry is exclusive: eligibility ends exactly 30 elapsed days after award.
+        AND e.created_at+$3::int*INTERVAL '24 hours' > $2::timestamptz
         AND e.created_at < $2::timestamptz
     ) SELECT talent_id,viewer_id,source_id,created_at
-       FROM qualified WHERE rank<=10 ORDER BY talent_id,created_at,source_id LIMIT 1000`,[campaignId,start]),
+       FROM qualified WHERE rank<=10 ORDER BY talent_id,created_at,source_id LIMIT 1000`,[campaignId,start,DISCOVERY_REWARD_VALID_DAYS]),
   ])
   const accepted=terms.filter(t=>t.accepted_at&&t.approved_at)
   if(accepted.length!==1)blockers.push('Exactly one approved and accepted campaign pricing version is required.')
@@ -135,6 +139,6 @@ export async function adminAdvertisingSettlementPreview(campaignId,db={query}){
     billable_units:eligibleUnits,candidate_earned_na:candidateEarned,
     preview,blockers,
     payouts_enabled:false,can_settle:false,can_post_wallet:false,
-    qualification_policy:'Provisional: up to 10 earliest mutually verified Discovery/Explorer sessions per selected Talent during the 30 days before campaign start. NOT OWNER APPROVED.',
+    qualification_policy:'Discovery advertising eligibility expires 30 elapsed days after verified award. Up to 10 earliest eligible sessions per selected Talent at campaign start; qualified campaign evidence survives the campaign for settlement review. Historical Orbit and one-time pair records remain.',
     warning:'Read-only candidate calculation. Funding receipts and billable-event status are not independently reconciled provider evidence; no revenue recognition or payout may be inferred.'}
 }

@@ -2,6 +2,7 @@
 // completed escrows and exactly the same activity-based Orbit policy as Work Pass.
 // One representative Hat per owner prevents a single account taking all slots.
 import { query } from './db.js'
+import { redactHatEngagement } from './engagementPrivacy.js'
 import { orbitWeights, calculateOrbitScore } from './accountOrbit.js'
 import { getHatPresentationMap } from './hatPresentation.js'
 import { associateVouchCounts } from './associates.js'
@@ -100,7 +101,7 @@ export async function getGoldTop12(viewerId = null) {
   }
   const liked=new Set(likesResult.rows.map(r=>r.hat_id))
   return {hats:selected.map(({hat,pass},i)=>({
-      ...hat,work_pass_tier:pass.tier,work_pass_orbit:pass.orbit,top12_rank:i+1,
+      ...redactHatEngagement(hat),work_pass_tier:pass.tier,work_pass_orbit:pass.orbit,top12_rank:i+1,
       media:mediaByHat.get(hat.id)||[],associate_vouch_count:vouches[hat.user_id]||0,
       bento_accent:presentation[hat.id]?.accent||'electric',
       showroom_template:presentation[hat.id]?.template||'minimal',

@@ -1,6 +1,6 @@
 // Path: src/components/BentoCardDetailModal.jsx
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Clock, BookOpen, Bookmark, Send, Lock, Unlock, AlertCircle, Play, ImageOff, Eye } from 'lucide-react'
+import { Clock, BookOpen, Bookmark, Send, Lock, Unlock, AlertCircle, Play, ImageOff } from 'lucide-react'
 import { api } from '../lib/api'
 import {useQualifiedDiscovery} from '../lib/useQualifiedDiscovery.js'
 import {
@@ -178,7 +178,6 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
     finally{setSaving(false)}
   }
 
-  const [viewCount, setViewCount] = useState(hat?.views || 0)
   const viewedRef = useRef(null)
 
   // Applying — onApply is owned by the parent (Feed/Showroom), so this is
@@ -190,9 +189,8 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   const [negotiationStep, setNegotiationStep] = useState(null)
 
   useEffect(() => {
-    setViewCount(hat?.views || 0)
     setJustApplied(false)
-  }, [cardId, hat?.views])
+  }, [cardId])
 
   // Record one view per card per time the modal is open — same
   // fire-and-forget api.recordView call TalentProfile/Showroom make, with
@@ -200,11 +198,6 @@ export default function BentoCardDetailModal({ hat, escrow, showMedia = true, on
   useEffect(() => {
     if (!cardId || viewedRef.current === cardId) return
     viewedRef.current = cardId
-    setViewCount((v) => {
-      const next = v + 1
-      onHatChange?.({ id: cardId, views: next })
-      return next
-    })
     api.recordView(cardId).catch(() => {})
   }, [cardId, onHatChange])
 

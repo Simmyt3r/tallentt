@@ -335,3 +335,48 @@ test('Hat capacity sums durable per-verb slots but never exceeds ten per verb',a
   assert.equal(result.used,2)
   assert.equal(result.remaining,52)
 })
+
+
+test('ten daily Discoveries is a hard Nigeria-time cap including concurrent completion, revoked awards and Admin approval',async()=>{
+  const viewer=randomUUID()
+  const createUser=async(id,role)=>{
+    const name='cap_'+id.replaceAll('-','').slice(0,20)
+    await pool.query(`INSERT INTO users(id,username,full_name,email,password_hash,role,created_at)
+      VALUES($1,$2,$2,$3,'hash',$4,NOW()-INTERVAL '10 days')`,[id,name,name+'@example.test',role])
+  }
+  await createUser(viewer,'client')
+  const subjects=Array.from({length:13},()=>randomUUID())
+  for(const id of subjects)await createUser(id,'talent')
+  // Nine today's awards (one revoked) and one prior-day award. Revocation
+  // cannot restore today's allowance and yesterday does not consume it.
+  for(let i=0;i<10;i++){
+    await pool.query(`INSERT INTO orbit_verified_events
+      (actor_id,subject_id,beneficiary_id,lane,verb,source_type,source_id,points,status,created_at)
+      VALUES($1,$2,$2,'talent','Discover','discovery',$3,1,$4,
+        CASE WHEN $5::boolean THEN NOW()-INTERVAL '24 hours' ELSE NOW() END)`,
+      [viewer,subjects[i],randomUUID(),i===0?'revoked':'verified',i===9])
+  }
+  assert.deepEqual(await discovery.dailyDiscoveryQuota(pool,viewer),{limit:10,used:9,remaining:1})
+  const hats=[]
+  for(let i=10;i<13;i++){
+    const hat=await addHat(subjects[i],'Quota candidate '+i,'talent',true)
+    hats.push(hat)
+    await pool.query(`INSERT INTO hat_media(hat_id,url,public_id,type,screening_status)
+      VALUES($1,'https://example.test/quota','cap_media_'||($1::uuid)::text,'image','passed')`,[hat])
+  }
+  const first=await maturedDiscovery(viewer,hats[0])
+  const second=await maturedDiscovery(viewer,hats[1])
+  await discovery.saveTalentHat(viewer,{hat_id:hats[0],saved:true})
+  await discovery.saveTalentHat(viewer,{hat_id:hats[1],saved:true})
+  const outcomes=await Promise.allSettled([first,second].map(session_id=>
+    discovery.discoveryAction(viewer,{action:'discovery_complete',session_id})))
+  assert.equal(outcomes.filter(x=>x.status==='fulfilled'&&x.value.status==='awarded').length,1)
+  assert.equal(outcomes.filter(x=>x.status==='rejected'&&x.reason.status===429).length,1)
+  assert.equal((await discovery.dailyDiscoveryQuota(pool,viewer)).remaining,0)
+  await assert.rejects(discovery.discoveryAction(viewer,{action:'discovery_open',hat_id:hats[2]}),{status:429})
+  const denied=outcomes[0].status==='rejected'?first:second
+  await pool.query("UPDATE orbit_discovery_sessions SET state='held',proof_kind='save' WHERE id=$1",[denied])
+  await assert.rejects(discovery.adminDiscoveryDecision(admin,{session_id:denied,decision:'approve',
+    reason:'Testing the hard daily award ceiling'}),{status:429})
+  assert.equal((await discovery.dailyDiscoveryQuota(pool,viewer)).used,10)
+})

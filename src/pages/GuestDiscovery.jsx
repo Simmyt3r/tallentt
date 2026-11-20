@@ -53,7 +53,7 @@ export function GuestHatCard({hat,onGate,large=false}){
       <p className="mt-1 text-[12px] text-black/55">{hat.category}{hat.lga?' · '+hat.lga:''}</p>
       <div className="mt-3 flex flex-wrap gap-3 text-[11px] font-semibold text-black/60">
         <CountLabel label="Orbit" value={hat.orbit_score}/>
-        <CountLabel label="Discovery" value={hat.discovery_count}/>
+        
         <CountLabel label="KeepUp" value={hat.keepup_count}/>
       </div>
       <GuestActions hat={hat} onGate={onGate} compact={!large}/>
@@ -164,7 +164,7 @@ export function GuestHat(){
           const {post}=await api.getGalleryPost(postId)
           result={...post,hat_title:post.media?.[0]?.caption||'Creative showcase',
             hat_name:'Creative showcase',is_entertainment:true,
-            orbit_score:null,discovery_count:null,keepup_count:null,rate:null,currency:'NGN'}
+            orbit_score:null,keepup_count:null,rate:null,currency:'NGN'}
         }
         if(!cancelled){if(!result)throw new Error('This Hat is not public.');setHat(result)}
       }catch(e){if(!cancelled)setError(e.message||'Could not load this Hat.')}
@@ -191,7 +191,7 @@ export function GuestHat(){
         <p className="text-[13px] text-black/55">{hat.category} · {formatGuestPrice(hat)}</p>
         <Link to={'/profile/'+encodeURIComponent(hat.username)} className="block font-bold text-[#0A13E6] hover:underline">{info.name} · View Profile and Gallery</Link>
         <div className="flex flex-wrap gap-4 text-[12px] font-semibold text-black/60">
-          <CountLabel label="Orbit" value={hat.orbit_score}/><CountLabel label="Discovery" value={hat.discovery_count}/><CountLabel label="KeepUp" value={hat.keepup_count}/>
+          <CountLabel label="Orbit" value={hat.orbit_score}/><CountLabel label="KeepUp" value={hat.keepup_count}/>
         </div>
         {hat.motto&&<p className="text-[14px] text-black/70">{hat.motto}</p>}
         <GuestActions hat={hat} onGate={setGate}/>
@@ -237,7 +237,7 @@ export function GuestWorkPass(){
         {[
           ['Orbit',data.orbit],['Talent Orbit',data.roleOrbit?.talent],['Client Orbit',data.roleOrbit?.client],
           ['Completed jobs',data.completedJobs],['Successful hires',data.successfulHires],
-          ['Discovery',social?.discovery_count],['KeepUp',social?.keepup_count],
+          ['KeepUp',social?.keepup_count],
         ].map(([label,value])=><div className="rounded-xl bg-white/10 p-3" key={label}><p className="text-[11px] text-white/60">{label}</p><p className="text-[20px] font-black">{typeof value==='object'&&value!==null?(value.score??'—'):(value??'—')}</p></div>)}
       </div>
     </div>
@@ -280,7 +280,7 @@ export function GuestProfile(){
     </div>
     <div className="flex flex-wrap gap-4 text-[13px] font-semibold text-black/65">
       <CountLabel label="Orbit" value={profile.orbit?.score}/>
-      <CountLabel label="Discovery" value={social?.discovery_count}/>
+      
       <CountLabel label="KeepUp" value={social?.keepup_count}/>
     </div>
     <section className="space-y-3"><h2 className="text-[20px] font-black">Published Hats</h2>
