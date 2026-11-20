@@ -362,7 +362,7 @@ test('ten daily Discoveries is a hard Nigeria-time cap including concurrent comp
     const hat=await addHat(subjects[i],'Quota candidate '+i,'talent',true)
     hats.push(hat)
     await pool.query(`INSERT INTO hat_media(hat_id,url,public_id,type,screening_status)
-      VALUES($1,'https://example.test/quota','cap_media_'||$1::text,'image','passed')`,[hat])
+      VALUES($1,'https://example.test/quota','cap_media_'||($1::uuid)::text,'image','passed')`,[hat])
   }
   const first=await maturedDiscovery(viewer,hats[0])
   const second=await maturedDiscovery(viewer,hats[1])
