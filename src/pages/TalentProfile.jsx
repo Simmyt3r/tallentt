@@ -1,7 +1,7 @@
 // Path: src/pages/TalentProfile.jsx
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Bookmark, Clock, Eye, Heart, MapPin, Send, Share2, Star } from 'lucide-react'
+import { ArrowLeft, BookOpen, Bookmark, Clock, Heart, MapPin, Send, Share2, Star } from 'lucide-react'
 import { api } from '../lib/api'
 import {shareContent} from '../lib/shareContent.js'
 import {useQualifiedDiscovery} from '../lib/useQualifiedDiscovery.js'
@@ -53,7 +53,6 @@ export default function TalentProfile() {
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [liking, setLiking] = useState(false)
-  const [viewCount, setViewCount] = useState(0)
   const [saved,setSaved]=useState(false)
   const [saving,setSaving]=useState(false)
   const [discoveryNotice,setDiscoveryNotice]=useState('')
@@ -80,7 +79,6 @@ export default function TalentProfile() {
           setAppliedStatus(data.hat.my_application?.status || null)
           setLiked(!!data.hat.liked_by_me)
           setLikeCount(data.hat.likes || 0)
-          setViewCount((data.hat.views || 0) + 1)
           api.recordView(hatId).catch(() => {})
         }
       } catch (e) {
@@ -317,9 +315,6 @@ export default function TalentProfile() {
             >
               <Heart size={11} className={liked ? 'fill-[#FF3B5C] text-[#FF3B5C]' : ''} /> {likeCount}
             </button>
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#F5F3EF] border-[1.5px] border-black/10 flex items-center gap-1">
-              <Eye size={11} /> {viewCount}
-            </span>
           </div>
           {discoveryNotice&&<p role="status" className="text-[12px] text-[#0A13E6]">{discoveryNotice}</p>}
 

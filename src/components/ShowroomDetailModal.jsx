@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookOpen, Bookmark, Clock, Eye, Flag, Heart, MapPin, Play, Share2, Trash2, X } from 'lucide-react'
+import { BookOpen, Bookmark, Clock, Flag, Heart, MapPin, Play, Share2, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { cldImage, cldVideoPoster } from '../lib/cloudinary'
 import { useBackdropClose, useDialog, useScrollLock } from '../lib/dialog'
@@ -73,9 +73,6 @@ function RelatedItem({ hat, onSelect }) {
           nameClassName="text-[12px] font-semibold text-black/70 leading-tight"
           usernameClassName="text-[11px] font-semibold text-black/50 leading-tight"
         />
-        <p className="text-[11px] text-black/40 mt-0.5 flex items-center gap-1">
-          <Eye size={11} aria-hidden="true" /> {hat.views || 0}
-        </p>
       </div>
     </li>
   )
@@ -391,9 +388,6 @@ export default function ShowroomDetailModal({
                         <Clock size={12} aria-hidden="true" /> {availabilityWindow}
                       </span>
                     )}
-                    <span className="inline-flex items-center gap-1">
-                      <Eye size={13} aria-hidden="true" /> {hat.views || 0} views
-                    </span>
                     {location && (
                       <span className="inline-flex items-center gap-1">
                         <MapPin size={12} aria-hidden="true" /> {location}

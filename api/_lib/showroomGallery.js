@@ -30,7 +30,7 @@ function toFeed(row) {
     category:'Entertainment', skills:[], is_entertainment:true,
     active:true, availability:false, bento_accent:'none',
     showroom_template:'media-first', created_at:row.created_at,
-    moderation_status:row.moderation_status, views:Number(row.views || 0),
+    moderation_status:row.moderation_status,
     likes:Number(row.likes || 0), liked_by_me:row.liked_by_me === true,
     media:[{type:row.media_type,url:row.media_url,public_id:row.public_id,
       caption:row.caption,screening_status:row.moderation_status}],
