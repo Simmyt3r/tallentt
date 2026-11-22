@@ -168,6 +168,7 @@ export default function WorkPass({username,onClose,compact=false}) {
               <p className="mt-2 text-[10px] text-[#626B82]">{data.successfulHires||0} successful hires · {data.paidTrackingMonths?.client||0} paid-confirmed salary months</p>
             </div>
           </div>
+          {isOwner&&<>
           <div className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="Orbit evidence by role">
             {['talent','client'].map(role=><div key={role} className="bg-white p-3 text-[10px] text-[#626B82]">
               <p className="font-black text-[#111837]">{role==='talent'?'Talent':'Client'} evidence breakdown</p>
@@ -176,7 +177,7 @@ export default function WorkPass({username,onClose,compact=false}) {
               <p className="mt-1">Profile and account history: <strong>{data.roleOrbit?.[role]?.evidence?.profile_history?.points ?? '—'} pts</strong></p>
             </div>)}
           </div>
-          <p className="mt-2 text-[10px] text-[#5D647B]">These are evidence contributions under the current Orbit calibration, not extra points. Verified milestone events are recorded separately; non-qualified views and unfunded deals do not qualify.</p>
+          <p className="mt-2 text-[10px] text-[#5D647B]">These are evidence contributions under the current Orbit calibration, not extra points. Verified milestone events are recorded separately; non-qualified views and unfunded deals do not qualify.</p></>}
         </section>
         <div className="grid grid-cols-2 gap-2.5" aria-label="Verified Work Pass activity">
           <Stat icon={BriefcaseBusiness} title="Completed jobs" value={Number(data.completedJobs)||0} detail="Released deals"/>

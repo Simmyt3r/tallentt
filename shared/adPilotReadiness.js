@@ -9,7 +9,7 @@ export const PILOT_SCHEMA=Object.freeze([
 ])
 export const PILOT_POLICY_BLOCKERS=Object.freeze([
   {code:'PRICING_NOT_APPROVED',label:'Approve billable advertising metrics, tariffs, delivery guarantees and contract versions'},
-  {code:'DISCOVERY_POLICY_PENDING',label:'Approve early-Discovery attribution, Explorer slot distribution and zero-recipient pool policy'},
+  {code:'DISCOVERY_POLICY_PENDING',label:'Confirm remaining first-Discoverer attribution rules, Explorer slot distribution and zero-recipient pool policy (30-day expiry confirmed)'},
   {code:'TALENT_DETACH_POLICY_PENDING',label:'Approve premature detachment, replacement inventory and refund consequences'},
   {code:'CURATOR_BONUS_POLICY_PENDING',label:'Approve Curator eligibility, bonus budget and over-allocation handling'},
   {code:'ADVERTISER_POLICY_PENDING',label:'Approve advertiser identity, prohibited categories, creative licensing and Talent endorsement wording'},

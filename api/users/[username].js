@@ -1,3 +1,4 @@
+import { publicOrbitSummary } from '../_lib/engagementPrivacy.js'
 // Path: api/users/[username].js
 // Public profile read — backs the redesigned Profile pages (own + public).
 // GET only, no session required (same pattern as api/hats/index.js and
@@ -139,7 +140,7 @@ export default async function handler(req, res) {
       reputation: await reputationSummary(userRow.id).catch(() => null),
       performance: performanceRows[0],
       // Orbit is supplemental: a scoring outage must never hide a public profile.
-      orbit: await accountOrbit(userRow.id).catch(() => null),
+      orbit: publicOrbitSummary(await accountOrbit(userRow.id).catch(() => null)),
       isVerified,
       rating,
       ratedHatsCount: ratedHats.length,

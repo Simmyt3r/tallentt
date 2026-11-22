@@ -18,18 +18,13 @@ const displayScore=async id=>{
 }
 
 async function socialCounts(ids){
-  const map=new Map(ids.map(id=>[id,{discovery_count:null,keepup_count:null}]))
+  const map=new Map(ids.map(id=>[id,{keepup_count:null}]))
   if(!ids.length)return map
-  const {rows:present}=await query("SELECT to_regclass('subscriber_follows') AS follows,to_regclass('orbit_verified_events') AS verified")
+  const {rows:present}=await query("SELECT to_regclass('subscriber_follows') AS follows")
   if(present[0]?.follows){
     const {rows}=await query('SELECT followed_id AS id, COUNT(*)::int AS count FROM subscriber_follows WHERE followed_id=ANY($1::uuid[]) GROUP BY followed_id',[ids])
     for(const r of rows)map.get(r.id).keepup_count=Number(r.count)
     for(const id of ids)if(map.get(id).keepup_count===null)map.get(id).keepup_count=0
-  }
-  if(present[0]?.verified){
-    const {rows}=await query("SELECT subject_id AS id,COUNT(DISTINCT actor_id)::int AS count FROM orbit_verified_events WHERE subject_id=ANY($1::uuid[]) AND verb='Discover' AND status='awarded' GROUP BY subject_id",[ids])
-    for(const r of rows)map.get(r.id).discovery_count=Number(r.count)
-    for(const id of ids)if(map.get(id).discovery_count===null)map.get(id).discovery_count=0
   }
   return map
 }

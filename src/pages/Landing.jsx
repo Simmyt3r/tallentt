@@ -31,7 +31,7 @@ function LandingPanel({mode,data,onKeepUp}){
         {item?<><div className="flex items-center justify-between gap-3"><p className="text-[14px] font-black">{item.owner_full_name||item.username}</p><span className="rounded-full bg-[#E8B447] px-2.5 py-1 text-[10px] font-bold">Trending</span></div>
           <p className="truncate text-[14px] font-bold">{item.hat_title} · {item.category}</p>
           <p className="truncate text-[13px] font-black">{formatGuestPrice(item)}</p>
-          <div className="flex flex-wrap gap-3 text-[11px] text-black/60"><CountLabel label="Orbit" value={item.orbit_score}/><CountLabel label="Discovery" value={item.discovery_count}/><CountLabel label="KeepUp" value={item.keepup_count}/></div>
+          <div className="flex flex-wrap gap-3 text-[11px] text-black/60"><CountLabel label="Orbit" value={item.orbit_score}/><CountLabel label="KeepUp" value={item.keepup_count}/></div>
           <Link to={'/talent/'+encodeURIComponent(item.id)} className="inline-flex items-center gap-1 text-[12px] font-bold text-[#0A13E6]">View this Hat <ArrowUpRight size={13}/></Link>
         </>:<><p className="text-[17px] font-black">A home for fine work</p>
           <p className="mt-2 text-[12px] text-black/55">Approved Showroom media appears here when Talent publish.</p></>}
@@ -45,7 +45,7 @@ function LandingPanel({mode,data,onKeepUp}){
         <p className="text-[10px] font-black text-amber-900">#{i+1} · Orbit {item.orbit_score??'—'}</p>
         <Link to={'/profile/'+encodeURIComponent(item.username)} className="block truncate text-[13px] font-black">{item.owner_full_name||item.username}</Link>
         <p className="truncate text-[11px] text-black/60">{item.hat_title}</p>
-        <p className="mt-1 flex flex-wrap gap-2 text-[10px] text-black/55"><CountLabel label="Discovery" value={item.discovery_count}/><CountLabel label="KeepUp" value={item.keepup_count}/></p>
+        <p className="mt-1 flex flex-wrap gap-2 text-[10px] text-black/55"><CountLabel label="KeepUp" value={item.keepup_count}/></p>
         <button type="button" onClick={()=>onKeepUp({intent:'keepup',username:item.username,name:item.owner_full_name||item.username,hat:item.id})}
           className="mt-2 min-h-8 rounded-full bg-[#E8B447] px-3 text-[11px] font-extrabold">+ KeepUp</button>
       </div>

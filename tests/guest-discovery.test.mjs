@@ -41,6 +41,8 @@ test('guest sees only public approved Talent Hats, with an explicit field whitel
   assert.equal('bank_name' in card,false)
   assert.equal('password_hash' in card,false)
   assert.equal('email' in card,false)
+  assert.equal('discovery_count' in card,false)
+  assert.equal('views' in card,false)
   assert.equal('nin_hash' in card,false)
   assert.equal(card.lga,'Abuja')
   assert.equal(typeof card.orbit_score,'number')

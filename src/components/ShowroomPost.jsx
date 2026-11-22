@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Eye, Flag, Heart, Maximize2, Share2 } from 'lucide-react'
+import { Flag, Heart, Maximize2, Share2 } from 'lucide-react'
 import { getPrimaryIdentity, identityFromHat } from '../lib/profile.js'
 import { getHatAccent, getShowroomTemplate } from '../lib/hatPresentation.js'
 import AvailabilityBadge from './AvailabilityBadge'
@@ -161,13 +161,6 @@ function ShowroomPost({
             <Flag size={16} aria-hidden="true" />
           </button>
         )}
-        <span
-          className="ml-auto pr-1 inline-flex items-center gap-1 text-[12px] font-medium text-black/45 tabular-nums"
-          title={`${hat.views || 0} views`}
-        >
-          <Eye size={14} aria-hidden="true" />
-          {hat.views || 0}
-        </span>
       </div>
 
       <div className={`shrink-0 border-t border-black/10 px-3 sm:px-4 pt-2 min-w-0 ${

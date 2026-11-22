@@ -1,4 +1,5 @@
 import { query } from '../_lib/db.js'
+import { redactHatEngagement } from '../_lib/engagementPrivacy.js'
 import { getGoldTop12 } from '../_lib/workPassTop12.js'
 import { getShowroomLikers } from '../_lib/showroomLikers.js'
 import { associateVouchCounts } from '../_lib/associates.js'
@@ -228,7 +229,7 @@ export default async function handler(req, res) {
     const { rows: categories } = await query('SELECT id, name FROM categories ORDER BY name')
     return json(res, 200, {
       hats: hats.map((h, index) => ({
-        ...h,
+        ...redactHatEngagement(h),
         associate_vouch_count:vouchCounts[h.user_id]||0,
         media: mediaByHat[h.id] || [],
         bento_accent: presentations[h.id]?.accent || 'electric',
