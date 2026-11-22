@@ -41,7 +41,7 @@ export function encodeShowroomCursor({ score, created_at, id },secret=process.en
 export function decodeShowroomCursor(cursor,secret=process.env.SHOWROOM_CURSOR_SECRET||process.env.JWT_SECRET) {
   if(!cursor)return null
   try{
-    if(typeof cursor!=='string'||cursor.length>300||!/^v2\\.[A-Za-z0-9_-]+$/.test(cursor))throw new Error()
+    if(typeof cursor!=='string'||cursor.length>300||!/^v2[.][A-Za-z0-9_-]+$/.test(cursor))throw new Error()
     const bytes=Buffer.from(cursor.slice(3),'base64url')
     if(bytes.length<29||bytes.toString('base64url')!==cursor.slice(3))throw new Error()
     const decipher=createDecipheriv('aes-256-gcm',cursorKey(secret),bytes.subarray(0,12))
