@@ -4,7 +4,6 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { connectMyDealsRealtime } from '../lib/myDealsRealtime.js'
-import RoleCardBadge from '../components/RoleCardBadge.jsx'
 import DiscoverySearch from '../components/DiscoverySearch.jsx'
 
 function money(value, currency = 'NGN') {
@@ -298,12 +297,6 @@ export default function MyDeals() {
             {value==='talent'?'Talent':'Client'}
           </button>)}
         </nav>
-        <div role="group" aria-label="My Deals view" className="ct-filter-tabs shrink-0 gap-0.5 border-b-0">
-          <button type="button" aria-label="Grid view" aria-pressed={viewMode==='grid'}
-            onClick={()=>setViewMode('grid')} className="ct-filter-tab h-11 w-10 p-0"><LayoutGrid size={18}/></button>
-          <button type="button" aria-label="List view" aria-pressed={viewMode==='list'}
-            onClick={()=>setViewMode('list')} className="ct-filter-tab h-11 w-10 p-0"><List size={19}/></button>
-        </div>
       </div>
       <section className="space-y-3" aria-label="My Deals">
         <div className="min-w-0">
@@ -347,7 +340,7 @@ export default function MyDeals() {
               </div>
             </div>
           ) : (
-            <div aria-label={viewMode==='grid'?'Deals grid':'Deals list'} className={viewMode==='grid'?'grid gap-3 md:grid-cols-2':'flex flex-col divide-y divide-black/10'}>
+            <div aria-label="Deals inbox" className="flex flex-col gap-1">
               {visibleItems.map((item) => {
                 const isApplication = Boolean(item.application_id) && !item.id
                 const id = isApplication ? item.application_id : item.id
@@ -362,51 +355,17 @@ export default function MyDeals() {
 
                 return (
                   <article key={`${isApplication ? 'app' : 'deal'}-${id}`}
-                    className={`relative min-w-0 overflow-hidden bg-white ${viewMode==='grid'?'rounded-2xl p-1 shadow-sm':'py-2'}`}>
-                    <RoleCardBadge role={peer.role} className="absolute right-3 top-3 z-0" />
-                    <div className="p-4 pr-14">
-                      <div className="flex gap-3">
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[13px] border border-black/10 bg-[#F5F3EF]">
-                          {peer.avatar || item.hat_thumbnail ? (
-                            <img src={peer.avatar || item.hat_thumbnail} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="grid h-full w-full place-items-center font-black text-black/35">{(peer.name || peer.username || '?').slice(0, 1).toUpperCase()}</div>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14px] font-black">{item.hat_title}</p>
-                          <p className="truncate text-[12px] font-semibold text-black/55">{peer.name || 'ChombuTar user'} {peer.username ? `^${peer.username}` : ''}</p>
-                          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[10.5px] font-semibold text-black/40">
-                            {peer.lga && <span>{peer.lga}</span>}
-                            <span className="inline-flex items-center gap-1"><Clock size={11} />{new Date(item.created_at || item.applied_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-[#F5F3EF] px-2.5 py-1 text-[10px] font-black">{niceStatus(status)}</span>
-                        {amount != null && <span className="text-[12px] font-black">{money(amount, currency)}{item.pay_unit ? ` /${item.pay_unit}` : ''}</span>}
-                      </div>
-
-                      {item.price_type === 'range' && (
-                        <p className="mt-2 text-[11px] font-semibold text-black/50">
-                          {item.agreed_at ? `Agreed at ${money(amount, currency)}` : item.pending_offer_amount != null ? `Proposal: ${money(item.pending_offer_amount, currency)}` : 'Price negotiation not completed'}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap justify-end gap-2 border-t border-black/5 px-4 py-3">
-                      {!isApplication
-                        ? <Link to={`/deals/${item.id}?role=${role}`}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
-                          View details <ChevronRight size={15}/>
+                    className="min-w-0 overflow-hidden bg-white">
+                    {!isApplication
+                      ? <Link to={`/deals/${item.id}?role=${role}&tab=${tab}`} className="block min-h-14 px-4 py-3">
+                          <p className="truncate text-[14px] font-black">{item.hat_title || item.hat_name || 'Deal'}</p>
+                          <p className="truncate text-[12px] font-semibold text-black/55">{item.request_kind==='application'?'To':'From'}: {peer.name || peer.username || 'ChombuTar user'}</p>
                         </Link>
-                        : <button type="button" onClick={()=>setExpandedApplication(x=>x===id?null:id)}
-                          aria-expanded={expandedApplication===id}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
-                          View application <ChevronRight size={15}/>
+                      : <button type="button" onClick={()=>setExpandedApplication(x=>x===id?null:id)}
+                          aria-expanded={expandedApplication===id} className="block min-h-14 w-full px-4 py-3 text-left">
+                          <p className="truncate text-[14px] font-black">{item.hat_title || item.hat_name || 'Deal'}</p>
+                          <p className="truncate text-[12px] font-semibold text-black/55">To: {peer.name || peer.username || 'ChombuTar user'}</p>
                         </button>}
-                    </div>
                     {isApplication&&expandedApplication===id&&<div className="space-y-3 border-t border-black/10 px-4 py-3" aria-label="Application details">
                       <p className="text-[12px] font-semibold">Application status: {niceStatus(item.status)}</p>
                       {item.message&&<p className="text-[12px] text-black/65">{item.message}</p>}
