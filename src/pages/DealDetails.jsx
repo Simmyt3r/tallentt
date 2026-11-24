@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FileText, MessageCircle, ShieldAlert, WalletCards } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { workStatusForDeal } from '../../shared/dealWorkStatus.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -29,6 +29,13 @@ function nice(value) {
 
 export default function DealDetails() {
   const { dealId } = useParams()
+  const [searchParams] = useSearchParams()
+  const returnParams = new URLSearchParams()
+  for (const key of ['role','tab','filter']) {
+    const value = searchParams.get(key)
+    if (value) returnParams.set(key,value)
+  }
+  const backUrl = `/deals${returnParams.size ? `?${returnParams}` : ''}`
   const { user, refreshUser } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -36,6 +43,7 @@ export default function DealDetails() {
   const [error, setError] = useState('')
   const [detailSection,setDetailSection]=useState('overview')
   const [cancellationReason,setCancellationReason]=useState('')
+  const [cancelOpen,setCancelOpen]=useState(false)
   const requestSequence = useRef(0)
 
   const load = useCallback(async ({ quiet = false } = {}) => {
@@ -119,7 +127,7 @@ export default function DealDetails() {
         <div className="mx-auto max-w-4xl">
           <div className="rounded-[20px] border border-red-200 bg-red-50 p-5">
             <p className="text-[13px] font-bold text-red-700">{error || 'Deal not found.'}</p>
-            <Link to="/deals" className="mt-3 inline-flex h-9 items-center rounded-full border border-red-300 bg-white px-4 text-[11px] font-black text-red-700">Back to My Deals</Link>
+            <Link to={backUrl} className="mt-3 inline-flex h-9 items-center rounded-full border border-red-300 bg-white px-4 text-[11px] font-black text-red-700">Back to My Deals</Link>
           </div>
         </div>
       </>
@@ -135,9 +143,9 @@ export default function DealDetails() {
 
   return (
     <div className="mx-auto max-w-4xl pb-8">
-      <h1 className="mb-3 text-[22px] font-black">Deal Details</h1>
+      <Link to={backUrl} className="mb-3 inline-flex min-h-10 items-center text-[12px] font-bold">‹ Back to My Deals</Link>
       <nav aria-label="Deal transaction sections" className="ct-filter-tabs mb-3 gap-3 border-b-0 whitespace-nowrap sm:gap-4">
-        {[['overview','Overview'],['agreement','Agreement'],['history','Chat History'],['cancel','Cancel Deal']].map(([id,label])=><button
+        {[['overview','Overview'],['agreement','Agreement'],['history','Deal History']].map(([id,label])=><button
           key={id} type="button" aria-current={detailSection===id?'page':undefined}
           onClick={()=>setDetailSection(id)}
           className="ct-filter-tab min-h-10 px-2 text-[11px] sm:text-[12px]">
@@ -153,10 +161,10 @@ export default function DealDetails() {
         </Link>
       </section>}
       {detailSection==='history'&&<section aria-label="Deal-specific conversation history" className="space-y-3 bg-white p-5">
-        <h2 className="text-[17px] font-black">Chat &amp; negotiation history</h2>
-        <p className="text-[11px] text-black/55">Showing messages and price proposals for this transaction only.</p>
+        <h2 className="text-[17px] font-black">Deal History</h2>
+        <p className="text-[12px] font-semibold">Negotiation summary</p>
         <ol className="divide-y divide-black/10">
-          {(data.messages||[]).map(message=><li key={message.id} className="space-y-1 py-3">
+          {(data.messages||[]).filter(message=>message.kind==='offer').map(message=><li key={message.id} className="space-y-1 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
               <span className="font-bold">{message.sender_id===user?.id?'You':thread.peer?.full_name||thread.peer?.username||'Other party'} · {message.kind==='offer'?'Price proposal':'Chat message'}</span>
               <time className="text-black/45">{new Date(message.created_at).toLocaleString()}</time>
@@ -165,14 +173,15 @@ export default function DealDetails() {
             {message.kind==='offer'&&<p className="text-[11px] font-semibold text-[#0A13E6]">{money(message.amount,message.currency||thread.currency)} · {nice(message.offer_status)}</p>}
           </li>)}
         </ol>
-        {!(data.messages||[]).length&&<p className="text-[12px] text-black/55">No messages recorded for this transaction.</p>}
+        {!(data.messages||[]).some(message=>message.kind==='offer')&&<p className="text-[12px] text-black/55">No price proposals recorded.</p>}
+        <p className="text-[12px]">Messages shown in record: {(data.messages||[]).length} · Offers: {(data.messages||[]).filter(message=>message.kind==='offer').length}</p>
         {data.cancellation&&<p className="rounded-xl bg-amber-50 p-3 text-[12px] text-amber-900">Cancelled before funding: {data.cancellation.reason} · {new Date(data.cancellation.cancelled_at).toLocaleString()}</p>}
         {data.nextCursor&&<p className="text-[11px] text-black/55">Older messages are available in the dedicated deal conversation.</p>}
         <Link to={`/messages?escrow=${thread.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0A13E6] px-4 text-[12px] font-bold text-white">
           <MessageCircle size={16}/> Open deal chat
         </Link>
       </section>}
-      {detailSection==='cancel'&&<section aria-label="Cancel Deal" className="space-y-3 bg-white p-5">
+      {detailSection==='overview'&&cancelOpen&&<section aria-label="Cancel Deal" className="space-y-3 bg-white p-5">
         <h2 className="text-[17px] font-black">Cancel deal</h2>
         {thread.status==='not_funded' && !thread.checkout_locked_at && !thread.card_checkout_started
           ? <form className="space-y-3" onSubmit={event=>{
@@ -218,7 +227,9 @@ export default function DealDetails() {
 
       {detailSection==='overview'&&
       <section className="space-y-4" aria-label="Selected deal details">
-        <header className="border-b border-black/10 py-3">
+        <header className="py-3">
+          <h1 className="mb-3 text-[24px] font-black italic">{thread.hat_title || thread.title || 'Deal'}</h1>
+          {!closed&&<button type="button" aria-expanded={cancelOpen} onClick={()=>setCancelOpen(value=>!value)} className="mb-2 text-[12px] font-bold text-red-700">{cancelOpen?'Close cancellation':thread.status==='secured'?'Request cancellation / Open dispute':'Cancel Deal'}</button>}
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="mt-1">
